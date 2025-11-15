@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -19,20 +18,47 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+  const [error, setError] = useState('');
 
   const handleAuth = async () => {
+    setError('');
+
+    // Validaciones básicas
+    if (!email.trim() || !password.trim()) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     try {
       if (isLogin) {
         // Login
-        await signInWithEmailAndPassword(auth, email, password);
-        Alert.alert('Success', 'Logged in successfully!');
+        await signInWithEmailAndPassword(auth, email.trim(), password);
       } else {
         // Register
-        await createUserWithEmailAndPassword(auth, email, password);
-        Alert.alert('Success', 'Account created successfully!');
+        await createUserWithEmailAndPassword(auth, email.trim(), password);
       }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      console.error('Auth error:', error);
+      
+      // Mensajes de error amigables
+      if (error.code === 'auth/email-already-in-use') {
+        setError('This email is already registered. Try logging in instead.');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Invalid email address');
+      } else if (error.code === 'auth/user-not-found') {
+        setError('No account found with this email');
+      } else if (error.code === 'auth/wrong-password') {
+        setError('Incorrect password');
+      } else if (error.code === 'auth/weak-password') {
+        setError('Password should be at least 6 characters');
+      } else {
+        setError(error.message);
+      }
     }
   };
 
@@ -55,15 +81,23 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            returnKeyType="next"
+            blurOnSubmit={false}
           />
 
           <TextInput
+            ref={(ref) => (passwordRef.current = ref)}
             style={styles.input}
-            placeholder="Password"
+            placeholder="Password (min 6 characters)"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            onSubmitEditing={handleAuth}
+            returnKeyType="done"
           />
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <TouchableOpacity style={styles.button} onPress={handleAuth}>
             <Text style={styles.buttonText}>
@@ -73,7 +107,10 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.switchButton}
-            onPress={() => setIsLogin(!isLogin)}
+            onPress={() => {
+              setIsLogin(!isLogin);
+              setError('');
+            }}
           >
             <Text style={styles.switchText}>
               {isLogin
@@ -86,6 +123,8 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+const passwordRef = { current: null };
 
 const styles = StyleSheet.create({
   container: {
@@ -121,6 +160,12 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.medium,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  error: {
+    color: Colors.error,
+    fontSize: Sizes.fontSize.small,
+    marginBottom: 12,
+    textAlign: 'center',
   },
   button: {
     backgroundColor: Colors.primary,
