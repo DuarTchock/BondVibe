@@ -6,7 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -76,6 +76,10 @@ export default function HomeScreen() {
           Always meet in public places and trust your instincts
         </Text>
       </View>
+
+      <TouchableOpacity style={styles.exploreButton} onPress={() => navigation.navigate('EventFeed')}>
+        <Text style={styles.exploreButtonText}>🎯 Explore Events</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={handleLogout}>
         <Text style={styles.buttonText}>Logout</Text>
@@ -174,6 +178,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: Sizes.fontSize.small,
     color: Colors.text,
+  },
+  exploreButton: {
+    backgroundColor: Colors.primary,
+    padding: Sizes.padding + 4,
+    borderRadius: Sizes.borderRadius,
+    width: 250,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  exploreButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
   },
   button: {
     backgroundColor: Colors.error,

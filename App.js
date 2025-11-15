@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { auth, db } from './src/services/firebase';
 import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -8,6 +10,28 @@ import EmailVerificationScreen from './src/screens/EmailVerificationScreen';
 import LegalScreen from './src/screens/LegalScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import EventFeedScreen from './src/screens/EventFeedScreen';
+import EventDetailScreen from './src/screens/EventDetailScreen';
+
+const Stack = createNativeStackNavigator();
+
+function AuthStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function AppStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="EventFeed" component={EventFeedScreen} />
+      <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+    </Stack.Navigator>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -79,7 +103,11 @@ export default function App() {
 
   // Not logged in
   if (!user) {
-    return <LoginScreen />;
+    return (
+      <NavigationContainer>
+        <AuthStack />
+      </NavigationContainer>
+    );
   }
 
   // Logged in but email not verified
@@ -97,6 +125,10 @@ export default function App() {
     return <ProfileSetupScreen onComplete={handleProfileComplete} />;
   }
 
-  // All complete - show home
-  return <HomeScreen />;
+  // All complete - show main app
+  return (
+    <NavigationContainer>
+      <AppStack />
+    </NavigationContainer>
+  );
 }
