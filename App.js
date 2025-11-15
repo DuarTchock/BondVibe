@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { auth, db } from './src/services/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import LoginScreen from './src/screens/LoginScreen';
+import EmailVerificationScreen from './src/screens/EmailVerificationScreen';
 import LegalScreen from './src/screens/LegalScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [profileComplete, setProfileComplete] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -19,7 +21,20 @@ export default function App() {
       setUser(currentUser);
 
       if (currentUser) {
-        // Check user status
+        // Check email verification
+        setEmailVerified(currentUser.emailVerified);
+
+        // Send verification email if not verified
+        if (!currentUser.emailVerified) {
+          try {
+            await sendEmailVerification(currentUser);
+            console.log('Verification email sent');
+          } catch (error) {
+            console.error('Error sending verification email:', error);
+          }
+        }
+
+        // Check user status in Firestore
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
@@ -45,7 +60,6 @@ export default function App() {
       });
       setLegalAccepted(true);
     } catch (error) {
-      // If document doesn't exist yet, create it
       console.log('Creating initial user document');
       setLegalAccepted(true);
     }
@@ -68,7 +82,12 @@ export default function App() {
     return <LoginScreen />;
   }
 
-  // Logged in but legal not accepted
+  // Logged in but email not verified
+  if (!emailVerified) {
+    return <EmailVerificationScreen />;
+  }
+
+  // Email verified but legal not accepted
   if (!legalAccepted) {
     return <LegalScreen onAccept={handleLegalAccept} />;
   }

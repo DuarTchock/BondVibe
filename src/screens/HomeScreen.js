@@ -45,7 +45,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to BondVibe! ��</Text>
+      <Text style={styles.title}>Welcome to BondVibe! 🎉</Text>
 
       <Text style={styles.avatar}>{profile?.avatar || '✨'}</Text>
 
@@ -62,6 +62,18 @@ export default function HomeScreen() {
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>
           🧠 Your personality profile will help us match you with compatible people for group events
+        </Text>
+      </View>
+
+      <View style={styles.verifiedBox}>
+        <Text style={styles.verifiedIcon}>✓</Text>
+        <Text style={styles.verifiedText}>Email Verified</Text>
+      </View>
+
+      <View style={styles.safetyNote}>
+        <Text style={styles.safetyIcon}>🛡️</Text>
+        <Text style={styles.safetyText}>
+          Always meet in public places and trust your instincts
         </Text>
       </View>
 
@@ -118,13 +130,50 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0FF',
     padding: 16,
     borderRadius: Sizes.borderRadius,
-    marginBottom: 24,
+    marginBottom: 16,
     maxWidth: 400,
   },
   infoText: {
     fontSize: Sizes.fontSize.small,
     color: Colors.text,
     textAlign: 'center',
+  },
+  verifiedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    padding: 12,
+    borderRadius: Sizes.borderRadius,
+    marginBottom: 16,
+  },
+  verifiedIcon: {
+    fontSize: 20,
+    color: Colors.success,
+    marginRight: 8,
+    fontWeight: 'bold',
+  },
+  verifiedText: {
+    fontSize: Sizes.fontSize.small,
+    color: Colors.success,
+    fontWeight: '600',
+  },
+  safetyNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
+    padding: 12,
+    borderRadius: Sizes.borderRadius,
+    marginBottom: 24,
+    maxWidth: 400,
+  },
+  safetyIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  safetyText: {
+    flex: 1,
+    fontSize: Sizes.fontSize.small,
+    color: Colors.text,
   },
   button: {
     backgroundColor: Colors.error,
