@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import EventCard from '../components/EventCard';
 import { mockEvents, categories } from '../utils/mockEvents';
 import Colors from '../constants/Colors';
@@ -16,8 +19,51 @@ import Sizes from '../constants/Sizes';
 export default function EventFeedScreen({ navigation }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('date');
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredEvents = mockEvents
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    setLoading(true);
+    try {
+      // Simplified query - no orderBy to avoid index requirement
+      const eventsQuery = query(
+        collection(db, 'events'),
+        where('status', '==', 'published')
+      );
+      
+      const querySnapshot = await getDocs(eventsQuery);
+      const firestoreEvents = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        firestoreEvents.push({
+          id: doc.id,
+          ...data,
+          // Add compatibility score (mock for now)
+          compatibilityScore: Math.floor(Math.random() * (95 - 75 + 1)) + 75,
+        });
+      });
+
+      // Combine Firestore events with mock events
+      const allEvents = [...firestoreEvents, ...mockEvents];
+      setEvents(allEvents);
+      
+      console.log(`✅ Loaded ${firestoreEvents.length} real events from Firestore`);
+      console.log(`📦 Total events available: ${allEvents.length}`);
+    } catch (error) {
+      console.error('Error loading events:', error);
+      // Fallback to mock data
+      setEvents(mockEvents);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredEvents = events
     .filter(event => selectedCategory === 'All' || event.category === selectedCategory)
     .sort((a, b) => {
       if (sortBy === 'compatibility') {
@@ -33,6 +79,15 @@ export default function EventFeedScreen({ navigation }) {
     navigation.navigate('EventDetail', { event });
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Loading events...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -43,7 +98,9 @@ export default function EventFeedScreen({ navigation }) {
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Discover Events</Text>
-        <Text style={styles.subtitle}>Find your people through shared experiences</Text>
+        <Text style={styles.subtitle}>
+          {filteredEvents.length} events available
+        </Text>
       </View>
 
       {/* Categories */}
@@ -132,6 +189,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: Sizes.fontSize.medium,
+    color: Colors.textLight,
   },
   header: {
     backgroundColor: Colors.background,

@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { auth, db } from '../services/firebase';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
 export default function HomeScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [upgrading, setUpgrading] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -24,6 +25,29 @@ export default function HomeScreen({ navigation }) {
       console.error('Load profile error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMakeAdmin = async () => {
+    setUpgrading(true);
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        role: 'admin',
+        hostProfile: {
+          verified: true,
+          eventsHosted: 0,
+          rating: 5,
+          verifiedAt: new Date().toISOString(),
+          bio: 'BondVibe Team',
+        },
+      });
+      // Reload profile
+      await loadProfile();
+      console.log('✅ You are now an admin!');
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setUpgrading(false);
     }
   };
 
@@ -43,6 +67,9 @@ export default function HomeScreen({ navigation }) {
     );
   }
 
+  const userRole = profile?.role || 'user';
+  const canCreateEvents = userRole === 'admin' || userRole === 'verified_host';
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome to BondVibe! 🎉</Text>
@@ -57,6 +84,18 @@ export default function HomeScreen({ navigation }) {
 
       {profile?.bio && (
         <Text style={styles.bio}>{profile.bio}</Text>
+      )}
+
+      {/* Role Badge */}
+      {userRole === 'admin' && (
+        <View style={styles.adminBadge}>
+          <Text style={styles.badgeText}>🏆 BondVibe Admin</Text>
+        </View>
+      )}
+      {userRole === 'verified_host' && (
+        <View style={styles.hostBadge}>
+          <Text style={styles.badgeText}>✓ Verified Host</Text>
+        </View>
       )}
 
       <View style={styles.infoBox}>
@@ -77,12 +116,40 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </View>
 
-      <TouchableOpacity style={styles.exploreButton} onPress={() => navigation.navigate('EventFeed')}>
-        <Text style={styles.exploreButtonText}>🎯 Explore Events</Text>
-      </TouchableOpacity>
+      {/* Action Buttons */}
+      <View style={styles.actionsContainer}>
+        <TouchableOpacity 
+          style={styles.exploreButton} 
+          onPress={() => navigation.navigate('EventFeed')}
+        >
+          <Text style={styles.exploreButtonText}>🎯 Explore Events</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogout}>
-        <Text style={styles.buttonText}>Logout</Text>
+        <TouchableOpacity 
+          style={styles.createButton} 
+          onPress={() => navigation.navigate('CreateEvent')}
+        >
+          <Text style={styles.createButtonText}>
+            {canCreateEvents ? '➕ Create Event' : '🌟 Become a Host'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Temporary Admin Button - Remove in production */}
+        {userRole === 'user' && (
+          <TouchableOpacity 
+            style={[styles.devButton, upgrading && styles.buttonDisabled]} 
+            onPress={handleMakeAdmin}
+            disabled={upgrading}
+          >
+            <Text style={styles.devButtonText}>
+              {upgrading ? 'Upgrading...' : '🔧 Make Me Admin'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutButtonText}>Logout</Text>
       </TouchableOpacity>
     </View>
   );
@@ -127,8 +194,27 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.medium,
     color: Colors.textLight,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     paddingHorizontal: 20,
+  },
+  adminBadge: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  hostBadge: {
+    backgroundColor: Colors.success,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  badgeText: {
+    fontSize: Sizes.fontSize.small,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   infoBox: {
     backgroundColor: '#F0F0FF',
@@ -179,27 +265,58 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.small,
     color: Colors.text,
   },
+  actionsContainer: {
+    width: '100%',
+    maxWidth: 300,
+    marginBottom: 16,
+  },
   exploreButton: {
     backgroundColor: Colors.primary,
     padding: Sizes.padding + 4,
     borderRadius: Sizes.borderRadius,
-    width: 250,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   exploreButtonText: {
     color: '#FFFFFF',
     fontSize: Sizes.fontSize.large,
     fontWeight: '700',
   },
-  button: {
+  createButton: {
+    backgroundColor: Colors.secondary,
+    padding: Sizes.padding + 4,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  createButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  devButton: {
+    backgroundColor: '#9E9E9E',
+    padding: Sizes.padding,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  devButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.small,
+    fontWeight: '600',
+  },
+  logoutButton: {
     backgroundColor: Colors.error,
     padding: Sizes.padding,
     borderRadius: Sizes.borderRadius,
     width: 200,
     alignItems: 'center',
   },
-  buttonText: {
+  logoutButtonText: {
     color: '#FFFFFF',
     fontSize: Sizes.fontSize.medium,
     fontWeight: '600',

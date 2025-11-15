@@ -12,6 +12,8 @@ import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import EventFeedScreen from './src/screens/EventFeedScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
+import CreateEventScreen from './src/screens/CreateEventScreen';
+import RequestHostScreen from './src/screens/RequestHostScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -29,6 +31,8 @@ function AppStack() {
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="EventFeed" component={EventFeedScreen} />
       <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+      <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
+      <Stack.Screen name="RequestHost" component={RequestHostScreen} />
     </Stack.Navigator>
   );
 }

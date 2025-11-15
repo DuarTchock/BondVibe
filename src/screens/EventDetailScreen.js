@@ -1,18 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { doc, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
 export default function EventDetailScreen({ route, navigation }) {
   const { event } = route.params;
+  const [currentEvent, setCurrentEvent] = useState(event);
+  const [loading, setLoading] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    checkIfJoined();
+  }, []);
+
+  const checkIfJoined = async () => {
+    if (currentEvent.attendees) {
+      const joined = currentEvent.attendees.some(
+        (attendee) => attendee.userId === auth.currentUser.uid
+      );
+      setHasJoined(joined);
+    }
+  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -26,31 +45,55 @@ export default function EventDetailScreen({ route, navigation }) {
     });
   };
 
-  const handleJoinEvent = () => {
-    Alert.alert(
-      'Join Event',
-      `You're about to join "${event.title}". Continue?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Join',
-          onPress: () => {
-            Alert.alert('Success!', 'You have joined this event. Check your email for details.');
-            // TODO: Implement actual join logic with Firestore
-          },
-        },
-      ]
-    );
+  const handleJoinEvent = async () => {
+    if (hasJoined) {
+      return;
+    }
+
+    const spotsLeft = currentEvent.maxAttendees - currentEvent.currentAttendees;
+    if (spotsLeft <= 0) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const eventRef = doc(db, 'events', currentEvent.id);
+      
+      await updateDoc(eventRef, {
+        currentAttendees: increment(1),
+        attendees: arrayUnion({
+          userId: auth.currentUser.uid,
+          joinedAt: new Date().toISOString(),
+          status: 'confirmed',
+        }),
+        updatedAt: new Date().toISOString(),
+      });
+
+      const updatedEventDoc = await getDoc(eventRef);
+      const updatedEventData = {
+        id: updatedEventDoc.id,
+        ...updatedEventDoc.data(),
+      };
+      
+      setCurrentEvent(updatedEventData);
+      setHasJoined(true);
+      setShowConfirm(false);
+
+      console.log('✅ Successfully joined event!');
+    } catch (error) {
+      console.error('Join event error:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const spotsLeft = event.maxAttendees - event.currentAttendees;
+  const spotsLeft = currentEvent.maxAttendees - currentEvent.currentAttendees;
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
       
       <ScrollView>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton}
@@ -61,31 +104,34 @@ export default function EventDetailScreen({ route, navigation }) {
 
           <View style={styles.compatibilityBadge}>
             <Text style={styles.compatibilityText}>
-              {event.compatibilityScore}% Match
+              {currentEvent.compatibilityScore}% Match
             </Text>
           </View>
         </View>
 
-        {/* Event Info */}
         <View style={styles.content}>
           <View style={styles.hostSection}>
-            <Text style={styles.hostAvatar}>{event.hostAvatar}</Text>
+            <Text style={styles.hostAvatar}>{currentEvent.hostAvatar}</Text>
             <View>
-              <Text style={styles.category}>{event.category}</Text>
-              <Text style={styles.hostName}>Hosted by {event.hostName}</Text>
+              <Text style={styles.category}>{currentEvent.category}</Text>
+              <Text style={styles.hostName}>Hosted by {currentEvent.hostName}</Text>
+              {currentEvent.hostType === 'official' && (
+                <View style={styles.officialBadge}>
+                  <Text style={styles.officialBadgeText}>🏆 OFFICIAL</Text>
+                </View>
+              )}
             </View>
           </View>
 
-          <Text style={styles.title}>{event.title}</Text>
-          <Text style={styles.description}>{event.description}</Text>
+          <Text style={styles.title}>{currentEvent.title}</Text>
+          <Text style={styles.description}>{currentEvent.description}</Text>
 
-          {/* Details */}
           <View style={styles.detailsSection}>
             <View style={styles.detailCard}>
               <Text style={styles.detailIcon}>📅</Text>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Date & Time</Text>
-                <Text style={styles.detailValue}>{formatDate(event.date)}</Text>
+                <Text style={styles.detailValue}>{formatDate(currentEvent.date)}</Text>
               </View>
             </View>
 
@@ -93,7 +139,7 @@ export default function EventDetailScreen({ route, navigation }) {
               <Text style={styles.detailIcon}>📍</Text>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>{event.location}</Text>
+                <Text style={styles.detailValue}>{currentEvent.location}</Text>
               </View>
             </View>
 
@@ -101,7 +147,7 @@ export default function EventDetailScreen({ route, navigation }) {
               <Text style={styles.detailIcon}>⏱️</Text>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Duration</Text>
-                <Text style={styles.detailValue}>{event.duration}</Text>
+                <Text style={styles.detailValue}>{currentEvent.duration}</Text>
               </View>
             </View>
 
@@ -110,7 +156,7 @@ export default function EventDetailScreen({ route, navigation }) {
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Group Size</Text>
                 <Text style={styles.detailValue}>
-                  {event.currentAttendees}/{event.maxAttendees} people
+                  {currentEvent.currentAttendees}/{currentEvent.maxAttendees} people
                 </Text>
               </View>
             </View>
@@ -119,30 +165,30 @@ export default function EventDetailScreen({ route, navigation }) {
               <Text style={styles.detailIcon}>🗣️</Text>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Languages</Text>
-                <Text style={styles.detailValue}>{event.language.join(', ')}</Text>
+                <Text style={styles.detailValue}>{currentEvent.language.join(', ')}</Text>
               </View>
             </View>
           </View>
 
-          {/* What's Included */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>What's Included</Text>
-            {event.whatsIncluded.map((item, index) => (
-              <View key={index} style={styles.includedItem}>
-                <Text style={styles.includedIcon}>✓</Text>
-                <Text style={styles.includedText}>{item}</Text>
-              </View>
-            ))}
-          </View>
+          {currentEvent.whatsIncluded && currentEvent.whatsIncluded.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>What's Included</Text>
+              {currentEvent.whatsIncluded.map((item, index) => (
+                <View key={index} style={styles.includedItem}>
+                  <Text style={styles.includedIcon}>✓</Text>
+                  <Text style={styles.includedText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
-          {/* Price */}
           <View style={styles.priceSection}>
             <View>
               <Text style={styles.priceLabel}>Price per person</Text>
-              {event.price === 0 ? (
+              {currentEvent.price === 0 ? (
                 <Text style={styles.freePrice}>FREE</Text>
               ) : (
-                <Text style={styles.price}>${event.price} MXN</Text>
+                <Text style={styles.price}>${currentEvent.price} MXN</Text>
               )}
             </View>
             <View>
@@ -154,17 +200,56 @@ export default function EventDetailScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>Join Event?</Text>
+            <Text style={styles.confirmText}>
+              You're about to join "{currentEvent.title}"
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowConfirm(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={handleJoinEvent}
+              >
+                <Text style={styles.confirmButtonText}>Join</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Join Button */}
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.joinButton, spotsLeft === 0 && styles.joinButtonDisabled]}
-          onPress={handleJoinEvent}
-          disabled={spotsLeft === 0}
-        >
-          <Text style={styles.joinButtonText}>
-            {spotsLeft === 0 ? 'Event Full' : 'Join This Event'}
-          </Text>
-        </TouchableOpacity>
+        {hasJoined ? (
+          <View style={styles.joinedButton}>
+            <Text style={styles.joinedButtonText}>✓ Already Joined</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.joinButton,
+              (spotsLeft === 0 || loading) && styles.joinButtonDisabled
+            ]}
+            onPress={() => setShowConfirm(true)}
+            disabled={spotsLeft === 0 || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.joinButtonText}>
+                {spotsLeft === 0 ? 'Event Full' : 'Join This Event'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -224,6 +309,19 @@ const styles = StyleSheet.create({
   hostName: {
     fontSize: Sizes.fontSize.medium,
     color: Colors.text,
+    marginBottom: 4,
+  },
+  officialBadge: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  officialBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000',
   },
   title: {
     fontSize: 28,
@@ -318,6 +416,67 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.small,
     color: Colors.textLight,
   },
+  confirmOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  confirmBox: {
+    backgroundColor: Colors.background,
+    padding: 24,
+    borderRadius: Sizes.borderRadius,
+    width: '90%',
+    maxWidth: 400,
+  },
+  confirmTitle: {
+    fontSize: Sizes.fontSize.large,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  confirmText: {
+    fontSize: Sizes.fontSize.medium,
+    color: Colors.text,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Colors.border,
+    padding: Sizes.padding,
+    borderRadius: Sizes.borderRadius,
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: Colors.text,
+    fontSize: Sizes.fontSize.medium,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: Colors.primary,
+    padding: Sizes.padding,
+    borderRadius: Sizes.borderRadius,
+    marginLeft: 8,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.medium,
+    fontWeight: '600',
+  },
   footer: {
     padding: Sizes.padding * 2,
     backgroundColor: Colors.background,
@@ -334,6 +493,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
   },
   joinButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  joinedButton: {
+    backgroundColor: Colors.success,
+    padding: Sizes.padding + 4,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+  },
+  joinedButtonText: {
     color: '#FFFFFF',
     fontSize: Sizes.fontSize.large,
     fontWeight: '700',
