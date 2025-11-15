@@ -60,8 +60,9 @@ export default function ProfileSetupScreen({ onComplete }) {
         avatar: getRandomAvatar(),
         email: auth.currentUser.email,
         createdAt: new Date().toISOString(),
+        legalAccepted: true,
         profileCompleted: true,
-      });
+      }, { merge: true });
 
       onComplete();
     } catch (error) {

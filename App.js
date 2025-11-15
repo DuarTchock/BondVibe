@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { auth, db } from './src/services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import LoginScreen from './src/screens/LoginScreen';
+import LegalScreen from './src/screens/LegalScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [profileComplete, setProfileComplete] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -17,11 +19,14 @@ export default function App() {
       setUser(currentUser);
 
       if (currentUser) {
-        // Check if profile is complete
+        // Check user status
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
-          setProfileComplete(userDoc.data().profileCompleted || false);
+          const data = userDoc.data();
+          setLegalAccepted(data.legalAccepted || false);
+          setProfileComplete(data.profileCompleted || false);
         } else {
+          setLegalAccepted(false);
           setProfileComplete(false);
         }
       }
@@ -31,6 +36,20 @@ export default function App() {
 
     return unsubscribe;
   }, []);
+
+  const handleLegalAccept = async () => {
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        legalAccepted: true,
+        legalAcceptedAt: new Date().toISOString(),
+      });
+      setLegalAccepted(true);
+    } catch (error) {
+      // If document doesn't exist yet, create it
+      console.log('Creating initial user document');
+      setLegalAccepted(true);
+    }
+  };
 
   const handleProfileComplete = () => {
     setProfileComplete(true);
@@ -49,11 +68,16 @@ export default function App() {
     return <LoginScreen />;
   }
 
-  // Logged in but profile incomplete
+  // Logged in but legal not accepted
+  if (!legalAccepted) {
+    return <LegalScreen onAccept={handleLegalAccept} />;
+  }
+
+  // Legal accepted but profile incomplete
   if (!profileComplete) {
     return <ProfileSetupScreen onComplete={handleProfileComplete} />;
   }
 
-  // Logged in and profile complete
+  // All complete - show home
   return <HomeScreen />;
 }
