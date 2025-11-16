@@ -11,12 +11,13 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
+import { notifyHostApproved, notifyHostRejected } from '../services/notifications';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
 export default function AdminDashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('requests'); // 'requests', 'events', 'stats'
+  const [activeTab, setActiveTab] = useState('requests');
   const [hostRequests, setHostRequests] = useState([]);
   const [allEvents, setAllEvents] = useState([]);
   const [stats, setStats] = useState({
@@ -34,7 +35,6 @@ export default function AdminDashboardScreen({ navigation }) {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Load host requests
       const requestsQuery = query(
         collection(db, 'hostRequests'),
         where('status', '==', 'pending')
@@ -46,7 +46,6 @@ export default function AdminDashboardScreen({ navigation }) {
       });
       setHostRequests(requests);
 
-      // Load all events
       const eventsSnapshot = await getDocs(collection(db, 'events'));
       const events = [];
       let published = 0;
@@ -60,12 +59,11 @@ export default function AdminDashboardScreen({ navigation }) {
       });
       setAllEvents(events);
 
-      // Update stats
       setStats({
         totalEvents: events.length,
         publishedEvents: published,
         pendingEvents: pending,
-        totalUsers: 0, // TODO: Count users
+        totalUsers: 0,
         pendingRequests: requests.length,
       });
 
@@ -79,14 +77,12 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const handleApproveRequest = async (requestId, userId) => {
     try {
-      // Update request status
       await updateDoc(doc(db, 'hostRequests', requestId), {
         status: 'approved',
         reviewedAt: new Date().toISOString(),
         reviewedBy: auth.currentUser.uid,
       });
 
-      // Update user role to verified_host
       await updateDoc(doc(db, 'users', userId), {
         role: 'verified_host',
         hostProfile: {
@@ -98,16 +94,17 @@ export default function AdminDashboardScreen({ navigation }) {
         },
       });
 
-      // TODO: Send notification to user
+      // Send notification
+      await notifyHostApproved(userId);
 
       console.log('✅ Host request approved');
-      loadDashboardData(); // Reload data
+      loadDashboardData();
     } catch (error) {
       console.error('Error approving request:', error);
     }
   };
 
-  const handleRejectRequest = async (requestId) => {
+  const handleRejectRequest = async (requestId, userId) => {
     try {
       await updateDoc(doc(db, 'hostRequests', requestId), {
         status: 'rejected',
@@ -115,10 +112,11 @@ export default function AdminDashboardScreen({ navigation }) {
         reviewedBy: auth.currentUser.uid,
       });
 
-      // TODO: Send notification to user
+      // Send notification
+      await notifyHostRejected(userId);
 
       console.log('❌ Host request rejected');
-      loadDashboardData(); // Reload data
+      loadDashboardData();
     } catch (error) {
       console.error('Error rejecting request:', error);
     }
@@ -170,7 +168,7 @@ export default function AdminDashboardScreen({ navigation }) {
       <View style={styles.requestActions}>
         <TouchableOpacity
           style={styles.rejectButton}
-          onPress={() => handleRejectRequest(item.id)}
+          onPress={() => handleRejectRequest(item.id, item.userId)}
         >
           <Text style={styles.rejectButtonText}>Reject</Text>
         </TouchableOpacity>
@@ -225,7 +223,7 @@ export default function AdminDashboardScreen({ navigation }) {
           <TouchableOpacity
             style={styles.publishButton}
             onPress={(e) => {
-              e.stopPropagation(); // Prevent navigation when clicking publish
+              e.stopPropagation();
               handleApproveEvent(item.id);
             }}
           >
@@ -249,7 +247,6 @@ export default function AdminDashboardScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
@@ -258,7 +255,6 @@ export default function AdminDashboardScreen({ navigation }) {
         <Text style={styles.subtitle}>Manage BondVibe</Text>
       </View>
 
-      {/* Stats Overview */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{stats.totalEvents}</Text>
@@ -278,7 +274,6 @@ export default function AdminDashboardScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
@@ -299,7 +294,6 @@ export default function AdminDashboardScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
       <View style={styles.content}>
         {activeTab === 'requests' && (
           <FlatList

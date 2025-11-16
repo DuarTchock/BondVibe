@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { auth, db } from '../services/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
@@ -10,6 +11,7 @@ export default function HomeScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
+  const unreadNotifications = useUnreadNotifications();
 
   useEffect(() => {
     loadProfile();
@@ -88,7 +90,7 @@ export default function HomeScreen({ navigation }) {
 
       {userRole === 'admin' && (
         <View style={styles.adminBadge}>
-          <Text style={styles.badgeText}>�� BondVibe Admin</Text>
+          <Text style={styles.badgeText}>🏆 BondVibe Admin</Text>
         </View>
       )}
       {userRole === 'verified_host' && (
@@ -129,6 +131,22 @@ export default function HomeScreen({ navigation }) {
         >
           <Text style={styles.myEventsButtonText}>📅 My Events</Text>
         </TouchableOpacity>
+
+        <View style={styles.buttonWithBadge}>
+          <TouchableOpacity 
+            style={styles.notificationsButton} 
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Text style={styles.notificationsButtonText}>🔔 Notifications</Text>
+          </TouchableOpacity>
+          {unreadNotifications > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeNumber}>
+                {unreadNotifications > 99 ? '99+' : unreadNotifications}
+              </Text>
+            </View>
+          )}
+        </View>
 
         <TouchableOpacity 
           style={styles.createButton} 
@@ -306,6 +324,40 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: Sizes.fontSize.large,
     fontWeight: '700',
+  },
+  buttonWithBadge: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  notificationsButton: {
+    backgroundColor: '#FF9800',
+    padding: Sizes.padding + 4,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+  },
+  notificationsButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: Colors.error,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.background,
+  },
+  badgeNumber: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    paddingHorizontal: 6,
   },
   createButton: {
     backgroundColor: Colors.secondary,

@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { doc, updateDoc, arrayUnion, getDoc, increment, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
+import { notifyUserJoinedEvent } from '../services/notifications';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
@@ -22,17 +23,29 @@ export default function EventDetailScreen({ route, navigation }) {
   const [attendeeProfiles, setAttendeeProfiles] = useState([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
   const [isHost, setIsHost] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
 
-  // Check if this is a real event (from Firestore) or mock event
   const isRealEvent = event.id && event.id.length > 10;
 
   useEffect(() => {
     checkIfJoined();
     checkIfHost();
+    loadCurrentUserName();
     if (isRealEvent) {
       loadAttendees();
     }
   }, []);
+
+  const loadCurrentUserName = async () => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setCurrentUserName(userDoc.data().fullName || 'User');
+      }
+    } catch (error) {
+      console.error('Error loading user name:', error);
+    }
+  };
 
   const checkIfJoined = async () => {
     if (currentEvent.attendees) {
@@ -131,8 +144,16 @@ export default function EventDetailScreen({ route, navigation }) {
       setHasJoined(true);
       setShowConfirm(false);
       
-      // Reload attendees
       await loadAttendees();
+
+      if (currentEvent.hostId !== auth.currentUser.uid) {
+        await notifyUserJoinedEvent(
+          currentEvent.hostId,
+          currentEvent.id,
+          currentUserName,
+          currentEvent.title
+        );
+      }
 
       console.log('✅ Successfully joined event!');
     } catch (error) {
@@ -142,7 +163,15 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
+  const handleOpenChat = () => {
+    navigation.navigate('EventChat', {
+      eventId: currentEvent.id,
+      eventTitle: currentEvent.title,
+    });
+  };
+
   const spotsLeft = currentEvent.maxAttendees - currentEvent.currentAttendees;
+  const canAccessChat = isRealEvent && (isHost || hasJoined);
 
   return (
     <View style={styles.container}>
@@ -157,10 +186,20 @@ export default function EventDetailScreen({ route, navigation }) {
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
 
-          <View style={styles.compatibilityBadge}>
-            <Text style={styles.compatibilityText}>
-              {currentEvent.compatibilityScore}% Match
-            </Text>
+          <View style={styles.headerActions}>
+            {canAccessChat && (
+              <TouchableOpacity
+                style={styles.chatIconButton}
+                onPress={handleOpenChat}
+              >
+                <Text style={styles.chatIcon}>💬</Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.compatibilityBadge}>
+              <Text style={styles.compatibilityText}>
+                {currentEvent.compatibilityScore}% Match
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -171,6 +210,22 @@ export default function EventDetailScreen({ route, navigation }) {
                 📝 This is a demo event for preview purposes
               </Text>
             </View>
+          )}
+
+          {canAccessChat && (
+            <TouchableOpacity 
+              style={styles.chatPromoBanner}
+              onPress={handleOpenChat}
+            >
+              <Text style={styles.chatPromoIcon}>💬</Text>
+              <View style={styles.chatPromoContent}>
+                <Text style={styles.chatPromoTitle}>Event Chat</Text>
+                <Text style={styles.chatPromoText}>
+                  Connect with other attendees
+                </Text>
+              </View>
+              <Text style={styles.chatPromoArrow}>→</Text>
+            </TouchableOpacity>
           )}
 
           <View style={styles.hostSection}>
@@ -225,7 +280,7 @@ export default function EventDetailScreen({ route, navigation }) {
             </View>
 
             <View style={styles.detailCard}>
-              <Text style={styles.detailIcon}>��️</Text>
+              <Text style={styles.detailIcon}>🗣️</Text>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Languages</Text>
                 <Text style={styles.detailValue}>{currentEvent.language.join(', ')}</Text>
@@ -233,7 +288,6 @@ export default function EventDetailScreen({ route, navigation }) {
             </View>
           </View>
 
-          {/* Attendees List - Only show if you're the host */}
           {isHost && isRealEvent && attendeeProfiles.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
@@ -370,6 +424,22 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  chatIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatIcon: {
+    fontSize: 20,
+  },
   compatibilityBadge: {
     backgroundColor: '#E8F5E9',
     paddingHorizontal: 12,
@@ -396,6 +466,38 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.small,
     color: Colors.text,
     textAlign: 'center',
+  },
+  chatPromoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    padding: 16,
+    borderRadius: Sizes.borderRadius,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+  chatPromoIcon: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  chatPromoContent: {
+    flex: 1,
+  },
+  chatPromoTitle: {
+    fontSize: Sizes.fontSize.medium,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginBottom: 2,
+  },
+  chatPromoText: {
+    fontSize: Sizes.fontSize.small,
+    color: Colors.text,
+  },
+  chatPromoArrow: {
+    fontSize: 24,
+    color: Colors.primary,
+    marginLeft: 8,
   },
   hostSection: {
     flexDirection: 'row',

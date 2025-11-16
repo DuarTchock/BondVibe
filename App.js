@@ -16,6 +16,8 @@ import CreateEventScreen from './src/screens/CreateEventScreen';
 import RequestHostScreen from './src/screens/RequestHostScreen';
 import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import MyEventsScreen from './src/screens/MyEventsScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import EventChatScreen from './src/screens/EventChatScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -37,6 +39,8 @@ function AppStack() {
       <Stack.Screen name="RequestHost" component={RequestHostScreen} />
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       <Stack.Screen name="MyEvents" component={MyEventsScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="EventChat" component={EventChatScreen} />
     </Stack.Navigator>
   );
 }
