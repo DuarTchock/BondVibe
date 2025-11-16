@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
@@ -17,6 +18,9 @@ import Sizes from '../constants/Sizes';
 
 export default function RequestHostScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState({
     reason: '',
     experience: '',
@@ -24,30 +28,36 @@ export default function RequestHostScreen({ navigation }) {
   });
 
   const handleSubmit = async () => {
+    console.log('🚀 Submit button clicked');
+    console.log('Form data:', formData);
+
     if (!formData.reason.trim()) {
-      Alert.alert('Error', 'Please tell us why you want to become a host');
+      setErrorMessage('Please tell us why you want to become a host');
+      setShowErrorModal(true);
       return;
     }
 
     if (!formData.experience.trim()) {
-      Alert.alert('Error', 'Please share your relevant experience');
+      setErrorMessage('Please share your relevant experience');
+      setShowErrorModal(true);
       return;
     }
 
     setLoading(true);
     try {
-      // Check if user already has a pending request
+      console.log('📝 Checking user role...');
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const userData = userDoc.data();
 
       if (userData?.role === 'verified_host') {
-        Alert.alert('Already a Host', 'You are already a verified host!');
+        console.log('⚠️ User is already a host');
+        setErrorMessage('You are already a verified host!');
+        setShowErrorModal(true);
         setLoading(false);
-        navigation.goBack();
         return;
       }
 
-      // Create host request
+      console.log('✍️ Creating host request...');
       await addDoc(collection(db, 'hostRequests'), {
         userId: auth.currentUser.uid,
         userEmail: auth.currentUser.email,
@@ -59,26 +69,12 @@ export default function RequestHostScreen({ navigation }) {
         createdAt: new Date().toISOString(),
       });
 
-      console.log('✅ Host request submitted');
-
-      // Show success message
-      Alert.alert(
-        'Request Submitted! 🎉',
-        'Your host request has been submitted successfully. We\'ll review it and get back to you soon via email.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      console.log('✅ Host request submitted successfully!');
+      setShowSuccessModal(true);
     } catch (error) {
-      console.error('Error submitting host request:', error);
-      Alert.alert(
-        'Submission Failed',
-        'There was an error submitting your request. Please try again.',
-        [{ text: 'OK' }]
-      );
+      console.error('❌ Error submitting host request:', error);
+      setErrorMessage('There was an error submitting your request. Please try again.');
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -88,6 +84,55 @@ export default function RequestHostScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar style="dark" />
       
+      {/* SUCCESS MODAL */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.successEmoji}>🎉</Text>
+            <Text style={styles.modalTitle}>Request Submitted!</Text>
+            <Text style={styles.modalText}>
+              Your host request has been submitted successfully. We'll review it and get back to you soon via email.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.goBack();
+              }}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ERROR MODAL */}
+      <Modal
+        visible={showErrorModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.errorEmoji}>⚠️</Text>
+            <Text style={styles.modalTitle}>Oops!</Text>
+            <Text style={styles.modalText}>{errorMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
@@ -199,6 +244,53 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: Colors.background,
+    borderRadius: Sizes.borderRadius,
+    padding: 32,
+    width: '90%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  successEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  errorEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: Sizes.fontSize.xlarge,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: Sizes.fontSize.medium,
+    color: Colors.text,
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  modalButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 48,
+    paddingVertical: 12,
+    borderRadius: Sizes.borderRadius,
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.medium,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
