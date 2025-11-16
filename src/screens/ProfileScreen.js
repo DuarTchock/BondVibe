@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -20,8 +21,8 @@ const EMOJI_AVATARS = [
   '😊', '🎉', '🌟', '🎨', '🎭', '🎪', '🎬', '🎮',
   '🎯', '🎲', '🎸', '🎹', '🎺', '🎻', '🎤', '🎧',
   '🌈', '🌸', '🌺', '🌻', '🌼', '🌷', '🍕', '🍔',
-  '🍰', '🎂', '🍦', '🍩', '☕', '��', '🌮', '🌯',
-  '🦄', '🐶', '🐱', '🐼', '🦊', '��', '🐯', '🐨',
+  '🍰', '🎂', '🍦', '🍩', '☕', '🍵', '🌮', '🌯',
+  '🦄', '🐶', '🐱', '🐼', '🦊', '🦁', '🐯', '🐨',
   '🚀', '✨', '🔥', '💫', '⭐', '🌙', '☀️', '🌊',
 ];
 
@@ -31,6 +32,7 @@ export default function ProfileScreen({ navigation }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   
   const [editForm, setEditForm] = useState({
     fullName: '',
@@ -96,27 +98,18 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: performLogout,
-        },
-      ]
-    );
+    console.log('🚪 Logout button clicked');
+    setShowLogoutModal(true);
   };
 
   const performLogout = async () => {
+    console.log('🚀 Performing logout...');
+    setShowLogoutModal(false);
     try {
-      console.log('Logging out...');
       await signOut(auth);
       console.log('✅ Logged out successfully');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ Logout error:', error);
       Alert.alert('Error', 'Failed to logout');
     }
   };
@@ -132,6 +125,40 @@ export default function ProfileScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
+      
+      {/* LOGOUT CONFIRMATION MODAL */}
+      <Modal
+        visible={showLogoutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Logout</Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to logout?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  console.log('❌ Logout cancelled');
+                  setShowLogoutModal(false);
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalLogoutButton}
+                onPress={performLogout}
+              >
+                <Text style={styles.modalLogoutText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -319,6 +346,62 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: Colors.background,
+    borderRadius: Sizes.borderRadius,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: Sizes.fontSize.large,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: Sizes.fontSize.medium,
+    color: Colors.text,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: Colors.border,
+    padding: 12,
+    borderRadius: Sizes.borderRadius,
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    color: Colors.text,
+    fontSize: Sizes.fontSize.medium,
+    fontWeight: '600',
+  },
+  modalLogoutButton: {
+    flex: 1,
+    backgroundColor: Colors.error,
+    padding: 12,
+    borderRadius: Sizes.borderRadius,
+    marginLeft: 8,
+    alignItems: 'center',
+  },
+  modalLogoutText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.medium,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',

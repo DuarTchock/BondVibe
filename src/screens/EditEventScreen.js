@@ -10,7 +10,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { StatusBar } from 'expo-status-r';
+import { StatusBar } from 'expo-status-bar';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import Colors from '../constants/Colors';
