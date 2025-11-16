@@ -41,7 +41,6 @@ export default function HomeScreen({ navigation }) {
           bio: 'BondVibe Team',
         },
       });
-      // Reload profile
       await loadProfile();
       console.log('✅ You are now an admin!');
     } catch (error) {
@@ -69,6 +68,7 @@ export default function HomeScreen({ navigation }) {
 
   const userRole = profile?.role || 'user';
   const canCreateEvents = userRole === 'admin' || userRole === 'verified_host';
+  const isAdmin = userRole === 'admin';
 
   return (
     <View style={styles.container}>
@@ -86,10 +86,9 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.bio}>{profile.bio}</Text>
       )}
 
-      {/* Role Badge */}
       {userRole === 'admin' && (
         <View style={styles.adminBadge}>
-          <Text style={styles.badgeText}>🏆 BondVibe Admin</Text>
+          <Text style={styles.badgeText}>�� BondVibe Admin</Text>
         </View>
       )}
       {userRole === 'verified_host' && (
@@ -116,13 +115,19 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </View>
 
-      {/* Action Buttons */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity 
           style={styles.exploreButton} 
           onPress={() => navigation.navigate('EventFeed')}
         >
           <Text style={styles.exploreButtonText}>🎯 Explore Events</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.myEventsButton} 
+          onPress={() => navigation.navigate('MyEvents')}
+        >
+          <Text style={styles.myEventsButtonText}>📅 My Events</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -134,7 +139,15 @@ export default function HomeScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
 
-        {/* Temporary Admin Button - Remove in production */}
+        {isAdmin && (
+          <TouchableOpacity 
+            style={styles.adminButton} 
+            onPress={() => navigation.navigate('AdminDashboard')}
+          >
+            <Text style={styles.adminButtonText}>🔧 Admin Dashboard</Text>
+          </TouchableOpacity>
+        )}
+
         {userRole === 'user' && (
           <TouchableOpacity 
             style={[styles.devButton, upgrading && styles.buttonDisabled]} 
@@ -282,6 +295,18 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.large,
     fontWeight: '700',
   },
+  myEventsButton: {
+    backgroundColor: '#9C27B0',
+    padding: Sizes.padding + 4,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  myEventsButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
   createButton: {
     backgroundColor: Colors.secondary,
     padding: Sizes.padding + 4,
@@ -291,6 +316,18 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  adminButton: {
+    backgroundColor: '#FFD700',
+    padding: Sizes.padding + 4,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  adminButtonText: {
+    color: '#000',
     fontSize: Sizes.fontSize.large,
     fontWeight: '700',
   },

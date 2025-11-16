@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { doc, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc, increment, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
@@ -19,9 +19,19 @@ export default function EventDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [attendeeProfiles, setAttendeeProfiles] = useState([]);
+  const [loadingAttendees, setLoadingAttendees] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+
+  // Check if this is a real event (from Firestore) or mock event
+  const isRealEvent = event.id && event.id.length > 10;
 
   useEffect(() => {
     checkIfJoined();
+    checkIfHost();
+    if (isRealEvent) {
+      loadAttendees();
+    }
   }, []);
 
   const checkIfJoined = async () => {
@@ -30,6 +40,43 @@ export default function EventDetailScreen({ route, navigation }) {
         (attendee) => attendee.userId === auth.currentUser.uid
       );
       setHasJoined(joined);
+    }
+  };
+
+  const checkIfHost = () => {
+    setIsHost(currentEvent.hostId === auth.currentUser.uid);
+  };
+
+  const loadAttendees = async () => {
+    if (!currentEvent.attendees || currentEvent.attendees.length === 0) {
+      return;
+    }
+
+    setLoadingAttendees(true);
+    try {
+      const profiles = [];
+      
+      for (const attendee of currentEvent.attendees) {
+        const userDocRef = doc(db, 'users', attendee.userId);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          profiles.push({
+            userId: attendee.userId,
+            fullName: userData.fullName || 'User',
+            avatar: userData.avatar || '👤',
+            joinedAt: attendee.joinedAt,
+          });
+        }
+      }
+      
+      setAttendeeProfiles(profiles);
+      console.log(`✅ Loaded ${profiles.length} attendee profiles`);
+    } catch (error) {
+      console.error('Error loading attendees:', error);
+    } finally {
+      setLoadingAttendees(false);
     }
   };
 
@@ -46,6 +93,11 @@ export default function EventDetailScreen({ route, navigation }) {
   };
 
   const handleJoinEvent = async () => {
+    if (!isRealEvent) {
+      console.log('❌ Cannot join mock event');
+      return;
+    }
+
     if (hasJoined) {
       return;
     }
@@ -78,6 +130,9 @@ export default function EventDetailScreen({ route, navigation }) {
       setCurrentEvent(updatedEventData);
       setHasJoined(true);
       setShowConfirm(false);
+      
+      // Reload attendees
+      await loadAttendees();
 
       console.log('✅ Successfully joined event!');
     } catch (error) {
@@ -110,6 +165,14 @@ export default function EventDetailScreen({ route, navigation }) {
         </View>
 
         <View style={styles.content}>
+          {!isRealEvent && (
+            <View style={styles.mockNotice}>
+              <Text style={styles.mockNoticeText}>
+                📝 This is a demo event for preview purposes
+              </Text>
+            </View>
+          )}
+
           <View style={styles.hostSection}>
             <Text style={styles.hostAvatar}>{currentEvent.hostAvatar}</Text>
             <View>
@@ -162,13 +225,37 @@ export default function EventDetailScreen({ route, navigation }) {
             </View>
 
             <View style={styles.detailCard}>
-              <Text style={styles.detailIcon}>🗣️</Text>
+              <Text style={styles.detailIcon}>��️</Text>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Languages</Text>
                 <Text style={styles.detailValue}>{currentEvent.language.join(', ')}</Text>
               </View>
             </View>
           </View>
+
+          {/* Attendees List - Only show if you're the host */}
+          {isHost && isRealEvent && attendeeProfiles.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Attendees ({attendeeProfiles.length})
+              </Text>
+              {loadingAttendees ? (
+                <ActivityIndicator color={Colors.primary} />
+              ) : (
+                attendeeProfiles.map((attendee, index) => (
+                  <View key={index} style={styles.attendeeItem}>
+                    <Text style={styles.attendeeAvatar}>{attendee.avatar}</Text>
+                    <View style={styles.attendeeInfo}>
+                      <Text style={styles.attendeeName}>{attendee.fullName}</Text>
+                      <Text style={styles.attendeeDate}>
+                        Joined {new Date(attendee.joinedAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
 
           {currentEvent.whatsIncluded && currentEvent.whatsIncluded.length > 0 && (
             <View style={styles.section}>
@@ -200,7 +287,6 @@ export default function EventDetailScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Confirmation Modal */}
       {showConfirm && (
         <View style={styles.confirmOverlay}>
           <View style={styles.confirmBox}>
@@ -226,9 +312,16 @@ export default function EventDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Join Button */}
       <View style={styles.footer}>
-        {hasJoined ? (
+        {!isRealEvent ? (
+          <View style={styles.mockButton}>
+            <Text style={styles.mockButtonText}>📝 Demo Event - Join Not Available</Text>
+          </View>
+        ) : isHost ? (
+          <View style={styles.hostButton}>
+            <Text style={styles.hostButtonText}>👑 You're hosting this event</Text>
+          </View>
+        ) : hasJoined ? (
           <View style={styles.joinedButton}>
             <Text style={styles.joinedButtonText}>✓ Already Joined</Text>
           </View>
@@ -290,6 +383,19 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Sizes.padding * 2,
+  },
+  mockNotice: {
+    backgroundColor: '#FFF9E6',
+    padding: 12,
+    borderRadius: Sizes.borderRadius,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFD700',
+  },
+  mockNoticeText: {
+    fontSize: Sizes.fontSize.small,
+    color: Colors.text,
+    textAlign: 'center',
   },
   hostSection: {
     flexDirection: 'row',
@@ -372,6 +478,31 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.text,
     marginBottom: 12,
+  },
+  attendeeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: Sizes.borderRadius,
+    marginBottom: 8,
+  },
+  attendeeAvatar: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  attendeeInfo: {
+    flex: 1,
+  },
+  attendeeName: {
+    fontSize: Sizes.fontSize.medium,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  attendeeDate: {
+    fontSize: Sizes.fontSize.small,
+    color: Colors.textLight,
   },
   includedItem: {
     flexDirection: 'row',
@@ -507,5 +638,27 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: Sizes.fontSize.large,
     fontWeight: '700',
+  },
+  hostButton: {
+    backgroundColor: '#FFD700',
+    padding: Sizes.padding + 4,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+  },
+  hostButtonText: {
+    color: '#000',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  mockButton: {
+    backgroundColor: '#F0F0F0',
+    padding: Sizes.padding + 4,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+  },
+  mockButtonText: {
+    color: Colors.textLight,
+    fontSize: Sizes.fontSize.medium,
+    fontWeight: '600',
   },
 });

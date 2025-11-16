@@ -14,6 +14,8 @@ import EventFeedScreen from './src/screens/EventFeedScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
 import CreateEventScreen from './src/screens/CreateEventScreen';
 import RequestHostScreen from './src/screens/RequestHostScreen';
+import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
+import MyEventsScreen from './src/screens/MyEventsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -33,6 +35,8 @@ function AppStack() {
       <Stack.Screen name="EventDetail" component={EventDetailScreen} />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
       <Stack.Screen name="RequestHost" component={RequestHostScreen} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+      <Stack.Screen name="MyEvents" component={MyEventsScreen} />
     </Stack.Navigator>
   );
 }
@@ -49,10 +53,8 @@ export default function App() {
       setUser(currentUser);
 
       if (currentUser) {
-        // Check email verification
         setEmailVerified(currentUser.emailVerified);
 
-        // Send verification email if not verified
         if (!currentUser.emailVerified) {
           try {
             await sendEmailVerification(currentUser);
@@ -62,7 +64,6 @@ export default function App() {
           }
         }
 
-        // Check user status in Firestore
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
@@ -105,7 +106,6 @@ export default function App() {
     );
   }
 
-  // Not logged in
   if (!user) {
     return (
       <NavigationContainer>
@@ -114,22 +114,18 @@ export default function App() {
     );
   }
 
-  // Logged in but email not verified
   if (!emailVerified) {
     return <EmailVerificationScreen />;
   }
 
-  // Email verified but legal not accepted
   if (!legalAccepted) {
     return <LegalScreen onAccept={handleLegalAccept} />;
   }
 
-  // Legal accepted but profile incomplete
   if (!profileComplete) {
     return <ProfileSetupScreen onComplete={handleProfileComplete} />;
   }
 
-  // All complete - show main app
   return (
     <NavigationContainer>
       <AppStack />
