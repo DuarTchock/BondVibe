@@ -18,6 +18,10 @@ import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import MyEventsScreen from './src/screens/MyEventsScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import EventChatScreen from './src/screens/EventChatScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import SearchEventsScreen from './src/screens/SearchEventsScreen';
+import EditEventScreen from './src/screens/EditEventScreen';
+import ReportScreen from './src/screens/ReportScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -41,6 +45,10 @@ function AppStack() {
       <Stack.Screen name="MyEvents" component={MyEventsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="EventChat" component={EventChatScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="SearchEvents" component={SearchEventsScreen} />
+      <Stack.Screen name="EditEvent" component={EditEventScreen} />
+      <Stack.Screen name="Report" component={ReportScreen} />
     </Stack.Navigator>
   );
 }

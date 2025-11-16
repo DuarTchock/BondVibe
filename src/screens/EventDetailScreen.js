@@ -6,11 +6,13 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { doc, updateDoc, arrayUnion, getDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc, increment, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
-import { notifyUserJoinedEvent } from '../services/notifications';
+import { notifyUserJoinedEvent, notifyEventCancelled } from '../services/notifications';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
@@ -24,6 +26,7 @@ export default function EventDetailScreen({ route, navigation }) {
   const [loadingAttendees, setLoadingAttendees] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [currentUserName, setCurrentUserName] = useState('');
+  const [showMenu, setShowMenu] = useState(false);
 
   const isRealEvent = event.id && event.id.length > 10;
 
@@ -170,6 +173,55 @@ export default function EventDetailScreen({ route, navigation }) {
     });
   };
 
+  const handleEditEvent = () => {
+    setShowMenu(false);
+    navigation.navigate('EditEvent', { event: currentEvent });
+  };
+
+  const handleCancelEvent = () => {
+    setShowMenu(false);
+    Alert.alert(
+      'Cancel Event',
+      'Are you sure you want to cancel this event? All attendees will be notified.',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel Event',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (currentEvent.attendees) {
+                for (const attendee of currentEvent.attendees) {
+                  await notifyEventCancelled(
+                    attendee.userId,
+                    currentEvent.id,
+                    currentEvent.title
+                  );
+                }
+              }
+
+              await deleteDoc(doc(db, 'events', currentEvent.id));
+              
+              Alert.alert('Event Cancelled', 'The event has been cancelled and all attendees have been notified.');
+              navigation.goBack();
+            } catch (error) {
+              console.error('Error cancelling event:', error);
+              Alert.alert('Error', 'Failed to cancel event');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReportEvent = () => {
+    navigation.navigate('Report', {
+      type: 'event',
+      targetId: currentEvent.id,
+      targetName: currentEvent.title,
+    });
+  };
+
   const spotsLeft = currentEvent.maxAttendees - currentEvent.currentAttendees;
   const canAccessChat = isRealEvent && (isHost || hasJoined);
 
@@ -177,6 +229,34 @@ export default function EventDetailScreen({ route, navigation }) {
     <View style={styles.container}>
       <StatusBar style="dark" />
       
+      {/* HOST MENU MODAL */}
+      <Modal
+        visible={showMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        >
+          <View style={styles.menuDropdown}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleEditEvent}>
+              <Text style={styles.menuItemIcon}>✏️</Text>
+              <Text style={styles.menuItemText}>Edit Event</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.menuDivider} />
+            
+            <TouchableOpacity style={styles.menuItem} onPress={handleCancelEvent}>
+              <Text style={styles.menuItemIcon}>🚫</Text>
+              <Text style={[styles.menuItemText, styles.menuItemDanger]}>Cancel Event</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <ScrollView>
         <View style={styles.header}>
           <TouchableOpacity 
@@ -187,6 +267,14 @@ export default function EventDetailScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <View style={styles.headerActions}>
+            {isHost && isRealEvent && (
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => setShowMenu(true)}
+              >
+                <Text style={styles.menuIcon}>⋮</Text>
+              </TouchableOpacity>
+            )}
             {canAccessChat && (
               <TouchableOpacity
                 style={styles.chatIconButton}
@@ -338,6 +426,12 @@ export default function EventDetailScreen({ route, navigation }) {
               </Text>
             </View>
           </View>
+
+          {!isHost && isRealEvent && (
+            <TouchableOpacity style={styles.reportButton} onPress={handleReportEvent}>
+              <Text style={styles.reportButtonText}>🚩 Report Event</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 
@@ -428,6 +522,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  menuIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuDropdown: {
+    backgroundColor: Colors.background,
+    borderRadius: Sizes.borderRadius,
+    width: 250,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 18,
+  },
+  menuItemIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  menuItemText: {
+    fontSize: Sizes.fontSize.medium,
+    color: Colors.text,
+    fontWeight: '500',
+  },
+  menuItemDanger: {
+    color: Colors.error,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
   },
   chatIconButton: {
     width: 40,
@@ -628,7 +777,7 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#F8F9FA',
     borderRadius: Sizes.borderRadius,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   priceLabel: {
     fontSize: Sizes.fontSize.small,
@@ -648,6 +797,19 @@ const styles = StyleSheet.create({
   spotsLabel: {
     fontSize: Sizes.fontSize.small,
     color: Colors.textLight,
+  },
+  reportButton: {
+    backgroundColor: '#FFF9E6',
+    padding: 14,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  reportButtonText: {
+    fontSize: Sizes.fontSize.medium,
+    color: Colors.text,
+    fontWeight: '600',
   },
   confirmOverlay: {
     position: 'absolute',

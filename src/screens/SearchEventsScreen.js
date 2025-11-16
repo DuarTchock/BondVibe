@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { MOCK_EVENTS } from '../data/mockEvents';
 import Colors from '../constants/Colors';
@@ -17,14 +17,16 @@ import Sizes from '../constants/Sizes';
 
 const CATEGORIES = ['All', 'Social', 'Sports', 'Food', 'Arts', 'Learning', 'Outdoor'];
 const PRICE_FILTERS = ['All', 'Free', 'Paid'];
+const SORT_OPTIONS = ['Date', 'Compatibility', 'Popularity', 'Price'];
 
-export default function EventFeedScreen({ navigation }) {
+export default function SearchEventsScreen({ navigation }) {
+  const [searchQuery, setSearchQuery] = useState('');
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedPrice, setSelectedPrice] = useState('All');
+  const [selectedPriceFilter, setSelectedPriceFilter] = useState('All');
+  const [selectedSort, setSelectedSort] = useState('Date');
 
   useEffect(() => {
     loadEvents();
@@ -32,7 +34,7 @@ export default function EventFeedScreen({ navigation }) {
 
   useEffect(() => {
     applyFilters();
-  }, [events, searchQuery, selectedCategory, selectedPrice]);
+  }, [events, searchQuery, selectedCategory, selectedPriceFilter, selectedSort]);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -48,14 +50,11 @@ export default function EventFeedScreen({ navigation }) {
         realEvents.push({ id: doc.id, ...doc.data() });
       });
       
-      // Combine real events with mock events
       const allEvents = [...realEvents, ...MOCK_EVENTS];
-      
       setEvents(allEvents);
-      console.log(`✅ Loaded ${allEvents.length} events (${realEvents.length} real, ${MOCK_EVENTS.length} mock)`);
+      console.log(`✅ Loaded ${allEvents.length} events for search`);
     } catch (error) {
       console.error('Error loading events:', error);
-      // If error, at least show mock events
       setEvents(MOCK_EVENTS);
     } finally {
       setLoading(false);
@@ -65,25 +64,33 @@ export default function EventFeedScreen({ navigation }) {
   const applyFilters = () => {
     let filtered = [...events];
 
-    // Search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(event =>
         event.title.toLowerCase().includes(query) ||
-        event.description.toLowerCase().includes(query)
+        event.description.toLowerCase().includes(query) ||
+        event.location.toLowerCase().includes(query)
       );
     }
 
-    // Category
     if (selectedCategory !== 'All') {
       filtered = filtered.filter(event => event.category === selectedCategory);
     }
 
-    // Price
-    if (selectedPrice === 'Free') {
+    if (selectedPriceFilter === 'Free') {
       filtered = filtered.filter(event => event.price === 0);
-    } else if (selectedPrice === 'Paid') {
+    } else if (selectedPriceFilter === 'Paid') {
       filtered = filtered.filter(event => event.price > 0);
+    }
+
+    if (selectedSort === 'Date') {
+      filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+    } else if (selectedSort === 'Compatibility') {
+      filtered.sort((a, b) => (b.compatibilityScore || 0) - (a.compatibilityScore || 0));
+    } else if (selectedSort === 'Popularity') {
+      filtered.sort((a, b) => b.currentAttendees - a.currentAttendees);
+    } else if (selectedSort === 'Price') {
+      filtered.sort((a, b) => a.price - b.price);
     }
 
     setFilteredEvents(filtered);
@@ -92,10 +99,11 @@ export default function EventFeedScreen({ navigation }) {
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedCategory('All');
-    setSelectedPrice('All');
+    setSelectedPriceFilter('All');
+    setSelectedSort('Date');
   };
 
-  const hasActiveFilters = searchQuery || selectedCategory !== 'All' || selectedPrice !== 'All';
+  const hasActiveFilters = searchQuery || selectedCategory !== 'All' || selectedPriceFilter !== 'All' || selectedSort !== 'Date';
 
   const renderEvent = ({ item }) => (
     <TouchableOpacity
@@ -103,7 +111,7 @@ export default function EventFeedScreen({ navigation }) {
       onPress={() => navigation.navigate('EventDetail', { event: item })}
     >
       <View style={styles.eventHeader}>
-        <View style={styles.badges}>
+        <View style={styles.eventBadges}>
           {item.hostType === 'official' && (
             <View style={styles.officialBadge}>
               <Text style={styles.badgeText}>OFFICIAL</Text>
@@ -127,7 +135,9 @@ export default function EventFeedScreen({ navigation }) {
         <Text style={styles.eventInfoText}>
           📅 {new Date(item.date).toLocaleDateString()}
         </Text>
-        <Text style={styles.eventInfoText}>📍 {item.location}</Text>
+        <Text style={styles.eventInfoText}>
+          📍 {item.location}
+        </Text>
         <Text style={styles.eventInfoText}>
           👥 {item.currentAttendees}/{item.maxAttendees}
         </Text>
@@ -137,12 +147,18 @@ export default function EventFeedScreen({ navigation }) {
         <Text style={styles.eventPrice}>
           {item.price === 0 ? 'FREE' : `$${item.price} MXN`}
         </Text>
-        <TouchableOpacity style={styles.viewButton}>
-          <Text style={styles.viewButtonText}>View Details →</Text>
-        </TouchableOpacity>
+        <Text style={styles.eventDuration}>{item.duration}</Text>
       </View>
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -152,11 +168,11 @@ export default function EventFeedScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Discover Events</Text>
+        <Text style={styles.headerTitle}>Search Events</Text>
         <View style={{ width: 60 }} />
       </View>
 
-      {/* SEARCH BAR */}
+      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
@@ -173,7 +189,7 @@ export default function EventFeedScreen({ navigation }) {
         )}
       </View>
 
-      {/* FILTERS */}
+      {/* Filters */}
       <View style={styles.filtersContainer}>
         <View style={styles.filterSection}>
           <Text style={styles.filterLabel}>Category</Text>
@@ -206,15 +222,38 @@ export default function EventFeedScreen({ navigation }) {
                 key={price}
                 style={[
                   styles.chip,
-                  selectedPrice === price && styles.chipSelected
+                  selectedPriceFilter === price && styles.chipSelected
                 ]}
-                onPress={() => setSelectedPrice(price)}
+                onPress={() => setSelectedPriceFilter(price)}
               >
                 <Text style={[
                   styles.chipText,
-                  selectedPrice === price && styles.chipTextSelected
+                  selectedPriceFilter === price && styles.chipTextSelected
                 ]}>
                   {price}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>Sort by</Text>
+          <View style={styles.filterChips}>
+            {SORT_OPTIONS.map(sort => (
+              <TouchableOpacity
+                key={sort}
+                style={[
+                  styles.chip,
+                  selectedSort === sort && styles.chipSelected
+                ]}
+                onPress={() => setSelectedSort(sort)}
+              >
+                <Text style={[
+                  styles.chipText,
+                  selectedSort === sort && styles.chipTextSelected
+                ]}>
+                  {sort}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -228,34 +267,28 @@ export default function EventFeedScreen({ navigation }) {
         )}
       </View>
 
-      {/* RESULTS COUNT */}
+      {/* Results */}
       <View style={styles.resultsHeader}>
         <Text style={styles.resultsText}>
           {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'} found
         </Text>
       </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={filteredEvents}
-          keyExtractor={(item) => item.id}
-          renderItem={renderEvent}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyEmoji}>🔍</Text>
-              <Text style={styles.emptyText}>No events found</Text>
-              <Text style={styles.emptySubtext}>
-                Try adjusting your search or filters
-              </Text>
-            </View>
-          }
-        />
-      )}
+      <FlatList
+        data={filteredEvents}
+        keyExtractor={(item) => item.id}
+        renderItem={renderEvent}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Text style={styles.emptyText}>No events found</Text>
+            <Text style={styles.emptySubtext}>
+              Try adjusting your search or filters
+            </Text>
+          </View>
+        }
+      />
     </View>
   );
 }
@@ -264,6 +297,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -318,10 +356,10 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   filterSection: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   filterLabel: {
-    fontSize: Sizes.fontSize.small,
+    fontSize: Sizes.fontSize.medium,
     fontWeight: '600',
     color: Colors.text,
     marginBottom: 8,
@@ -333,9 +371,9 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: '#F8F9FA',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -353,19 +391,19 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     backgroundColor: Colors.error,
-    padding: 10,
+    padding: 12,
     borderRadius: Sizes.borderRadius,
     alignItems: 'center',
     marginTop: 8,
   },
   clearButtonText: {
     color: '#FFFFFF',
-    fontSize: Sizes.fontSize.small,
+    fontSize: Sizes.fontSize.medium,
     fontWeight: '600',
   },
   resultsHeader: {
-    backgroundColor: '#F8F9FA',
-    padding: 12,
+    backgroundColor: Colors.background,
+    padding: Sizes.padding,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
@@ -373,12 +411,6 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.small,
     color: Colors.textLight,
     textAlign: 'center',
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   listContent: {
     padding: Sizes.padding * 2,
@@ -396,7 +428,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  badges: {
+  eventBadges: {
     flexDirection: 'row',
     gap: 8,
   },
@@ -437,7 +469,6 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.small,
     color: Colors.textLight,
     marginBottom: 12,
-    lineHeight: 20,
   },
   eventInfo: {
     gap: 4,
@@ -451,25 +482,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   eventPrice: {
     fontSize: Sizes.fontSize.medium,
     fontWeight: 'bold',
     color: Colors.primary,
   },
-  viewButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: Sizes.borderRadius,
-  },
-  viewButtonText: {
-    color: '#FFFFFF',
+  eventDuration: {
     fontSize: Sizes.fontSize.small,
-    fontWeight: '600',
+    color: Colors.textLight,
   },
   emptyContainer: {
     alignItems: 'center',

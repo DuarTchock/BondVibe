@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { auth, db } from '../services/firebase';
-import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
 import Colors from '../constants/Colors';
@@ -52,14 +51,6 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.container}>
@@ -73,63 +64,63 @@ export default function HomeScreen({ navigation }) {
   const isAdmin = userRole === 'admin';
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to BondVibe! 🎉</Text>
-
-      <Text style={styles.avatar}>{profile?.avatar || '✨'}</Text>
-
-      <Text style={styles.name}>{profile?.fullName || 'User'}</Text>
-      <Text style={styles.email}>{auth.currentUser?.email}</Text>
-      <Text style={styles.info}>
-        {profile?.age} years old • {profile?.location}
-      </Text>
-
-      {profile?.bio && (
-        <Text style={styles.bio}>{profile.bio}</Text>
-      )}
-
-      {userRole === 'admin' && (
-        <View style={styles.adminBadge}>
-          <Text style={styles.badgeText}>🏆 BondVibe Admin</Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {/* HEADER WITH PROFILE BUTTON */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>BondVibe 🎉</Text>
+          <Text style={styles.headerSubtitle}>Connect through experiences</Text>
         </View>
-      )}
-      {userRole === 'verified_host' && (
-        <View style={styles.hostBadge}>
-          <Text style={styles.badgeText}>✓ Verified Host</Text>
-        </View>
-      )}
-
-      <View style={styles.infoBox}>
-        <Text style={styles.infoText}>
-          🧠 Your personality profile will help us match you with compatible people for group events
-        </Text>
-      </View>
-
-      <View style={styles.verifiedBox}>
-        <Text style={styles.verifiedIcon}>✓</Text>
-        <Text style={styles.verifiedText}>Email Verified</Text>
-      </View>
-
-      <View style={styles.safetyNote}>
-        <Text style={styles.safetyIcon}>🛡️</Text>
-        <Text style={styles.safetyText}>
-          Always meet in public places and trust your instincts
-        </Text>
-      </View>
-
-      <View style={styles.actionsContainer}>
         <TouchableOpacity 
-          style={styles.exploreButton} 
+          style={styles.profileButton}
+          onPress={() => navigation.navigate('Profile')}
+        >
+          <Text style={styles.profileAvatar}>{profile?.avatar || '😊'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* USER INFO CARD */}
+      <View style={styles.userCard}>
+        <Text style={styles.avatar}>{profile?.avatar || '😊'}</Text>
+        <Text style={styles.name}>{profile?.fullName || 'User'}</Text>
+        <Text style={styles.email}>{auth.currentUser?.email}</Text>
+        
+        {userRole === 'admin' && (
+          <View style={styles.adminBadge}>
+            <Text style={styles.badgeText}>🏆 BondVibe Admin</Text>
+          </View>
+        )}
+        {userRole === 'verified_host' && (
+          <View style={styles.hostBadge}>
+            <Text style={styles.badgeText}>✓ Verified Host</Text>
+          </View>
+        )}
+      </View>
+
+      {/* MAIN ACTIONS */}
+      <View style={styles.actionsSection}>
+        <TouchableOpacity 
+          style={styles.primaryButton} 
           onPress={() => navigation.navigate('EventFeed')}
         >
-          <Text style={styles.exploreButtonText}>🎯 Explore Events</Text>
+          <Text style={styles.buttonIcon}>🎯</Text>
+          <Text style={styles.primaryButtonText}>Explore Events</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.searchButton} 
+          onPress={() => navigation.navigate('SearchEvents')}
+        >
+          <Text style={styles.buttonIcon}>🔍</Text>
+          <Text style={styles.searchButtonText}>Search Events</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.myEventsButton} 
           onPress={() => navigation.navigate('MyEvents')}
         >
-          <Text style={styles.myEventsButtonText}>📅 My Events</Text>
+          <Text style={styles.buttonIcon}>📅</Text>
+          <Text style={styles.myEventsButtonText}>My Events</Text>
         </TouchableOpacity>
 
         <View style={styles.buttonWithBadge}>
@@ -137,7 +128,8 @@ export default function HomeScreen({ navigation }) {
             style={styles.notificationsButton} 
             onPress={() => navigation.navigate('Notifications')}
           >
-            <Text style={styles.notificationsButtonText}>🔔 Notifications</Text>
+            <Text style={styles.buttonIcon}>🔔</Text>
+            <Text style={styles.notificationsButtonText}>Notifications</Text>
           </TouchableOpacity>
           {unreadNotifications > 0 && (
             <View style={styles.badge}>
@@ -152,8 +144,9 @@ export default function HomeScreen({ navigation }) {
           style={styles.createButton} 
           onPress={() => navigation.navigate('CreateEvent')}
         >
+          <Text style={styles.buttonIcon}>➕</Text>
           <Text style={styles.createButtonText}>
-            {canCreateEvents ? '➕ Create Event' : '🌟 Become a Host'}
+            {canCreateEvents ? 'Create Event' : 'Become a Host'}
           </Text>
         </TouchableOpacity>
 
@@ -162,48 +155,92 @@ export default function HomeScreen({ navigation }) {
             style={styles.adminButton} 
             onPress={() => navigation.navigate('AdminDashboard')}
           >
-            <Text style={styles.adminButtonText}>🔧 Admin Dashboard</Text>
-          </TouchableOpacity>
-        )}
-
-        {userRole === 'user' && (
-          <TouchableOpacity 
-            style={[styles.devButton, upgrading && styles.buttonDisabled]} 
-            onPress={handleMakeAdmin}
-            disabled={upgrading}
-          >
-            <Text style={styles.devButtonText}>
-              {upgrading ? 'Upgrading...' : '🔧 Make Me Admin'}
-            </Text>
+            <Text style={styles.buttonIcon}>🔧</Text>
+            <Text style={styles.adminButtonText}>Admin Dashboard</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
-    </View>
+      {/* SAFETY NOTE */}
+      <View style={styles.safetyNote}>
+        <Text style={styles.safetyIcon}>🛡️</Text>
+        <Text style={styles.safetyText}>
+          Always meet in public places and trust your instincts
+        </Text>
+      </View>
+
+      {/* DEV BUTTON */}
+      {userRole === 'user' && (
+        <TouchableOpacity 
+          style={[styles.devButton, upgrading && styles.buttonDisabled]} 
+          onPress={handleMakeAdmin}
+          disabled={upgrading}
+        >
+          <Text style={styles.devButtonText}>
+            {upgrading ? 'Upgrading...' : '🔧 Make Me Admin (Dev)'}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Sizes.padding * 2,
+    backgroundColor: '#F5F5F5',
   },
-  title: {
-    fontSize: Sizes.fontSize.xlarge,
+  contentContainer: {
+    padding: Sizes.padding * 2,
+    paddingTop: 60,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
     color: Colors.primary,
+  },
+  headerSubtitle: {
+    fontSize: Sizes.fontSize.small,
+    color: Colors.textLight,
+    marginTop: 4,
+  },
+  profileButton: {
+    backgroundColor: Colors.background,
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  profileAvatar: {
+    fontSize: 28,
+  },
+  userCard: {
+    backgroundColor: Colors.background,
+    borderRadius: Sizes.borderRadius,
+    padding: 24,
+    alignItems: 'center',
     marginBottom: 24,
-    textAlign: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   avatar: {
-    fontSize: 80,
-    marginBottom: 16,
+    fontSize: 60,
+    marginBottom: 12,
   },
   name: {
     fontSize: Sizes.fontSize.large,
@@ -212,118 +249,63 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   email: {
-    fontSize: Sizes.fontSize.medium,
+    fontSize: Sizes.fontSize.small,
     color: Colors.textLight,
-    marginBottom: 8,
-  },
-  info: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
     marginBottom: 12,
-  },
-  bio: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-    textAlign: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 20,
   },
   adminBadge: {
     backgroundColor: '#FFD700',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    marginBottom: 16,
+    marginTop: 8,
   },
   hostBadge: {
     backgroundColor: Colors.success,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    marginBottom: 16,
+    marginTop: 8,
   },
   badgeText: {
     fontSize: Sizes.fontSize.small,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  infoBox: {
-    backgroundColor: '#F0F0FF',
-    padding: 16,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-    maxWidth: 400,
-  },
-  infoText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  verifiedBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    padding: 12,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-  },
-  verifiedIcon: {
-    fontSize: 20,
-    color: Colors.success,
-    marginRight: 8,
-    fontWeight: 'bold',
-  },
-  verifiedText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.success,
-    fontWeight: '600',
-  },
-  safetyNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF9E6',
-    padding: 12,
-    borderRadius: Sizes.borderRadius,
+  actionsSection: {
     marginBottom: 24,
-    maxWidth: 400,
   },
-  safetyIcon: {
-    fontSize: 20,
-    marginRight: 8,
-  },
-  safetyText: {
-    flex: 1,
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-  },
-  actionsContainer: {
-    width: '100%',
-    maxWidth: 300,
-    marginBottom: 16,
-  },
-  exploreButton: {
+  primaryButton: {
     backgroundColor: Colors.primary,
-    padding: Sizes.padding + 4,
+    padding: 18,
     borderRadius: Sizes.borderRadius,
     alignItems: 'center',
     marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  exploreButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '700',
+  searchButton: {
+    backgroundColor: '#2196F3',
+    padding: 18,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   myEventsButton: {
     backgroundColor: '#9C27B0',
-    padding: Sizes.padding + 4,
+    padding: 18,
     borderRadius: Sizes.borderRadius,
     alignItems: 'center',
     marginBottom: 12,
-  },
-  myEventsButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '700',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   buttonWithBadge: {
     position: 'relative',
@@ -331,12 +313,61 @@ const styles = StyleSheet.create({
   },
   notificationsButton: {
     backgroundColor: '#FF9800',
-    padding: Sizes.padding + 4,
+    padding: 18,
     borderRadius: Sizes.borderRadius,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  createButton: {
+    backgroundColor: Colors.secondary,
+    padding: 18,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  adminButton: {
+    backgroundColor: '#FFD700',
+    padding: 18,
+    borderRadius: Sizes.borderRadius,
+    alignItems: 'center',
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  buttonIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  searchButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  myEventsButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
   },
   notificationsButtonText: {
     color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  createButtonText: {
+    color: '#FFFFFF',
+    fontSize: Sizes.fontSize.large,
+    fontWeight: '700',
+  },
+  adminButtonText: {
+    color: '#000',
     fontSize: Sizes.fontSize.large,
     fontWeight: '700',
   },
@@ -351,7 +382,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.background,
+    borderColor: '#F5F5F5',
+    zIndex: 10,
   },
   badgeNumber: {
     color: '#FFFFFF',
@@ -359,36 +391,30 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     paddingHorizontal: 6,
   },
-  createButton: {
-    backgroundColor: Colors.secondary,
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
+  safetyNote: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  createButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '700',
-  },
-  adminButton: {
-    backgroundColor: '#FFD700',
-    padding: Sizes.padding + 4,
+    backgroundColor: '#FFF9E6',
+    padding: 16,
     borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  adminButtonText: {
-    color: '#000',
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '700',
+  safetyIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  safetyText: {
+    flex: 1,
+    fontSize: Sizes.fontSize.small,
+    color: Colors.text,
+    lineHeight: 20,
   },
   devButton: {
     backgroundColor: '#9E9E9E',
-    padding: Sizes.padding,
+    padding: 12,
     borderRadius: Sizes.borderRadius,
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 24,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -396,18 +422,6 @@ const styles = StyleSheet.create({
   devButtonText: {
     color: '#FFFFFF',
     fontSize: Sizes.fontSize.small,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    backgroundColor: Colors.error,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    width: 200,
-    alignItems: 'center',
-  },
-  logoutButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
     fontWeight: '600',
   },
 });
