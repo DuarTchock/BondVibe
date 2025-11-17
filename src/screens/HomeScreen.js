@@ -10,8 +10,6 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { auth, db } from '../services/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
 
 export default function HomeScreen({ navigation }) {
   const [userRole, setUserRole] = useState('user');
@@ -24,23 +22,20 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   const loadUserData = async () => {
-    console.log('📱 Loading user data...');
     try {
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
         setProfile(data);
         setUserRole(data.role || 'user');
-        console.log('👤 User role:', data.role);
         
         // If admin, load pending requests count
         if (data.role === 'admin') {
-          console.log('🔧 User is admin, loading pending requests...');
           await loadPendingRequests();
         }
       }
     } catch (error) {
-      console.error('❌ Error loading user data:', error);
+      console.error('Error loading user data:', error);
     } finally {
       setLoading(false);
     }
@@ -48,66 +43,70 @@ export default function HomeScreen({ navigation }) {
 
   const loadPendingRequests = async () => {
     try {
-      console.log('🔍 Querying hostRequests collection...');
       const hostRequestsQuery = query(
         collection(db, 'hostRequests'),
         where('status', '==', 'pending')
       );
       const snapshot = await getDocs(hostRequestsQuery);
-      const count = snapshot.size;
-      setPendingHostRequests(count);
-      console.log(`📊 Found ${count} pending host requests`);
-      
-      // Log individual requests for debugging
-      snapshot.forEach(doc => {
-        console.log('📄 Request:', doc.id, doc.data());
-      });
+      setPendingHostRequests(snapshot.size);
     } catch (error) {
-      console.error('❌ Error loading pending requests:', error);
-      console.error('Error details:', error.message);
-      // Set to 0 on error to avoid showing undefined
-      setPendingHostRequests(0);
+      console.error('Error loading pending requests:', error);
     }
   };
 
   const canCreateEvents = userRole === 'admin' || userRole === 'verified_host';
   const isAdmin = userRole === 'admin';
 
-  console.log('🎨 Rendering HomeScreen - isAdmin:', isAdmin, 'pendingRequests:', pendingHostRequests);
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color="#FF3EA5" />
       </View>
     );
   }
 
+  const ActionButton = ({ icon, title, gradient, onPress, badge }) => (
+    <TouchableOpacity
+      style={styles.actionButton}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={[styles.buttonContent, gradient && styles[gradient]]}>
+        <Text style={styles.buttonIcon}>{icon}</Text>
+        <Text style={styles.buttonTitle}>{title}</Text>
+        {badge > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       
+      {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.logo}>BondVibe 🎉</Text>
-          <Text style={styles.tagline}>Connect through experiences</Text>
+          <Text style={styles.greeting}>Welcome back,</Text>
+          <Text style={styles.userName}>{profile?.fullName || 'User'}</Text>
         </View>
         <TouchableOpacity 
           style={styles.profileButton}
           onPress={() => navigation.navigate('Profile')}
         >
-          <Text style={styles.profileEmoji}>{profile?.avatar || '🎸'}</Text>
+          <Text style={styles.profileEmoji}>{profile?.avatar || '😊'}</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeEmoji}>{profile?.avatar || '🎸'}</Text>
-          <Text style={styles.welcomeTitle}>{profile?.fullName || 'Usuario 1'}</Text>
-          <Text style={styles.welcomeEmail}>{auth.currentUser?.email}</Text>
-        </View>
-
-        {/* Yellow Admin Badge */}
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Admin Badge */}
         {isAdmin && (
           <View style={styles.adminBadge}>
             <Text style={styles.adminBadgeIcon}>👑</Text>
@@ -115,79 +114,84 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
 
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={() => navigation.navigate('EventFeed')}
-        >
-          <Text style={styles.buttonIcon}>🎯</Text>
-          <Text style={styles.buttonText}>Explore Events</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.button, styles.searchButton]}
-          onPress={() => navigation.navigate('SearchEvents')}
-        >
-          <Text style={styles.buttonIcon}>🔍</Text>
-          <Text style={styles.buttonText}>Search Events</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.button, styles.myEventsButton]}
-          onPress={() => navigation.navigate('MyEvents')}
-        >
-          <Text style={styles.buttonIcon}>📅</Text>
-          <Text style={styles.buttonText}>My Events</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.button, styles.notificationsButton]}
-          onPress={() => navigation.navigate('Notifications')}
-        >
-          <Text style={styles.buttonIcon}>🔔</Text>
-          <Text style={styles.buttonText}>Notifications</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.button, styles.createEventButton]}
-          onPress={() => canCreateEvents ? navigation.navigate('CreateEvent') : navigation.navigate('RequestHost')}
-        >
-          <Text style={styles.buttonIcon}>{canCreateEvents ? '➕' : '✨'}</Text>
-          <Text style={styles.buttonText}>
-            {canCreateEvents ? 'Create Event' : 'Become a Host'}
-          </Text>
-        </TouchableOpacity>
-
-        {isAdmin && (
-          <TouchableOpacity 
-            style={styles.adminButton} 
-            onPress={() => navigation.navigate('AdminDashboard')}
-          >
-            <View style={styles.adminButtonContent}>
-              <Text style={styles.buttonIcon}>🔧</Text>
-              <Text style={styles.adminButtonText}>Admin Dashboard</Text>
-              {pendingHostRequests > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{pendingHostRequests}</Text>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.safetyCard}>
-          <Text style={styles.safetyIcon}>🛡️</Text>
-          <Text style={styles.safetyText}>Always meet in public places and trust your instincts</Text>
+        {/* Quick Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Text style={styles.statIcon}>🎯</Text>
+            <Text style={styles.statValue}>12</Text>
+            <Text style={styles.statLabel}>Events</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statIcon}>👥</Text>
+            <Text style={styles.statValue}>45</Text>
+            <Text style={styles.statLabel}>Friends</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statIcon}>⭐</Text>
+            <Text style={styles.statValue}>8.5</Text>
+            <Text style={styles.statLabel}>Rating</Text>
+          </View>
         </View>
 
-        {/* DEBUG INFO - Remove in production */}
-        {isAdmin && (
-          <View style={styles.debugCard}>
-            <Text style={styles.debugText}>
-              🔍 Debug: isAdmin={isAdmin ? 'true' : 'false'}, 
-              pendingRequests={pendingHostRequests}
+        {/* Main Actions */}
+        <View style={styles.actionsGrid}>
+          <ActionButton
+            icon="🎯"
+            title="Explore Events"
+            gradient="primaryGradient"
+            onPress={() => navigation.navigate('EventFeed')}
+          />
+          
+          <ActionButton
+            icon="🔍"
+            title="Search"
+            gradient="cyanGradient"
+            onPress={() => navigation.navigate('SearchEvents')}
+          />
+          
+          <ActionButton
+            icon="📅"
+            title="My Events"
+            gradient="purpleGradient"
+            onPress={() => navigation.navigate('MyEvents')}
+          />
+          
+          <ActionButton
+            icon="🔔"
+            title="Notifications"
+            gradient="orangeGradient"
+            badge={5}
+            onPress={() => navigation.navigate('Notifications')}
+          />
+          
+          <ActionButton
+            icon={canCreateEvents ? "➕" : "✨"}
+            title={canCreateEvents ? "Create Event" : "Become Host"}
+            gradient="pinkGradient"
+            onPress={() => canCreateEvents ? navigation.navigate('CreateEvent') : navigation.navigate('RequestHost')}
+          />
+          
+          {isAdmin && (
+            <ActionButton
+              icon="👑"
+              title="Admin Panel"
+              gradient="goldGradient"
+              badge={pendingHostRequests}
+              onPress={() => navigation.navigate('AdminDashboard')}
+            />
+          )}
+        </View>
+
+        {/* Safety Card */}
+        <View style={styles.safetyCard}>
+          <Text style={styles.safetyIcon}>🛡️</Text>
+          <View style={styles.safetyContent}>
+            <Text style={styles.safetyTitle}>Stay Safe</Text>
+            <Text style={styles.safetyText}>
+              Always meet in public places and trust your instincts
             </Text>
           </View>
-        )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -196,142 +200,158 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#0B0F1A',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0B0F1A',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    padding: Sizes.padding * 2,
+    paddingHorizontal: 24,
     paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingBottom: 20,
   },
-  logo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.primary,
-  },
-  tagline: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    marginTop: 4,
-  },
-  profileButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileEmoji: {
-    fontSize: 28,
-  },
-  content: {
-    padding: Sizes.padding * 2,
-  },
-  welcomeCard: {
-    backgroundColor: Colors.background,
-    padding: 24,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  welcomeEmoji: {
-    fontSize: 64,
-    marginBottom: 12,
-  },
-  welcomeTitle: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.text,
+  greeting: {
+    fontSize: 14,
+    color: '#94A3B8',
     marginBottom: 4,
   },
-  welcomeEmail: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#F1F5F9',
+  },
+  profileButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#111827',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FF3EA5',
+  },
+  profileEmoji: {
+    fontSize: 24,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   adminBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF9E6',
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
     padding: 12,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFD700',
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   adminBadgeIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 20,
+    marginRight: 10,
   },
   adminBadgeText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
+    fontSize: 14,
+    color: '#FFD700',
     fontWeight: '600',
   },
-  button: {
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1A1F3A',
+  },
+  statIcon: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF3EA5',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  actionsGrid: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  actionButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding * 2,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-  },
-  buttonIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  buttonText: {
-    fontSize: Sizes.fontSize.large,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  searchButton: {
-    backgroundColor: '#00BCD4',
-  },
-  myEventsButton: {
-    backgroundColor: '#9C27B0',
-  },
-  notificationsButton: {
-    backgroundColor: '#FF9800',
-  },
-  createEventButton: {
-    backgroundColor: '#FF5252',
-  },
-  adminButton: {
-    backgroundColor: '#FFD700',
-    padding: Sizes.padding * 2,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-  },
-  adminButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#1A1F3A',
     position: 'relative',
   },
-  adminButtonText: {
-    fontSize: Sizes.fontSize.large,
-    color: Colors.text,
+  primaryGradient: {
+    backgroundColor: '#FF3EA5',
+    borderColor: '#FF3EA5',
+  },
+  cyanGradient: {
+    backgroundColor: '#00F2FE',
+    borderColor: '#00F2FE',
+  },
+  purpleGradient: {
+    backgroundColor: '#8B5CF6',
+    borderColor: '#8B5CF6',
+  },
+  orangeGradient: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
+  },
+  pinkGradient: {
+    backgroundColor: '#EC4899',
+    borderColor: '#EC4899',
+  },
+  goldGradient: {
+    backgroundColor: '#FFD700',
+    borderColor: '#FFD700',
+  },
+  buttonIcon: {
+    fontSize: 28,
+    marginRight: 16,
+  },
+  buttonTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    color: '#F1F5F9',
     flex: 1,
   },
   badge: {
-    backgroundColor: Colors.error,
+    backgroundColor: '#EF4444',
     borderRadius: 12,
     minWidth: 24,
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 8,
-    marginLeft: 8,
   },
   badgeText: {
     color: '#FFFFFF',
@@ -340,32 +360,28 @@ const styles = StyleSheet.create({
   },
   safetyCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
     padding: 16,
-    borderRadius: Sizes.borderRadius,
-    marginTop: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF9800',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   safetyIcon: {
-    fontSize: 24,
+    fontSize: 28,
     marginRight: 12,
   },
-  safetyText: {
+  safetyContent: {
     flex: 1,
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-    lineHeight: 20,
   },
-  debugCard: {
-    backgroundColor: '#E0E0E0',
-    padding: 12,
-    borderRadius: Sizes.borderRadius,
-    marginTop: 16,
+  safetyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginBottom: 4,
   },
-  debugText: {
-    fontSize: 12,
-    color: Colors.text,
-    fontFamily: 'monospace',
+  safetyText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    lineHeight: 18,
   },
 });
