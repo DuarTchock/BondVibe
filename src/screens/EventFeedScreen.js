@@ -4,257 +4,229 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { db } from '../services/firebase';
-import { MOCK_EVENTS } from '../data/mockEvents';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
-
-const CATEGORIES = ['All', 'Social', 'Sports', 'Food', 'Arts', 'Learning', 'Outdoor'];
-const PRICE_FILTERS = ['All', 'Free', 'Paid'];
+import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { db, auth } from '../services/firebase';
+import { generateMockEvents } from '../utils/mockEvents';
 
 export default function EventFeedScreen({ navigation }) {
   const [events, setEvents] = useState([]);
-  const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedPrice, setSelectedPrice] = useState('All');
+
+  const categories = ['All', 'Social', 'Sports', 'Food', 'Arts', 'Learning', 'Adventure'];
 
   useEffect(() => {
     loadEvents();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [events, searchQuery, selectedCategory, selectedPrice]);
-
   const loadEvents = async () => {
-    setLoading(true);
     try {
       const eventsQuery = query(
         collection(db, 'events'),
-        where('status', '==', 'published')
+        where('status', '==', 'published'),
+        orderBy('createdAt', 'desc'),
+        limit(10)
       );
-      const eventsSnapshot = await getDocs(eventsQuery);
-      const realEvents = [];
-      
-      eventsSnapshot.forEach((doc) => {
-        realEvents.push({ id: doc.id, ...doc.data() });
-      });
-      
-      // Combine real events with mock events
-      const allEvents = [...realEvents, ...MOCK_EVENTS];
+      const snapshot = await getDocs(eventsQuery);
+      const realEvents = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      const mockEvents = generateMockEvents();
+      const allEvents = [...realEvents, ...mockEvents];
       
       setEvents(allEvents);
-      console.log(`✅ Loaded ${allEvents.length} events (${realEvents.length} real, ${MOCK_EVENTS.length} mock)`);
     } catch (error) {
       console.error('Error loading events:', error);
-      // If error, at least show mock events
-      setEvents(MOCK_EVENTS);
+      const mockEvents = generateMockEvents();
+      setEvents(mockEvents);
     } finally {
       setLoading(false);
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...events];
+  const filteredEvents = events.filter(event => {
+    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         event.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
-    // Search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(event =>
-        event.title.toLowerCase().includes(query) ||
-        event.description.toLowerCase().includes(query)
-      );
-    }
-
-    // Category
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(event => event.category === selectedCategory);
-    }
-
-    // Price
-    if (selectedPrice === 'Free') {
-      filtered = filtered.filter(event => event.price === 0);
-    } else if (selectedPrice === 'Paid') {
-      filtered = filtered.filter(event => event.price > 0);
-    }
-
-    setFilteredEvents(filtered);
-  };
-
-  const clearFilters = () => {
-    setSearchQuery('');
-    setSelectedCategory('All');
-    setSelectedPrice('All');
-  };
-
-  const hasActiveFilters = searchQuery || selectedCategory !== 'All' || selectedPrice !== 'All';
-
-  const renderEvent = ({ item }) => (
+  const EventCard = ({ event }) => (
     <TouchableOpacity
       style={styles.eventCard}
-      onPress={() => navigation.navigate('EventDetail', { event: item })}
+      onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+      activeOpacity={0.8}
     >
-      <View style={styles.eventHeader}>
-        <View style={styles.badges}>
-          {item.hostType === 'official' && (
-            <View style={styles.officialBadge}>
-              <Text style={styles.badgeText}>OFFICIAL</Text>
-            </View>
-          )}
+      <View style={styles.eventGlass}>
+        {/* Header */}
+        <View style={styles.eventHeader}>
           <View style={styles.categoryBadge}>
-            <Text style={styles.badgeText}>{item.category}</Text>
+            <Text style={styles.categoryText}>{event.category}</Text>
+          </View>
+          {event.price === 0 ? (
+            <View style={styles.freeBadge}>
+              <Text style={styles.freeBadgeText}>FREE</Text>
+            </View>
+          ) : (
+            <Text style={styles.priceText}>${event.price}</Text>
+          )}
+        </View>
+
+        {/* Title */}
+        <Text style={styles.eventTitle} numberOfLines={2}>
+          {event.title}
+        </Text>
+
+        {/* Meta Info */}
+        <View style={styles.eventMeta}>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaIcon}>📅</Text>
+            <Text style={styles.metaText}>{event.date}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaIcon}>📍</Text>
+            <Text style={styles.metaText} numberOfLines={1}>
+              {event.location}
+            </Text>
           </View>
         </View>
-        <View style={styles.compatibilityBadge}>
-          <Text style={styles.compatibilityText}>{item.compatibilityScore}%</Text>
+
+        {/* Attendees */}
+        <View style={styles.attendeesRow}>
+          <View style={styles.attendeesAvatars}>
+            {event.attendees?.slice(0, 3).map((attendee, index) => (
+              <View
+                key={index}
+                style={[styles.avatar, { marginLeft: index > 0 ? -8 : 0 }]}
+              >
+                <Text style={styles.avatarEmoji}>{attendee.avatar || '😊'}</Text>
+              </View>
+            ))}
+            {event.attendees?.length > 3 && (
+              <View style={[styles.avatar, styles.avatarMore]}>
+                <Text style={styles.avatarMoreText}>+{event.attendees.length - 3}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.attendeesCount}>
+            {event.attendees?.length || 0}/{event.maxAttendees}
+          </Text>
         </View>
-      </View>
 
-      <Text style={styles.eventTitle}>{item.title}</Text>
-      <Text style={styles.eventDescription} numberOfLines={2}>
-        {item.description}
-      </Text>
-
-      <View style={styles.eventInfo}>
-        <Text style={styles.eventInfoText}>
-          📅 {new Date(item.date).toLocaleDateString()}
-        </Text>
-        <Text style={styles.eventInfoText}>📍 {item.location}</Text>
-        <Text style={styles.eventInfoText}>
-          👥 {item.currentAttendees}/{item.maxAttendees}
-        </Text>
-      </View>
-
-      <View style={styles.eventFooter}>
-        <Text style={styles.eventPrice}>
-          {item.price === 0 ? 'FREE' : `$${item.price} MXN`}
-        </Text>
-        <TouchableOpacity style={styles.viewButton}>
-          <Text style={styles.viewButtonText}>View Details →</Text>
-        </TouchableOpacity>
+        {/* Compatibility if available */}
+        {event.compatibilityScore && (
+          <View style={styles.compatibilityContainer}>
+            <View style={styles.compatibilityBar}>
+              <View 
+                style={[styles.compatibilityFill, { width: `${event.compatibilityScore}%` }]} 
+              />
+            </View>
+            <Text style={styles.compatibilityText}>{event.compatibilityScore}% match</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-
+      <StatusBar style="light" />
+      
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Discover Events</Text>
-        <View style={{ width: 60 }} />
+        <Text style={styles.headerTitle}>Discover</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('SearchEvents')}>
+          <Text style={styles.searchIcon}>🔍</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* SEARCH BAR */}
+      {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search events..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholderTextColor={Colors.textLight}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Text style={styles.clearIcon}>✕</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.searchBar}>
+          <Text style={styles.searchBarIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search events..."
+            placeholderTextColor="#64748B"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Text style={styles.clearIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* FILTERS */}
-      <View style={styles.filtersContainer}>
-        <View style={styles.filterSection}>
-          <Text style={styles.filterLabel}>Category</Text>
-          <View style={styles.filterChips}>
-            {CATEGORIES.map(cat => (
-              <TouchableOpacity
-                key={cat}
-                style={[
-                  styles.chip,
-                  selectedCategory === cat && styles.chipSelected
-                ]}
-                onPress={() => setSelectedCategory(cat)}
-              >
-                <Text style={[
-                  styles.chipText,
-                  selectedCategory === cat && styles.chipTextSelected
-                ]}>
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.filterSection}>
-          <Text style={styles.filterLabel}>Price</Text>
-          <View style={styles.filterChips}>
-            {PRICE_FILTERS.map(price => (
-              <TouchableOpacity
-                key={price}
-                style={[
-                  styles.chip,
-                  selectedPrice === price && styles.chipSelected
-                ]}
-                onPress={() => setSelectedPrice(price)}
-              >
-                <Text style={[
-                  styles.chipText,
-                  selectedPrice === price && styles.chipTextSelected
-                ]}>
-                  {price}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {hasActiveFilters && (
-          <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
-            <Text style={styles.clearButtonText}>Clear All Filters</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* RESULTS COUNT */}
-      <View style={styles.resultsHeader}>
-        <Text style={styles.resultsText}>
-          {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'} found
-        </Text>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={filteredEvents}
-          keyExtractor={(item) => item.id}
-          renderItem={renderEvent}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyEmoji}>🔍</Text>
-              <Text style={styles.emptyText}>No events found</Text>
-              <Text style={styles.emptySubtext}>
-                Try adjusting your search or filters
+      {/* Category Pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesScroll}
+        contentContainerStyle={styles.categoriesContent}
+      >
+        {categories.map((category) => (
+          <TouchableOpacity
+            key={category}
+            style={[
+              styles.categoryChip,
+              selectedCategory === category && styles.categoryChipActive,
+            ]}
+            onPress={() => setSelectedCategory(category)}
+            activeOpacity={0.7}
+          >
+            <View style={[
+              styles.categoryChipGlass,
+              selectedCategory === category && styles.categoryChipGlassActive,
+            ]}>
+              <Text style={[
+                styles.categoryChipText,
+                selectedCategory === category && styles.categoryChipTextActive,
+              ]}>
+                {category}
               </Text>
             </View>
-          }
-        />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Events List */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF3EA5" />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredEvents.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>🎯</Text>
+              <Text style={styles.emptyTitle}>No events found</Text>
+              <Text style={styles.emptyText}>
+                Try adjusting your filters
+              </Text>
+            </View>
+          ) : (
+            filteredEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))
+          )}
+        </ScrollView>
       )}
     </View>
   );
@@ -263,230 +235,267 @@ export default function EventFeedScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#0B0F1A',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    padding: Sizes.padding * 2,
+    paddingHorizontal: 24,
     paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingBottom: 20,
   },
   backButton: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
-    fontWeight: '600',
+    fontSize: 28,
+    color: '#F1F5F9',
   },
   headerTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    margin: Sizes.padding * 2,
-    marginBottom: Sizes.padding,
-    padding: 12,
-    borderRadius: Sizes.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    letterSpacing: -0.3,
   },
   searchIcon: {
-    fontSize: 20,
-    marginRight: 8,
+    fontSize: 22,
+  },
+  
+  // Search Bar
+  searchContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 48,
+  },
+  searchBarIcon: {
+    fontSize: 18,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
+    fontSize: 15,
+    color: '#F1F5F9',
   },
   clearIcon: {
-    fontSize: 20,
-    color: Colors.textLight,
+    fontSize: 16,
+    color: '#64748B',
     padding: 4,
   },
-  filtersContainer: {
-    backgroundColor: Colors.background,
-    paddingHorizontal: Sizes.padding * 2,
-    paddingVertical: Sizes.padding,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+  
+  // Categories
+  categoriesScroll: {
+    marginBottom: 20,
   },
-  filterSection: {
-    marginBottom: 12,
-  },
-  filterLabel: {
-    fontSize: Sizes.fontSize.small,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  filterChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  categoriesContent: {
+    paddingHorizontal: 24,
     gap: 8,
   },
-  chip: {
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
+  categoryChip: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 8,
+  },
+  categoryChipGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.5)',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
-  chipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+  categoryChipActive: {},
+  categoryChipGlassActive: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderColor: 'rgba(255, 62, 165, 0.4)',
   },
-  chipText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-  },
-  chipTextSelected: {
-    color: '#FFFFFF',
+  categoryChipText: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#94A3B8',
+    letterSpacing: -0.1,
   },
-  clearButton: {
-    backgroundColor: Colors.error,
-    padding: 10,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-    marginTop: 8,
+  categoryChipTextActive: {
+    color: '#FF3EA5',
   },
-  clearButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.small,
-    fontWeight: '600',
-  },
-  resultsHeader: {
-    backgroundColor: '#F8F9FA',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  resultsText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
+  
+  // Events List
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContent: {
-    padding: Sizes.padding * 2,
+  scrollView: {
+    flex: 1,
   },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  
+  // Event Card
   eventCard: {
-    backgroundColor: Colors.background,
-    borderRadius: Sizes.borderRadius,
-    padding: Sizes.padding * 2,
     marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  eventGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 18,
   },
   eventHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  badges: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  officialBadge: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 14,
   },
   categoryBadge: {
-    backgroundColor: Colors.primary + '20',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255, 62, 165, 0.15)',
     paddingVertical: 4,
+    paddingHorizontal: 12,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.3)',
   },
-  badgeText: {
+  categoryText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FF3EA5',
+    letterSpacing: 0.3,
+  },
+  freeBadge: {
+    backgroundColor: 'rgba(166, 255, 150, 0.15)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(166, 255, 150, 0.3)',
+  },
+  freeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#A6FF96',
+    letterSpacing: 0.5,
+  },
+  priceText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#00F2FE',
+    letterSpacing: -0.5,
+  },
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 12,
+    lineHeight: 24,
+    letterSpacing: -0.3,
+  },
+  eventMeta: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaIcon: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  metaText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    flex: 1,
+  },
+  
+  // Attendees
+  attendeesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  attendeesAvatars: {
+    flexDirection: 'row',
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+    borderWidth: 2,
+    borderColor: '#0B0F1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarEmoji: {
+    fontSize: 14,
+  },
+  avatarMore: {
+    backgroundColor: 'rgba(255, 62, 165, 0.3)',
+  },
+  avatarMoreText: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#F1F5F9',
   },
-  compatibilityBadge: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  attendeesCount: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  
+  // Compatibility
+  compatibilityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  compatibilityBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  compatibilityFill: {
+    height: '100%',
+    backgroundColor: '#A6FF96',
+    borderRadius: 3,
   },
   compatibilityText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: Colors.success,
-  },
-  eventTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  eventDescription: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  eventInfo: {
-    gap: 4,
-    marginBottom: 12,
-  },
-  eventInfoText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-  },
-  eventFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  eventPrice: {
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: 'bold',
-    color: Colors.primary,
-  },
-  viewButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: Sizes.borderRadius,
-  },
-  viewButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.small,
     fontWeight: '600',
+    color: '#A6FF96',
   },
-  emptyContainer: {
+  
+  // Empty State
+  emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
+    marginTop: 80,
   },
   emptyEmoji: {
-    fontSize: 60,
+    fontSize: 64,
     marginBottom: 16,
   },
-  emptyText: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '600',
-    color: Colors.text,
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
     marginBottom: 8,
+    letterSpacing: -0.3,
   },
-  emptySubtext: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+  emptyText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
   },
 });
