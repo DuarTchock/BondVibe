@@ -24,20 +24,23 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   const loadUserData = async () => {
+    console.log('📱 Loading user data...');
     try {
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
         setProfile(data);
         setUserRole(data.role || 'user');
+        console.log('👤 User role:', data.role);
         
         // If admin, load pending requests count
         if (data.role === 'admin') {
+          console.log('🔧 User is admin, loading pending requests...');
           await loadPendingRequests();
         }
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('❌ Error loading user data:', error);
     } finally {
       setLoading(false);
     }
@@ -45,20 +48,32 @@ export default function HomeScreen({ navigation }) {
 
   const loadPendingRequests = async () => {
     try {
+      console.log('🔍 Querying hostRequests collection...');
       const hostRequestsQuery = query(
         collection(db, 'hostRequests'),
         where('status', '==', 'pending')
       );
       const snapshot = await getDocs(hostRequestsQuery);
-      setPendingHostRequests(snapshot.size);
-      console.log(`📊 Found ${snapshot.size} pending host requests`);
+      const count = snapshot.size;
+      setPendingHostRequests(count);
+      console.log(`📊 Found ${count} pending host requests`);
+      
+      // Log individual requests for debugging
+      snapshot.forEach(doc => {
+        console.log('📄 Request:', doc.id, doc.data());
+      });
     } catch (error) {
-      console.error('Error loading pending requests:', error);
+      console.error('❌ Error loading pending requests:', error);
+      console.error('Error details:', error.message);
+      // Set to 0 on error to avoid showing undefined
+      setPendingHostRequests(0);
     }
   };
 
   const canCreateEvents = userRole === 'admin' || userRole === 'verified_host';
   const isAdmin = userRole === 'admin';
+
+  console.log('🎨 Rendering HomeScreen - isAdmin:', isAdmin, 'pendingRequests:', pendingHostRequests);
 
   if (loading) {
     return (
@@ -128,7 +143,7 @@ export default function HomeScreen({ navigation }) {
           style={[styles.button, styles.notificationsButton]}
           onPress={() => navigation.navigate('Notifications')}
         >
-          <Text style={styles.buttonIcon}>��</Text>
+          <Text style={styles.buttonIcon}>🔔</Text>
           <Text style={styles.buttonText}>Notifications</Text>
         </TouchableOpacity>
 
@@ -163,6 +178,16 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.safetyIcon}>🛡️</Text>
           <Text style={styles.safetyText}>Always meet in public places and trust your instincts</Text>
         </View>
+
+        {/* DEBUG INFO - Remove in production */}
+        {isAdmin && (
+          <View style={styles.debugCard}>
+            <Text style={styles.debugText}>
+              🔍 Debug: isAdmin={isAdmin ? 'true' : 'false'}, 
+              pendingRequests={pendingHostRequests}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -296,10 +321,9 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.large,
     color: Colors.text,
     fontWeight: '600',
+    flex: 1,
   },
   badge: {
-    position: 'absolute',
-    right: 0,
     backgroundColor: Colors.error,
     borderRadius: 12,
     minWidth: 24,
@@ -307,6 +331,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 8,
+    marginLeft: 8,
   },
   badgeText: {
     color: '#FFFFFF',
@@ -331,5 +356,16 @@ const styles = StyleSheet.create({
     fontSize: Sizes.fontSize.small,
     color: Colors.text,
     lineHeight: 20,
+  },
+  debugCard: {
+    backgroundColor: '#E0E0E0',
+    padding: 12,
+    borderRadius: Sizes.borderRadius,
+    marginTop: 16,
+  },
+  debugText: {
+    fontSize: 12,
+    color: Colors.text,
+    fontFamily: 'monospace',
   },
 });
