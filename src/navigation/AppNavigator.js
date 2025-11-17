@@ -24,34 +24,43 @@ import ReportScreen from '../screens/ReportScreen';
 
 const Stack = createNativeStackNavigator();
 
-export default function AppNavigator() {
+export default function AppNavigator({ initialUser }) {
+  console.log('🗺️ AppNavigator rendering, initialUser:', initialUser ? initialUser.uid : 'null');
+  
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Login"
+        initialRouteName={initialUser ? "Home" : "Login"}
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: '#0B0F1A' },
         }}
       >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Legal" component={LegalScreen} />
-        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-        <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="EventFeed" component={EventFeedScreen} />
-        <Stack.Screen name="SearchEvents" component={SearchEventsScreen} />
-        <Stack.Screen name="EventDetail" component={EventDetailScreen} />
-        <Stack.Screen name="EditEvent" component={EditEventScreen} />
-        <Stack.Screen name="MyEvents" component={MyEventsScreen} />
-        <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
-        <Stack.Screen name="EventChat" component={EventChatScreen} />
-        <Stack.Screen name="RequestHost" component={RequestHostScreen} />
-        <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-        <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen} />
-        <Stack.Screen name="Report" component={ReportScreen} />
+        {!initialUser ? (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Legal" component={LegalScreen} />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="EventFeed" component={EventFeedScreen} />
+            <Stack.Screen name="SearchEvents" component={SearchEventsScreen} />
+            <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+            <Stack.Screen name="EditEvent" component={EditEventScreen} />
+            <Stack.Screen name="MyEvents" component={MyEventsScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
+            <Stack.Screen name="EventChat" component={EventChatScreen} />
+            <Stack.Screen name="RequestHost" component={RequestHostScreen} />
+            <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen} />
+            <Stack.Screen name="Report" component={ReportScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

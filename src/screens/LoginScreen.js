@@ -22,9 +22,6 @@ export default function LoginScreen() {
 
   const handleAuth = async () => {
     console.log('🔑 handleAuth called');
-    console.log('📧 Email:', email);
-    console.log('🔐 Password:', password ? '***' : 'empty');
-    console.log('📝 Is SignUp:', isSignUp);
 
     if (!email || !password) {
       Alert.alert('Error', 'Please enter email and password');
@@ -97,14 +94,11 @@ export default function LoginScreen() {
 
           {/* Form */}
           <View style={styles.formContainer}>
-            {/* Toggle */}
+            {/* Toggle - COMPACTO */}
             <View style={styles.toggleContainer}>
               <TouchableOpacity
                 style={[styles.toggleButton, !isSignUp && styles.toggleButtonActive]}
-                onPress={() => {
-                  console.log('✏️ Switching to Sign In');
-                  setIsSignUp(false);
-                }}
+                onPress={() => setIsSignUp(false)}
               >
                 <Text style={[styles.toggleText, !isSignUp && styles.toggleTextActive]}>
                   Sign In
@@ -112,10 +106,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.toggleButton, isSignUp && styles.toggleButtonActive]}
-                onPress={() => {
-                  console.log('✏️ Switching to Sign Up');
-                  setIsSignUp(true);
-                }}
+                onPress={() => setIsSignUp(true)}
               >
                 <Text style={[styles.toggleText, isSignUp && styles.toggleTextActive]}>
                   Sign Up
@@ -131,10 +122,7 @@ export default function LoginScreen() {
                 placeholder="Email"
                 placeholderTextColor="#64748B"
                 value={email}
-                onChangeText={(text) => {
-                  console.log('📧 Email changed:', text);
-                  setEmail(text);
-                }}
+                onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 editable={!loading}
@@ -149,27 +137,21 @@ export default function LoginScreen() {
                 placeholder="Password"
                 placeholderTextColor="#64748B"
                 value={password}
-                onChangeText={(text) => {
-                  console.log('🔒 Password changed');
-                  setPassword(text);
-                }}
+                onChangeText={setPassword}
                 secureTextEntry
                 editable={!loading}
               />
             </View>
 
-            {/* Submit Button */}
+            {/* Submit Button - COMPACTO */}
             <TouchableOpacity
               style={[styles.submitButton, loading && styles.buttonDisabled]}
-              onPress={() => {
-                console.log('🚀 Submit button pressed!');
-                handleAuth();
-              }}
+              onPress={handleAuth}
               disabled={loading}
               activeOpacity={0.7}
             >
               <Text style={styles.submitButtonText}>
-                {loading ? '⏳ Loading...' : isSignUp ? '✨ Create Account' : '🔓 Sign In'}
+                {loading ? 'Loading...' : isSignUp ? 'Create Account' : '�� Sign In'}
               </Text>
             </TouchableOpacity>
 
@@ -184,7 +166,7 @@ export default function LoginScreen() {
           {/* Footer */}
           <View style={styles.footer}>
             <View style={styles.featureItem}>
-              <Text style={styles.featureIcon}>🔒</Text>
+              <Text style={styles.featureIcon}>��</Text>
               <Text style={styles.featureText}>Secure</Text>
             </View>
             <View style={styles.featureItem}>
@@ -213,47 +195,54 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 100,
+    paddingTop: 80,
+    justifyContent: 'center',
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '100%',
   },
   logoSection: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   logoEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 56,
+    marginBottom: 12,
   },
   logoText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#F1F5F9',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   tagline: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#94A3B8',
   },
   formContainer: {
-    gap: 16,
+    gap: 14,
   },
+  // TOGGLE MÁS COMPACTO
   toggleContainer: {
     flexDirection: 'row',
     backgroundColor: '#111827',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 12,
+    alignSelf: 'center',
+    width: 240,
   },
   toggleButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 7,
   },
   toggleButtonActive: {
     backgroundColor: '#FF3EA5',
   },
   toggleText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#94A3B8',
   },
@@ -264,59 +253,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#111827',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#1A1F3A',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   inputIcon: {
-    fontSize: 20,
-    marginRight: 12,
+    fontSize: 18,
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: '#F1F5F9',
-    paddingVertical: 16,
+    paddingVertical: 14,
   },
+  // BOTÓN MÁS COMPACTO
   submitButton: {
     backgroundColor: '#FF3EA5',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 10,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   submitButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   forgotPassword: {
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   forgotPasswordText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#00F2FE',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 32,
-    marginTop: 48,
+    gap: 28,
+    marginTop: 40,
   },
   featureItem: {
     alignItems: 'center',
   },
   featureIcon: {
-    fontSize: 24,
+    fontSize: 22,
     marginBottom: 4,
   },
   featureText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
   },
 });

@@ -10,19 +10,40 @@ export default function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const subscriber = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists() && userDoc.data().profileComplete) {
-          setUser(user);
-        } else {
-          setUser(null);
+    console.log('🔄 Setting up auth listener...');
+    
+    const subscriber = onAuthStateChanged(auth, async (authUser) => {
+      console.log('🔐 Auth state changed:', authUser ? authUser.uid : 'null');
+      
+      if (authUser) {
+        console.log('👤 User logged in:', authUser.uid);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', authUser.uid));
+          console.log('📄 User doc exists:', userDoc.exists());
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log('✅ User data:', userData);
+            setUser(authUser);
+          } else {
+            console.log('⚠️ User doc not found, staying on login');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching user doc:', error);
+          setUser(authUser); // Login anyway even if doc fails
         }
       } else {
+        console.log('�� No user, showing login');
         setUser(null);
       }
-      if (initializing) setInitializing(false);
+      
+      if (initializing) {
+        console.log('✅ Initialization complete');
+        setInitializing(false);
+      }
     });
+    
     return subscriber;
   }, []);
 
@@ -34,7 +55,8 @@ export default function App() {
     );
   }
 
-  return <AppNavigator />;
+  console.log('🎨 Rendering AppNavigator, user:', user ? user.uid : 'null');
+  return <AppNavigator initialUser={user} />;
 }
 
 const styles = StyleSheet.create({
