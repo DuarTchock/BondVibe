@@ -1,107 +1,112 @@
-// BondVibe Design System 2025
+// BondVibe Design System 2025-2026
+// Ultra-modern palette with Magenta + Cyan
+
 export const Colors = {
   // Dark Mode (Primary)
   dark: {
-    background: '#0A0E27',
-    surface: '#131829',
+    // Backgrounds
+    background: '#0B0F1A',        // Deep Cosmos
+    surface: '#111827',           // Midnight Glass
     surfaceElevated: '#1A1F3A',
-    surfaceGlass: 'rgba(26, 31, 58, 0.7)',
+    surfaceGlass: 'rgba(17, 24, 39, 0.6)',
     
-    text: '#FFFFFF',
-    textSecondary: '#A0AEC0',
-    textTertiary: '#718096',
+    // Text
+    text: '#F1F5F9',              // Soft Cloud
+    textSecondary: '#94A3B8',     // Slate Mist
+    textTertiary: '#64748B',
     
-    primary: '#6366F1', // Indigo
-    primaryLight: '#818CF8',
-    primaryDark: '#4F46E5',
-    primaryGradient: 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
+    // Accents - NEW VIBRANT PALETTE
+    primary: '#FF3EA5',           // Electric Magenta ⚡
+    primaryLight: '#FF6BC0',
+    primaryDark: '#E6007A',
     
-    secondary: '#EC4899', // Pink
-    secondaryLight: '#F472B6',
+    secondary: '#00F2FE',         // Cyan Glow 🌊
+    secondaryLight: '#4FFCFF',
+    secondaryDark: '#00D4E0',
     
-    accent: '#06B6D4', // Cyan
-    accentGradient: 'linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)',
+    accent: '#A6FF96',            // Lime Pop ✨
     
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
+    // Gradients
+    gradientPrimary: ['#FF3EA5', '#00F2FE'],  // Cosmic Sunset
+    gradientHero: ['#FF3EA5', '#8B5CF6', '#00F2FE'],
     
+    // Status
+    success: '#A6FF96',
+    successBg: '#1A3C34',         // Emerald Night
+    warning: '#FFA726',
+    error: '#FF6B6B',             // Coral Alert
+    
+    // UI Elements
     border: 'rgba(255, 255, 255, 0.1)',
     borderLight: 'rgba(255, 255, 255, 0.05)',
     
-    glow: 'rgba(99, 102, 241, 0.3)',
+    // Effects
+    glow: 'rgba(255, 62, 165, 0.4)',
+    glowCyan: 'rgba(0, 242, 254, 0.4)',
     shadow: 'rgba(0, 0, 0, 0.5)',
   },
   
   // Light Mode
   light: {
-    background: '#F8FAFC',
-    surface: '#FFFFFF',
+    background: '#FAFAFC',        // Porcelain
+    surface: '#FFFFFF',           // Pure White
     surfaceElevated: '#FFFFFF',
     surfaceGlass: 'rgba(255, 255, 255, 0.7)',
     
-    text: '#1E293B',
+    text: '#1E293B',              // Slate Night
     textSecondary: '#64748B',
     textTertiary: '#94A3B8',
     
-    primary: '#6366F1',
-    primaryLight: '#818CF8',
-    primaryDark: '#4F46E5',
-    primaryGradient: 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
+    primary: '#FF2E95',           // Hot Magenta
+    primaryLight: '#FF5CAA',
+    primaryDark: '#E6007A',
     
-    secondary: '#EC4899',
-    secondaryLight: '#F472B6',
+    secondary: '#00E5FF',         // Sky Cyan
+    secondaryLight: '#4FFCFF',
     
-    accent: '#06B6D4',
-    accentGradient: 'linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)',
+    accent: '#8FDB70',
+    
+    gradientPrimary: ['#FF2E95', '#00E5FF'],  // Miami Vice 2025
     
     success: '#10B981',
+    successBg: '#D1FAE5',
     warning: '#F59E0B',
     error: '#EF4444',
     
     border: 'rgba(0, 0, 0, 0.1)',
     borderLight: 'rgba(0, 0, 0, 0.05)',
     
-    glow: 'rgba(99, 102, 241, 0.2)',
+    glow: 'rgba(255, 46, 149, 0.3)',
+    glowCyan: 'rgba(0, 229, 255, 0.3)',
     shadow: 'rgba(0, 0, 0, 0.1)',
   }
 };
 
+// Simple shadow presets (sin shadowColor para compatibilidad web)
 export const Shadows = {
   sm: {
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   md: {
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
   lg: {
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 8,
   },
   xl: {
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.2,
     shadowRadius: 24,
     elevation: 12,
-  },
-  glow: {
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
   },
 };
 

@@ -3,8 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './src/services/firebase';
-import ModernNavigation from './src/navigation/ModernNavigation';
-import { Colors } from './src/constants/DesignSystem';
+import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
   const [initializing, setInitializing] = useState(true);
@@ -13,7 +12,6 @@ export default function App() {
   useEffect(() => {
     const subscriber = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Check if user has completed profile setup
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists() && userDoc.data().profileComplete) {
           setUser(user);
@@ -31,12 +29,12 @@ export default function App() {
   if (initializing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <ActivityIndicator size="large" color="#FF3EA5" />
       </View>
     );
   }
 
-  return <ModernNavigation />;
+  return <AppNavigator />;
 }
 
 const styles = StyleSheet.create({
@@ -44,6 +42,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.dark.background,
+    backgroundColor: '#0B0F1A',
   },
 });
