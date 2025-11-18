@@ -4,278 +4,161 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { collection, query, where, getDocs, doc, updateDoc, arrayRemove, increment, getDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db, auth } from '../services/firebase';
 
 export default function MyEventsScreen({ navigation }) {
-  const [activeTab, setActiveTab] = useState('joined'); // 'joined' or 'hosting'
-  const [joinedEvents, setJoinedEvents] = useState([]);
-  const [hostingEvents, setHostingEvents] = useState([]);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState('user');
-  const [leavingEventId, setLeavingEventId] = useState(null);
+  const [activeTab, setActiveTab] = useState('joined'); // joined, hosting
 
   useEffect(() => {
     loadMyEvents();
-  }, []);
+  }, [activeTab]);
 
   const loadMyEvents = async () => {
     setLoading(true);
     try {
-      const userId = auth.currentUser.uid;
-
-      // Get user role
-      const userDocRef = doc(db, 'users', userId);
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        setUserRole(userData.role || 'user');
+      if (activeTab === 'hosting') {
+        const hostingQuery = query(
+          collection(db, 'events'),
+          where('creatorId', '==', auth.currentUser.uid)
+        );
+        const snapshot = await getDocs(hostingQuery);
+        setEvents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } else {
+        // For now, empty array for joined events
+        setEvents([]);
       }
-
-      // Load events where user is an attendee
-      const allEventsSnapshot = await getDocs(collection(db, 'events'));
-      const joined = [];
-      const hosting = [];
-
-      allEventsSnapshot.forEach((doc) => {
-        const eventData = { id: doc.id, ...doc.data() };
-        
-        // Check if user is attendee
-        if (eventData.attendees && eventData.attendees.some(a => a.userId === userId)) {
-          joined.push(eventData);
-        }
-
-        // Check if user is host
-        if (eventData.hostId === userId) {
-          hosting.push(eventData);
-        }
-      });
-
-      setJoinedEvents(joined);
-      setHostingEvents(hosting);
-
-      console.log(`✅ Loaded ${joined.length} joined events, ${hosting.length} hosting events`);
     } catch (error) {
-      console.error('Error loading my events:', error);
+      console.error('Error loading events:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLeaveEvent = async (eventId) => {
-    setLeavingEventId(eventId);
-    try {
-      const userId = auth.currentUser.uid;
-      const eventRef = doc(db, 'events', eventId);
-      
-      // Get event data to find the attendee object
-      const eventSnap = await getDoc(eventRef);
-      const eventData = eventSnap.data();
-      
-      // Find the attendee object for this user
-      const attendeeToRemove = eventData.attendees.find(a => a.userId === userId);
-      
-      if (attendeeToRemove) {
-        // Remove user from attendees and decrement count
-        await updateDoc(eventRef, {
-          currentAttendees: increment(-1),
-          attendees: arrayRemove(attendeeToRemove),
-          updatedAt: new Date().toISOString(),
-        });
-
-        console.log('✅ Successfully left event');
-        
-        // Reload events
-        await loadMyEvents();
-      }
-    } catch (error) {
-      console.error('Leave event error:', error);
-    } finally {
-      setLeavingEventId(null);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const renderEvent = ({ item }) => (
+  const EventCard = ({ event }) => (
     <TouchableOpacity
       style={styles.eventCard}
-      onPress={() => navigation.navigate('EventDetail', { event: item })}
+      onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+      activeOpacity={0.8}
     >
-      <View style={styles.eventHeader}>
-        <View style={styles.eventBadges}>
-          {item.hostType === 'official' && (
-            <View style={styles.officialBadge}>
-              <Text style={styles.officialBadgeText}>OFFICIAL</Text>
+      <View style={styles.eventGlass}>
+        <View style={styles.eventHeader}>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryText}>{event.category}</Text>
+          </View>
+          <Text style={styles.eventDate}>{event.date}</Text>
+        </View>
+        
+        <Text style={styles.eventTitle} numberOfLines={2}>
+          {event.title}
+        </Text>
+        
+        <View style={styles.eventMeta}>
+          <Text style={styles.metaIcon}>📍</Text>
+          <Text style={styles.metaText} numberOfLines={1}>
+            {event.location}
+          </Text>
+        </View>
+
+        <View style={styles.attendeesRow}>
+          <Text style={styles.attendeesText}>
+            {event.attendees?.length || 0}/{event.maxAttendees} people
+          </Text>
+          {event.status === 'published' && (
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>Active</Text>
             </View>
           )}
-          <View style={[
-            styles.statusBadge,
-            item.status === 'published' ? styles.publishedBadge : styles.pendingBadge
-          ]}>
-            <Text style={styles.statusBadgeText}>
-              {item.status.toUpperCase()}
-            </Text>
-          </View>
         </View>
-        <Text style={styles.eventCategory}>{item.category}</Text>
       </View>
-
-      <Text style={styles.eventTitle}>{item.title}</Text>
-      
-      <View style={styles.eventInfo}>
-        <Text style={styles.eventIcon}>📅</Text>
-        <Text style={styles.eventInfoText}>{formatDate(item.date)}</Text>
-      </View>
-
-      <View style={styles.eventInfo}>
-        <Text style={styles.eventIcon}>📍</Text>
-        <Text style={styles.eventInfoText}>{item.location}</Text>
-      </View>
-
-      <View style={styles.eventInfo}>
-        <Text style={styles.eventIcon}>👥</Text>
-        <Text style={styles.eventInfoText}>
-          {item.currentAttendees}/{item.maxAttendees} people
-        </Text>
-      </View>
-
-      {activeTab === 'joined' && (
-        <TouchableOpacity
-          style={[
-            styles.leaveButton,
-            leavingEventId === item.id && styles.buttonDisabled
-          ]}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleLeaveEvent(item.id);
-          }}
-          disabled={leavingEventId === item.id}
-        >
-          {leavingEventId === item.id ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.leaveButtonText}>Leave Event</Text>
-          )}
-        </TouchableOpacity>
-      )}
-
-      {activeTab === 'hosting' && (
-        <View style={styles.hostActions}>
-          <TouchableOpacity
-            style={styles.manageButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              navigation.navigate('EventDetail', { event: item });
-            }}
-          >
-            <Text style={styles.manageButtonText}>View Details</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Loading your events...</Text>
-      </View>
-    );
-  }
-
-  const canHost = userRole === 'admin' || userRole === 'verified_host';
-
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-
+      <StatusBar style="light" />
+      
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>My Events</Text>
-        <Text style={styles.subtitle}>
-          {activeTab === 'joined' 
-            ? `${joinedEvents.length} events joined` 
-            : `${hostingEvents.length} events hosting`}
-        </Text>
+        <Text style={styles.headerTitle}>My Events</Text>
+        <View style={{ width: 28 }} />
       </View>
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'joined' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'joined' && styles.tabActive]}
           onPress={() => setActiveTab('joined')}
         >
-          <Text style={[styles.tabText, activeTab === 'joined' && styles.activeTabText]}>
-            Joined ({joinedEvents.length})
-          </Text>
-        </TouchableOpacity>
-
-        {canHost && (
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'hosting' && styles.activeTab]}
-            onPress={() => setActiveTab('hosting')}
-          >
-            <Text style={[styles.tabText, activeTab === 'hosting' && styles.activeTabText]}>
-              Hosting ({hostingEvents.length})
+          <View style={[styles.tabGlass, activeTab === 'joined' && styles.tabGlassActive]}>
+            <Text style={[styles.tabText, activeTab === 'joined' && styles.tabTextActive]}>
+              Joined
             </Text>
-          </TouchableOpacity>
-        )}
+          </View>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'hosting' && styles.tabActive]}
+          onPress={() => setActiveTab('hosting')}
+        >
+          <View style={[styles.tabGlass, activeTab === 'hosting' && styles.tabGlassActive]}>
+            <Text style={[styles.tabText, activeTab === 'hosting' && styles.tabTextActive]}>
+              Hosting
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
-      {/* Events List */}
-      <FlatList
-        data={activeTab === 'joined' ? joinedEvents : hostingEvents}
-        keyExtractor={(item) => item.id}
-        renderItem={renderEvent}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>
-              {activeTab === 'joined' ? '🎯' : '🎪'}
-            </Text>
-            <Text style={styles.emptyText}>
-              {activeTab === 'joined' 
-                ? 'No events joined yet' 
-                : 'No events hosting yet'}
-            </Text>
-            <Text style={styles.emptySubtext}>
-              {activeTab === 'joined'
-                ? 'Explore events and join your first one!'
-                : 'Create your first event to get started!'}
-            </Text>
-            <TouchableOpacity
-              style={styles.exploreButton}
-              onPress={() => navigation.navigate(
-                activeTab === 'joined' ? 'EventFeed' : 'CreateEvent'
-              )}
-            >
-              <Text style={styles.exploreButtonText}>
+      {/* Content */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF3EA5" />
+        </View>
+      ) : events.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>
+            {activeTab === 'joined' ? '🎯' : '🎪'}
+          </Text>
+          <Text style={styles.emptyTitle}>
+            {activeTab === 'joined' ? 'No events joined yet' : 'No events created yet'}
+          </Text>
+          <Text style={styles.emptyText}>
+            {activeTab === 'joined' 
+              ? 'Explore events and join your first experience'
+              : 'Create an event to bring people together'
+            }
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => navigation.navigate(activeTab === 'joined' ? 'EventFeed' : 'CreateEvent')}
+          >
+            <View style={styles.emptyButtonGlass}>
+              <Text style={styles.emptyButtonText}>
                 {activeTab === 'joined' ? 'Explore Events' : 'Create Event'}
               </Text>
-            </TouchableOpacity>
-          </View>
-        }
-      />
+            </View>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {events.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -283,75 +166,79 @@ export default function MyEventsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#0B0F1A',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  backButton: {
+    fontSize: 28,
+    color: '#F1F5F9',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    letterSpacing: -0.3,
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    marginBottom: 20,
+    gap: 12,
+  },
+  tab: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  tabGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  tabActive: {},
+  tabGlassActive: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  tabTextActive: {
+    color: '#FF3EA5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-  },
-  header: {
-    backgroundColor: Colors.background,
-    padding: Sizes.padding * 2,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backButton: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: Colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tab: {
+  scrollView: {
     flex: 1,
-    padding: Sizes.padding,
-    alignItems: 'center',
   },
-  activeTab: {
-    borderBottomWidth: 3,
-    borderBottomColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-  },
-  activeTabText: {
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  listContent: {
-    padding: Sizes.padding * 2,
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   eventCard: {
-    backgroundColor: Colors.background,
-    borderRadius: Sizes.borderRadius,
-    padding: Sizes.padding * 2,
     marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  eventGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
   },
   eventHeader: {
     flexDirection: 'row',
@@ -359,121 +246,106 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  eventBadges: {
-    flexDirection: 'row',
-  },
-  officialBadge: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 8,
+  categoryBadge: {
+    backgroundColor: 'rgba(255, 62, 165, 0.15)',
     paddingVertical: 4,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.3)',
   },
-  officialBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  publishedBadge: {
-    backgroundColor: '#E8F5E9',
-  },
-  pendingBadge: {
-    backgroundColor: '#FFF9E6',
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  eventCategory: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.primary,
+  categoryText: {
+    fontSize: 11,
     fontWeight: '600',
+    color: '#FF3EA5',
+  },
+  eventDate: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
   eventTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 10,
+    letterSpacing: -0.3,
+  },
+  eventMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  eventInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  metaIcon: {
+    fontSize: 14,
+    marginRight: 6,
   },
-  eventIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  eventInfoText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-  },
-  leaveButton: {
-    backgroundColor: Colors.error,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  leaveButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  hostActions: {
-    flexDirection: 'row',
-    marginTop: 12,
-  },
-  manageButton: {
+  metaText: {
+    fontSize: 13,
+    color: '#94A3B8',
     flex: 1,
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
+  },
+  attendeesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  manageButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
+  attendeesText: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#94A3B8',
   },
-  emptyContainer: {
-    alignItems: 'center',
+  statusBadge: {
+    backgroundColor: 'rgba(166, 255, 150, 0.15)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(166, 255, 150, 0.3)',
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#A6FF96',
+  },
+  emptyState: {
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: 60,
+    alignItems: 'center',
+    paddingHorizontal: 40,
   },
   emptyEmoji: {
-    fontSize: 60,
-    marginBottom: 16,
+    fontSize: 64,
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 10,
+    letterSpacing: -0.3,
   },
   emptyText: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    marginBottom: 24,
+    fontSize: 14,
+    color: '#94A3B8',
     textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 28,
   },
-  exploreButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: Sizes.borderRadius,
+  emptyButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
   },
-  exploreButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
+  emptyButtonGlass: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+  },
+  emptyButtonText: {
+    fontSize: 15,
     fontWeight: '600',
+    color: '#FF3EA5',
   },
 });

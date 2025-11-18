@@ -9,467 +9,395 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { auth, db } from '../services/firebase';
-import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
-import { categories } from '../utils/mockEvents';
+import { collection, addDoc } from 'firebase/firestore';
+import { db, auth } from '../services/firebase';
+
+const CATEGORIES = ['Social', 'Sports', 'Food', 'Arts', 'Learning', 'Adventure'];
 
 export default function CreateEventScreen({ navigation }) {
-  const [userRole, setUserRole] = useState('user');
-  const [loading, setLoading] = useState(false);
-  
-  // Form state
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Social');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [duration, setDuration] = useState('');
-  const [location, setLocation] = useState('');
-  const [price, setPrice] = useState('');
-  const [maxAttendees, setMaxAttendees] = useState('');
-  const [whatsIncluded, setWhatsIncluded] = useState('');
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    category: 'Social',
+    date: '',
+    time: '',
+    location: '',
+    maxAttendees: '',
+    price: '',
+  });
+  const [creating, setCreating] = useState(false);
 
-  React.useEffect(() => {
-    checkUserRole();
-  }, []);
+  const handleCreate = async () => {
+    if (!form.title.trim() || !form.description.trim() || !form.location.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
 
-  const checkUserRole = async () => {
+    setCreating(true);
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setUserRole(userDoc.data().role || 'user');
-      }
-    } catch (error) {
-      console.error('Error checking role:', error);
-    }
-  };
-
-  const handleCreateEvent = async () => {
-    // Validations
-    if (!title.trim()) {
-      Alert.alert('Error', 'Please enter an event title');
-      return;
-    }
-    if (!description.trim()) {
-      Alert.alert('Error', 'Please enter a description');
-      return;
-    }
-    if (!date || !time) {
-      Alert.alert('Error', 'Please select date and time');
-      return;
-    }
-    if (!location.trim()) {
-      Alert.alert('Error', 'Please enter a location');
-      return;
-    }
-    if (!maxAttendees || parseInt(maxAttendees) < 2) {
-      Alert.alert('Error', 'Minimum 2 attendees required');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const userData = userDoc.data();
-
-      // Determine status based on role
-      let status = 'pending';
-      let hostType = 'community';
-      
-      if (userRole === 'admin') {
-        status = 'published';
-        hostType = 'official';
-      } else if (userRole === 'verified_host') {
-        status = 'published'; // or 'pending' if you want manual approval
-        hostType = 'community';
-      }
-
-      const eventData = {
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        date: `${date}T${time}:00`,
-        duration: duration || '2 hours',
-        location: location.trim(),
-        price: price ? parseInt(price) : 0,
-        maxAttendees: parseInt(maxAttendees),
-        currentAttendees: 0,
-        hostId: auth.currentUser.uid,
-        hostName: userData.fullName,
-        hostAvatar: userData.avatar,
-        hostType,
-        status,
-        whatsIncluded: whatsIncluded.split(',').map(item => item.trim()).filter(item => item),
-        language: ['Spanish'],
+      await addDoc(collection(db, 'events'), {
+        ...form,
+        maxAttendees: parseInt(form.maxAttendees) || 10,
+        price: parseFloat(form.price) || 0,
+        creatorId: auth.currentUser.uid,
+        status: 'published',
         attendees: [],
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      if (status === 'published') {
-        eventData.publishedAt = new Date().toISOString();
-      }
-
-      await addDoc(collection(db, 'events'), eventData);
-
-      Alert.alert(
-        'Success!',
-        status === 'published' 
-          ? 'Event created and published!' 
-          : 'Event submitted for review. You\'ll be notified when approved.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      });
+      Alert.alert('Success', 'Event created!', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
     } catch (error) {
-      console.error('Create event error:', error);
-      Alert.alert('Error', 'Failed to create event. Please try again.');
+      console.error('Error creating event:', error);
+      Alert.alert('Error', 'Failed to create event');
     } finally {
-      setLoading(false);
+      setCreating(false);
     }
   };
 
-  const handleRequestHostAccess = () => {
-    Alert.alert(
-      'Become a Host',
-      'To create events, you need to become a verified host. Would you like to request access?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Request Access',
-          onPress: () => navigation.navigate('RequestHost'),
-        },
-      ]
-    );
-  };
-
-  // If user is not verified, show request screen
-  if (userRole === 'user') {
-    return (
-      <View style={styles.container}>
-        <StatusBar style="dark" />
-        <View style={styles.restrictedContainer}>
-          <Text style={styles.restrictedEmoji}>🎯</Text>
-          <Text style={styles.restrictedTitle}>Become a Host</Text>
-          <Text style={styles.restrictedText}>
-            Want to organize events and bring people together?
-          </Text>
-          <Text style={styles.restrictedSubtext}>
-            Verified hosts can create and manage events on BondVibe.
-          </Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={handleRequestHostAccess}
-          >
-            <Text style={styles.buttonText}>Request Host Access</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <ScrollView style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={styles.container}>
+      <StatusBar style="light" />
       
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backLink}>← Back</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Create Event</Text>
-        {userRole === 'admin' && (
-          <View style={styles.adminBadge}>
-            <Text style={styles.adminBadgeText}>OFFICIAL</Text>
-          </View>
-        )}
-        {userRole === 'verified_host' && (
-          <View style={styles.hostBadge}>
-            <Text style={styles.hostBadgeText}>VERIFIED HOST</Text>
-          </View>
-        )}
+        <Text style={styles.headerTitle}>Create Event</Text>
+        <View style={{ width: 28 }} />
       </View>
 
-      <View style={styles.form}>
-        <Text style={styles.label}>Event Title *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Wine Tasting & Cheese Pairing"
-          value={title}
-          onChangeText={setTitle}
-        />
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Title */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Event Title *</Text>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              value={form.title}
+              onChangeText={(text) => setForm({ ...form, title: text })}
+              placeholder="Coffee & Chat"
+              placeholderTextColor="#64748B"
+              maxLength={80}
+            />
+          </View>
+        </View>
 
-        <Text style={styles.label}>Description *</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Describe your event..."
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={4}
-        />
+        {/* Description */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Description *</Text>
+          <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={form.description}
+              onChangeText={(text) => setForm({ ...form, description: text })}
+              placeholder="Tell people what to expect..."
+              placeholderTextColor="#64748B"
+              multiline
+              maxLength={500}
+            />
+          </View>
+          <Text style={styles.charCount}>{form.description.length}/500</Text>
+        </View>
 
-        <Text style={styles.label}>Category *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-          {categories.filter(cat => cat !== 'All').map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[styles.categoryChip, category === cat && styles.categoryChipActive]}
-              onPress={() => setCategory(cat)}
-            >
-              <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Category */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Category</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryScroll}
+          >
+            {CATEGORIES.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.categoryChip,
+                  form.category === cat && styles.categoryChipActive
+                ]}
+                onPress={() => setForm({ ...form, category: cat })}
+              >
+                <View style={[
+                  styles.categoryChipGlass,
+                  form.category === cat && styles.categoryChipGlassActive
+                ]}>
+                  <Text style={[
+                    styles.categoryChipText,
+                    form.category === cat && styles.categoryChipTextActive
+                  ]}>
+                    {cat}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
+        {/* Date & Time */}
+        <View style={styles.rowSection}>
+          <View style={[styles.section, { flex: 1 }]}>
             <Text style={styles.label}>Date *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="2025-11-20"
-              value={date}
-              onChangeText={setDate}
-            />
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                value={form.date}
+                onChangeText={(text) => setForm({ ...form, date: text })}
+                placeholder="Dec 25"
+                placeholderTextColor="#64748B"
+              />
+            </View>
           </View>
-          <View style={styles.halfInput}>
+
+          <View style={[styles.section, { flex: 1, marginLeft: 12 }]}>
             <Text style={styles.label}>Time *</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                value={form.time}
+                onChangeText={(text) => setForm({ ...form, time: text })}
+                placeholder="7:00 PM"
+                placeholderTextColor="#64748B"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Location */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Location *</Text>
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputIcon}>📍</Text>
             <TextInput
-              style={styles.input}
-              placeholder="19:00"
-              value={time}
-              onChangeText={setTime}
+              style={[styles.input, styles.inputWithIcon]}
+              value={form.location}
+              onChangeText={(text) => setForm({ ...form, location: text })}
+              placeholder="Starbucks Downtown"
+              placeholderTextColor="#64748B"
             />
           </View>
         </View>
 
-        <Text style={styles.label}>Duration</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="2 hours"
-          value={duration}
-          onChangeText={setDuration}
-        />
-
-        <Text style={styles.label}>Location *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Centro Histórico, Guadalajara"
-          value={location}
-          onChangeText={setLocation}
-        />
-
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
-            <Text style={styles.label}>Price (MXN)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0 for free"
-              value={price}
-              onChangeText={setPrice}
-              keyboardType="number-pad"
-            />
+        {/* Max Attendees & Price */}
+        <View style={styles.rowSection}>
+          <View style={[styles.section, { flex: 1 }]}>
+            <Text style={styles.label}>Max People</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                value={form.maxAttendees}
+                onChangeText={(text) => setForm({ ...form, maxAttendees: text.replace(/[^0-9]/g, '') })}
+                placeholder="10"
+                placeholderTextColor="#64748B"
+                keyboardType="numeric"
+              />
+            </View>
           </View>
-          <View style={styles.halfInput}>
-            <Text style={styles.label}>Max Attendees *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="8"
-              value={maxAttendees}
-              onChangeText={setMaxAttendees}
-              keyboardType="number-pad"
-            />
+
+          <View style={[styles.section, { flex: 1, marginLeft: 12 }]}>
+            <Text style={styles.label}>Price ($)</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                value={form.price}
+                onChangeText={(text) => setForm({ ...form, price: text.replace(/[^0-9.]/g, '') })}
+                placeholder="0"
+                placeholderTextColor="#64748B"
+                keyboardType="decimal-pad"
+              />
+            </View>
           </View>
         </View>
 
-        <Text style={styles.label}>What's Included (comma separated)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Wine, Cheese, Sommelier"
-          value={whatsIncluded}
-          onChangeText={setWhatsIncluded}
-        />
-
+        {/* Create Button */}
         <TouchableOpacity
-          style={[styles.createButton, loading && styles.buttonDisabled]}
-          onPress={handleCreateEvent}
-          disabled={loading}
+          style={styles.createButton}
+          onPress={handleCreate}
+          disabled={creating}
         >
-          <Text style={styles.createButtonText}>
-            {loading ? 'Creating...' : 'Create Event'}
-          </Text>
+          <View style={styles.createGlass}>
+            <Text style={styles.createButtonText}>
+              {creating ? 'Creating...' : '✨ Create Event'}
+            </Text>
+          </View>
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+        {/* Info Card */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoGlass}>
+            <Text style={styles.infoIcon}>💡</Text>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>Tips for great events</Text>
+              <Text style={styles.infoText}>
+                • Be specific about the vibe{'\n'}
+                • Choose public, accessible locations{'\n'}
+                • Set clear expectations
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-  },
-  restrictedContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Sizes.padding * 2,
-  },
-  restrictedEmoji: {
-    fontSize: 80,
-    marginBottom: 24,
-  },
-  restrictedTitle: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  restrictedText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  restrictedSubtext: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    textAlign: 'center',
-    marginBottom: 32,
+    backgroundColor: '#0B0F1A',
   },
   header: {
-    padding: Sizes.padding * 2,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backLink: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: 8,
-  },
-  adminBadge: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  adminBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  hostBadge: {
-    backgroundColor: Colors.success,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  hostBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  form: {
-    padding: Sizes.padding * 2,
-  },
-  label: {
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#F8F9FA',
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-    fontSize: Sizes.fontSize.medium,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  categoryScroll: {
-    marginBottom: 16,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    marginRight: 8,
-  },
-  categoryChipActive: {
-    backgroundColor: Colors.primary,
-  },
-  categoryText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-  },
-  categoryTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  halfInput: {
-    flex: 1,
-    marginRight: 8,
-  },
-  createButton: {
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
     alignItems: 'center',
-    marginTop: 16,
-  },
-  button: {
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    width: 250,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  createButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '700',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
   },
   backButton: {
-    padding: 8,
+    fontSize: 28,
+    color: '#F1F5F9',
   },
-  backButtonText: {
-    color: Colors.primary,
-    fontSize: Sizes.fontSize.medium,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    letterSpacing: -0.3,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  rowSection: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    marginBottom: 10,
+    letterSpacing: -0.1,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#F1F5F9',
+  },
+  inputWithIcon: {
+    paddingLeft: 0,
+  },
+  inputIcon: {
+    fontSize: 18,
+    marginLeft: 16,
+    marginRight: 8,
+  },
+  textAreaWrapper: {},
+  textArea: {
+    minHeight: 120,
+    textAlignVertical: 'top',
+    paddingTop: 14,
+  },
+  charCount: {
+    fontSize: 11,
+    color: '#64748B',
+    textAlign: 'right',
+    marginTop: 6,
+  },
+  categoryScroll: {
+    gap: 8,
+  },
+  categoryChip: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  categoryChipGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+  },
+  categoryChipActive: {},
+  categoryChipGlassActive: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  categoryChipTextActive: {
+    color: '#FF3EA5',
+  },
+  createButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  createGlass: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  createButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FF3EA5',
+    letterSpacing: -0.2,
+  },
+  infoCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  infoGlass: {
+    backgroundColor: 'rgba(0, 242, 254, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 242, 254, 0.2)',
+    padding: 16,
+    flexDirection: 'row',
+  },
+  infoIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00F2FE',
+    marginBottom: 8,
+    letterSpacing: -0.1,
+  },
+  infoText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    lineHeight: 18,
   },
 });

@@ -6,21 +6,17 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  ActivityIndicator,
-  Alert,
   Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { signOut } from 'firebase/auth';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
 
 const EMOJI_AVATARS = [
-  '😊', '🎉', '🌟', '🎨', '🎭', '🎪', '🎬', '🎮',
-  '🎯', '🎲', '🎸', '🎹', '🎺', '🎻', '🎤', '🎧',
-  '🌈', '🌸', '🌺', '🌻', '🌼', '🌷', '🍕', '🍔',
+  '😊', '🎉', '🌟', '🎨', '🎭', '🎪', '��', '🎮',
+  '🎯', '🎲', '🎸', '🎹', '🎺', '🎻', '��', '🎧',
+  '🌈', '🌸', '🌺', '🌻', '🌼', '🌷', '��', '🍔',
   '🍰', '🎂', '🍦', '🍩', '☕', '🍵', '🌮', '🌯',
   '🦄', '🐶', '🐱', '🐼', '🦊', '🦁', '🐯', '🐨',
   '🚀', '✨', '🔥', '💫', '⭐', '🌙', '☀️', '🌊',
@@ -28,11 +24,10 @@ const EMOJI_AVATARS = [
 
 export default function ProfileScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [saving, setSaving] = useState(false);
   
   const [editForm, setEditForm] = useState({
     fullName: '',
@@ -47,7 +42,6 @@ export default function ProfileScreen({ navigation }) {
   }, []);
 
   const loadProfile = async () => {
-    setLoading(true);
     try {
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       if (userDoc.exists()) {
@@ -63,17 +57,10 @@ export default function ProfileScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!editForm.fullName.trim()) {
-      Alert.alert('Error', 'Name is required');
-      return;
-    }
-
     setSaving(true);
     try {
       await updateDoc(doc(db, 'users', auth.currentUser.uid), {
@@ -84,49 +71,37 @@ export default function ProfileScreen({ navigation }) {
         location: editForm.location.trim(),
         updatedAt: new Date().toISOString(),
       });
-
       await loadProfile();
       setEditing(false);
-      Alert.alert('Success', 'Profile updated successfully');
-      console.log('✅ Profile updated');
     } catch (error) {
       console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleLogout = () => {
-    console.log('🚪 Logout button clicked');
-    setShowLogoutModal(true);
-  };
-
   const performLogout = async () => {
-    console.log('🚀 Performing logout...');
     setShowLogoutModal(false);
     try {
       await signOut(auth);
-      console.log('✅ Logged out successfully');
     } catch (error) {
-      console.error('❌ Logout error:', error);
-      Alert.alert('Error', 'Failed to logout');
+      console.error('Logout error:', error);
     }
   };
 
-  if (loading) {
+  if (!profile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       
-      {/* LOGOUT CONFIRMATION MODAL */}
+      {/* Logout Modal */}
       <Modal
         visible={showLogoutModal}
         transparent={true}
@@ -135,121 +110,170 @@ export default function ProfileScreen({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Logout</Text>
-            <Text style={styles.modalText}>
-              Are you sure you want to logout?
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => {
-                  console.log('❌ Logout cancelled');
-                  setShowLogoutModal(false);
-                }}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalLogoutButton}
-                onPress={performLogout}
-              >
-                <Text style={styles.modalLogoutText}>Logout</Text>
-              </TouchableOpacity>
+            <View style={styles.modalGlass}>
+              <Text style={styles.modalEmoji}>👋</Text>
+              <Text style={styles.modalTitle}>Logout</Text>
+              <Text style={styles.modalText}>
+                Are you sure you want to logout?
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowLogoutModal(false)}
+                >
+                  <View style={styles.modalCancelGlass}>
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalLogoutButton}
+                  onPress={performLogout}
+                >
+                  <View style={styles.modalLogoutGlass}>
+                    <Text style={styles.modalLogoutText}>Logout</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
       </Modal>
-      
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-        {!editing && (
-          <TouchableOpacity onPress={() => setEditing(true)}>
-            <Text style={styles.editButton}>Edit</Text>
-          </TouchableOpacity>
-        )}
-        {editing && <View style={{ width: 50 }} />}
-      </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {editing ? (
-          // EDIT MODE
-          <>
-            <TouchableOpacity
-              style={styles.avatarPickerButton}
-              onPress={() => setShowAvatarPicker(!showAvatarPicker)}
-            >
-              <Text style={styles.avatarLarge}>{editForm.avatar}</Text>
-              <Text style={styles.changeAvatarText}>Tap to change avatar</Text>
-            </TouchableOpacity>
-
-            {showAvatarPicker && (
-              <View style={styles.emojiGrid}>
+      {/* Avatar Picker Modal */}
+      <Modal
+        visible={showAvatarPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAvatarPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.avatarPickerModal}>
+            <View style={styles.avatarPickerGlass}>
+              <Text style={styles.avatarPickerTitle}>Choose Avatar</Text>
+              <ScrollView contentContainerStyle={styles.avatarGrid}>
                 {EMOJI_AVATARS.map((emoji) => (
                   <TouchableOpacity
                     key={emoji}
                     style={[
-                      styles.emojiOption,
-                      editForm.avatar === emoji && styles.selectedEmoji
+                      styles.avatarOption,
+                      editForm.avatar === emoji && styles.avatarOptionSelected
                     ]}
                     onPress={() => {
                       setEditForm({ ...editForm, avatar: emoji });
                       setShowAvatarPicker(false);
                     }}
                   >
-                    <Text style={styles.emojiOptionText}>{emoji}</Text>
+                    <Text style={styles.avatarOptionEmoji}>{emoji}</Text>
                   </TouchableOpacity>
                 ))}
+              </ScrollView>
+              <TouchableOpacity
+                style={styles.avatarPickerClose}
+                onPress={() => setShowAvatarPicker(false)}
+              >
+                <View style={styles.avatarPickerCloseGlass}>
+                  <Text style={styles.avatarPickerCloseText}>Close</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backButton}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
+        {!editing ? (
+          <TouchableOpacity onPress={() => setEditing(true)}>
+            <Text style={styles.editButton}>Edit</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 50 }} />
+        )}
+      </View>
+
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {editing ? (
+          /* EDIT MODE */
+          <>
+            <TouchableOpacity
+              style={styles.avatarEditContainer}
+              onPress={() => setShowAvatarPicker(true)}
+            >
+              <View style={styles.avatarEditGlass}>
+                <Text style={styles.avatarEditEmoji}>{editForm.avatar}</Text>
               </View>
-            )}
+              <Text style={styles.avatarEditText}>Tap to change</Text>
+            </TouchableOpacity>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Full Name *</Text>
-              <TextInput
-                style={styles.input}
-                value={editForm.fullName}
-                onChangeText={(text) => setEditForm({ ...editForm, fullName: text })}
-                placeholder="Your name"
-                maxLength={50}
-              />
-            </View>
+            <View style={styles.formSection}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Full Name</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    value={editForm.fullName}
+                    onChangeText={(text) => setEditForm({ ...editForm, fullName: text })}
+                    placeholder="Your name"
+                    placeholderTextColor="#64748B"
+                    maxLength={50}
+                  />
+                </View>
+              </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Bio</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={editForm.bio}
-                onChangeText={(text) => setEditForm({ ...editForm, bio: text })}
-                placeholder="Tell us about yourself..."
-                multiline
-                maxLength={200}
-              />
-              <Text style={styles.charCount}>{editForm.bio.length}/200</Text>
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Bio</Text>
+                <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={editForm.bio}
+                    onChangeText={(text) => setEditForm({ ...editForm, bio: text })}
+                    placeholder="Tell us about yourself..."
+                    placeholderTextColor="#64748B"
+                    multiline
+                    maxLength={200}
+                  />
+                </View>
+                <Text style={styles.charCount}>{editForm.bio.length}/200</Text>
+              </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Age</Text>
-              <TextInput
-                style={styles.input}
-                value={editForm.age}
-                onChangeText={(text) => setEditForm({ ...editForm, age: text.replace(/[^0-9]/g, '') })}
-                placeholder="Your age"
-                keyboardType="numeric"
-                maxLength={2}
-              />
-            </View>
+              <View style={styles.inputRow}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>Age</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      value={editForm.age}
+                      onChangeText={(text) => setEditForm({ ...editForm, age: text.replace(/[^0-9]/g, '') })}
+                      placeholder="25"
+                      placeholderTextColor="#64748B"
+                      keyboardType="numeric"
+                      maxLength={2}
+                    />
+                  </View>
+                </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Location</Text>
-              <TextInput
-                style={styles.input}
-                value={editForm.location}
-                onChangeText={(text) => setEditForm({ ...editForm, location: text })}
-                placeholder="City, Country"
-                maxLength={50}
-              />
+                <View style={[styles.inputGroup, { flex: 2, marginLeft: 12 }]}>
+                  <Text style={styles.inputLabel}>Location</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      value={editForm.location}
+                      onChangeText={(text) => setEditForm({ ...editForm, location: text })}
+                      placeholder="City, Country"
+                      placeholderTextColor="#64748B"
+                      maxLength={50}
+                    />
+                  </View>
+                </View>
+              </View>
             </View>
 
             <View style={styles.formActions}>
@@ -257,78 +281,111 @@ export default function ProfileScreen({ navigation }) {
                 style={styles.cancelButton}
                 onPress={() => {
                   setEditing(false);
-                  setShowAvatarPicker(false);
                   loadProfile();
                 }}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <View style={styles.cancelGlass}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.saveButton, saving && styles.buttonDisabled]}
+                style={styles.saveButton}
                 onPress={handleSave}
                 disabled={saving}
               >
-                {saving ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
-                )}
+                <View style={styles.saveGlass}>
+                  <Text style={styles.saveButtonText}>
+                    {saving ? 'Saving...' : 'Save'}
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           </>
         ) : (
-          // VIEW MODE
+          /* VIEW MODE */
           <>
-            <Text style={styles.avatarLarge}>{profile?.avatar || '😊'}</Text>
-            
-            <Text style={styles.name}>{profile?.fullName}</Text>
-            <Text style={styles.email}>{auth.currentUser?.email}</Text>
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarViewGlass}>
+                <Text style={styles.avatarViewEmoji}>{profile.avatar || '😊'}</Text>
+              </View>
+              <Text style={styles.profileName}>{profile.fullName}</Text>
+              <Text style={styles.profileEmail}>{auth.currentUser?.email}</Text>
+              
+              {profile.role === 'admin' && (
+                <View style={styles.roleBadge}>
+                  <View style={styles.roleBadgeGlass}>
+                    <Text style={styles.roleBadgeText}>👑 Admin</Text>
+                  </View>
+                </View>
+              )}
+              {profile.role === 'verified_host' && (
+                <View style={styles.roleBadge}>
+                  <View style={styles.roleBadgeGlass}>
+                    <Text style={styles.roleBadgeText}>✓ Verified Host</Text>
+                  </View>
+                </View>
+              )}
+            </View>
 
-            {profile?.bio && (
+            {profile.bio && (
               <View style={styles.bioCard}>
-                <Text style={styles.bioText}>{profile.bio}</Text>
+                <View style={styles.bioGlass}>
+                  <Text style={styles.bioText}>{profile.bio}</Text>
+                </View>
               </View>
             )}
 
             <View style={styles.infoSection}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Age:</Text>
-                <Text style={styles.infoValue}>{profile?.age || 'Not set'}</Text>
+              <View style={styles.infoCard}>
+                <View style={styles.infoGlass}>
+                  <Text style={styles.infoIcon}>🎂</Text>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Age</Text>
+                    <Text style={styles.infoValue}>{profile.age || 'Not set'}</Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Location:</Text>
-                <Text style={styles.infoValue}>{profile?.location || 'Not set'}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Role:</Text>
-                <Text style={styles.infoValue}>
-                  {profile?.role === 'admin' ? '🏆 Admin' :
-                   profile?.role === 'verified_host' ? '✓ Verified Host' :
-                   '👤 Member'}
-                </Text>
+
+              <View style={styles.infoCard}>
+                <View style={styles.infoGlass}>
+                  <Text style={styles.infoIcon}>📍</Text>
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Location</Text>
+                    <Text style={styles.infoValue}>{profile.location || 'Not set'}</Text>
+                  </View>
+                </View>
               </View>
             </View>
 
-            {profile?.personality && Object.keys(profile.personality).length > 0 && (
+            {profile.personality && Object.keys(profile.personality).length > 0 && (
               <View style={styles.personalitySection}>
-                <Text style={styles.sectionTitle}>Personality Profile</Text>
-                {Object.entries(profile.personality).map(([trait, score]) => (
-                  <View key={trait} style={styles.traitRow}>
-                    <Text style={styles.traitName}>
-                      {trait.charAt(0).toUpperCase() + trait.slice(1)}
-                    </Text>
-                    <View style={styles.traitBar}>
-                      <View style={[styles.traitFill, { width: `${score}%` }]} />
+                <View style={styles.personalityGlass}>
+                  <Text style={styles.sectionTitle}>Personality</Text>
+                  {Object.entries(profile.personality).map(([trait, score]) => (
+                    <View key={trait} style={styles.traitRow}>
+                      <Text style={styles.traitName}>
+                        {trait.charAt(0).toUpperCase() + trait.slice(1)}
+                      </Text>
+                      <View style={styles.traitBarContainer}>
+                        <View style={styles.traitBar}>
+                          <View style={[styles.traitFill, { width: `${score}%` }]} />
+                        </View>
+                        <Text style={styles.traitScore}>{score}%</Text>
+                      </View>
                     </View>
-                    <Text style={styles.traitScore}>{score}%</Text>
-                  </View>
-                ))}
+                  ))}
+                </View>
               </View>
             )}
 
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutButtonText}>Logout</Text>
+            <TouchableOpacity 
+              style={styles.logoutButton}
+              onPress={() => setShowLogoutModal(true)}
+            >
+              <View style={styles.logoutGlass}>
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              </View>
             </TouchableOpacity>
           </>
         )}
@@ -340,294 +397,458 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#0B0F1A',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0B0F1A',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: Colors.background,
-    borderRadius: Sizes.borderRadius,
-    padding: 24,
-    width: '90%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  modalCancelButton: {
-    flex: 1,
-    backgroundColor: Colors.border,
-    padding: 12,
-    borderRadius: Sizes.borderRadius,
-    marginRight: 8,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    color: Colors.text,
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-  },
-  modalLogoutButton: {
-    flex: 1,
-    backgroundColor: Colors.error,
-    padding: 12,
-    borderRadius: Sizes.borderRadius,
-    marginLeft: 8,
-    alignItems: 'center',
-  },
-  modalLogoutText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
+  loadingText: {
+    fontSize: 15,
+    color: '#94A3B8',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    padding: Sizes.padding * 2,
+    paddingHorizontal: 24,
     paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingBottom: 20,
   },
   backButton: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
-    fontWeight: '600',
+    fontSize: 28,
+    color: '#F1F5F9',
   },
   headerTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    letterSpacing: -0.3,
   },
   editButton: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
+    fontSize: 15,
     fontWeight: '600',
+    color: '#FF3EA5',
   },
-  content: {
-    padding: Sizes.padding * 2,
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  
+  // View Mode
+  profileHeader: {
     alignItems: 'center',
+    marginBottom: 24,
   },
-  avatarLarge: {
-    fontSize: 100,
+  avatarViewGlass: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  name: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 8,
+  avatarViewEmoji: {
+    fontSize: 50,
   },
-  email: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-    marginBottom: 24,
+  profileName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 6,
+    letterSpacing: -0.5,
+  },
+  profileEmail: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginBottom: 12,
+  },
+  roleBadge: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  roleBadgeGlass: {
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  roleBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFD700',
+    letterSpacing: 0.3,
   },
   bioCard: {
-    backgroundColor: Colors.background,
-    padding: 16,
-    borderRadius: Sizes.borderRadius,
-    width: '100%',
-    marginBottom: 24,
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  bioGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 18,
   },
   bioText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
+    fontSize: 14,
+    color: '#F1F5F9',
     lineHeight: 22,
     textAlign: 'center',
   },
   infoSection: {
-    backgroundColor: Colors.background,
+    gap: 12,
+    marginBottom: 20,
+  },
+  infoCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  infoGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: 16,
-    borderRadius: Sizes.borderRadius,
-    width: '100%',
-    marginBottom: 24,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  infoLabel: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-    fontWeight: '600',
-  },
-  infoValue: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-  },
-  personalitySection: {
-    backgroundColor: Colors.background,
-    padding: 16,
-    borderRadius: Sizes.borderRadius,
-    width: '100%',
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  traitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+  },
+  infoIcon: {
+    fontSize: 28,
+    marginRight: 14,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    letterSpacing: -0.2,
+  },
+  personalitySection: {
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  personalityGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 18,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 16,
+    letterSpacing: -0.2,
+  },
+  traitRow: {
+    marginBottom: 14,
   },
   traitName: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-    width: 100,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    marginBottom: 8,
+    letterSpacing: -0.1,
+  },
+  traitBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   traitBar: {
     flex: 1,
     height: 8,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 4,
-    marginHorizontal: 12,
     overflow: 'hidden',
   },
   traitFill: {
     height: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: '#FF3EA5',
+    borderRadius: 4,
   },
   traitScore: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF3EA5',
     width: 40,
     textAlign: 'right',
   },
-  avatarPickerButton: {
+  logoutButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  logoutGlass: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    paddingVertical: 16,
     alignItems: 'center',
-    marginBottom: 24,
   },
-  changeAvatarText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.primary,
-    marginTop: 8,
-  },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    backgroundColor: Colors.background,
-    padding: 16,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 24,
-  },
-  emojiOption: {
-    padding: 8,
-    margin: 4,
-    borderRadius: 8,
-  },
-  selectedEmoji: {
-    backgroundColor: Colors.primary + '20',
-  },
-  emojiOptionText: {
-    fontSize: 32,
-  },
-  formGroup: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: Sizes.fontSize.medium,
+  logoutButtonText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 8,
+    color: '#EF4444',
+    letterSpacing: -0.1,
+  },
+  
+  // Edit Mode
+  avatarEditContainer: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  avatarEditGlass: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  avatarEditEmoji: {
+    fontSize: 50,
+  },
+  avatarEditText: {
+    fontSize: 13,
+    color: '#FF3EA5',
+    fontWeight: '600',
+  },
+  formSection: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  inputGroup: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    letterSpacing: -0.1,
+  },
+  inputWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   input: {
-    backgroundColor: Colors.background,
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Sizes.borderRadius,
-    padding: 12,
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#F1F5F9',
   },
+  textAreaWrapper: {},
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
   },
   charCount: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+    fontSize: 11,
+    color: '#64748B',
     textAlign: 'right',
-    marginTop: 4,
+  },
+  inputRow: {
+    flexDirection: 'row',
   },
   formActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 24,
+    gap: 12,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: Colors.border,
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cancelGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 14,
     alignItems: 'center',
-    marginRight: 8,
   },
   cancelButtonText: {
-    color: Colors.text,
-    fontSize: Sizes.fontSize.medium,
+    fontSize: 15,
     fontWeight: '600',
+    color: '#F1F5F9',
   },
   saveButton: {
     flex: 1,
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-    marginLeft: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
-  buttonDisabled: {
-    opacity: 0.5,
+  saveGlass: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+    paddingVertical: 14,
+    alignItems: 'center',
   },
   saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
+    fontSize: 15,
     fontWeight: '600',
+    color: '#FF3EA5',
   },
-  logoutButton: {
-    backgroundColor: Colors.error,
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
-    width: '100%',
+  
+  // Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    padding: 24,
   },
-  logoutButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  modalGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 28,
+    alignItems: 'center',
+  },
+  modalEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 8,
+    letterSpacing: -0.3,
+  },
+  modalText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  modalCancelGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 15,
     fontWeight: '600',
+    color: '#F1F5F9',
+  },
+  modalLogoutButton: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  modalLogoutGlass: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalLogoutText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  
+  // Avatar Picker
+  avatarPickerModal: {
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  avatarPickerGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 24,
+  },
+  avatarPickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    textAlign: 'center',
+    marginBottom: 20,
+    letterSpacing: -0.3,
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  avatarOption: {
+    width: 56,
+    height: 56,
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarOptionSelected: {
+    borderColor: 'rgba(255, 62, 165, 0.6)',
+    backgroundColor: 'rgba(255, 62, 165, 0.15)',
+  },
+  avatarOptionEmoji: {
+    fontSize: 28,
+  },
+  avatarPickerClose: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  avatarPickerCloseGlass: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  avatarPickerCloseText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FF3EA5',
   },
 });
