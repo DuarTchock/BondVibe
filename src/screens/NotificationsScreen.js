@@ -4,49 +4,64 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, getDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { db, auth } from '../services/firebase';
 
 export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     loadNotifications();
   }, []);
 
   const loadNotifications = async () => {
-    setLoading(true);
     try {
-      const userId = auth.currentUser.uid;
+      // Mock notifications for now
+      const mockNotifications = [
+        {
+          id: '1',
+          type: 'event_joined',
+          title: 'New attendee!',
+          message: 'Sarah joined your "Coffee & Chat" event',
+          time: '2 hours ago',
+          read: false,
+          icon: '👋',
+        },
+        {
+          id: '2',
+          type: 'event_reminder',
+          title: 'Event Tomorrow',
+          message: 'Don\'t forget: "Hiking Adventure" starts at 9:00 AM',
+          time: '5 hours ago',
+          read: false,
+          icon: '⏰',
+        },
+        {
+          id: '3',
+          type: 'new_match',
+          title: 'High compatibility!',
+          message: 'Check out "Book Club" - 95% personality match',
+          time: '1 day ago',
+          read: true,
+          icon: '✨',
+        },
+        {
+          id: '4',
+          type: 'event_message',
+          title: 'New message',
+          message: 'Mike posted in "Weekend BBQ" group chat',
+          time: '2 days ago',
+          read: true,
+          icon: '��',
+        },
+      ];
       
-      const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const notificationsSnapshot = await getDocs(notificationsQuery);
-      const notifs = [];
-      let unread = 0;
-      
-      notificationsSnapshot.forEach((doc) => {
-        const data = { id: doc.id, ...doc.data() };
-        notifs.push(data);
-        if (!data.read) unread++;
-      });
-      
-      setNotifications(notifs);
-      setUnreadCount(unread);
-      
-      console.log(`✅ Loaded ${notifs.length} notifications (${unread} unread)`);
+      setNotifications(mockNotifications);
     } catch (error) {
       console.error('Error loading notifications:', error);
     } finally {
@@ -54,154 +69,72 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
-  const markAsRead = async (notificationId) => {
-    try {
-      await updateDoc(doc(db, 'notifications', notificationId), {
-        read: true,
-        readAt: new Date().toISOString(),
-      });
-      
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Error marking as read:', error);
-    }
-  };
-
-  const handleNotificationPress = async (notification) => {
-    if (!notification.read) {
-      await markAsRead(notification.id);
-    }
-
-    // Navigate based on notification type
-    if (notification.type === 'new_message' && notification.relatedEventId) {
-      try {
-        // Fetch event details
-        const eventDoc = await getDoc(doc(db, 'events', notification.relatedEventId));
-        if (eventDoc.exists()) {
-          const eventData = eventDoc.data();
-          navigation.navigate('EventChat', {
-            eventId: notification.relatedEventId,
-            eventTitle: eventData.title,
-          });
-        }
-      } catch (error) {
-        console.error('Error navigating to chat:', error);
-      }
-    } else if (notification.relatedEventId) {
-      try {
-        // For other notifications, go to event detail
-        const eventDoc = await getDoc(doc(db, 'events', notification.relatedEventId));
-        if (eventDoc.exists()) {
-          navigation.navigate('EventDetail', {
-            event: { id: eventDoc.id, ...eventDoc.data() }
-          });
-        }
-      } catch (error) {
-        console.error('Error navigating to event:', error);
-      }
-    }
-  };
-
-  const getNotificationIcon = (type) => {
-    const icons = {
-      host_approved: '✅',
-      host_rejected: '❌',
-      event_reminder: '⏰',
-      user_joined_your_event: '👥',
-      new_message: '💬',
-      event_cancelled: '🚫',
-      event_updated: '✏️',
-    };
-    return icons[type] || '🔔';
-  };
-
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
-
-  const renderNotification = ({ item }) => (
+  const NotificationCard = ({ notification }) => (
     <TouchableOpacity
-      style={[
-        styles.notificationCard,
-        !item.read && styles.unreadNotification
-      ]}
-      onPress={() => handleNotificationPress(item)}
+      style={styles.notificationCard}
+      onPress={() => {}}
+      activeOpacity={0.8}
     >
-      <View style={styles.notificationIcon}>
-        <Text style={styles.iconText}>{getNotificationIcon(item.type)}</Text>
+      <View style={[
+        styles.notificationGlass,
+        !notification.read && styles.notificationUnread
+      ]}>
+        <View style={styles.notificationIcon}>
+          <Text style={styles.iconEmoji}>{notification.icon}</Text>
+        </View>
+        
+        <View style={styles.notificationContent}>
+          <View style={styles.notificationHeader}>
+            <Text style={styles.notificationTitle}>{notification.title}</Text>
+            {!notification.read && <View style={styles.unreadDot} />}
+          </View>
+          <Text style={styles.notificationMessage} numberOfLines={2}>
+            {notification.message}
+          </Text>
+          <Text style={styles.notificationTime}>{notification.time}</Text>
+        </View>
       </View>
-      
-      <View style={styles.notificationContent}>
-        <Text style={[
-          styles.notificationTitle,
-          !item.read && styles.unreadText
-        ]}>
-          {item.title}
-        </Text>
-        <Text style={styles.notificationBody}>{item.body}</Text>
-        <Text style={styles.notificationTime}>
-          {formatTime(item.createdAt)}
-        </Text>
-      </View>
-
-      {!item.read && <View style={styles.unreadDot} />}
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Loading notifications...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-
+      <StatusBar style="light" />
+      
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Notifications</Text>
-        {unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadBadgeText}>{unreadCount} new</Text>
-          </View>
-        )}
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <TouchableOpacity>
+          <Text style={styles.markAllRead}>Mark all read</Text>
+        </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
-        renderItem={renderNotification}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>🔔</Text>
-            <Text style={styles.emptyText}>No notifications yet</Text>
-            <Text style={styles.emptySubtext}>
-              We'll notify you about event updates and messages
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF3EA5" />
+        </View>
+      ) : notifications.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🔔</Text>
+          <Text style={styles.emptyTitle}>No notifications</Text>
+          <Text style={styles.emptyText}>
+            You're all caught up!
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {notifications.map((notification) => (
+            <NotificationCard key={notification.id} notification={notification} />
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -209,129 +142,123 @@ export default function NotificationsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#0B0F1A',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  backButton: {
+    fontSize: 28,
+    color: '#F1F5F9',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    letterSpacing: -0.3,
+  },
+  markAllRead: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF3EA5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
+  scrollView: {
+    flex: 1,
   },
-  header: {
-    backgroundColor: Colors.background,
-    padding: Sizes.padding * 2,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  backButton: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  unreadBadge: {
-    position: 'absolute',
-    top: 60,
-    right: 24,
-    backgroundColor: Colors.error,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  unreadBadgeText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.small,
-    fontWeight: 'bold',
-  },
-  listContent: {
-    padding: Sizes.padding * 2,
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   notificationCard: {
-    backgroundColor: Colors.background,
-    borderRadius: Sizes.borderRadius,
-    padding: Sizes.padding * 1.5,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  unreadNotification: {
-    backgroundColor: '#F0F0FF',
-    borderColor: Colors.primary,
+  notificationGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    flexDirection: 'row',
+  },
+  notificationUnread: {
+    borderColor: 'rgba(255, 62, 165, 0.3)',
+    backgroundColor: 'rgba(255, 62, 165, 0.05)',
   },
   notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 62, 165, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
-  iconText: {
-    fontSize: 20,
+  iconEmoji: {
+    fontSize: 22,
   },
   notificationContent: {
     flex: 1,
   },
-  notificationTitle: {
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  unreadText: {
-    fontWeight: 'bold',
-  },
-  notificationBody: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-    lineHeight: 18,
+  notificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 6,
   },
-  notificationTime: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+  notificationTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    flex: 1,
+    letterSpacing: -0.2,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#FF3EA5',
     marginLeft: 8,
-    marginTop: 6,
   },
-  emptyContainer: {
-    alignItems: 'center',
+  notificationMessage: {
+    fontSize: 14,
+    color: '#94A3B8',
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  notificationTime: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  emptyState: {
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: 60,
+    alignItems: 'center',
+    paddingHorizontal: 40,
   },
   emptyEmoji: {
-    fontSize: 60,
-    marginBottom: 16,
+    fontSize: 64,
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 10,
+    letterSpacing: -0.3,
   },
   emptyText: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+    fontSize: 14,
+    color: '#94A3B8',
     textAlign: 'center',
   },
 });
