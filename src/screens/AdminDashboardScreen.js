@@ -6,70 +6,50 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  FlatList,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
-import { notifyHostApproved, notifyHostRejected } from '../services/notifications';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 export default function AdminDashboardScreen({ navigation }) {
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('requests');
   const [hostRequests, setHostRequests] = useState([]);
-  const [allEvents, setAllEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    totalEvents: 0,
-    publishedEvents: 0,
-    pendingEvents: 0,
-    totalUsers: 0,
     pendingRequests: 0,
+    totalEvents: 0,
+    totalUsers: 0,
   });
 
   useEffect(() => {
-    loadDashboardData();
+    loadData();
   }, []);
 
-  const loadDashboardData = async () => {
-    setLoading(true);
+  const loadData = async () => {
     try {
+      // Load host requests
       const requestsQuery = query(
         collection(db, 'hostRequests'),
         where('status', '==', 'pending')
       );
       const requestsSnapshot = await getDocs(requestsQuery);
-      const requests = [];
-      requestsSnapshot.forEach((doc) => {
-        requests.push({ id: doc.id, ...doc.data() });
-      });
+      const requests = requestsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       setHostRequests(requests);
 
+      // Load stats
       const eventsSnapshot = await getDocs(collection(db, 'events'));
-      const events = [];
-      let published = 0;
-      let pending = 0;
-
-      eventsSnapshot.forEach((doc) => {
-        const eventData = { id: doc.id, ...doc.data() };
-        events.push(eventData);
-        if (eventData.status === 'published') published++;
-        if (eventData.status === 'pending') pending++;
-      });
-      setAllEvents(events);
-
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      
       setStats({
-        totalEvents: events.length,
-        publishedEvents: published,
-        pendingEvents: pending,
-        totalUsers: 0,
         pendingRequests: requests.length,
+        totalEvents: eventsSnapshot.size,
+        totalUsers: usersSnapshot.size,
       });
-
-      console.log('✅ Dashboard data loaded');
     } catch (error) {
-      console.error('Error loading dashboard:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -79,252 +59,177 @@ export default function AdminDashboardScreen({ navigation }) {
     try {
       await updateDoc(doc(db, 'hostRequests', requestId), {
         status: 'approved',
-        reviewedAt: new Date().toISOString(),
-        reviewedBy: auth.currentUser.uid,
+        approvedAt: new Date().toISOString(),
       });
 
       await updateDoc(doc(db, 'users', userId), {
         role: 'verified_host',
-        hostProfile: {
-          verified: true,
-          eventsHosted: 0,
-          rating: 5,
-          verifiedAt: new Date().toISOString(),
-          bio: '',
-        },
       });
 
-      // Send notification
-      await notifyHostApproved(userId);
-
-      console.log('✅ Host request approved');
-      loadDashboardData();
+      Alert.alert('Success', 'Host request approved!');
+      loadData();
     } catch (error) {
       console.error('Error approving request:', error);
+      Alert.alert('Error', 'Failed to approve request');
     }
   };
 
-  const handleRejectRequest = async (requestId, userId) => {
-    try {
-      await updateDoc(doc(db, 'hostRequests', requestId), {
-        status: 'rejected',
-        reviewedAt: new Date().toISOString(),
-        reviewedBy: auth.currentUser.uid,
-      });
-
-      // Send notification
-      await notifyHostRejected(userId);
-
-      console.log('❌ Host request rejected');
-      loadDashboardData();
-    } catch (error) {
-      console.error('Error rejecting request:', error);
-    }
+  const handleRejectRequest = async (requestId) => {
+    Alert.alert(
+      'Reject Request',
+      'Are you sure you want to reject this request?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await updateDoc(doc(db, 'hostRequests', requestId), {
+                status: 'rejected',
+                rejectedAt: new Date().toISOString(),
+              });
+              Alert.alert('Success', 'Request rejected');
+              loadData();
+            } catch (error) {
+              console.error('Error rejecting request:', error);
+              Alert.alert('Error', 'Failed to reject request');
+            }
+          }
+        }
+      ]
+    );
   };
 
-  const handleApproveEvent = async (eventId) => {
-    try {
-      await updateDoc(doc(db, 'events', eventId), {
-        status: 'published',
-        publishedAt: new Date().toISOString(),
-        approvedBy: auth.currentUser.uid,
-      });
-
-      console.log('✅ Event approved and published');
-      loadDashboardData();
-    } catch (error) {
-      console.error('Error approving event:', error);
-    }
-  };
-
-  const handleEventPress = (event) => {
-    navigation.navigate('EventDetail', { event });
-  };
-
-  const renderHostRequest = ({ item }) => (
+  const RequestCard = ({ request }) => (
     <View style={styles.requestCard}>
-      <View style={styles.requestHeader}>
-        <View>
-          <Text style={styles.requestName}>{item.userName}</Text>
-          <Text style={styles.requestEmail}>{item.email}</Text>
+      <View style={styles.requestGlass}>
+        <View style={styles.requestHeader}>
+          <View style={styles.requestAvatar}>
+            <Text style={styles.requestEmoji}>👤</Text>
+          </View>
+          <View style={styles.requestInfo}>
+            <Text style={styles.requestName}>User Request</Text>
+            <Text style={styles.requestDate}>
+              {new Date(request.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.requestDate}>
-          {new Date(item.createdAt).toLocaleDateString()}
-        </Text>
-      </View>
 
-      <View style={styles.requestContent}>
-        <Text style={styles.requestLabel}>Why they want to be a host:</Text>
-        <Text style={styles.requestText}>{item.message}</Text>
+        <View style={styles.requestContent}>
+          <View style={styles.requestSection}>
+            <Text style={styles.requestLabel}>Why host?</Text>
+            <Text style={styles.requestText}>{request.reason}</Text>
+          </View>
 
-        {item.experience && (
-          <>
-            <Text style={styles.requestLabel}>Experience:</Text>
-            <Text style={styles.requestText}>{item.experience}</Text>
-          </>
-        )}
-      </View>
+          <View style={styles.requestSection}>
+            <Text style={styles.requestLabel}>Experience</Text>
+            <Text style={styles.requestText}>{request.experience}</Text>
+          </View>
 
-      <View style={styles.requestActions}>
-        <TouchableOpacity
-          style={styles.rejectButton}
-          onPress={() => handleRejectRequest(item.id, item.userId)}
-        >
-          <Text style={styles.rejectButtonText}>Reject</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.approveButton}
-          onPress={() => handleApproveRequest(item.id, item.userId)}
-        >
-          <Text style={styles.approveButtonText}>Approve</Text>
-        </TouchableOpacity>
+          {request.eventIdeas && (
+            <View style={styles.requestSection}>
+              <Text style={styles.requestLabel}>Event Ideas</Text>
+              <Text style={styles.requestText}>{request.eventIdeas}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.requestActions}>
+          <TouchableOpacity
+            style={styles.rejectButton}
+            onPress={() => handleRejectRequest(request.id)}
+          >
+            <View style={styles.rejectGlass}>
+              <Text style={styles.rejectButtonText}>Reject</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.approveButton}
+            onPress={() => handleApproveRequest(request.id, request.userId)}
+          >
+            <View style={styles.approveGlass}>
+              <Text style={styles.approveButtonText}>✓ Approve</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 
-  const renderEvent = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.eventCard}
-      onPress={() => handleEventPress(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.eventHeader}>
-        <View style={styles.eventBadges}>
-          <View style={[
-            styles.statusBadge,
-            item.status === 'published' ? styles.publishedBadge : styles.pendingBadge
-          ]}>
-            <Text style={styles.statusBadgeText}>
-              {item.status.toUpperCase()}
-            </Text>
-          </View>
-          {item.hostType === 'official' && (
-            <View style={styles.officialBadge}>
-              <Text style={styles.officialBadgeText}>OFFICIAL</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.eventDate}>
-          {new Date(item.date).toLocaleDateString()}
-        </Text>
-      </View>
-
-      <Text style={styles.eventTitle}>{item.title}</Text>
-      <Text style={styles.eventHost}>Hosted by {item.hostName}</Text>
-      <Text style={styles.eventAttendees}>
-        {item.currentAttendees}/{item.maxAttendees} attendees
-      </Text>
-
-      <View style={styles.eventActions}>
-        <View style={styles.viewDetailsHint}>
-          <Text style={styles.viewDetailsText}>👁️ Tap to view details</Text>
-        </View>
-        {item.status === 'pending' && (
-          <TouchableOpacity
-            style={styles.publishButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleApproveEvent(item.id);
-            }}
-          >
-            <Text style={styles.publishButtonText}>Publish</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-
+      <StatusBar style="light" />
+      
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Admin Dashboard</Text>
-        <Text style={styles.subtitle}>Manage BondVibe</Text>
+        <Text style={styles.headerTitle}>Admin Dashboard</Text>
+        <View style={{ width: 28 }} />
       </View>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.totalEvents}</Text>
-          <Text style={styles.statLabel}>Total Events</Text>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF3EA5" />
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.publishedEvents}</Text>
-          <Text style={styles.statLabel}>Published</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.pendingEvents}</Text>
-          <Text style={styles.statLabel}>Pending</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.pendingRequests}</Text>
-          <Text style={styles.statLabel}>Requests</Text>
-        </View>
-      </View>
-
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'requests' && styles.activeTab]}
-          onPress={() => setActiveTab('requests')}
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.tabText, activeTab === 'requests' && styles.activeTabText]}>
-            Host Requests ({hostRequests.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'events' && styles.activeTab]}
-          onPress={() => setActiveTab('events')}
-        >
-          <Text style={[styles.tabText, activeTab === 'events' && styles.activeTabText]}>
-            All Events ({allEvents.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.content}>
-        {activeTab === 'requests' && (
-          <FlatList
-            data={hostRequests}
-            keyExtractor={(item) => item.id}
-            renderItem={renderHostRequest}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyEmoji}>✅</Text>
-                <Text style={styles.emptyText}>No pending requests</Text>
+          {/* Stats */}
+          <View style={styles.statsSection}>
+            <View style={styles.statCard}>
+              <View style={styles.statGlass}>
+                <Text style={styles.statIcon}>⏳</Text>
+                <Text style={styles.statValue}>{stats.pendingRequests}</Text>
+                <Text style={styles.statLabel}>Pending</Text>
               </View>
-            }
-          />
-        )}
+            </View>
 
-        {activeTab === 'events' && (
-          <FlatList
-            data={allEvents}
-            keyExtractor={(item) => item.id}
-            renderItem={renderEvent}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyEmoji}>📅</Text>
-                <Text style={styles.emptyText}>No events yet</Text>
+            <View style={styles.statCard}>
+              <View style={styles.statGlass}>
+                <Text style={styles.statIcon}>🎉</Text>
+                <Text style={styles.statValue}>{stats.totalEvents}</Text>
+                <Text style={styles.statLabel}>Events</Text>
               </View>
-            }
-          />
-        )}
-      </View>
+            </View>
+
+            <View style={styles.statCard}>
+              <View style={styles.statGlass}>
+                <Text style={styles.statIcon}>👥</Text>
+                <Text style={styles.statValue}>{stats.totalUsers}</Text>
+                <Text style={styles.statLabel}>Users</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Pending Requests */}
+          <View style={styles.requestsSection}>
+            <Text style={styles.sectionTitle}>Pending Host Requests</Text>
+            
+            {hostRequests.length === 0 ? (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyGlass}>
+                  <Text style={styles.emptyEmoji}>✅</Text>
+                  <Text style={styles.emptyTitle}>All caught up!</Text>
+                  <Text style={styles.emptyText}>
+                    No pending host requests at the moment
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              hostRequests.map((request) => (
+                <RequestCard key={request.id} request={request} />
+              ))
+            )}
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -332,265 +237,206 @@ export default function AdminDashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#0B0F1A',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  backButton: {
+    fontSize: 28,
+    color: '#F1F5F9',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    letterSpacing: -0.3,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
+  scrollView: {
+    flex: 1,
   },
-  header: {
-    backgroundColor: Colors.background,
-    padding: Sizes.padding * 2,
-    paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
-  backButton: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-  },
-  statsContainer: {
+  statsSection: {
     flexDirection: 'row',
-    backgroundColor: Colors.background,
-    padding: Sizes.padding,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    gap: 10,
+    marginBottom: 28,
   },
   statCard: {
     flex: 1,
-    alignItems: 'center',
-    padding: Sizes.padding,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  statNumber: {
+  statGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  statIcon: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
+  statValue: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.primary,
+    fontWeight: '700',
+    color: '#FF3EA5',
     marginBottom: 4,
+    letterSpacing: -0.5,
   },
   statLabel: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    textAlign: 'center',
+    fontSize: 12,
+    color: '#94A3B8',
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: Colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+  requestsSection: {
+    gap: 16,
   },
-  tab: {
-    flex: 1,
-    padding: Sizes.padding,
-    alignItems: 'center',
-  },
-  activeTab: {
-    borderBottomWidth: 3,
-    borderBottomColor: Colors.primary,
-  },
-  tabText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-  },
-  activeTabText: {
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  listContent: {
-    padding: Sizes.padding * 2,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 4,
+    letterSpacing: -0.3,
   },
   requestCard: {
-    backgroundColor: Colors.background,
-    borderRadius: Sizes.borderRadius,
-    padding: Sizes.padding * 2,
+    borderRadius: 20,
+    overflow: 'hidden',
     marginBottom: 16,
+  },
+  requestGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
   },
   requestHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
+  },
+  requestAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  requestEmoji: {
+    fontSize: 24,
+  },
+  requestInfo: {
+    flex: 1,
   },
   requestName: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  requestEmail: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    marginBottom: 2,
+    letterSpacing: -0.2,
   },
   requestDate: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+    fontSize: 12,
+    color: '#94A3B8',
   },
   requestContent: {
-    marginBottom: 16,
+    gap: 14,
+    marginBottom: 18,
+  },
+  requestSection: {
+    gap: 6,
   },
   requestLabel: {
-    fontSize: Sizes.fontSize.small,
+    fontSize: 12,
     fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 4,
-    marginTop: 8,
+    color: '#94A3B8',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   requestText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
+    fontSize: 14,
+    color: '#F1F5F9',
     lineHeight: 20,
   },
   requestActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
   },
   rejectButton: {
     flex: 1,
-    backgroundColor: Colors.error,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    marginRight: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  rejectGlass: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    paddingVertical: 12,
     alignItems: 'center',
   },
   rejectButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#EF4444',
   },
   approveButton: {
     flex: 1,
-    backgroundColor: Colors.success,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    marginLeft: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  approveGlass: {
+    backgroundColor: 'rgba(166, 255, 150, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(166, 255, 150, 0.3)',
+    paddingVertical: 12,
     alignItems: 'center',
   },
   approveButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#A6FF96',
   },
-  eventCard: {
-    backgroundColor: Colors.background,
-    borderRadius: Sizes.borderRadius,
-    padding: Sizes.padding * 2,
-    marginBottom: 16,
+  emptyState: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  emptyGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
     borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  eventHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  eventBadges: {
-    flexDirection: 'row',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  publishedBadge: {
-    backgroundColor: '#E8F5E9',
-  },
-  pendingBadge: {
-    backgroundColor: '#FFF9E6',
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  officialBadge: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  officialBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  eventDate: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-  },
-  eventTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  eventHost: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    marginBottom: 4,
-  },
-  eventAttendees: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-    marginBottom: 12,
-  },
-  eventActions: {
-    gap: 8,
-  },
-  viewDetailsHint: {
-    backgroundColor: '#F0F0F0',
-    padding: 8,
-    borderRadius: Sizes.borderRadius,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 40,
     alignItems: 'center',
-  },
-  viewDetailsText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-  },
-  publishButton: {
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-  },
-  publishButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
   },
   emptyEmoji: {
-    fontSize: 60,
+    fontSize: 56,
     marginBottom: 16,
   },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 8,
+    letterSpacing: -0.3,
+  },
   emptyText: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '600',
-    color: Colors.text,
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
   },
 });
