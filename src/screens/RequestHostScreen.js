@@ -2,239 +2,182 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TextInput,
-  ActivityIndicator,
   Alert,
-  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
+import { collection, addDoc } from 'firebase/firestore';
+import { db, auth } from '../services/firebase';
 
 export default function RequestHostScreen({ navigation }) {
-  const [loading, setLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     reason: '',
     experience: '',
     eventIdeas: '',
   });
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    console.log('🚀 Submit button clicked');
-    console.log('Form data:', formData);
-
-    if (!formData.reason.trim()) {
-      setErrorMessage('Please tell us why you want to become a host');
-      setShowErrorModal(true);
+    if (!form.reason.trim() || !form.experience.trim()) {
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    if (!formData.experience.trim()) {
-      setErrorMessage('Please share your relevant experience');
-      setShowErrorModal(true);
-      return;
-    }
-
-    setLoading(true);
+    setSubmitting(true);
     try {
-      console.log('📝 Checking user role...');
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const userData = userDoc.data();
-
-      if (userData?.role === 'verified_host') {
-        console.log('⚠️ User is already a host');
-        setErrorMessage('You are already a verified host!');
-        setShowErrorModal(true);
-        setLoading(false);
-        return;
-      }
-
-      console.log('✍️ Creating host request...');
       await addDoc(collection(db, 'hostRequests'), {
         userId: auth.currentUser.uid,
-        userEmail: auth.currentUser.email,
-        userName: userData?.fullName || 'Unknown',
-        reason: formData.reason.trim(),
-        experience: formData.experience.trim(),
-        eventIdeas: formData.eventIdeas.trim(),
+        reason: form.reason.trim(),
+        experience: form.experience.trim(),
+        eventIdeas: form.eventIdeas.trim(),
         status: 'pending',
         createdAt: new Date().toISOString(),
       });
-
-      console.log('✅ Host request submitted successfully!');
-      setShowSuccessModal(true);
+      
+      Alert.alert(
+        'Request Submitted!',
+        'We\'ll review your application and get back to you soon.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } catch (error) {
-      console.error('❌ Error submitting host request:', error);
-      setErrorMessage('There was an error submitting your request. Please try again.');
-      setShowErrorModal(true);
+      console.error('Error submitting request:', error);
+      Alert.alert('Error', 'Failed to submit request');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       
-      {/* SUCCESS MODAL */}
-      <Modal
-        visible={showSuccessModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSuccessModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.successEmoji}>🎉</Text>
-            <Text style={styles.modalTitle}>Request Submitted!</Text>
-            <Text style={styles.modalText}>
-              Your host request has been submitted successfully. We'll review it and get back to you soon via email.
-            </Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => {
-                setShowSuccessModal(false);
-                navigation.goBack();
-              }}
-            >
-              <Text style={styles.modalButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ERROR MODAL */}
-      <Modal
-        visible={showErrorModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowErrorModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.errorEmoji}>⚠️</Text>
-            <Text style={styles.modalTitle}>Oops!</Text>
-            <Text style={styles.modalText}>{errorMessage}</Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => setShowErrorModal(false)}
-            >
-              <Text style={styles.modalButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
+          <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Become a Host</Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 28 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero */}
         <View style={styles.heroSection}>
-          <Text style={styles.heroEmoji}>🎯</Text>
-          <Text style={styles.heroTitle}>Become a Host</Text>
-          <Text style={styles.heroSubtitle}>
-            Want to organize events and bring people together?
-          </Text>
-          <Text style={styles.heroDescription}>
-            Verified hosts can create and manage events on BondVibe.
+          <Text style={styles.heroEmoji}>✨</Text>
+          <Text style={styles.heroTitle}>Host Amazing Events</Text>
+          <Text style={styles.heroText}>
+            Share your passion and bring people together through unique experiences
           </Text>
         </View>
 
-        <View style={styles.benefitsCard}>
-          <Text style={styles.benefitsTitle}>Host Benefits:</Text>
-          <View style={styles.benefitItem}>
-            <Text style={styles.benefitIcon}>✓</Text>
-            <Text style={styles.benefitText}>Create unlimited events</Text>
+        {/* Benefits */}
+        <View style={styles.benefitsSection}>
+          <View style={styles.benefitCard}>
+            <View style={styles.benefitGlass}>
+              <Text style={styles.benefitIcon}>🎯</Text>
+              <Text style={styles.benefitText}>Create unlimited events</Text>
+            </View>
           </View>
-          <View style={styles.benefitItem}>
-            <Text style={styles.benefitIcon}>✓</Text>
-            <Text style={styles.benefitText}>Build your community</Text>
+          <View style={styles.benefitCard}>
+            <View style={styles.benefitGlass}>
+              <Text style={styles.benefitIcon}>👥</Text>
+              <Text style={styles.benefitText}>Build your community</Text>
+            </View>
           </View>
-          <View style={styles.benefitItem}>
-            <Text style={styles.benefitIcon}>✓</Text>
-            <Text style={styles.benefitText}>Verified host badge</Text>
-          </View>
-          <View style={styles.benefitItem}>
-            <Text style={styles.benefitIcon}>✓</Text>
-            <Text style={styles.benefitText}>Priority support</Text>
+          <View style={styles.benefitCard}>
+            <View style={styles.benefitGlass}>
+              <Text style={styles.benefitIcon}>⚡</Text>
+              <Text style={styles.benefitText}>Priority support</Text>
+            </View>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Tell us about yourself</Text>
+        {/* Form */}
+        <View style={styles.formSection}>
+          <Text style={styles.formTitle}>Tell us about yourself</Text>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Why do you want to become a host? *</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={formData.reason}
-            onChangeText={(text) => setFormData({ ...formData, reason: text })}
-            placeholder="Share your motivation for hosting events..."
-            multiline
-            maxLength={300}
-            placeholderTextColor={Colors.textLight}
-          />
-          <Text style={styles.charCount}>{formData.reason.length}/300</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Why do you want to host? *</Text>
+            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={form.reason}
+                onChangeText={(text) => setForm({ ...form, reason: text })}
+                placeholder="I'm passionate about..."
+                placeholderTextColor="#64748B"
+                multiline
+                maxLength={300}
+              />
+            </View>
+            <Text style={styles.charCount}>{form.reason.length}/300</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Your experience *</Text>
+            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={form.experience}
+                onChangeText={(text) => setForm({ ...form, experience: text })}
+                placeholder="I've organized..."
+                placeholderTextColor="#64748B"
+                multiline
+                maxLength={300}
+              />
+            </View>
+            <Text style={styles.charCount}>{form.experience.length}/300</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Event ideas (optional)</Text>
+            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={form.eventIdeas}
+                onChangeText={(text) => setForm({ ...form, eventIdeas: text })}
+                placeholder="I'd love to host..."
+                placeholderTextColor="#64748B"
+                multiline
+                maxLength={300}
+              />
+            </View>
+            <Text style={styles.charCount}>{form.eventIdeas.length}/300</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            <View style={styles.submitGlass}>
+              <Text style={styles.submitButtonText}>
+                {submitting ? 'Submitting...' : '✨ Submit Application'}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Relevant Experience *</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={formData.experience}
-            onChangeText={(text) => setFormData({ ...formData, experience: text })}
-            placeholder="Tell us about your experience organizing events or building communities..."
-            multiline
-            maxLength={300}
-            placeholderTextColor={Colors.textLight}
-          />
-          <Text style={styles.charCount}>{formData.experience.length}/300</Text>
+        {/* Info */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoGlass}>
+            <Text style={styles.infoIcon}>💡</Text>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>What happens next?</Text>
+              <Text style={styles.infoText}>
+                • We review applications within 48 hours{'\n'}
+                • You'll receive an email notification{'\n'}
+                • Approved hosts can start creating events
+              </Text>
+            </View>
+          </View>
         </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Event Ideas (Optional)</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={formData.eventIdeas}
-            onChangeText={(text) => setFormData({ ...formData, eventIdeas: text })}
-            placeholder="What types of events would you like to host?"
-            multiline
-            maxLength={300}
-            placeholderTextColor={Colors.textLight}
-          />
-          <Text style={styles.charCount}>{formData.eventIdeas.length}/300</Text>
-        </View>
-
-        <View style={styles.noteCard}>
-          <Text style={styles.noteIcon}>ℹ️</Text>
-          <Text style={styles.noteText}>
-            We review all host applications carefully. You'll receive an email with our decision within 2-3 business days.
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.buttonDisabled]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>Request Host Access</Text>
-          )}
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -243,77 +186,32 @@ export default function RequestHostScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: Colors.background,
-    borderRadius: Sizes.borderRadius,
-    padding: 32,
-    width: '90%',
-    maxWidth: 400,
-    alignItems: 'center',
-  },
-  successEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  errorEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  modalButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 48,
-    paddingVertical: 12,
-    borderRadius: Sizes.borderRadius,
-  },
-  modalButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
+    backgroundColor: '#0B0F1A',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    padding: Sizes.padding * 2,
+    paddingHorizontal: 24,
     paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingBottom: 20,
   },
   backButton: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
-    fontWeight: '600',
+    fontSize: 28,
+    color: '#F1F5F9',
   },
   headerTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    letterSpacing: -0.3,
   },
-  content: {
-    padding: Sizes.padding * 2,
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   heroSection: {
     alignItems: 'center',
@@ -324,116 +222,135 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   heroTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 8,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 12,
+    letterSpacing: -0.5,
   },
-  heroSubtitle: {
-    fontSize: Sizes.fontSize.large,
-    color: Colors.text,
-    marginBottom: 8,
+  heroText: {
+    fontSize: 15,
+    color: '#94A3B8',
     textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 20,
   },
-  heroDescription: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-    textAlign: 'center',
-  },
-  benefitsCard: {
-    backgroundColor: Colors.background,
-    padding: 20,
-    borderRadius: Sizes.borderRadius,
+  benefitsSection: {
+    gap: 12,
     marginBottom: 32,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
   },
-  benefitsTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 16,
+  benefitCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
   },
-  benefitItem: {
+  benefitGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
   },
   benefitIcon: {
-    fontSize: 20,
-    color: Colors.success,
-    marginRight: 12,
-    fontWeight: 'bold',
+    fontSize: 24,
+    marginRight: 14,
   },
   benefitText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    letterSpacing: -0.1,
   },
-  sectionTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 20,
-  },
-  formGroup: {
+  formSection: {
     marginBottom: 24,
   },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 20,
+    letterSpacing: -0.3,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
   label: {
-    fontSize: Sizes.fontSize.medium,
+    fontSize: 13,
     fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 8,
+    color: '#F1F5F9',
+    marginBottom: 10,
+    letterSpacing: -0.1,
+  },
+  inputWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   input: {
-    backgroundColor: Colors.background,
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Sizes.borderRadius,
-    padding: 12,
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#F1F5F9',
   },
+  textAreaWrapper: {},
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
   },
   charCount: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+    fontSize: 11,
+    color: '#64748B',
     textAlign: 'right',
-    marginTop: 4,
-  },
-  noteCard: {
-    flexDirection: 'row',
-    backgroundColor: '#E3F2FD',
-    padding: 16,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 24,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  noteIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  noteText: {
-    flex: 1,
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-    lineHeight: 20,
+    marginTop: 6,
   },
   submitButton: {
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  submitGlass: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+    paddingVertical: 16,
     alignItems: 'center',
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
   submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.large,
+    fontSize: 17,
     fontWeight: '700',
+    color: '#FF3EA5',
+    letterSpacing: -0.2,
+  },
+  infoCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  infoGlass: {
+    backgroundColor: 'rgba(0, 242, 254, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 242, 254, 0.2)',
+    padding: 18,
+    flexDirection: 'row',
+  },
+  infoIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00F2FE',
+    marginBottom: 10,
+    letterSpacing: -0.1,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    lineHeight: 20,
   },
 });

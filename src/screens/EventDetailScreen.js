@@ -7,491 +7,252 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { doc, updateDoc, arrayUnion, getDoc, increment, deleteDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
-import { notifyUserJoinedEvent, notifyEventCancelled } from '../services/notifications';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { db, auth } from '../services/firebase';
 
 export default function EventDetailScreen({ route, navigation }) {
-  const { event } = route.params;
-  const [currentEvent, setCurrentEvent] = useState(event);
-  const [loading, setLoading] = useState(false);
-  const [hasJoined, setHasJoined] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [attendeeProfiles, setAttendeeProfiles] = useState([]);
-  const [loadingAttendees, setLoadingAttendees] = useState(false);
-  const [isHost, setIsHost] = useState(false);
-  const [currentUserName, setCurrentUserName] = useState('');
-  const [showMenu, setShowMenu] = useState(false);
-
-  const isRealEvent = event.id && event.id.length > 10;
+  const { eventId } = route.params;
+  const [event, setEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isJoined, setIsJoined] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
-    checkIfJoined();
-    checkIfHost();
-    loadCurrentUserName();
-    if (isRealEvent) {
-      loadAttendees();
-    }
+    loadEvent();
   }, []);
 
-  const loadCurrentUserName = async () => {
+  const loadEvent = async () => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setCurrentUserName(userDoc.data().fullName || 'User');
+      const eventDoc = await getDoc(doc(db, 'events', eventId));
+      if (eventDoc.exists()) {
+        const eventData = { id: eventDoc.id, ...eventDoc.data() };
+        setEvent(eventData);
+        setIsJoined(eventData.attendees?.includes(auth.currentUser.uid));
       }
     } catch (error) {
-      console.error('Error loading user name:', error);
-    }
-  };
-
-  const checkIfJoined = async () => {
-    if (currentEvent.attendees) {
-      const joined = currentEvent.attendees.some(
-        (attendee) => attendee.userId === auth.currentUser.uid
-      );
-      setHasJoined(joined);
-    }
-  };
-
-  const checkIfHost = () => {
-    setIsHost(currentEvent.hostId === auth.currentUser.uid);
-  };
-
-  const loadAttendees = async () => {
-    if (!currentEvent.attendees || currentEvent.attendees.length === 0) {
-      return;
-    }
-
-    setLoadingAttendees(true);
-    try {
-      const profiles = [];
-      
-      for (const attendee of currentEvent.attendees) {
-        const userDocRef = doc(db, 'users', attendee.userId);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          profiles.push({
-            userId: attendee.userId,
-            fullName: userData.fullName || 'User',
-            avatar: userData.avatar || '👤',
-            joinedAt: attendee.joinedAt,
-          });
-        }
-      }
-      
-      setAttendeeProfiles(profiles);
-      console.log(`✅ Loaded ${profiles.length} attendee profiles`);
-    } catch (error) {
-      console.error('Error loading attendees:', error);
-    } finally {
-      setLoadingAttendees(false);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const handleJoinEvent = async () => {
-    if (!isRealEvent) {
-      console.log('❌ Cannot join mock event');
-      return;
-    }
-
-    if (hasJoined) {
-      return;
-    }
-
-    const spotsLeft = currentEvent.maxAttendees - currentEvent.currentAttendees;
-    if (spotsLeft <= 0) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const eventRef = doc(db, 'events', currentEvent.id);
-      
-      await updateDoc(eventRef, {
-        currentAttendees: increment(1),
-        attendees: arrayUnion({
-          userId: auth.currentUser.uid,
-          joinedAt: new Date().toISOString(),
-          status: 'confirmed',
-        }),
-        updatedAt: new Date().toISOString(),
-      });
-
-      const updatedEventDoc = await getDoc(eventRef);
-      const updatedEventData = {
-        id: updatedEventDoc.id,
-        ...updatedEventDoc.data(),
-      };
-      
-      setCurrentEvent(updatedEventData);
-      setHasJoined(true);
-      setShowConfirm(false);
-      
-      await loadAttendees();
-
-      if (currentEvent.hostId !== auth.currentUser.uid) {
-        await notifyUserJoinedEvent(
-          currentEvent.hostId,
-          currentEvent.id,
-          currentUserName,
-          currentEvent.title
-        );
-      }
-
-      console.log('✅ Successfully joined event!');
-    } catch (error) {
-      console.error('Join event error:', error);
+      console.error('Error loading event:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenChat = () => {
-    navigation.navigate('EventChat', {
-      eventId: currentEvent.id,
-      eventTitle: currentEvent.title,
-    });
+  const handleJoinLeave = async () => {
+    if (!event) return;
+
+    setJoining(true);
+    try {
+      const eventRef = doc(db, 'events', eventId);
+      
+      if (isJoined) {
+        await updateDoc(eventRef, {
+          attendees: arrayRemove(auth.currentUser.uid)
+        });
+        setIsJoined(false);
+        Alert.alert('Left Event', 'You have left this event');
+      } else {
+        if (event.attendees?.length >= event.maxAttendees) {
+          Alert.alert('Event Full', 'This event has reached maximum capacity');
+          return;
+        }
+        
+        await updateDoc(eventRef, {
+          attendees: arrayUnion(auth.currentUser.uid)
+        });
+        setIsJoined(true);
+        Alert.alert('Joined!', 'You have joined this event');
+      }
+      
+      await loadEvent();
+    } catch (error) {
+      console.error('Error joining/leaving event:', error);
+      Alert.alert('Error', 'Could not update event');
+    } finally {
+      setJoining(false);
+    }
   };
 
-  const handleEditEvent = () => {
-    setShowMenu(false);
-    navigation.navigate('EditEvent', { event: currentEvent });
-  };
-
-  const handleCancelEvent = () => {
-    setShowMenu(false);
-    Alert.alert(
-      'Cancel Event',
-      'Are you sure you want to cancel this event? All attendees will be notified.',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel Event',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (currentEvent.attendees) {
-                for (const attendee of currentEvent.attendees) {
-                  await notifyEventCancelled(
-                    attendee.userId,
-                    currentEvent.id,
-                    currentEvent.title
-                  );
-                }
-              }
-
-              await deleteDoc(doc(db, 'events', currentEvent.id));
-              
-              Alert.alert('Event Cancelled', 'The event has been cancelled and all attendees have been notified.');
-              navigation.goBack();
-            } catch (error) {
-              console.error('Error cancelling event:', error);
-              Alert.alert('Error', 'Failed to cancel event');
-            }
-          },
-        },
-      ]
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF3EA5" />
+      </View>
     );
-  };
+  }
 
-  const handleReportEvent = () => {
-    navigation.navigate('Report', {
-      type: 'event',
-      targetId: currentEvent.id,
-      targetName: currentEvent.title,
-    });
-  };
+  if (!event) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Event not found</Text>
+      </View>
+    );
+  }
 
-  const spotsLeft = currentEvent.maxAttendees - currentEvent.currentAttendees;
-  const canAccessChat = isRealEvent && (isHost || hasJoined);
+  const isCreator = event.creatorId === auth.currentUser.uid;
+  const spotsLeft = event.maxAttendees - (event.attendees?.length || 0);
+  const isFull = spotsLeft <= 0;
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       
-      {/* HOST MENU MODAL */}
-      <Modal
-        visible={showMenu}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowMenu(false)}
-      >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowMenu(false)}
-        >
-          <View style={styles.menuDropdown}>
-            <TouchableOpacity style={styles.menuItem} onPress={handleEditEvent}>
-              <Text style={styles.menuItemIcon}>✏️</Text>
-              <Text style={styles.menuItemText}>Edit Event</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.menuDivider} />
-            
-            <TouchableOpacity style={styles.menuItem} onPress={handleCancelEvent}>
-              <Text style={styles.menuItemIcon}>🚫</Text>
-              <Text style={[styles.menuItemText, styles.menuItemDanger]}>Cancel Event</Text>
-            </TouchableOpacity>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <View style={styles.headerButton}>
+            <Text style={styles.headerButtonText}>←</Text>
           </View>
         </TouchableOpacity>
-      </Modal>
+        <View style={styles.headerActions}>
+          {isCreator && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('EditEvent', { eventId })}
+            >
+              <View style={styles.headerButton}>
+                <Text style={styles.headerButtonText}>✏️</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
 
-      <ScrollView>
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <View style={styles.categoryRow}>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>{event.category}</Text>
+            </View>
+            {event.price === 0 ? (
+              <View style={styles.freeBadge}>
+                <Text style={styles.freeBadgeText}>FREE</Text>
+              </View>
+            ) : (
+              <View style={styles.priceBadge}>
+                <Text style={styles.priceText}>${event.price}</Text>
+              </View>
+            )}
+          </View>
+          
+          <Text style={styles.title}>{event.title}</Text>
+        </View>
 
-          <View style={styles.headerActions}>
-            {isHost && isRealEvent && (
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => setShowMenu(true)}
-              >
-                <Text style={styles.menuIcon}>⋮</Text>
-              </TouchableOpacity>
-            )}
-            {canAccessChat && (
-              <TouchableOpacity
-                style={styles.chatIconButton}
-                onPress={handleOpenChat}
-              >
-                <Text style={styles.chatIcon}>💬</Text>
-              </TouchableOpacity>
-            )}
-            <View style={styles.compatibilityBadge}>
-              <Text style={styles.compatibilityText}>
-                {currentEvent.compatibilityScore}% Match
-              </Text>
+        {/* Info Cards */}
+        <View style={styles.infoSection}>
+          <View style={styles.infoCard}>
+            <View style={styles.infoGlass}>
+              <Text style={styles.infoIcon}>📅</Text>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Date & Time</Text>
+                <Text style={styles.infoValue}>{event.date} at {event.time}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.infoCard}>
+            <View style={styles.infoGlass}>
+              <Text style={styles.infoIcon}>📍</Text>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Location</Text>
+                <Text style={styles.infoValue}>{event.location}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.infoCard}>
+            <View style={styles.infoGlass}>
+              <Text style={styles.infoIcon}>👥</Text>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Attendees</Text>
+                <Text style={styles.infoValue}>
+                  {event.attendees?.length || 0}/{event.maxAttendees}
+                  {isFull ? ' (Full)' : ` (${spotsLeft} spots left)`}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
 
-        <View style={styles.content}>
-          {!isRealEvent && (
-            <View style={styles.mockNotice}>
-              <Text style={styles.mockNoticeText}>
-                📝 This is a demo event for preview purposes
-              </Text>
-            </View>
-          )}
-
-          {canAccessChat && (
-            <TouchableOpacity 
-              style={styles.chatPromoBanner}
-              onPress={handleOpenChat}
-            >
-              <Text style={styles.chatPromoIcon}>💬</Text>
-              <View style={styles.chatPromoContent}>
-                <Text style={styles.chatPromoTitle}>Event Chat</Text>
-                <Text style={styles.chatPromoText}>
-                  Connect with other attendees
-                </Text>
-              </View>
-              <Text style={styles.chatPromoArrow}>→</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.hostSection}>
-            <Text style={styles.hostAvatar}>{currentEvent.hostAvatar}</Text>
-            <View>
-              <Text style={styles.category}>{currentEvent.category}</Text>
-              <Text style={styles.hostName}>Hosted by {currentEvent.hostName}</Text>
-              {currentEvent.hostType === 'official' && (
-                <View style={styles.officialBadge}>
-                  <Text style={styles.officialBadgeText}>🏆 OFFICIAL</Text>
-                </View>
-              )}
-            </View>
+        {/* Description */}
+        <View style={styles.descriptionSection}>
+          <View style={styles.descriptionGlass}>
+            <Text style={styles.sectionTitle}>About</Text>
+            <Text style={styles.descriptionText}>{event.description}</Text>
           </View>
+        </View>
 
-          <Text style={styles.title}>{currentEvent.title}</Text>
-          <Text style={styles.description}>{currentEvent.description}</Text>
-
-          <View style={styles.detailsSection}>
-            <View style={styles.detailCard}>
-              <Text style={styles.detailIcon}>📅</Text>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Date & Time</Text>
-                <Text style={styles.detailValue}>{formatDate(currentEvent.date)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.detailCard}>
-              <Text style={styles.detailIcon}>📍</Text>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>{currentEvent.location}</Text>
-              </View>
-            </View>
-
-            <View style={styles.detailCard}>
-              <Text style={styles.detailIcon}>⏱️</Text>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Duration</Text>
-                <Text style={styles.detailValue}>{currentEvent.duration}</Text>
-              </View>
-            </View>
-
-            <View style={styles.detailCard}>
-              <Text style={styles.detailIcon}>👥</Text>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Group Size</Text>
-                <Text style={styles.detailValue}>
-                  {currentEvent.currentAttendees}/{currentEvent.maxAttendees} people
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.detailCard}>
-              <Text style={styles.detailIcon}>🗣️</Text>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Languages</Text>
-                <Text style={styles.detailValue}>{currentEvent.language.join(', ')}</Text>
-              </View>
-            </View>
-          </View>
-
-          {isHost && isRealEvent && attendeeProfiles.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Attendees ({attendeeProfiles.length})
-              </Text>
-              {loadingAttendees ? (
-                <ActivityIndicator color={Colors.primary} />
-              ) : (
-                attendeeProfiles.map((attendee, index) => (
-                  <View key={index} style={styles.attendeeItem}>
-                    <Text style={styles.attendeeAvatar}>{attendee.avatar}</Text>
-                    <View style={styles.attendeeInfo}>
-                      <Text style={styles.attendeeName}>{attendee.fullName}</Text>
-                      <Text style={styles.attendeeDate}>
-                        Joined {new Date(attendee.joinedAt).toLocaleDateString()}
-                      </Text>
+        {/* Attendees List */}
+        {event.attendees && event.attendees.length > 0 && (
+          <View style={styles.attendeesSection}>
+            <View style={styles.attendeesGlass}>
+              <Text style={styles.sectionTitle}>Who's Going</Text>
+              <View style={styles.attendeesGrid}>
+                {event.attendees.map((attendeeId, index) => (
+                  <View key={index} style={styles.attendeeCard}>
+                    <View style={styles.attendeeAvatar}>
+                      <Text style={styles.attendeeEmoji}>😊</Text>
                     </View>
                   </View>
-                ))
-              )}
-            </View>
-          )}
-
-          {currentEvent.whatsIncluded && currentEvent.whatsIncluded.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>What's Included</Text>
-              {currentEvent.whatsIncluded.map((item, index) => (
-                <View key={index} style={styles.includedItem}>
-                  <Text style={styles.includedIcon}>✓</Text>
-                  <Text style={styles.includedText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          <View style={styles.priceSection}>
-            <View>
-              <Text style={styles.priceLabel}>Price per person</Text>
-              {currentEvent.price === 0 ? (
-                <Text style={styles.freePrice}>FREE</Text>
-              ) : (
-                <Text style={styles.price}>${currentEvent.price} MXN</Text>
-              )}
-            </View>
-            <View>
-              <Text style={styles.spotsLabel}>
-                {spotsLeft} {spotsLeft === 1 ? 'spot' : 'spots'} left
-              </Text>
+                ))}
+              </View>
             </View>
           </View>
+        )}
 
-          {!isHost && isRealEvent && (
-            <TouchableOpacity style={styles.reportButton} onPress={handleReportEvent}>
-              <Text style={styles.reportButtonText}>🚩 Report Event</Text>
-            </TouchableOpacity>
-          )}
+        {/* Host Info */}
+        <View style={styles.hostSection}>
+          <View style={styles.hostGlass}>
+            <Text style={styles.sectionTitle}>Hosted by</Text>
+            <View style={styles.hostInfo}>
+              <View style={styles.hostAvatar}>
+                <Text style={styles.hostEmoji}>🎸</Text>
+              </View>
+              <View style={styles.hostDetails}>
+                <Text style={styles.hostName}>Event Host</Text>
+                <Text style={styles.hostBio}>Community Organizer</Text>
+              </View>
+              <TouchableOpacity style={styles.messageButton}>
+                <View style={styles.messageButtonGlass}>
+                  <Text style={styles.messageButtonText}>💬</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </ScrollView>
 
-      {showConfirm && (
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmBox}>
-            <Text style={styles.confirmTitle}>Join Event?</Text>
-            <Text style={styles.confirmText}>
-              You're about to join "{currentEvent.title}"
-            </Text>
-            <View style={styles.confirmButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowConfirm(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={handleJoinEvent}
-              >
-                <Text style={styles.confirmButtonText}>Join</Text>
-              </TouchableOpacity>
-            </View>
+      {/* Bottom Action */}
+      {!isCreator && (
+        <View style={styles.bottomAction}>
+          <View style={styles.bottomGlass}>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                (isFull && !isJoined) && styles.actionButtonDisabled
+              ]}
+              onPress={handleJoinLeave}
+              disabled={joining || (isFull && !isJoined)}
+            >
+              <View style={[
+                styles.actionButtonGlass,
+                isJoined && styles.actionButtonJoinedGlass
+              ]}>
+                <Text style={[
+                  styles.actionButtonText,
+                  isJoined && styles.actionButtonJoinedText
+                ]}>
+                  {joining ? 'Loading...' : isJoined ? 'Leave Event' : isFull ? 'Event Full' : 'Join Event'}
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
       )}
-
-      <View style={styles.footer}>
-        {!isRealEvent ? (
-          <View style={styles.mockButton}>
-            <Text style={styles.mockButtonText}>📝 Demo Event - Join Not Available</Text>
-          </View>
-        ) : isHost ? (
-          <View style={styles.hostButton}>
-            <Text style={styles.hostButtonText}>👑 You're hosting this event</Text>
-          </View>
-        ) : hasJoined ? (
-          <View style={styles.joinedButton}>
-            <Text style={styles.joinedButtonText}>✓ Already Joined</Text>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[
-              styles.joinButton,
-              (spotsLeft === 0 || loading) && styles.joinButtonDisabled
-            ]}
-            onPress={() => setShowConfirm(true)}
-            disabled={spotsLeft === 0 || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.joinButtonText}>
-                {spotsLeft === 0 ? 'Event Full' : 'Join This Event'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        )}
-      </View>
     </View>
   );
 }
@@ -499,430 +260,302 @@ export default function EventDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#0B0F1A',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0B0F1A',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0B0F1A',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#94A3B8',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Sizes.padding * 2,
+    paddingHorizontal: 24,
     paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingBottom: 20,
   },
-  backButton: {
-    padding: 8,
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(17, 24, 39, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  backButtonText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.primary,
-    fontWeight: '600',
+  headerButtonText: {
+    fontSize: 20,
+    color: '#F1F5F9',
   },
   headerActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
-  menuButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  menuIcon: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  modalOverlay: {
+  scrollView: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  menuDropdown: {
-    backgroundColor: Colors.background,
-    borderRadius: Sizes.borderRadius,
-    width: 250,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 120,
   },
-  menuItem: {
+  heroSection: {
+    marginBottom: 24,
+  },
+  categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 18,
+    gap: 10,
+    marginBottom: 16,
   },
-  menuItemIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  menuItemText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    fontWeight: '500',
-  },
-  menuItemDanger: {
-    color: Colors.error,
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  chatIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chatIcon: {
-    fontSize: 20,
-  },
-  compatibilityBadge: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 12,
+  categoryBadge: {
+    backgroundColor: 'rgba(255, 62, 165, 0.15)',
     paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.3)',
   },
-  compatibilityText: {
-    fontSize: Sizes.fontSize.small,
-    fontWeight: '700',
-    color: Colors.success,
-  },
-  content: {
-    padding: Sizes.padding * 2,
-  },
-  mockNotice: {
-    backgroundColor: '#FFF9E6',
-    padding: 12,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFD700',
-  },
-  mockNoticeText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  chatPromoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    padding: 16,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-  },
-  chatPromoIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  chatPromoContent: {
-    flex: 1,
-  },
-  chatPromoTitle: {
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: 2,
-  },
-  chatPromoText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.text,
-  },
-  chatPromoArrow: {
-    fontSize: 24,
-    color: Colors.primary,
-    marginLeft: 8,
-  },
-  hostSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  hostAvatar: {
-    fontSize: 48,
-    marginRight: 16,
-  },
-  category: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.primary,
+  categoryText: {
+    fontSize: 12,
     fontWeight: '600',
-    marginBottom: 4,
+    color: '#FF3EA5',
+    letterSpacing: 0.3,
   },
-  hostName: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    marginBottom: 4,
+  freeBadge: {
+    backgroundColor: 'rgba(166, 255, 150, 0.15)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(166, 255, 150, 0.3)',
   },
-  officialBadge: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+  freeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#A6FF96',
+    letterSpacing: 0.5,
   },
-  officialBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#000',
+  priceBadge: {
+    backgroundColor: 'rgba(0, 242, 254, 0.15)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 242, 254, 0.3)',
+  },
+  priceText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#00F2FE',
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 16,
+    fontWeight: '700',
+    color: '#F1F5F9',
     lineHeight: 36,
+    letterSpacing: -0.5,
   },
-  description: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    lineHeight: 24,
+  infoSection: {
+    gap: 12,
     marginBottom: 24,
   },
-  detailsSection: {
-    marginBottom: 24,
+  infoCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  detailCard: {
+  infoGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    padding: 16,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 12,
   },
-  detailIcon: {
-    fontSize: 24,
-    marginRight: 16,
+  infoIcon: {
+    fontSize: 28,
+    marginRight: 14,
   },
-  detailContent: {
+  infoContent: {
     flex: 1,
   },
-  detailLabel: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
+  infoLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
-  detailValue: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    fontWeight: '500',
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    letterSpacing: -0.2,
   },
-  section: {
+  descriptionSection: {
     marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  descriptionGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
   },
   sectionTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    marginBottom: 14,
+    letterSpacing: -0.2,
   },
-  attendeeItem: {
+  descriptionText: {
+    fontSize: 15,
+    color: '#94A3B8',
+    lineHeight: 24,
+  },
+  attendeesSection: {
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  attendeesGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
+  },
+  attendeesGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  attendeeCard: {
+    width: 56,
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    padding: 12,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 8,
   },
   attendeeAvatar: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  attendeeInfo: {
-    flex: 1,
-  },
-  attendeeName: {
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 2,
-  },
-  attendeeDate: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-  },
-  includedItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  includedIcon: {
-    fontSize: 16,
-    color: Colors.success,
-    marginRight: 12,
-    fontWeight: 'bold',
-  },
-  includedText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-  },
-  priceSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#F8F9FA',
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-  },
-  priceLabel: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    marginBottom: 4,
-  },
-  price: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  freePrice: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.success,
-  },
-  spotsLabel: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-  },
-  reportButton: {
-    backgroundColor: '#FFF9E6',
-    padding: 14,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFD700',
-  },
-  reportButtonText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    fontWeight: '600',
-  },
-  confirmOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 62, 165, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 62, 165, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
   },
-  confirmBox: {
-    backgroundColor: Colors.background,
-    padding: 24,
-    borderRadius: Sizes.borderRadius,
-    width: '90%',
-    maxWidth: 400,
+  attendeeEmoji: {
+    fontSize: 28,
   },
-  confirmTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  confirmText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
+  hostSection: {
     marginBottom: 24,
-    textAlign: 'center',
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  confirmButtons: {
+  hostGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
+  },
+  hostInfo: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: Colors.border,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    marginRight: 8,
     alignItems: 'center',
   },
-  cancelButtonText: {
-    color: Colors.text,
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
+  hostAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 62, 165, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 62, 165, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
-  confirmButton: {
+  hostEmoji: {
+    fontSize: 28,
+  },
+  hostDetails: {
     flex: 1,
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    marginLeft: 8,
+  },
+  hostName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    marginBottom: 4,
+    letterSpacing: -0.2,
+  },
+  hostBio: {
+    fontSize: 13,
+    color: '#94A3B8',
+  },
+  messageButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  messageButtonGlass: {
+    width: 44,
+    height: 44,
+    backgroundColor: 'rgba(255, 62, 165, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.3)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  confirmButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
+  messageButtonText: {
+    fontSize: 20,
   },
-  footer: {
-    padding: Sizes.padding * 2,
-    backgroundColor: Colors.background,
+  bottomAction: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 40,
+  },
+  bottomGlass: {
+    backgroundColor: 'rgba(11, 15, 26, 0.95)',
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 24,
   },
-  joinButton: {
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
+  actionButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
+  actionButtonGlass: {
+    backgroundColor: 'rgba(255, 62, 165, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 62, 165, 0.4)',
+    paddingVertical: 16,
     alignItems: 'center',
   },
-  joinButtonDisabled: {
-    backgroundColor: Colors.border,
+  actionButtonJoinedGlass: {
+    backgroundColor: 'rgba(17, 24, 39, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  joinButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.large,
+  actionButtonText: {
+    fontSize: 17,
     fontWeight: '700',
+    color: '#FF3EA5',
+    letterSpacing: -0.2,
   },
-  joinedButton: {
-    backgroundColor: Colors.success,
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-  },
-  joinedButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '700',
-  },
-  hostButton: {
-    backgroundColor: '#FFD700',
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-  },
-  hostButtonText: {
-    color: '#000',
-    fontSize: Sizes.fontSize.large,
-    fontWeight: '700',
-  },
-  mockButton: {
-    backgroundColor: '#F0F0F0',
-    padding: Sizes.padding + 4,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-  },
-  mockButtonText: {
-    color: Colors.textLight,
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
+  actionButtonJoinedText: {
+    color: '#F1F5F9',
   },
 });
