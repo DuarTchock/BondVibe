@@ -4,8 +4,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './src/services/firebase';
 import AppNavigator from './src/navigation/AppNavigator';
+import { ThemeProvider } from './src/contexts/ThemeContext';
 
-export default function App() {
+function AppContent() {
   const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState(null);
 
@@ -31,10 +32,10 @@ export default function App() {
           }
         } catch (error) {
           console.error('❌ Error fetching user doc:', error);
-          setUser(authUser); // Login anyway even if doc fails
+          setUser(authUser);
         }
       } else {
-        console.log('�� No user, showing login');
+        console.log('🚪 No user, showing login');
         setUser(null);
       }
       
@@ -57,6 +58,14 @@ export default function App() {
 
   console.log('🎨 Rendering AppNavigator, user:', user ? user.uid : 'null');
   return <AppNavigator initialUser={user} />;
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
 }
 
 const styles = StyleSheet.create({
