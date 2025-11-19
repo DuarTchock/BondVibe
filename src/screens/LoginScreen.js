@@ -5,8 +5,8 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -15,24 +15,22 @@ import { useTheme } from '../contexts/ThemeContext';
 
 export default function LoginScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!form.email.trim() || !form.password) {
+    if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, form.email.trim(), form.password);
+      await signInWithEmailAndPassword(auth, email, password);
+      // AppNavigator will handle navigation based on user state
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Error', 'Invalid email or password');
+      Alert.alert('Login Failed', error.message);
     } finally {
       setLoading(false);
     }
@@ -44,64 +42,45 @@ export default function LoginScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
       
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
+      <View style={styles.content}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Title */}
-        <View style={styles.titleSection}>
-          <Text style={styles.emoji}>👋</Text>
-          <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
+          <Text style={styles.logo}>🎪</Text>
+          <Text style={[styles.title, { color: colors.text }]}>BondVibe</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Log in to continue
+            Connect through shared experiences
           </Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.input, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.email}
-                onChangeText={(text) => setForm({ ...form, email: text })}
-                placeholder="you@example.com"
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
+          <View style={[styles.inputWrapper, {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border
+          }]}>
+            <Text style={styles.inputIcon}>📧</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Email"
+              placeholderTextColor={colors.textTertiary}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Password</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.input, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.password}
-                onChangeText={(text) => setForm({ ...form, password: text })}
-                placeholder="Enter your password"
-                placeholderTextColor={colors.textTertiary}
-                secureTextEntry
-              />
-            </View>
+          <View style={[styles.inputWrapper, {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border
+          }]}>
+            <Text style={styles.inputIcon}>🔒</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Password"
+              placeholderTextColor={colors.textTertiary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
           </View>
 
           <TouchableOpacity
@@ -113,23 +92,37 @@ export default function LoginScreen({ navigation }) {
               backgroundColor: `${colors.primary}33`,
               borderColor: `${colors.primary}66`
             }]}>
-              <Text style={[styles.loginButtonText, { color: colors.primary }]}>
-                {loading ? 'Logging In...' : 'Log In'}
-              </Text>
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={[styles.loginText, { color: colors.primary }]}>
+                  Log In
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
 
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.textTertiary }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
           <TouchableOpacity
-            style={styles.signupLink}
+            style={styles.signupButton}
             onPress={() => navigation.navigate('Signup')}
           >
-            <Text style={[styles.signupLinkText, { color: colors.textSecondary }]}>
-              Don't have an account?{' '}
-              <Text style={{ color: colors.primary, fontWeight: '600' }}>Sign Up</Text>
-            </Text>
+            <View style={[styles.signupGlass, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
+            }]}>
+              <Text style={[styles.signupText, { color: colors.text }]}>
+                Don't have an account? <Text style={{ color: colors.primary, fontWeight: '700' }}>Sign Up</Text>
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -137,23 +130,23 @@ export default function LoginScreen({ navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    scrollView: { flex: 1 },
-    scrollContent: { paddingHorizontal: 32, paddingBottom: 40 },
-    header: { paddingTop: 60, paddingBottom: 20 },
-    backButton: { fontSize: 28 },
-    titleSection: { alignItems: 'center', marginBottom: 40 },
-    emoji: { fontSize: 64, marginBottom: 16 },
+    content: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
+    header: { alignItems: 'center', marginBottom: 48 },
+    logo: { fontSize: 72, marginBottom: 16 },
     title: { fontSize: 32, fontWeight: '700', marginBottom: 8, letterSpacing: -0.5 },
     subtitle: { fontSize: 15, textAlign: 'center' },
-    form: { gap: 20 },
-    inputGroup: { gap: 8 },
-    label: { fontSize: 13, fontWeight: '600', letterSpacing: -0.1 },
-    inputWrapper: { borderRadius: 12, overflow: 'hidden' },
-    input: { borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15 },
-    loginButton: { borderRadius: 16, overflow: 'hidden', marginTop: 8 },
+    form: { width: '100%', maxWidth: 400, alignSelf: 'center' },
+    inputWrapper: { borderWidth: 1, borderRadius: 16, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 },
+    inputIcon: { fontSize: 20, marginRight: 12 },
+    input: { flex: 1, fontSize: 16, paddingVertical: 16 },
+    loginButton: { borderRadius: 16, overflow: 'hidden', marginBottom: 20 },
     loginGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
-    loginButtonText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-    signupLink: { alignItems: 'center', marginTop: 8 },
-    signupLinkText: { fontSize: 14 },
+    loginText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+    divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+    dividerLine: { flex: 1, height: 1 },
+    dividerText: { marginHorizontal: 16, fontSize: 14 },
+    signupButton: { borderRadius: 16, overflow: 'hidden' },
+    signupGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
+    signupText: { fontSize: 15 },
   });
 }
