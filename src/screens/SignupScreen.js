@@ -13,6 +13,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
+import SuccessModal from '../components/SuccessModal';
 
 export default function SignupScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -20,8 +21,11 @@ export default function SignupScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSignup = async () => {
+    console.log('📝 Starting signup process...');
+    
     if (!email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -39,11 +43,14 @@ export default function SignupScreen({ navigation }) {
 
     setLoading(true);
     try {
+      console.log('�� Creating user account...');
       // Crear cuenta
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      console.log('✅ User account created:', user.uid);
 
       // Crear documento de usuario en Firestore
+      console.log('📄 Creating Firestore document...');
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email,
         createdAt: new Date().toISOString(),
@@ -52,30 +59,43 @@ export default function SignupScreen({ navigation }) {
         legalAccepted: false,
         role: 'user',
       });
+      console.log('✅ Firestore document created');
 
       // Enviar email de verificación
+      console.log('�� Sending verification email...');
       await sendEmailVerification(user);
+      console.log('✅ Verification email sent');
 
-      Alert.alert(
-        'Verification Email Sent!',
-        'Please check your email and verify your account before continuing.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Cerrar sesión para forzar re-login después de verificar
-              auth.signOut();
-              navigation.replace('Login');
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Signup error:', error);
-      Alert.alert('Signup Failed', error.message);
-    } finally {
+      // Cerrar sesión para forzar verificación
+      console.log('🚪 Signing out user...');
+      await auth.signOut();
+      console.log('✅ User signed out');
+
+      // Mostrar modal de éxito
       setLoading(false);
+      setShowSuccess(true);
+      
+    } catch (error) {
+      console.error('❌ Signup error:', error);
+      console.error('Error code:', error.code);
+      setLoading(false);
+      
+      if (error.code === 'auth/email-already-in-use') {
+        Alert.alert('Email Already Registered', 'This email is already registered. Please log in instead.');
+      } else if (error.code === 'auth/invalid-email') {
+        Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      } else if (error.code === 'auth/weak-password') {
+        Alert.alert('Weak Password', 'Password should be at least 6 characters.');
+      } else {
+        Alert.alert('Signup Failed', error.message);
+      }
     }
+  };
+
+  const handleModalClose = () => {
+    console.log('👋 Closing modal and navigating to Login');
+    setShowSuccess(false);
+    navigation.replace('Login');
   };
 
   const styles = createStyles(colors);
@@ -156,7 +176,12 @@ export default function SignupScreen({ navigation }) {
               borderColor: `${colors.primary}66`
             }]}>
               {loading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.signupText, { color: colors.primary, marginLeft: 12 }]}>
+                    Creating account...
+                  </Text>
+                </View>
               ) : (
                 <Text style={[styles.signupText, { color: colors.primary }]}>
                   Sign Up
@@ -175,6 +200,14 @@ export default function SignupScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
+
+      <SuccessModal
+        visible={showSuccess}
+        onClose={handleModalClose}
+        title="Verify Your Email"
+        message="We've sent a verification link to your email. Please check your inbox (and spam folder) and click the link to verify your account before logging in."
+        emoji="📧"
+      />
     </View>
   );
 }
@@ -195,6 +228,7 @@ function createStyles(colors) {
     input: { flex: 1, fontSize: 16, paddingVertical: 16 },
     signupButton: { borderRadius: 16, overflow: 'hidden', marginTop: 8, marginBottom: 20 },
     signupGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
+    loadingRow: { flexDirection: 'row', alignItems: 'center' },
     signupText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
     loginLink: { alignItems: 'center', paddingVertical: 12 },
     loginLinkText: { fontSize: 15 },
