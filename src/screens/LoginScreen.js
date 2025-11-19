@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -84,13 +85,20 @@ export default function LoginScreen({ navigation }) {
     setLoading(false);
   };
 
-  const handleErrorModalClose = () => {
-    if (errorModal.showSignup) {
-      setErrorModal({ ...errorModal, visible: false });
-      navigation.navigate('Signup');
-    } else {
-      setErrorModal({ ...errorModal, visible: false });
-    }
+  const handleCancel = () => {
+    console.log('❌ Cancel clicked - closing modal');
+    setErrorModal({ ...errorModal, visible: false });
+  };
+
+  const handleSignupClick = () => {
+    console.log('✅ Sign Up clicked - navigating');
+    setErrorModal({ ...errorModal, visible: false });
+    setTimeout(() => navigation.navigate('Signup'), 100);
+  };
+
+  const handleSimpleModalClose = () => {
+    console.log('✅ Modal closed');
+    setErrorModal({ ...errorModal, visible: false });
   };
 
   const styles = createStyles(colors);
@@ -181,46 +189,62 @@ export default function LoginScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Error Modal con opción de Sign Up */}
-      {errorModal.showSignup ? (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBackdrop} />
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <Text style={styles.modalEmoji}>❌</Text>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>{errorModal.title}</Text>
-            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-              {errorModal.message}
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setErrorModal({ ...errorModal, visible: false })}
-              >
-                <View style={[styles.modalButtonGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
-                  <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={handleErrorModalClose}
-              >
-                <View style={[styles.modalButtonGlass, {
-                  backgroundColor: `${colors.primary}33`,
-                  borderColor: `${colors.primary}66`
-                }]}>
-                  <Text style={[styles.modalButtonText, { color: colors.primary }]}>Sign Up</Text>
-                </View>
-              </TouchableOpacity>
+      {/* Modal con dos botones para "Account Not Found" */}
+      {errorModal.showSignup && (
+        <Modal
+          visible={errorModal.visible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={handleCancel}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity 
+              style={styles.modalBackdrop} 
+              activeOpacity={1}
+              onPress={handleCancel}
+            />
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <Text style={styles.modalEmoji}>❌</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{errorModal.title}</Text>
+              <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+                {errorModal.message}
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={handleCancel}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.modalButtonGlass, {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border
+                  }]}>
+                    <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={handleSignupClick}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.modalButtonGlass, {
+                    backgroundColor: `${colors.primary}33`,
+                    borderColor: `${colors.primary}66`
+                  }]}>
+                    <Text style={[styles.modalButtonText, { color: colors.primary }]}>Sign Up</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      ) : (
+        </Modal>
+      )}
+
+      {/* Modal simple para otros errores */}
+      {!errorModal.showSignup && (
         <SuccessModal
           visible={errorModal.visible}
-          onClose={handleErrorModalClose}
+          onClose={handleSimpleModalClose}
           title={errorModal.title}
           message={errorModal.message}
           emoji="❌"
@@ -252,10 +276,10 @@ function createStyles(colors) {
     signupGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
     signupText: { fontSize: 15 },
     
-    // Modal personalizado para errores con botón Sign Up
-    modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-    modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)' },
-    modalContent: { width: '90%', maxWidth: 400, borderRadius: 24, padding: 32, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.3, shadowRadius: 30, elevation: 20, zIndex: 1001 },
+    // Modal personalizado
+    modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.6)' },
+    modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    modalContent: { width: '90%', maxWidth: 400, borderRadius: 24, padding: 32, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.3, shadowRadius: 30, elevation: 20 },
     modalEmoji: { fontSize: 72, marginBottom: 20 },
     modalTitle: { fontSize: 24, fontWeight: '700', marginBottom: 12, textAlign: 'center', letterSpacing: -0.4 },
     modalMessage: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
