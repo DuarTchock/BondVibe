@@ -25,16 +25,31 @@ export default function MyEventsScreen({ navigation }) {
   const loadMyEvents = async () => {
     setLoading(true);
     try {
+      let userEvents = [];
+
       if (activeTab === 'hosting') {
+        // Eventos que creaste
         const hostingQuery = query(
           collection(db, 'events'),
           where('creatorId', '==', auth.currentUser.uid)
         );
         const snapshot = await getDocs(hostingQuery);
-        setEvents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        userEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('📅 Hosting events:', userEvents.length);
       } else {
-        setEvents([]);
+        // Eventos a los que te uniste
+        const allEventsQuery = query(collection(db, 'events'));
+        const snapshot = await getDocs(allEventsQuery);
+        
+        // Filtrar eventos donde el usuario está en attendees
+        userEvents = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(event => event.attendees?.includes(auth.currentUser.uid));
+        
+        console.log('📅 Joined events:', userEvents.length);
       }
+
+      setEvents(userEvents);
     } catch (error) {
       console.error('Error loading events:', error);
     } finally {
