@@ -28,13 +28,17 @@ export default function RequestHostScreen({ navigation }) {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSubmit = async () => {
+    console.log('📝 Starting submission...');
+    
     // Validación
     if (!formData.whyHost.trim() || !formData.experience.trim() || !formData.eventIdeas.trim()) {
+      console.log('❌ Form incomplete');
       Alert.alert('Incomplete Form', 'Please fill in all fields before submitting.');
       return;
     }
 
     setSubmitting(true);
+    console.log('⏳ Submitting...');
 
     try {
       // Verificar si ya tiene una solicitud pendiente
@@ -46,16 +50,18 @@ export default function RequestHostScreen({ navigation }) {
       const existingSnapshot = await getDocs(existingQuery);
 
       if (!existingSnapshot.empty) {
+        console.log('⚠️ Already has pending request');
+        setSubmitting(false);
         Alert.alert(
           'Request Already Submitted',
           'You already have a pending host request. Please wait for admin review.',
           [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
         );
-        setSubmitting(false);
         return;
       }
 
       // Crear nueva solicitud
+      console.log('📤 Creating request...');
       await addDoc(collection(db, 'hostRequests'), {
         userId: auth.currentUser.uid,
         whyHost: formData.whyHost.trim(),
@@ -66,12 +72,16 @@ export default function RequestHostScreen({ navigation }) {
       });
 
       console.log('✅ Host request submitted successfully');
-      
-      // Mostrar modal de éxito
       setSubmitting(false);
-      setShowSuccess(true);
+      
+      // Pequeño delay para asegurar que el estado se actualice
+      setTimeout(() => {
+        console.log('🎉 Showing success modal');
+        setShowSuccess(true);
+      }, 100);
+      
     } catch (error) {
-      console.error('Error submitting host request:', error);
+      console.error('❌ Error submitting host request:', error);
       setSubmitting(false);
       Alert.alert(
         'Submission Error',
@@ -82,6 +92,7 @@ export default function RequestHostScreen({ navigation }) {
   };
 
   const handleSuccessClose = () => {
+    console.log('👋 Closing success modal and navigating to Home');
     setShowSuccess(false);
     navigation.navigate('Home');
   };
@@ -95,7 +106,6 @@ export default function RequestHostScreen({ navigation }) {
     >
       <StatusBar style={isDark ? "light" : "dark"} />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
@@ -109,7 +119,6 @@ export default function RequestHostScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Intro */}
         <View style={styles.introSection}>
           <Text style={styles.introEmoji}>🎪</Text>
           <Text style={[styles.introTitle, { color: colors.text }]}>
@@ -120,11 +129,10 @@ export default function RequestHostScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Form */}
         <View style={styles.formSection}>
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>
-              Why do you want to be a host?
+              Why do you want to be a host? *
             </Text>
             <View style={[styles.inputWrapper, {
               backgroundColor: colors.surfaceGlass,
@@ -141,11 +149,14 @@ export default function RequestHostScreen({ navigation }) {
                 maxLength={500}
               />
             </View>
+            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
+              {formData.whyHost.length}/500
+            </Text>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>
-              What's your experience with organizing events?
+              What's your experience with organizing events? *
             </Text>
             <View style={[styles.inputWrapper, {
               backgroundColor: colors.surfaceGlass,
@@ -162,11 +173,14 @@ export default function RequestHostScreen({ navigation }) {
                 maxLength={500}
               />
             </View>
+            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
+              {formData.experience.length}/500
+            </Text>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>
-              What kind of events would you like to host?
+              What kind of events would you like to host? *
             </Text>
             <View style={[styles.inputWrapper, {
               backgroundColor: colors.surfaceGlass,
@@ -183,14 +197,17 @@ export default function RequestHostScreen({ navigation }) {
                 maxLength={500}
               />
             </View>
+            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
+              {formData.eventIdeas.length}/500
+            </Text>
           </View>
         </View>
 
-        {/* Submit Button */}
         <TouchableOpacity
           style={styles.submitButton}
           onPress={handleSubmit}
           disabled={submitting}
+          activeOpacity={0.8}
         >
           <View style={[styles.submitGlass, {
             backgroundColor: `${colors.primary}33`,
@@ -198,7 +215,12 @@ export default function RequestHostScreen({ navigation }) {
             opacity: submitting ? 0.6 : 1
           }]}>
             {submitting ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+              <View style={styles.loadingRow}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.submitText, { color: colors.primary, marginLeft: 12 }]}>
+                  Submitting...
+                </Text>
+              </View>
             ) : (
               <Text style={[styles.submitText, { color: colors.primary }]}>
                 Submit Application
@@ -207,7 +229,6 @@ export default function RequestHostScreen({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        {/* Info Note */}
         <View style={styles.noteSection}>
           <Text style={[styles.noteText, { color: colors.textTertiary }]}>
             📋 Your application will be reviewed by our team. We'll notify you once a decision has been made.
@@ -215,7 +236,6 @@ export default function RequestHostScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* Success Modal */}
       <SuccessModal
         visible={showSuccess}
         onClose={handleSuccessClose}
@@ -238,14 +258,16 @@ function createStyles(colors) {
     introSection: { alignItems: 'center', marginBottom: 32 },
     introEmoji: { fontSize: 64, marginBottom: 16 },
     introTitle: { fontSize: 24, fontWeight: '700', marginBottom: 12, letterSpacing: -0.4 },
-    introText: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+    introText: { fontSize: 14, textAlign: 'center', lineHeight: 22, paddingHorizontal: 20 },
     formSection: { marginBottom: 24 },
     inputGroup: { marginBottom: 24 },
     label: { fontSize: 15, fontWeight: '600', marginBottom: 12, letterSpacing: -0.2 },
-    inputWrapper: { borderWidth: 1, borderRadius: 16, padding: 16 },
+    inputWrapper: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 8 },
     textArea: { fontSize: 15, minHeight: 100, textAlignVertical: 'top' },
+    charCount: { fontSize: 12, textAlign: 'right' },
     submitButton: { borderRadius: 16, overflow: 'hidden', marginBottom: 24 },
     submitGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', minHeight: 56 },
+    loadingRow: { flexDirection: 'row', alignItems: 'center' },
     submitText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
     noteSection: { padding: 16, alignItems: 'center' },
     noteText: { fontSize: 13, textAlign: 'center', lineHeight: 20 },

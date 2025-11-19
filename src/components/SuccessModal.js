@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,18 @@ import { useTheme } from '../contexts/ThemeContext';
 
 export default function SuccessModal({ visible, onClose, title, message, emoji = '🎉' }) {
   const { colors } = useTheme();
+  
+  useEffect(() => {
+    if (visible) {
+      console.log('✅ SuccessModal is now visible');
+    }
+  }, [visible]);
+
+  const handleClose = () => {
+    console.log('👋 SuccessModal closing...');
+    onClose();
+  };
+
   const styles = createStyles(colors);
 
   return (
@@ -17,13 +29,13 @@ export default function SuccessModal({ visible, onClose, title, message, emoji =
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.overlay}>
         <TouchableOpacity 
           style={styles.backdrop} 
           activeOpacity={1} 
-          onPress={onClose}
+          onPress={handleClose}
         />
         
         <View style={[styles.modal, { backgroundColor: colors.surface }]}>
@@ -37,7 +49,8 @@ export default function SuccessModal({ visible, onClose, title, message, emoji =
 
           <TouchableOpacity
             style={styles.button}
-            onPress={onClose}
+            onPress={handleClose}
+            activeOpacity={0.8}
           >
             <View style={[styles.buttonGlass, {
               backgroundColor: `${colors.primary}33`,
@@ -60,10 +73,14 @@ function createStyles(colors) {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
     },
     backdrop: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
     },
     modal: {
       width: '90%',
@@ -76,10 +93,12 @@ function createStyles(colors) {
       shadowRadius: 30,
       elevation: 20,
       alignItems: 'center',
+      zIndex: 1000,
     },
     content: {
       alignItems: 'center',
       marginBottom: 28,
+      width: '100%',
     },
     emoji: {
       fontSize: 72,
@@ -96,6 +115,7 @@ function createStyles(colors) {
       fontSize: 15,
       textAlign: 'center',
       lineHeight: 22,
+      paddingHorizontal: 10,
     },
     button: {
       width: '100%',
