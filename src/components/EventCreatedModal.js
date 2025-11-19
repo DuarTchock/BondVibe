@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  Animated,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -21,9 +20,11 @@ export default function EventCreatedModal({ visible, onClose, eventTitle }) {
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.surface }]}>
           {/* Success Icon */}
-          <View style={styles.iconContainer}>
+          <View style={[styles.iconContainer, {
+            backgroundColor: `${colors.primary}22`,
+          }]}>
             <Text style={styles.successIcon}>✨</Text>
           </View>
 
@@ -68,18 +69,21 @@ function createStyles(colors) {
       padding: 24,
     },
     container: {
-      backgroundColor: colors.surface,
       borderRadius: 24,
       padding: 32,
       width: '100%',
       maxWidth: 400,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.3,
+      shadowRadius: 20,
+      elevation: 10,
     },
     iconContainer: {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: `${colors.primary}22`,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 24,
