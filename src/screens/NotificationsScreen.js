@@ -27,12 +27,11 @@ export default function NotificationsScreen({ navigation }) {
     try {
       const userNotifications = await getUserNotifications(auth.currentUser.uid);
       
-      // Si no hay notificaciones reales, crear algunas de demo
       if (userNotifications.length === 0) {
         const demoNotifications = [
           {
             id: 'demo1',
-            type: 'event_joined',
+            type: 'welcome',
             title: 'Welcome to BondVibe! 👋',
             message: 'Start exploring events and connect with people',
             time: 'Just now',
@@ -43,19 +42,18 @@ export default function NotificationsScreen({ navigation }) {
           },
           {
             id: 'demo2',
-            type: 'new_match',
-            title: 'Discover Events',
-            message: 'Check out events that match your interests',
+            type: 'messages',
+            title: 'Try Messages',
+            message: 'Chat with event attendees and hosts',
             time: '1 hour ago',
             read: false,
-            icon: '✨',
-            action: () => navigation.navigate('EventFeed'),
+            icon: '💬',
+            action: () => navigation.navigate('Conversations'),
             isDemo: true,
           },
         ];
         setNotifications(demoNotifications);
       } else {
-        // Mapear notificaciones reales con acciones
         const mappedNotifications = userNotifications.map(notif => ({
           ...notif,
           time: getTimeAgo(notif.createdAt),
@@ -89,28 +87,24 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handleNotificationAction = (notification) => {
-    // Marcar como leída si no es demo
     if (!notification.isDemo && !notification.read) {
       markAsRead(notification.id);
     }
 
-    // Navegar según el tipo
     switch (notification.type) {
       case 'event_joined':
         if (notification.metadata?.eventId) {
           navigation.navigate('EventDetail', { eventId: notification.metadata.eventId });
         }
         break;
-      case 'event_reminder':
-        if (notification.metadata?.eventId) {
-          navigation.navigate('EventDetail', { eventId: notification.metadata.eventId });
-        }
+      case 'event_message':
+        navigation.navigate('Conversations');
         break;
       case 'new_match':
         navigation.navigate('EventFeed');
         break;
-      case 'event_message':
-        navigation.navigate('MyEvents');
+      case 'messages':
+        navigation.navigate('Conversations');
         break;
       default:
         if (notification.action) {
@@ -118,15 +112,11 @@ export default function NotificationsScreen({ navigation }) {
         }
     }
 
-    // Recargar notificaciones
     loadNotifications();
   };
 
   const handleMarkAllRead = async () => {
-    // Marcar todas las reales
     await markAllAsRead(auth.currentUser.uid);
-    
-    // Actualizar estado local
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
@@ -177,7 +167,6 @@ export default function NotificationsScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
@@ -224,109 +213,27 @@ export default function NotificationsScreen({ navigation }) {
 
 function createStyles(colors) {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingTop: 60,
-      paddingBottom: 20,
-    },
-    backButton: {
-      fontSize: 28,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      letterSpacing: -0.3,
-    },
-    markAllRead: {
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 24,
-      paddingBottom: 40,
-    },
-    notificationCard: {
-      marginBottom: 12,
-      borderRadius: 16,
-      overflow: 'hidden',
-    },
-    notificationGlass: {
-      borderWidth: 1,
-      padding: 16,
-      flexDirection: 'row',
-    },
-    notificationIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 14,
-    },
-    iconEmoji: {
-      fontSize: 22,
-    },
-    notificationContent: {
-      flex: 1,
-    },
-    notificationHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    notificationTitle: {
-      fontSize: 15,
-      fontWeight: '700',
-      flex: 1,
-      letterSpacing: -0.2,
-    },
-    unreadDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginLeft: 8,
-    },
-    notificationMessage: {
-      fontSize: 14,
-      lineHeight: 20,
-      marginBottom: 6,
-    },
-    notificationTime: {
-      fontSize: 12,
-    },
-    emptyState: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 40,
-    },
-    emptyEmoji: {
-      fontSize: 64,
-      marginBottom: 20,
-    },
-    emptyTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      marginBottom: 10,
-      letterSpacing: -0.3,
-    },
-    emptyText: {
-      fontSize: 14,
-      textAlign: 'center',
-    },
+    container: { flex: 1 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
+    backButton: { fontSize: 28 },
+    headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
+    markAllRead: { fontSize: 13, fontWeight: '600' },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    scrollView: { flex: 1 },
+    scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+    notificationCard: { marginBottom: 12, borderRadius: 16, overflow: 'hidden' },
+    notificationGlass: { borderWidth: 1, padding: 16, flexDirection: 'row' },
+    notificationIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+    iconEmoji: { fontSize: 22 },
+    notificationContent: { flex: 1 },
+    notificationHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+    notificationTitle: { fontSize: 15, fontWeight: '700', flex: 1, letterSpacing: -0.2 },
+    unreadDot: { width: 8, height: 8, borderRadius: 4, marginLeft: 8 },
+    notificationMessage: { fontSize: 14, lineHeight: 20, marginBottom: 6 },
+    notificationTime: { fontSize: 12 },
+    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
+    emptyEmoji: { fontSize: 64, marginBottom: 20 },
+    emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 10, letterSpacing: -0.3 },
+    emptyText: { fontSize: 14, textAlign: 'center' },
   });
 }

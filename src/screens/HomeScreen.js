@@ -539,3 +539,17 @@ function createStyles(colors) {
     },
   });
 }
+// Agregar esto después de la línea 107, dentro del return antes del primer QuickActionCard
+
+<TouchableOpacity
+  style={styles.quickAction}
+  onPress={() => navigation.navigate('Conversations')}
+>
+  <View style={[styles.quickActionGlass, {
+    backgroundColor: colors.surfaceGlass,
+    borderColor: colors.border
+  }]}>
+    <Text style={styles.quickActionIcon}>💬</Text>
+    <Text style={[styles.quickActionText, { color: colors.text }]}>Messages</Text>
+  </View>
+</TouchableOpacity>
