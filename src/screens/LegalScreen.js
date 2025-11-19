@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -182,22 +183,43 @@ export default function LegalScreen({ navigation }) {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const handleContinue = async () => {
+    console.log('🔘 Continue clicked');
+    console.log('📋 Terms accepted:', termsAccepted);
+    console.log('🔒 Privacy accepted:', privacyAccepted);
+
     if (!termsAccepted || !privacyAccepted) {
+      console.log('❌ Not all terms accepted');
+      Alert.alert('Please Accept Terms', 'You must accept both Terms of Service and Privacy Policy to continue.');
       return;
     }
 
     setLoading(true);
+    console.log('⏳ Starting legal acceptance update...');
+
     try {
       const user = auth.currentUser;
-      if (user) {
-        await updateDoc(doc(db, 'users', user.uid), {
-          legalAccepted: true,
-          legalAcceptedAt: new Date().toISOString(),
-        });
-        // AppNavigator will handle navigation
+      if (!user) {
+        console.log('❌ No user found');
+        Alert.alert('Error', 'No user found. Please log in again.');
+        setLoading(false);
+        return;
       }
+
+      console.log('👤 Updating legal acceptance for user:', user.uid);
+      
+      await updateDoc(doc(db, 'users', user.uid), {
+        legalAccepted: true,
+        legalAcceptedAt: new Date().toISOString(),
+      });
+      
+      console.log('✅ Legal acceptance updated successfully');
+      console.log('🔄 AppNavigator should detect change and navigate...');
+      
+      // AppNavigator will handle navigation automatically
+      
     } catch (error) {
-      console.error('Error updating legal acceptance:', error);
+      console.error('❌ Error updating legal acceptance:', error);
+      Alert.alert('Error', 'Failed to save your consent. Please try again.');
       setLoading(false);
     }
   };
@@ -229,7 +251,10 @@ export default function LegalScreen({ navigation }) {
               borderColor: termsAccepted ? colors.primary : colors.border,
               borderWidth: termsAccepted ? 2 : 1,
             }]}
-            onPress={() => setTermsAccepted(!termsAccepted)}
+            onPress={() => {
+              console.log('📝 Terms checkbox clicked');
+              setTermsAccepted(!termsAccepted);
+            }}
             activeOpacity={0.7}
           >
             <View style={styles.checkbox}>
@@ -250,6 +275,7 @@ export default function LegalScreen({ navigation }) {
               <TouchableOpacity 
                 onPress={(e) => {
                   e.stopPropagation();
+                  console.log('📖 Opening Terms modal');
                   setShowTermsModal(true);
                 }}
                 style={styles.readLink}
@@ -268,7 +294,10 @@ export default function LegalScreen({ navigation }) {
               borderColor: privacyAccepted ? colors.primary : colors.border,
               borderWidth: privacyAccepted ? 2 : 1,
             }]}
-            onPress={() => setPrivacyAccepted(!privacyAccepted)}
+            onPress={() => {
+              console.log('🔒 Privacy checkbox clicked');
+              setPrivacyAccepted(!privacyAccepted);
+            }}
             activeOpacity={0.7}
           >
             <View style={styles.checkbox}>
@@ -289,6 +318,7 @@ export default function LegalScreen({ navigation }) {
               <TouchableOpacity 
                 onPress={(e) => {
                   e.stopPropagation();
+                  console.log('📖 Opening Privacy modal');
                   setShowPrivacyModal(true);
                 }}
                 style={styles.readLink}
@@ -326,14 +356,20 @@ export default function LegalScreen({ navigation }) {
       {/* Modals for displaying documents */}
       <LegalDocumentModal
         visible={showTermsModal}
-        onClose={() => setShowTermsModal(false)}
+        onClose={() => {
+          console.log('📖 Closing Terms modal');
+          setShowTermsModal(false);
+        }}
         title="Terms of Service"
         content={TERMS_OF_SERVICE}
       />
 
       <LegalDocumentModal
         visible={showPrivacyModal}
-        onClose={() => setShowPrivacyModal(false)}
+        onClose={() => {
+          console.log('📖 Closing Privacy modal');
+          setShowPrivacyModal(false);
+        }}
         title="Privacy Policy"
         content={PRIVACY_POLICY}
       />
