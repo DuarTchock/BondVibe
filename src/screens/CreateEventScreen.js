@@ -11,7 +11,6 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
@@ -30,48 +29,32 @@ export default function CreateEventScreen({ navigation }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('social');
-  const [date, setDate] = useState(new Date());
-  const [time, setTime] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  
+  // Initialize with tomorrow's date and default time
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(19, 0, 0, 0); // 7 PM
+  
+  const [dateValue, setDateValue] = useState(tomorrow.toISOString().split('T')[0]); // YYYY-MM-DD
+  const [timeValue, setTimeValue] = useState('19:00'); // HH:MM
+  
   const [location, setLocation] = useState('');
   const [maxPeople, setMaxPeople] = useState('');
   const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleDateChange = (event, selectedDate) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      // Validate that date is not in the past
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (selectedDate < today) {
-        Alert.alert('Invalid Date', 'Please select a future date for your event.');
-        return;
-      }
-      setDate(selectedDate);
-    }
-  };
-
-  const handleTimeChange = (event, selectedTime) => {
-    setShowTimePicker(Platform.OS === 'ios');
-    if (selectedTime) {
-      setTime(selectedTime);
-    }
-  };
-
-  const formatDate = (date) => {
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
     const options = { month: 'short', day: 'numeric', year: 'numeric' };
     return date.toLocaleDateString('en-US', options);
   };
 
-  const formatTime = (time) => {
-    return time.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    });
+  const formatTime = (timeString) => {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
   };
 
   const handleCreateEvent = async () => {
@@ -100,8 +83,7 @@ export default function CreateEventScreen({ navigation }) {
     }
 
     // Combine date and time
-    const eventDateTime = new Date(date);
-    eventDateTime.setHours(time.getHours(), time.getMinutes(), 0, 0);
+    const eventDateTime = new Date(`${dateValue}T${timeValue}:00`);
 
     // Validate datetime is in the future
     if (eventDateTime <= new Date()) {
@@ -161,6 +143,9 @@ export default function CreateEventScreen({ navigation }) {
   };
 
   const styles = createStyles(colors);
+
+  // Get minimum date (today) in YYYY-MM-DD format
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -243,61 +228,59 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Date and Time */}
+        {/* Date and Time - Web Native Inputs */}
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>Date *</Text>
-            <TouchableOpacity
-              style={[styles.pickerButton, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text style={[styles.pickerText, { color: colors.text }]}>
-                {formatDate(date)}
-              </Text>
+            <View style={[styles.pickerButton, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
+            }]}>
+              <input
+                type="date"
+                value={dateValue}
+                min={today}
+                onChange={(e) => setDateValue(e.target.value)}
+                style={{
+                  flex: 1,
+                  fontSize: 16,
+                  padding: '16px 0',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: colors.text,
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              />
               <Text style={styles.pickerIcon}>📅</Text>
-            </TouchableOpacity>
+            </View>
           </View>
 
           <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>Time *</Text>
-            <TouchableOpacity
-              style={[styles.pickerButton, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Text style={[styles.pickerText, { color: colors.text }]}>
-                {formatTime(time)}
-              </Text>
+            <View style={[styles.pickerButton, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
+            }]}>
+              <input
+                type="time"
+                value={timeValue}
+                onChange={(e) => setTimeValue(e.target.value)}
+                style={{
+                  flex: 1,
+                  fontSize: 16,
+                  padding: '16px 0',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: colors.text,
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              />
               <Text style={styles.pickerIcon}>🕐</Text>
-            </TouchableOpacity>
+            </View>
           </View>
         </View>
-
-        {/* Date Picker Modal */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={date}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-            minimumDate={new Date()}
-          />
-        )}
-
-        {/* Time Picker Modal */}
-        {showTimePicker && (
-          <DateTimePicker
-            value={time}
-            mode="time"
-            display="default"
-            onChange={handleTimeChange}
-          />
-        )}
 
         {/* Location */}
         <View style={styles.field}>
@@ -454,9 +437,7 @@ function createStyles(colors) {
       borderWidth: 1,
       borderRadius: 16,
       paddingHorizontal: 16,
-      paddingVertical: 16,
     },
-    pickerText: { fontSize: 16, flex: 1 },
     pickerIcon: { fontSize: 20, marginLeft: 8 },
     tipsCard: {
       borderWidth: 1,
