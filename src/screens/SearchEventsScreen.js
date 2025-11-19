@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useTheme } from '../contexts/ThemeContext';
 
 const QUICK_FILTERS = [
   { label: 'This Week', icon: '📅' },
@@ -26,6 +27,7 @@ const CATEGORIES = [
 ];
 
 export default function SearchEventsScreen({ navigation }) {
+  const { colors, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState([]);
 
@@ -37,16 +39,18 @@ export default function SearchEventsScreen({ navigation }) {
     }
   };
 
+  const styles = createStyles(colors);
+
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
       
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Search</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Search</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -57,19 +61,22 @@ export default function SearchEventsScreen({ navigation }) {
       >
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
+          <View style={[styles.searchBar, {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: `${colors.primary}66`
+          }]}>
             <Text style={styles.searchIcon}>🔍</Text>
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search events, people, places..."
-              placeholderTextColor="#64748B"
+              placeholderTextColor={colors.textTertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Text style={styles.clearIcon}>✕</Text>
+                <Text style={[styles.clearIcon, { color: colors.textTertiary }]}>✕</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -77,7 +84,7 @@ export default function SearchEventsScreen({ navigation }) {
 
         {/* Quick Filters */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Filters</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Filters</Text>
           <View style={styles.filtersGrid}>
             {QUICK_FILTERS.map((filter) => (
               <TouchableOpacity
@@ -88,12 +95,19 @@ export default function SearchEventsScreen({ navigation }) {
               >
                 <View style={[
                   styles.filterGlass,
-                  selectedFilters.includes(filter.label) && styles.filterGlassActive
+                  {
+                    backgroundColor: selectedFilters.includes(filter.label) 
+                      ? `${colors.primary}33`
+                      : colors.surfaceGlass,
+                    borderColor: selectedFilters.includes(filter.label)
+                      ? `${colors.primary}66`
+                      : colors.border
+                  }
                 ]}>
                   <Text style={styles.filterIcon}>{filter.icon}</Text>
                   <Text style={[
                     styles.filterText,
-                    selectedFilters.includes(filter.label) && styles.filterTextActive
+                    { color: selectedFilters.includes(filter.label) ? colors.primary : colors.textSecondary }
                   ]}>
                     {filter.label}
                   </Text>
@@ -105,7 +119,7 @@ export default function SearchEventsScreen({ navigation }) {
 
         {/* Categories */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Browse by Category</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Browse by Category</Text>
           <View style={styles.categoriesGrid}>
             {CATEGORIES.map((category) => (
               <TouchableOpacity
@@ -114,9 +128,14 @@ export default function SearchEventsScreen({ navigation }) {
                 onPress={() => navigation.navigate('EventFeed')}
                 activeOpacity={0.8}
               >
-                <View style={styles.categoryGlass}>
+                <View style={[styles.categoryGlass, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border
+                }]}>
                   <Text style={styles.categoryIcon}>{category.icon}</Text>
-                  <Text style={styles.categoryName}>{category.name}</Text>
+                  <Text style={[styles.categoryName, { color: colors.text }]}>
+                    {category.name}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -126,9 +145,9 @@ export default function SearchEventsScreen({ navigation }) {
         {/* Recent Searches */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent</Text>
             <TouchableOpacity>
-              <Text style={styles.clearAllText}>Clear</Text>
+              <Text style={[styles.clearAllText, { color: colors.primary }]}>Clear</Text>
             </TouchableOpacity>
           </View>
           
@@ -139,10 +158,13 @@ export default function SearchEventsScreen({ navigation }) {
                 style={styles.recentItem}
                 onPress={() => setSearchQuery(search)}
               >
-                <View style={styles.recentGlass}>
+                <View style={[styles.recentGlass, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border
+                }]}>
                   <Text style={styles.recentIcon}>🕐</Text>
-                  <Text style={styles.recentText}>{search}</Text>
-                  <Text style={styles.recentArrow}>↗</Text>
+                  <Text style={[styles.recentText, { color: colors.text }]}>{search}</Text>
+                  <Text style={[styles.recentArrow, { color: colors.textTertiary }]}>↗</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -151,7 +173,7 @@ export default function SearchEventsScreen({ navigation }) {
 
         {/* Trending */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Trending Now</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Trending Now</Text>
           <View style={styles.trendingList}>
             {[
               { text: 'Summer BBQ', trend: '↗️ 45%' },
@@ -163,11 +185,20 @@ export default function SearchEventsScreen({ navigation }) {
                 style={styles.trendingItem}
                 onPress={() => setSearchQuery(item.text)}
               >
-                <View style={styles.trendingGlass}>
-                  <Text style={styles.trendingRank}>#{index + 1}</Text>
+                <View style={[styles.trendingGlass, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border
+                }]}>
+                  <Text style={[styles.trendingRank, { color: colors.primary }]}>
+                    #{index + 1}
+                  </Text>
                   <View style={styles.trendingContent}>
-                    <Text style={styles.trendingText}>{item.text}</Text>
-                    <Text style={styles.trendingTrend}>{item.trend}</Text>
+                    <Text style={[styles.trendingText, { color: colors.text }]}>
+                      {item.text}
+                    </Text>
+                    <Text style={[styles.trendingTrend, { color: colors.accent }]}>
+                      {item.trend}
+                    </Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -179,216 +210,187 @@ export default function SearchEventsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0F1A',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  backButton: {
-    fontSize: 28,
-    color: '#F1F5F9',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    letterSpacing: -0.3,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  searchContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 28,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 62, 165, 0.3)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 52,
-  },
-  searchIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#F1F5F9',
-  },
-  clearIcon: {
-    fontSize: 16,
-    color: '#64748B',
-    padding: 4,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    paddingHorizontal: 24,
-    marginBottom: 16,
-    letterSpacing: -0.3,
-  },
-  clearAllText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FF3EA5',
-  },
-  filtersGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 24,
-    gap: 10,
-  },
-  filterChip: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  filterGlass: {
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  filterGlassActive: {
-    backgroundColor: 'rgba(255, 62, 165, 0.2)',
-    borderColor: 'rgba(255, 62, 165, 0.4)',
-  },
-  filterIcon: {
-    fontSize: 16,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  filterTextActive: {
-    color: '#FF3EA5',
-  },
-  categoriesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  categoryCard: {
-    width: '47%',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  categoryGlass: {
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 20,
-    alignItems: 'center',
-  },
-  categoryIcon: {
-    fontSize: 36,
-    marginBottom: 10,
-  },
-  categoryName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#F1F5F9',
-    letterSpacing: -0.1,
-  },
-  recentList: {
-    paddingHorizontal: 24,
-    gap: 10,
-  },
-  recentItem: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  recentGlass: {
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  recentIcon: {
-    fontSize: 18,
-    marginRight: 12,
-  },
-  recentText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#F1F5F9',
-    fontWeight: '500',
-  },
-  recentArrow: {
-    fontSize: 16,
-    color: '#64748B',
-  },
-  trendingList: {
-    paddingHorizontal: 24,
-    gap: 10,
-  },
-  trendingItem: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  trendingGlass: {
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  trendingRank: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FF3EA5',
-    marginRight: 14,
-    width: 28,
-  },
-  trendingContent: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  trendingText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#F1F5F9',
-  },
-  trendingTrend: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#A6FF96',
-  },
-});
+function createStyles(colors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 60,
+      paddingBottom: 20,
+    },
+    backButton: {
+      fontSize: 28,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      letterSpacing: -0.3,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: 40,
+    },
+    searchContainer: {
+      paddingHorizontal: 24,
+      marginBottom: 28,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      height: 52,
+    },
+    searchIcon: {
+      fontSize: 20,
+      marginRight: 12,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+    },
+    clearIcon: {
+      fontSize: 16,
+      padding: 4,
+    },
+    section: {
+      marginBottom: 32,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      marginBottom: 16,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      paddingHorizontal: 24,
+      marginBottom: 16,
+      letterSpacing: -0.3,
+    },
+    clearAllText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    filtersGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: 24,
+      gap: 10,
+    },
+    filterChip: {
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    filterGlass: {
+      borderWidth: 1,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    filterIcon: {
+      fontSize: 16,
+    },
+    filterText: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    categoriesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    categoryCard: {
+      width: '47%',
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    categoryGlass: {
+      borderWidth: 1,
+      padding: 20,
+      alignItems: 'center',
+    },
+    categoryIcon: {
+      fontSize: 36,
+      marginBottom: 10,
+    },
+    categoryName: {
+      fontSize: 14,
+      fontWeight: '600',
+      letterSpacing: -0.1,
+    },
+    recentList: {
+      paddingHorizontal: 24,
+      gap: 10,
+    },
+    recentItem: {
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    recentGlass: {
+      borderWidth: 1,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    recentIcon: {
+      fontSize: 18,
+      marginRight: 12,
+    },
+    recentText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '500',
+    },
+    recentArrow: {
+      fontSize: 16,
+    },
+    trendingList: {
+      paddingHorizontal: 24,
+      gap: 10,
+    },
+    trendingItem: {
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    trendingGlass: {
+      borderWidth: 1,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    trendingRank: {
+      fontSize: 16,
+      fontWeight: '700',
+      marginRight: 14,
+      width: 28,
+    },
+    trendingContent: {
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    trendingText: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    trendingTrend: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+  });
+}
