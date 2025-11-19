@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
+import SuccessModal from '../components/SuccessModal';
 
 export default function RequestHostScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -24,6 +25,7 @@ export default function RequestHostScreen({ navigation }) {
     eventIdeas: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSubmit = async () => {
     // Validación
@@ -49,6 +51,7 @@ export default function RequestHostScreen({ navigation }) {
           'You already have a pending host request. Please wait for admin review.',
           [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
         );
+        setSubmitting(false);
         return;
       }
 
@@ -62,29 +65,25 @@ export default function RequestHostScreen({ navigation }) {
         createdAt: new Date().toISOString(),
       });
 
-      // Mostrar mensaje de éxito y navegar
-      Alert.alert(
-        'Application Submitted! 🎉',
-        'Your host request has been submitted successfully. Our team will review it soon and notify you of the decision.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('Home')
-          }
-        ]
-      );
-
       console.log('✅ Host request submitted successfully');
+      
+      // Mostrar modal de éxito
+      setSubmitting(false);
+      setShowSuccess(true);
     } catch (error) {
       console.error('Error submitting host request:', error);
+      setSubmitting(false);
       Alert.alert(
         'Submission Error',
         'Could not submit your request. Please try again.',
         [{ text: 'OK' }]
       );
-    } finally {
-      setSubmitting(false);
     }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccess(false);
+    navigation.navigate('Home');
   };
 
   const styles = createStyles(colors);
@@ -112,7 +111,7 @@ export default function RequestHostScreen({ navigation }) {
       >
         {/* Intro */}
         <View style={styles.introSection}>
-          <Text style={styles.introEmoji}>��</Text>
+          <Text style={styles.introEmoji}>🎪</Text>
           <Text style={[styles.introTitle, { color: colors.text }]}>
             Share Your Passion
           </Text>
@@ -215,104 +214,40 @@ export default function RequestHostScreen({ navigation }) {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Success Modal */}
+      <SuccessModal
+        visible={showSuccess}
+        onClose={handleSuccessClose}
+        title="Application Submitted!"
+        message="Your host request has been submitted successfully. Our team will review it soon and notify you of the decision."
+        emoji="🎉"
+      />
     </KeyboardAvoidingView>
   );
 }
 
 function createStyles(colors) {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingTop: 60,
-      paddingBottom: 20,
-    },
-    backButton: {
-      fontSize: 28,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      letterSpacing: -0.3,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 24,
-      paddingBottom: 40,
-    },
-    introSection: {
-      alignItems: 'center',
-      marginBottom: 32,
-    },
-    introEmoji: {
-      fontSize: 64,
-      marginBottom: 16,
-    },
-    introTitle: {
-      fontSize: 24,
-      fontWeight: '700',
-      marginBottom: 12,
-      letterSpacing: -0.4,
-    },
-    introText: {
-      fontSize: 14,
-      textAlign: 'center',
-      lineHeight: 22,
-    },
-    formSection: {
-      marginBottom: 24,
-    },
-    inputGroup: {
-      marginBottom: 24,
-    },
-    label: {
-      fontSize: 15,
-      fontWeight: '600',
-      marginBottom: 12,
-      letterSpacing: -0.2,
-    },
-    inputWrapper: {
-      borderWidth: 1,
-      borderRadius: 16,
-      padding: 16,
-    },
-    textArea: {
-      fontSize: 15,
-      minHeight: 100,
-      textAlignVertical: 'top',
-    },
-    submitButton: {
-      borderRadius: 16,
-      overflow: 'hidden',
-      marginBottom: 24,
-    },
-    submitGlass: {
-      borderWidth: 1,
-      paddingVertical: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 56,
-    },
-    submitText: {
-      fontSize: 17,
-      fontWeight: '700',
-      letterSpacing: -0.2,
-    },
-    noteSection: {
-      padding: 16,
-      alignItems: 'center',
-    },
-    noteText: {
-      fontSize: 13,
-      textAlign: 'center',
-      lineHeight: 20,
-    },
+    container: { flex: 1 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
+    backButton: { fontSize: 28 },
+    headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
+    scrollView: { flex: 1 },
+    scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+    introSection: { alignItems: 'center', marginBottom: 32 },
+    introEmoji: { fontSize: 64, marginBottom: 16 },
+    introTitle: { fontSize: 24, fontWeight: '700', marginBottom: 12, letterSpacing: -0.4 },
+    introText: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+    formSection: { marginBottom: 24 },
+    inputGroup: { marginBottom: 24 },
+    label: { fontSize: 15, fontWeight: '600', marginBottom: 12, letterSpacing: -0.2 },
+    inputWrapper: { borderWidth: 1, borderRadius: 16, padding: 16 },
+    textArea: { fontSize: 15, minHeight: 100, textAlignVertical: 'top' },
+    submitButton: { borderRadius: 16, overflow: 'hidden', marginBottom: 24 },
+    submitGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', minHeight: 56 },
+    submitText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+    noteSection: { padding: 16, alignItems: 'center' },
+    noteText: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
   });
 }

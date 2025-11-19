@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -14,6 +13,7 @@ import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'fireb
 import { db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 import { createNotification } from '../utils/notificationService';
+import AdminMessageModal from '../components/AdminMessageModal';
 
 export default function AdminDashboardScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -21,6 +21,9 @@ export default function AdminDashboardScreen({ navigation }) {
   const [stats, setStats] = useState({ pending: 0, events: 0, users: 0 });
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [currentRequest, setCurrentRequest] = useState(null);
+  const [modalType, setModalType] = useState('approve');
 
   useEffect(() => {
     loadData();
@@ -61,109 +64,80 @@ export default function AdminDashboardScreen({ navigation }) {
     }
   };
 
-  const handleApprove = (requestId, userId, userName) => {
-    Alert.prompt(
-      'Approve Host Request',
-      `Write a message for ${userName} about why they were approved:`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Approve',
-          onPress: async (message) => {
-            if (!message || !message.trim()) {
-              Alert.alert('Message Required', 'Please provide a message for the applicant.');
-              return;
-            }
-
-            setProcessing(requestId);
-            try {
-              await updateDoc(doc(db, 'hostRequests', requestId), {
-                status: 'approved',
-                reviewedAt: new Date().toISOString(),
-                adminMessage: message.trim(),
-              });
-
-              await updateDoc(doc(db, 'users', userId), {
-                role: 'host',
-              });
-
-              await createNotification(userId, {
-                type: 'host_approved',
-                title: 'Congratulations! 🎉',
-                message: `Your host request has been approved! Admin says: "${message.trim()}"`,
-                icon: '🎪',
-              });
-
-              console.log('✅ Host request approved');
-              Alert.alert('Success', `${userName} is now a host!`);
-              await loadData();
-            } catch (error) {
-              console.error('Error approving request:', error);
-              Alert.alert('Error', 'Could not approve request. Please try again.');
-            } finally {
-              setProcessing(null);
-            }
-          },
-        },
-      ],
-      'plain-text',
-      '',
-      'default'
-    );
+  const handleApproveClick = (request) => {
+    setCurrentRequest(request);
+    setModalType('approve');
+    setModalVisible(true);
   };
 
-  const handleReject = (requestId, userId, userName) => {
-    Alert.prompt(
-      'Reject Host Request',
-      `Write a message for ${userName} explaining why they were rejected:`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Reject',
-          style: 'destructive',
-          onPress: async (message) => {
-            if (!message || !message.trim()) {
-              Alert.alert('Message Required', 'Please provide a message for the applicant.');
-              return;
-            }
+  const handleRejectClick = (request) => {
+    setCurrentRequest(request);
+    setModalType('reject');
+    setModalVisible(true);
+  };
 
-            setProcessing(requestId);
-            try {
-              await updateDoc(doc(db, 'hostRequests', requestId), {
-                status: 'rejected',
-                reviewedAt: new Date().toISOString(),
-                adminMessage: message.trim(),
-              });
+  const handleApproveSubmit = async (message) => {
+    if (!currentRequest) return;
 
-              await createNotification(userId, {
-                type: 'host_rejected',
-                title: 'Host Request Update',
-                message: `Your host request was reviewed. Admin says: "${message.trim()}"`,
-                icon: '📋',
-              });
+    setProcessing(currentRequest.id);
+    try {
+      await updateDoc(doc(db, 'hostRequests', currentRequest.id), {
+        status: 'approved',
+        reviewedAt: new Date().toISOString(),
+        adminMessage: message,
+      });
 
-              console.log('✅ Host request rejected');
-              Alert.alert('Rejected', `${userName}'s request has been rejected`);
-              await loadData();
-            } catch (error) {
-              console.error('Error rejecting request:', error);
-              Alert.alert('Error', 'Could not reject request. Please try again.');
-            } finally {
-              setProcessing(null);
-            }
-          },
-        },
-      ],
-      'plain-text',
-      '',
-      'default'
-    );
+      await updateDoc(doc(db, 'users', currentRequest.userId), {
+        role: 'host',
+      });
+
+      await createNotification(currentRequest.userId, {
+        type: 'host_approved',
+        title: 'Congratulations! 🎉',
+        message: `Your host request has been approved! Admin says: "${message}"`,
+        icon: '🎪',
+      });
+
+      console.log('✅ Host request approved');
+      Alert.alert('Success', `${currentRequest.userName} is now a host!`);
+      await loadData();
+    } catch (error) {
+      console.error('Error approving request:', error);
+      Alert.alert('Error', 'Could not approve request. Please try again.');
+    } finally {
+      setProcessing(null);
+      setCurrentRequest(null);
+    }
+  };
+
+  const handleRejectSubmit = async (message) => {
+    if (!currentRequest) return;
+
+    setProcessing(currentRequest.id);
+    try {
+      await updateDoc(doc(db, 'hostRequests', currentRequest.id), {
+        status: 'rejected',
+        reviewedAt: new Date().toISOString(),
+        adminMessage: message,
+      });
+
+      await createNotification(currentRequest.userId, {
+        type: 'host_rejected',
+        title: 'Host Request Update',
+        message: `Your host request was reviewed. Admin says: "${message}"`,
+        icon: '��',
+      });
+
+      console.log('✅ Host request rejected');
+      Alert.alert('Rejected', `${currentRequest.userName}'s request has been rejected`);
+      await loadData();
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      Alert.alert('Error', 'Could not reject request. Please try again.');
+    } finally {
+      setProcessing(null);
+      setCurrentRequest(null);
+    }
   };
 
   const styles = createStyles(colors);
@@ -288,7 +262,7 @@ export default function AdminDashboardScreen({ navigation }) {
                   <View style={styles.actionsRow}>
                     <TouchableOpacity
                       style={styles.rejectButton}
-                      onPress={() => handleReject(request.id, request.userId, request.userName)}
+                      onPress={() => handleRejectClick(request)}
                       disabled={processing === request.id}
                     >
                       <View style={[styles.rejectGlass, {
@@ -304,7 +278,7 @@ export default function AdminDashboardScreen({ navigation }) {
 
                     <TouchableOpacity
                       style={styles.approveButton}
-                      onPress={() => handleApprove(request.id, request.userId, request.userName)}
+                      onPress={() => handleApproveClick(request)}
                       disabled={processing === request.id}
                     >
                       <View style={[styles.approveGlass, {
@@ -324,6 +298,15 @@ export default function AdminDashboardScreen({ navigation }) {
           )}
         </View>
       </ScrollView>
+
+      <AdminMessageModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onSubmit={modalType === 'approve' ? handleApproveSubmit : handleRejectSubmit}
+        title={modalType === 'approve' ? 'Approve Request' : 'Reject Request'}
+        userName={currentRequest?.userName || ''}
+        type={modalType}
+      />
     </View>
   );
 }
