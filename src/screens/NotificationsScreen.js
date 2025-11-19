@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../contexts/ThemeContext';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import { getUserNotifications, markAsRead, markAllAsRead } from '../utils/notificationService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function NotificationsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -25,9 +26,70 @@ export default function NotificationsScreen({ navigation }) {
 
   const loadNotifications = async () => {
     try {
+      // Cargar notificaciones regulares
       const userNotifications = await getUserNotifications(auth.currentUser.uid);
       
-      if (userNotifications.length === 0) {
+      // Cargar mensajes no leídos de eventos
+      const conversationsQuery = query(
+        collection(db, 'conversations'),
+        where('type', '==', 'event')
+      );
+      const conversationsSnapshot = await getDocs(conversationsQuery);
+      
+      const messageNotifications = [];
+      for (const convDoc of conversationsSnapshot.docs) {
+        const conversationId = convDoc.id;
+        const eventId = convDoc.data().eventId;
+        
+        // Verificar si el usuario está en este evento
+        const eventQuery = query(
+          collection(db, 'events'),
+          where('__name__', '==', eventId.replace('event_', ''))
+        );
+        const eventSnapshot = await getDocs(eventQuery);
+        
+        if (eventSnapshot.empty) continue;
+        
+        const eventData = eventSnapshot.docs[0].data();
+        const isParticipant = eventData.attendees?.includes(auth.currentUser.uid) || 
+                             eventData.creatorId === auth.currentUser.uid;
+        
+        if (!isParticipant) continue;
+        
+        // Contar mensajes no leídos
+        const messagesQuery = query(
+          collection(db, 'conversations', conversationId, 'messages'),
+          where('senderId', '!=', auth.currentUser.uid),
+          where('read', '==', false)
+        );
+        const messagesSnapshot = await getDocs(messagesQuery);
+        
+        if (messagesSnapshot.size > 0) {
+          const lastMessage = messagesSnapshot.docs[messagesSnapshot.size - 1].data();
+          
+          // Obtener info del remitente
+          const senderDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', lastMessage.senderId)));
+          const senderName = senderDoc.docs[0]?.data()?.fullName || 'Someone';
+          
+          messageNotifications.push({
+            id: `msg_${conversationId}`,
+            type: 'event_message',
+            title: `${senderName} sent a message`,
+            message: `New message in "${eventData.title}"`,
+            time: getTimeAgo(lastMessage.createdAt),
+            read: false,
+            icon: '💬',
+            createdAt: lastMessage.createdAt,
+            metadata: { eventId: eventId.replace('event_', ''), eventTitle: eventData.title, conversationId }
+          });
+        }
+      }
+      
+      // Combinar y ordenar
+      const allNotifications = [...userNotifications, ...messageNotifications]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      if (allNotifications.length === 0) {
         const demoNotifications = [
           {
             id: 'demo1',
@@ -40,23 +102,12 @@ export default function NotificationsScreen({ navigation }) {
             action: () => navigation.navigate('EventFeed'),
             isDemo: true,
           },
-          {
-            id: 'demo2',
-            type: 'messages',
-            title: 'Try Messages',
-            message: 'Chat with event attendees and hosts',
-            time: '1 hour ago',
-            read: false,
-            icon: '💬',
-            action: () => navigation.navigate('Conversations'),
-            isDemo: true,
-          },
         ];
         setNotifications(demoNotifications);
       } else {
-        const mappedNotifications = userNotifications.map(notif => ({
+        const mappedNotifications = allNotifications.map(notif => ({
           ...notif,
-          time: getTimeAgo(notif.createdAt),
+          time: notif.time || getTimeAgo(notif.createdAt),
           action: () => handleNotificationAction(notif),
         }));
         setNotifications(mappedNotifications);
@@ -75,6 +126,7 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const getTimeAgo = (isoDate) => {
+    if (!isoDate) return '';
     const date = new Date(isoDate);
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
@@ -87,7 +139,7 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handleNotificationAction = (notification) => {
-    if (!notification.isDemo && !notification.read) {
+    if (!notification.isDemo && !notification.read && notification.id && !notification.id.startsWith('msg_')) {
       markAsRead(notification.id);
     }
 
@@ -98,13 +150,18 @@ export default function NotificationsScreen({ navigation }) {
         }
         break;
       case 'event_message':
-        navigation.navigate('Conversations');
+        if (notification.metadata?.conversationId && notification.metadata?.eventId) {
+          navigation.navigate('EventChat', { 
+            eventId: notification.metadata.eventId,
+            eventTitle: notification.metadata.eventTitle 
+          });
+        }
+        break;
+      case 'host_request':
+        navigation.navigate('AdminDashboard');
         break;
       case 'new_match':
         navigation.navigate('EventFeed');
-        break;
-      case 'messages':
-        navigation.navigate('Conversations');
         break;
       default:
         if (notification.action) {
