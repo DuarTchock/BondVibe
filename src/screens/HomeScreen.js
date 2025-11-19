@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -19,8 +20,18 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     loadUser();
-    loadUnreadNotifications();
   }, []);
+
+  // Recargar notificaciones cada vez que la pantalla vuelve al foco
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 HomeScreen focused - reloading notifications');
+      loadUnreadNotifications();
+      if (user?.role === 'admin') {
+        loadPendingHostRequests();
+      }
+    }, [user])
+  );
 
   const loadUser = async () => {
     try {
@@ -64,7 +75,7 @@ export default function HomeScreen({ navigation }) {
       const notificationsSnapshot = await getDocs(notificationsQuery);
       let count = notificationsSnapshot.size;
 
-      // Contar TODOS los mensajes no leídos (no solo conversaciones)
+      // Contar TODOS los mensajes no leídos
       const conversationsQuery = query(
         collection(db, 'conversations'),
         where('type', '==', 'event')
@@ -89,7 +100,6 @@ export default function HomeScreen({ navigation }) {
         
         if (!isParticipant) continue;
         
-        // Contar CADA mensaje no leído (no solo si hay alguno)
         const messagesQuery = query(
           collection(db, 'conversations', conversationId, 'messages'),
           where('senderId', '!=', auth.currentUser.uid),
@@ -97,7 +107,6 @@ export default function HomeScreen({ navigation }) {
         );
         const messagesSnapshot = await getDocs(messagesQuery);
         
-        // Sumar el número de mensajes no leídos
         count += messagesSnapshot.size;
       }
 
@@ -152,10 +161,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.quickActionsGrid}>
             <TouchableOpacity
               style={styles.quickAction}
-              onPress={() => {
-                loadUnreadNotifications();
-                navigation.navigate('Notifications');
-              }}
+              onPress={() => navigation.navigate('Notifications')}
             >
               <View style={[styles.quickActionGlass, {
                 backgroundColor: colors.surfaceGlass,
@@ -199,7 +205,6 @@ export default function HomeScreen({ navigation }) {
               </View>
             </TouchableOpacity>
 
-            {/* Create o Request Host según permisos */}
             {canCreateEvents ? (
               <TouchableOpacity
                 style={styles.quickAction}
@@ -230,7 +235,6 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Create Event Card - Solo para admin/host */}
         {canCreateEvents && (
           <View style={styles.section}>
             <TouchableOpacity
@@ -298,15 +302,11 @@ export default function HomeScreen({ navigation }) {
           </ScrollView>
         </View>
 
-        {/* Admin Card */}
         {user?.role === 'admin' && (
           <View style={styles.section}>
             <TouchableOpacity
               style={styles.adminCard}
-              onPress={() => {
-                loadPendingHostRequests();
-                navigation.navigate('AdminDashboard');
-              }}
+              onPress={() => navigation.navigate('AdminDashboard')}
               activeOpacity={0.8}
             >
               <View style={[styles.adminGlass, {
