@@ -25,7 +25,12 @@ export default function RequestHostScreen({ navigation }) {
     eventIdeas: '',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    emoji: '🎉'
+  });
 
   const handleSubmit = async () => {
     console.log('📝 Starting submission...');
@@ -50,13 +55,14 @@ export default function RequestHostScreen({ navigation }) {
       const existingSnapshot = await getDocs(existingQuery);
 
       if (!existingSnapshot.empty) {
-        console.log('⚠️ Already has pending request');
+        console.log('⚠️ Already has pending request - showing modal');
         setSubmitting(false);
-        Alert.alert(
-          'Request Already Submitted',
-          'You already have a pending host request. Please wait for admin review.',
-          [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
-        );
+        setModalConfig({
+          visible: true,
+          title: 'Request Already Submitted',
+          message: 'You already have a pending host request. Please wait for admin review. We\'ll notify you once a decision has been made.',
+          emoji: '⏳'
+        });
         return;
       }
 
@@ -74,11 +80,14 @@ export default function RequestHostScreen({ navigation }) {
       console.log('✅ Host request submitted successfully');
       setSubmitting(false);
       
-      // Pequeño delay para asegurar que el estado se actualice
-      setTimeout(() => {
-        console.log('🎉 Showing success modal');
-        setShowSuccess(true);
-      }, 100);
+      // Mostrar modal de éxito
+      console.log('🎉 Showing success modal');
+      setModalConfig({
+        visible: true,
+        title: 'Application Submitted!',
+        message: 'Your host request has been submitted successfully. Our team will review it soon and notify you of the decision.',
+        emoji: '🎉'
+      });
       
     } catch (error) {
       console.error('❌ Error submitting host request:', error);
@@ -91,9 +100,9 @@ export default function RequestHostScreen({ navigation }) {
     }
   };
 
-  const handleSuccessClose = () => {
-    console.log('👋 Closing success modal and navigating to Home');
-    setShowSuccess(false);
+  const handleModalClose = () => {
+    console.log('👋 Closing modal and navigating to Home');
+    setModalConfig({ ...modalConfig, visible: false });
     navigation.navigate('Home');
   };
 
@@ -120,7 +129,7 @@ export default function RequestHostScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.introSection}>
-          <Text style={styles.introEmoji}>🎪</Text>
+          <Text style={styles.introEmoji}>��</Text>
           <Text style={[styles.introTitle, { color: colors.text }]}>
             Share Your Passion
           </Text>
@@ -237,11 +246,11 @@ export default function RequestHostScreen({ navigation }) {
       </ScrollView>
 
       <SuccessModal
-        visible={showSuccess}
-        onClose={handleSuccessClose}
-        title="Application Submitted!"
-        message="Your host request has been submitted successfully. Our team will review it soon and notify you of the decision."
-        emoji="🎉"
+        visible={modalConfig.visible}
+        onClose={handleModalClose}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        emoji={modalConfig.emoji}
       />
     </KeyboardAvoidingView>
   );
