@@ -10,13 +10,22 @@ import { StatusBar } from 'expo-status-bar';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
+import { subscribeToUnreadCount } from '../utils/unreadService';
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     loadUser();
+    
+    // Suscribirse a mensajes no leídos
+    const unsubscribe = subscribeToUnreadCount(auth.currentUser.uid, (count) => {
+      setUnreadCount(count);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const loadUser = async () => {
@@ -80,7 +89,14 @@ export default function HomeScreen({ navigation }) {
                 backgroundColor: colors.surfaceGlass,
                 borderColor: colors.border
               }]}>
-                <Text style={styles.quickActionIcon}>💬</Text>
+                <View style={styles.quickActionIconContainer}>
+                  <Text style={styles.quickActionIcon}>💬</Text>
+                  {unreadCount > 0 && (
+                    <View style={[styles.badge, { backgroundColor: colors.accent }]}>
+                      <Text style={styles.badgeText}>{unreadCount}</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[styles.quickActionText, { color: colors.text }]}>Messages</Text>
               </View>
             </TouchableOpacity>
@@ -323,9 +339,28 @@ function createStyles(colors) {
       paddingVertical: 24,
       alignItems: 'center',
     },
+    quickActionIconContainer: {
+      position: 'relative',
+    },
     quickActionIcon: {
       fontSize: 32,
       marginBottom: 8,
+    },
+    badge: {
+      position: 'absolute',
+      top: -4,
+      right: -8,
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 6,
+    },
+    badgeText: {
+      color: '#FFFFFF',
+      fontSize: 11,
+      fontWeight: '700',
     },
     quickActionText: {
       fontSize: 14,

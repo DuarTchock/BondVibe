@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../contexts/ThemeContext';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import { getUserConversations } from '../utils/messageService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function ConversationsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -26,7 +27,24 @@ export default function ConversationsScreen({ navigation }) {
   const loadConversations = async () => {
     try {
       const userConversations = await getUserConversations(auth.currentUser.uid);
-      setConversations(userConversations);
+      
+      // Contar mensajes no leídos para cada conversación
+      const conversationsWithUnread = await Promise.all(
+        userConversations.map(async (conv) => {
+          const messagesQuery = query(
+            collection(db, 'conversations', conv.id, 'messages'),
+            where('senderId', '!=', auth.currentUser.uid),
+            where('read', '==', false)
+          );
+          const snapshot = await getDocs(messagesQuery);
+          return {
+            ...conv,
+            unreadCount: snapshot.size
+          };
+        })
+      );
+      
+      setConversations(conversationsWithUnread);
     } catch (error) {
       console.error('Error loading conversations:', error);
     } finally {
@@ -65,8 +83,8 @@ export default function ConversationsScreen({ navigation }) {
       activeOpacity={0.8}
     >
       <View style={[styles.conversationGlass, {
-        backgroundColor: colors.surfaceGlass,
-        borderColor: colors.border
+        backgroundColor: conversation.unreadCount > 0 ? `${colors.primary}0D` : colors.surfaceGlass,
+        borderColor: conversation.unreadCount > 0 ? `${colors.primary}33` : colors.border
       }]}>
         <View style={[styles.avatar, {
           backgroundColor: `${colors.primary}26`,
@@ -79,16 +97,29 @@ export default function ConversationsScreen({ navigation }) {
 
         <View style={styles.conversationContent}>
           <View style={styles.conversationHeader}>
-            <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
+            <Text style={[styles.userName, { 
+              color: colors.text,
+              fontWeight: conversation.unreadCount > 0 ? '700' : '600'
+            }]} numberOfLines={1}>
               {conversation.otherUser?.fullName || 'Unknown User'}
             </Text>
-            {conversation.lastMessageAt && (
-              <Text style={[styles.timeText, { color: colors.textTertiary }]}>
-                {getTimeAgo(conversation.lastMessageAt)}
-              </Text>
-            )}
+            <View style={styles.rightInfo}>
+              {conversation.lastMessageAt && (
+                <Text style={[styles.timeText, { color: colors.textTertiary }]}>
+                  {getTimeAgo(conversation.lastMessageAt)}
+                </Text>
+              )}
+              {conversation.unreadCount > 0 && (
+                <View style={[styles.unreadBadge, { backgroundColor: colors.accent }]}>
+                  <Text style={styles.unreadText}>{conversation.unreadCount}</Text>
+                </View>
+              )}
+            </View>
           </View>
-          <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text style={[styles.lastMessage, { 
+            color: colors.textSecondary,
+            fontWeight: conversation.unreadCount > 0 ? '600' : '400'
+          }]} numberOfLines={1}>
             {conversation.lastMessage || 'Start a conversation'}
           </Text>
         </View>
@@ -146,14 +177,7 @@ export default function ConversationsScreen({ navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingTop: 60,
-      paddingBottom: 20,
-    },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
     backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -161,32 +185,17 @@ function createStyles(colors) {
     scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
     conversationCard: { marginBottom: 12, borderRadius: 16, overflow: 'hidden' },
     conversationGlass: { borderWidth: 1, padding: 16, flexDirection: 'row', alignItems: 'center' },
-    avatar: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      borderWidth: 2,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 14,
-    },
+    avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
     avatarEmoji: { fontSize: 26 },
     conversationContent: { flex: 1 },
-    conversationHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    userName: { fontSize: 16, fontWeight: '600', flex: 1, letterSpacing: -0.2 },
-    timeText: { fontSize: 12, marginLeft: 8 },
+    conversationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    userName: { fontSize: 16, flex: 1, letterSpacing: -0.2 },
+    rightInfo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    timeText: { fontSize: 12 },
+    unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
+    unreadText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
     lastMessage: { fontSize: 14, lineHeight: 20 },
-    emptyState: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 40,
-    },
+    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
     emptyEmoji: { fontSize: 64, marginBottom: 20 },
     emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 10, letterSpacing: -0.3 },
     emptyText: { fontSize: 14, textAlign: 'center' },
