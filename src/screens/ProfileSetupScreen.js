@@ -55,9 +55,10 @@ export default function ProfileSetupScreen({ navigation }) {
       });
 
       console.log('✅ Profile completed successfully');
-      console.log('🔄 AppNavigator should detect change and navigate to Home...');
-
-      // AppNavigator will automatically navigate to Home
+      console.log('🔄 Forcing page reload to trigger navigation...');
+      
+      // Force full page reload - this will trigger AppNavigator to detect profileCompleted
+      window.location.reload();
       
     } catch (error) {
       console.error('❌ Profile creation error:', error);
