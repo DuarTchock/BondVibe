@@ -6,14 +6,18 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../contexts/ThemeContext';
+import { auth } from '../services/firebase';
+import { getUserNotifications, markAsRead, markAllAsRead } from '../utils/notificationService';
 
 export default function NotificationsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadNotifications();
@@ -21,61 +25,44 @@ export default function NotificationsScreen({ navigation }) {
 
   const loadNotifications = async () => {
     try {
-      // Mock notifications with navigation actions
-      const mockNotifications = [
-        {
-          id: '1',
-          type: 'event_joined',
-          title: 'New attendee!',
-          message: 'Sarah joined your "Coffee & Chat" event',
-          time: '2 hours ago',
-          read: false,
-          icon: '👋',
-          action: () => navigation.navigate('EventDetail', { eventId: 'mock1' }),
-        },
-        {
-          id: '2',
-          type: 'event_reminder',
-          title: 'Event Tomorrow',
-          message: 'Don\'t forget: "Hiking Adventure" starts at 9:00 AM',
-          time: '5 hours ago',
-          read: false,
-          icon: '⏰',
-          action: () => navigation.navigate('EventDetail', { eventId: 'mock5' }),
-        },
-        {
-          id: '3',
-          type: 'new_match',
-          title: 'High compatibility!',
-          message: 'Check out "Book Club" - 95% personality match',
-          time: '1 day ago',
-          read: true,
-          icon: '✨',
-          action: () => navigation.navigate('EventFeed'),
-        },
-        {
-          id: '4',
-          type: 'event_message',
-          title: 'New message',
-          message: 'Mike posted in "Weekend BBQ" group chat',
-          time: '2 days ago',
-          read: true,
-          icon: '💬',
-          action: () => navigation.navigate('MyEvents'),
-        },
-        {
-          id: '5',
-          type: 'event_update',
-          title: 'Event Updated',
-          message: 'The location for "Taco Tour" has changed',
-          time: '3 days ago',
-          read: true,
-          icon: '📍',
-          action: () => navigation.navigate('EventDetail', { eventId: 'mock3' }),
-        },
-      ];
+      const userNotifications = await getUserNotifications(auth.currentUser.uid);
       
-      setNotifications(mockNotifications);
+      // Si no hay notificaciones reales, crear algunas de demo
+      if (userNotifications.length === 0) {
+        const demoNotifications = [
+          {
+            id: 'demo1',
+            type: 'event_joined',
+            title: 'Welcome to BondVibe! 👋',
+            message: 'Start exploring events and connect with people',
+            time: 'Just now',
+            read: false,
+            icon: '🎉',
+            action: () => navigation.navigate('EventFeed'),
+            isDemo: true,
+          },
+          {
+            id: 'demo2',
+            type: 'new_match',
+            title: 'Discover Events',
+            message: 'Check out events that match your interests',
+            time: '1 hour ago',
+            read: false,
+            icon: '✨',
+            action: () => navigation.navigate('EventFeed'),
+            isDemo: true,
+          },
+        ];
+        setNotifications(demoNotifications);
+      } else {
+        // Mapear notificaciones reales con acciones
+        const mappedNotifications = userNotifications.map(notif => ({
+          ...notif,
+          time: getTimeAgo(notif.createdAt),
+          action: () => handleNotificationAction(notif),
+        }));
+        setNotifications(mappedNotifications);
+      }
     } catch (error) {
       console.error('Error loading notifications:', error);
     } finally {
@@ -83,7 +70,63 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
-  const handleMarkAllRead = () => {
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadNotifications();
+    setRefreshing(false);
+  };
+
+  const getTimeAgo = (isoDate) => {
+    const date = new Date(isoDate);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+    return date.toLocaleDateString();
+  };
+
+  const handleNotificationAction = (notification) => {
+    // Marcar como leída si no es demo
+    if (!notification.isDemo && !notification.read) {
+      markAsRead(notification.id);
+    }
+
+    // Navegar según el tipo
+    switch (notification.type) {
+      case 'event_joined':
+        if (notification.metadata?.eventId) {
+          navigation.navigate('EventDetail', { eventId: notification.metadata.eventId });
+        }
+        break;
+      case 'event_reminder':
+        if (notification.metadata?.eventId) {
+          navigation.navigate('EventDetail', { eventId: notification.metadata.eventId });
+        }
+        break;
+      case 'new_match':
+        navigation.navigate('EventFeed');
+        break;
+      case 'event_message':
+        navigation.navigate('MyEvents');
+        break;
+      default:
+        if (notification.action) {
+          notification.action();
+        }
+    }
+
+    // Recargar notificaciones
+    loadNotifications();
+  };
+
+  const handleMarkAllRead = async () => {
+    // Marcar todas las reales
+    await markAllAsRead(auth.currentUser.uid);
+    
+    // Actualizar estado local
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
@@ -92,7 +135,7 @@ export default function NotificationsScreen({ navigation }) {
   const NotificationCard = ({ notification }) => (
     <TouchableOpacity
       style={styles.notificationCard}
-      onPress={notification.action}
+      onPress={() => handleNotificationAction(notification)}
       activeOpacity={0.8}
     >
       <View style={[
@@ -162,6 +205,13 @@ export default function NotificationsScreen({ navigation }) {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
         >
           {notifications.map((notification) => (
             <NotificationCard key={notification.id} notification={notification} />
