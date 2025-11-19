@@ -22,10 +22,24 @@ export default function EventDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [attendeesData, setAttendeesData] = useState([]);
 
   useEffect(() => {
+    loadCurrentUser();
     loadEvent();
   }, []);
+
+  const loadCurrentUser = async () => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setCurrentUser(userDoc.data());
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error);
+    }
+  };
 
   const loadEvent = async () => {
     try {
@@ -34,6 +48,13 @@ export default function EventDetailScreen({ route, navigation }) {
         const eventData = { id: eventDoc.id, ...eventDoc.data() };
         setEvent(eventData);
         setIsJoined(eventData.attendees?.includes(auth.currentUser.uid));
+        
+        // Cargar datos de attendees si es creador o admin
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        const userData = userDoc.data();
+        if (eventData.creatorId === auth.currentUser.uid || userData?.role === 'admin') {
+          await loadAttendeesData(eventData.attendees || []);
+        }
       } else {
         const mockEvents = generateMockEvents();
         const mockEvent = mockEvents.find(e => e.id === eventId);
@@ -46,6 +67,19 @@ export default function EventDetailScreen({ route, navigation }) {
       console.error('Error loading event:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAttendeesData = async (attendeeIds) => {
+    try {
+      const attendeesPromises = attendeeIds.map(async (userId) => {
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        return userDoc.exists() ? { id: userId, ...userDoc.data() } : null;
+      });
+      const attendees = await Promise.all(attendeesPromises);
+      setAttendeesData(attendees.filter(a => a !== null));
+    } catch (error) {
+      console.error('Error loading attendees:', error);
     }
   };
 
@@ -82,7 +116,7 @@ export default function EventDetailScreen({ route, navigation }) {
           const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
           const userName = userDoc.data()?.fullName || 'Someone';
           
-          console.log('�� Creating notification for:', event.creatorId);
+          console.log('📬 Creating notification for:', event.creatorId);
           await createNotification(event.creatorId, {
             type: 'event_joined',
             title: 'New attendee!',
@@ -102,17 +136,6 @@ export default function EventDetailScreen({ route, navigation }) {
     } finally {
       setJoining(false);
     }
-  };
-
-  const handleOpenChat = () => {
-    if (event.id.startsWith('mock')) {
-      Alert.alert('Demo Event', 'Chat is not available for demo events');
-      return;
-    }
-    navigation.navigate('EventChat', { 
-      eventId: event.id,
-      eventTitle: event.title 
-    });
   };
 
   const styles = createStyles(colors);
@@ -136,6 +159,8 @@ export default function EventDetailScreen({ route, navigation }) {
   }
 
   const isCreator = event.creatorId === auth.currentUser.uid;
+  const isAdmin = currentUser?.role === 'admin';
+  const canSeeAttendees = isCreator || isAdmin;
   const spotsLeft = event.maxAttendees - (event.attendees?.length || 0);
   const isFull = spotsLeft <= 0;
 
@@ -155,7 +180,10 @@ export default function EventDetailScreen({ route, navigation }) {
         </TouchableOpacity>
         <View style={styles.headerActions}>
           {(isJoined || isCreator) && !event.id.startsWith('mock') && (
-            <TouchableOpacity onPress={handleOpenChat}>
+            <TouchableOpacity onPress={() => navigation.navigate('EventChat', { 
+              eventId: event.id,
+              eventTitle: event.title 
+            })}>
               <View style={[styles.headerButton, {
                 backgroundColor: colors.surfaceGlass,
                 borderColor: colors.border
@@ -274,7 +302,10 @@ export default function EventDetailScreen({ route, navigation }) {
           <View style={styles.chatSection}>
             <TouchableOpacity
               style={styles.chatButton}
-              onPress={handleOpenChat}
+              onPress={() => navigation.navigate('EventChat', { 
+                eventId: event.id,
+                eventTitle: event.title 
+              })}
               activeOpacity={0.8}
             >
               <View style={[styles.chatGlass, {
@@ -309,28 +340,29 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Attendees List */}
-        {event.attendees && event.attendees.length > 0 && (
+        {/* Attendees List (Solo para creador y admin) */}
+        {canSeeAttendees && attendeesData.length > 0 && (
           <View style={styles.attendeesSection}>
             <View style={[styles.attendeesGlass, {
               backgroundColor: colors.surfaceGlass,
               borderColor: colors.border
             }]}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Who's Going ({event.attendees.length})
+                Attendees ({attendeesData.length})
               </Text>
-              <View style={styles.attendeesGrid}>
-                {event.attendees.slice(0, 12).map((attendeeId, index) => (
-                  <View key={index} style={styles.attendeeCard}>
-                    <View style={[styles.attendeeAvatar, {
-                      backgroundColor: `${colors.primary}26`,
-                      borderColor: `${colors.primary}4D`
-                    }]}>
-                      <Text style={styles.attendeeEmoji}>😊</Text>
-                    </View>
+              {attendeesData.map((attendee, index) => (
+                <View key={index} style={styles.attendeeRow}>
+                  <View style={[styles.attendeeAvatar, {
+                    backgroundColor: `${colors.primary}26`,
+                    borderColor: `${colors.primary}4D`
+                  }]}>
+                    <Text style={styles.attendeeEmoji}>{attendee.avatar || '😊'}</Text>
                   </View>
-                ))}
-              </View>
+                  <Text style={[styles.attendeeName, { color: colors.text }]}>
+                    {attendee.fullName}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
         )}
@@ -415,10 +447,10 @@ function createStyles(colors) {
     descriptionText: { fontSize: 15, lineHeight: 24 },
     attendeesSection: { marginBottom: 24, borderRadius: 16, overflow: 'hidden' },
     attendeesGlass: { borderWidth: 1, padding: 20 },
-    attendeesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    attendeeCard: { width: 56, alignItems: 'center' },
-    attendeeAvatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
-    attendeeEmoji: { fontSize: 28 },
+    attendeeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    attendeeAvatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    attendeeEmoji: { fontSize: 20 },
+    attendeeName: { fontSize: 15, fontWeight: '600' },
     bottomAction: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 40 },
     bottomGlass: { borderTopWidth: 1, padding: 24 },
     actionButton: { borderRadius: 16, overflow: 'hidden' },

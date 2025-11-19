@@ -29,7 +29,6 @@ export default function HomeScreen({ navigation }) {
         const userData = userDoc.data();
         setUser(userData);
         
-        // Si es admin, cargar host requests pendientes
         if (userData.role === 'admin') {
           loadPendingHostRequests();
         }
@@ -65,7 +64,7 @@ export default function HomeScreen({ navigation }) {
       const notificationsSnapshot = await getDocs(notificationsQuery);
       let count = notificationsSnapshot.size;
 
-      // Contar mensajes no leídos de eventos
+      // Contar TODOS los mensajes no leídos (no solo conversaciones)
       const conversationsQuery = query(
         collection(db, 'conversations'),
         where('type', '==', 'event')
@@ -76,7 +75,6 @@ export default function HomeScreen({ navigation }) {
         const conversationId = convDoc.id;
         const eventId = convDoc.data().eventId;
         
-        // Verificar si el usuario está en este evento
         const eventQuery = query(
           collection(db, 'events'),
           where('__name__', '==', eventId.replace('event_', ''))
@@ -91,7 +89,7 @@ export default function HomeScreen({ navigation }) {
         
         if (!isParticipant) continue;
         
-        // Contar mensajes no leídos
+        // Contar CADA mensaje no leído (no solo si hay alguno)
         const messagesQuery = query(
           collection(db, 'conversations', conversationId, 'messages'),
           where('senderId', '!=', auth.currentUser.uid),
@@ -99,9 +97,8 @@ export default function HomeScreen({ navigation }) {
         );
         const messagesSnapshot = await getDocs(messagesQuery);
         
-        if (messagesSnapshot.size > 0) {
-          count++;
-        }
+        // Sumar el número de mensajes no leídos
+        count += messagesSnapshot.size;
       }
 
       console.log('🔔 Total unread notifications:', count);
@@ -118,13 +115,14 @@ export default function HomeScreen({ navigation }) {
     return 'Good evening';
   };
 
+  const canCreateEvents = user?.role === 'admin' || user?.role === 'host';
+
   const styles = createStyles(colors);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
       
-      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: colors.textSecondary }]}>
@@ -149,7 +147,6 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
@@ -202,49 +199,66 @@ export default function HomeScreen({ navigation }) {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.quickAction}
-              onPress={() => navigation.navigate('CreateEvent')}
-            >
-              <View style={[styles.quickActionGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
-                <Text style={styles.quickActionIcon}>✨</Text>
-                <Text style={[styles.quickActionText, { color: colors.text }]}>Create</Text>
-              </View>
-            </TouchableOpacity>
+            {/* Create o Request Host según permisos */}
+            {canCreateEvents ? (
+              <TouchableOpacity
+                style={styles.quickAction}
+                onPress={() => navigation.navigate('CreateEvent')}
+              >
+                <View style={[styles.quickActionGlass, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border
+                }]}>
+                  <Text style={styles.quickActionIcon}>✨</Text>
+                  <Text style={[styles.quickActionText, { color: colors.text }]}>Create</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.quickAction}
+                onPress={() => navigation.navigate('RequestHost')}
+              >
+                <View style={[styles.quickActionGlass, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border
+                }]}>
+                  <Text style={styles.quickActionIcon}>🎪</Text>
+                  <Text style={[styles.quickActionText, { color: colors.text }]}>Be a Host</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
-        {/* Create Event Card */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.createEventCard}
-            onPress={() => navigation.navigate('CreateEvent')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.createEventGlass, {
-              backgroundColor: `${colors.primary}1A`,
-              borderColor: `${colors.primary}33`
-            }]}>
-              <View style={styles.createEventContent}>
-                <Text style={styles.createEventIcon}>✨</Text>
-                <View style={styles.createEventText}>
-                  <Text style={[styles.createEventTitle, { color: colors.primary }]}>
-                    Create an Event
-                  </Text>
-                  <Text style={[styles.createEventSubtitle, { color: colors.textSecondary }]}>
-                    Bring people together
-                  </Text>
+        {/* Create Event Card - Solo para admin/host */}
+        {canCreateEvents && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.createEventCard}
+              onPress={() => navigation.navigate('CreateEvent')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.createEventGlass, {
+                backgroundColor: `${colors.primary}1A`,
+                borderColor: `${colors.primary}33`
+              }]}>
+                <View style={styles.createEventContent}>
+                  <Text style={styles.createEventIcon}>✨</Text>
+                  <View style={styles.createEventText}>
+                    <Text style={[styles.createEventTitle, { color: colors.primary }]}>
+                      Create an Event
+                    </Text>
+                    <Text style={[styles.createEventSubtitle, { color: colors.textSecondary }]}>
+                      Bring people together
+                    </Text>
+                  </View>
                 </View>
+                <Text style={[styles.createEventArrow, { color: colors.primary }]}>→</Text>
               </View>
-              <Text style={[styles.createEventArrow, { color: colors.primary }]}>→</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* Discover */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Discover</Text>
@@ -273,7 +287,7 @@ export default function HomeScreen({ navigation }) {
                      category === 'Sports' ? '⚽' :
                      category === 'Food' ? '🍕' :
                      category === 'Arts' ? '🎨' :
-                     category === 'Learning' ? '📚' : '��️'}
+                     category === 'Learning' ? '📚' : '🏔️'}
                   </Text>
                   <Text style={[styles.categoryName, { color: colors.text }]}>
                     {category}
@@ -283,32 +297,6 @@ export default function HomeScreen({ navigation }) {
             ))}
           </ScrollView>
         </View>
-
-        {/* Host Card */}
-        {user?.role === 'user' && (
-          <View style={styles.section}>
-            <TouchableOpacity
-              style={styles.hostCard}
-              onPress={() => navigation.navigate('RequestHost')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.hostGlass, {
-                backgroundColor: `${colors.secondary}1A`,
-                borderColor: `${colors.secondary}33`
-              }]}>
-                <Text style={styles.hostIcon}>🎪</Text>
-                <View style={styles.hostContent}>
-                  <Text style={[styles.hostTitle, { color: colors.secondary }]}>
-                    Become a Host
-                  </Text>
-                  <Text style={[styles.hostSubtitle, { color: colors.textSecondary }]}>
-                    Create unlimited events and build your community
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Admin Card */}
         {user?.role === 'admin' && (
@@ -386,12 +374,6 @@ function createStyles(colors) {
     categoryGlass: { borderWidth: 1, padding: 16, alignItems: 'center' },
     categoryIcon: { fontSize: 36, marginBottom: 10 },
     categoryName: { fontSize: 13, fontWeight: '600', letterSpacing: -0.1 },
-    hostCard: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden' },
-    hostGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center' },
-    hostIcon: { fontSize: 40, marginRight: 16 },
-    hostContent: { flex: 1 },
-    hostTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6, letterSpacing: -0.3 },
-    hostSubtitle: { fontSize: 13, lineHeight: 18 },
     adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden' },
     adminGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center' },
     adminIconContainer: { position: 'relative', marginRight: 16 },
