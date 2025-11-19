@@ -5,86 +5,39 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const [userRole, setUserRole] = useState('user');
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [pendingHostRequests, setPendingHostRequests] = useState(0);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    loadUserData();
+    loadUser();
   }, []);
 
-  const loadUserData = async () => {
+  const loadUser = async () => {
     try {
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       if (userDoc.exists()) {
-        const data = userDoc.data();
-        setProfile(data);
-        setUserRole(data.role || 'user');
-        
-        if (data.role === 'admin') {
-          await loadPendingRequests();
-        }
+        setUser(userDoc.data());
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error loading user:', error);
     }
   };
 
-  const loadPendingRequests = async () => {
-    try {
-      const hostRequestsQuery = query(
-        collection(db, 'hostRequests'),
-        where('status', '==', 'pending')
-      );
-      const snapshot = await getDocs(hostRequestsQuery);
-      setPendingHostRequests(snapshot.size);
-    } catch (error) {
-      console.error('Error loading pending requests:', error);
-    }
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   };
-
-  const canCreateEvents = userRole === 'admin' || userRole === 'verified_host';
-  const isAdmin = userRole === 'admin';
 
   const styles = createStyles(colors);
-
-  if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  const ActionButton = ({ icon, title, gradient, onPress, badge }) => (
-    <TouchableOpacity
-      style={styles.actionButton}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <View style={[styles.buttonContent, gradient && styles[gradient]]}>
-        <Text style={styles.buttonIcon}>{icon}</Text>
-        <Text style={[styles.buttonTitle, { color: colors.text }]}>{title}</Text>
-        {badge > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badge}</Text>
-          </View>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -93,200 +46,202 @@ export default function HomeScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.greeting, { color: colors.textSecondary }]}>Welcome back</Text>
-          <Text style={[styles.userName, { color: colors.text }]}>
-            {profile?.fullName || 'Usuario 1'}
+          <Text style={[styles.greeting, { color: colors.textSecondary }]}>
+            {getGreeting()}
+          </Text>
+          <Text style={[styles.name, { color: colors.text }]}>
+            {user?.fullName || 'Friend'}
           </Text>
         </View>
-        <TouchableOpacity 
-          style={styles.profileButton}
-          onPress={() => navigation.navigate('Profile')}
-        >
-          <View style={[styles.profileGlass, {
-            backgroundColor: colors.surfaceGlass,
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          <View style={[styles.avatar, {
+            backgroundColor: `${colors.primary}26`,
             borderColor: `${colors.primary}66`
           }]}>
-            <Text style={styles.profileEmoji}>{profile?.avatar || '🎸'}</Text>
+            <Text style={styles.avatarEmoji}>{user?.avatar || '😊'}</Text>
           </View>
         </TouchableOpacity>
       </View>
 
       <ScrollView 
         style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Admin Badge */}
-        {isAdmin && (
-          <View style={styles.adminBadge}>
-            <View style={styles.adminGlass}>
-              <Text style={styles.adminIcon}>👑</Text>
-              <Text style={styles.adminText}>Admin</Text>
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+          <View style={styles.quickActionsGrid}>
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => navigation.navigate('Conversations')}
+            >
+              <View style={[styles.quickActionGlass, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}>
+                <Text style={styles.quickActionIcon}>💬</Text>
+                <Text style={[styles.quickActionText, { color: colors.text }]}>Messages</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => navigation.navigate('EventFeed')}
+            >
+              <View style={[styles.quickActionGlass, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}>
+                <Text style={styles.quickActionIcon}>🔍</Text>
+                <Text style={[styles.quickActionText, { color: colors.text }]}>Explore</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => navigation.navigate('MyEvents')}
+            >
+              <View style={[styles.quickActionGlass, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}>
+                <Text style={styles.quickActionIcon}>📅</Text>
+                <Text style={[styles.quickActionText, { color: colors.text }]}>My Events</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickAction}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <View style={[styles.quickActionGlass, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}>
+                <Text style={styles.quickActionIcon}>🔔</Text>
+                <Text style={[styles.quickActionText, { color: colors.text }]}>Notifications</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Create Event Card */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.createEventCard}
+            onPress={() => navigation.navigate('CreateEvent')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.createEventGlass, {
+              backgroundColor: `${colors.primary}1A`,
+              borderColor: `${colors.primary}33`
+            }]}>
+              <View style={styles.createEventContent}>
+                <Text style={styles.createEventIcon}>✨</Text>
+                <View style={styles.createEventText}>
+                  <Text style={[styles.createEventTitle, { color: colors.primary }]}>
+                    Create an Event
+                  </Text>
+                  <Text style={[styles.createEventSubtitle, { color: colors.textSecondary }]}>
+                    Bring people together
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.createEventArrow, { color: colors.primary }]}>→</Text>
             </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Discover */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Discover</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('SearchEvents')}>
+              <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesScroll}
+          >
+            {['Social', 'Sports', 'Food', 'Arts', 'Learning', 'Adventure'].map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={styles.categoryCard}
+                onPress={() => navigation.navigate('EventFeed')}
+              >
+                <View style={[styles.categoryGlass, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border
+                }]}>
+                  <Text style={styles.categoryIcon}>
+                    {category === 'Social' ? '👥' :
+                     category === 'Sports' ? '⚽' :
+                     category === 'Food' ? '🍕' :
+                     category === 'Arts' ? '🎨' :
+                     category === 'Learning' ? '📚' : '🏔️'}
+                  </Text>
+                  <Text style={[styles.categoryName, { color: colors.text }]}>
+                    {category}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Host Card */}
+        {user?.role === 'user' && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.hostCard}
+              onPress={() => navigation.navigate('RequestHost')}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.hostGlass, {
+                backgroundColor: `${colors.secondary}1A`,
+                borderColor: `${colors.secondary}33`
+              }]}>
+                <Text style={styles.hostIcon}>🎪</Text>
+                <View style={styles.hostContent}>
+                  <Text style={[styles.hostTitle, { color: colors.secondary }]}>
+                    Become a Host
+                  </Text>
+                  <Text style={[styles.hostSubtitle, { color: colors.textSecondary }]}>
+                    Create unlimited events and build your community
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <View style={[styles.statGlass, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <Text style={[styles.statValue, { color: colors.primary }]}>12</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Events</Text>
-            </View>
-          </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statGlass, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <Text style={[styles.statValue, { color: colors.primary }]}>45</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Friends</Text>
-            </View>
-          </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statGlass, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <Text style={[styles.statValue, { color: colors.primary }]}>8.5</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Rating</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Main Actions */}
-        <View style={styles.actionsSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
-          
-          <TouchableOpacity
-            style={styles.primaryAction}
-            onPress={() => navigation.navigate('EventFeed')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.primaryGlass, {
-              backgroundColor: `${colors.primary}26`,
-              borderColor: `${colors.primary}66`
-            }]}>
-              <View style={styles.actionLeft}>
-                <View style={[styles.iconCircle, {
-                  backgroundColor: `${colors.primary}33`
-                }]}>
-                  <Text style={styles.actionIcon}>🎯</Text>
-                </View>
-                <Text style={[styles.actionTitle, { color: colors.text }]}>Explore Events</Text>
-              </View>
-              <Text style={[styles.actionArrow, { color: colors.primary }]}>→</Text>
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.secondaryActions}>
+        {/* Admin Card */}
+        {user?.role === 'admin' && (
+          <View style={styles.section}>
             <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => navigation.navigate('SearchEvents')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.secondaryGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
-                <Text style={styles.secondaryIcon}>🔍</Text>
-                <Text style={[styles.secondaryTitle, { color: colors.text }]}>Search</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => navigation.navigate('MyEvents')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.secondaryGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
-                <Text style={styles.secondaryIcon}>📅</Text>
-                <Text style={[styles.secondaryTitle, { color: colors.text }]}>My Events</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.secondaryActions}>
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => navigation.navigate('Notifications')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.secondaryGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
-                <Text style={styles.secondaryIcon}>🔔</Text>
-                <Text style={[styles.secondaryTitle, { color: colors.text }]}>Notifications</Text>
-                {5 > 0 && (
-                  <View style={[styles.notificationBadge, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.badgeText}>5</Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryAction}
-              onPress={() => canCreateEvents ? navigation.navigate('CreateEvent') : navigation.navigate('RequestHost')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.secondaryGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
-                <Text style={styles.secondaryIcon}>{canCreateEvents ? '➕' : '✨'}</Text>
-                <Text style={[styles.secondaryTitle, { color: colors.text }]}>
-                  {canCreateEvents ? 'Create' : 'Host'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {isAdmin && (
-            <TouchableOpacity
-              style={styles.adminAction}
+              style={styles.adminCard}
               onPress={() => navigation.navigate('AdminDashboard')}
               activeOpacity={0.8}
             >
-              <View style={styles.adminActionGlass}>
-                <View style={styles.actionLeft}>
-                  <View style={styles.iconCircleGold}>
-                    <Text style={styles.actionIcon}>👑</Text>
-                  </View>
-                  <Text style={[styles.actionTitle, { color: colors.text }]}>Admin Dashboard</Text>
+              <View style={[styles.adminGlass, {
+                backgroundColor: 'rgba(255, 215, 0, 0.15)',
+                borderColor: 'rgba(255, 215, 0, 0.3)'
+              }]}>
+                <Text style={styles.adminIcon}>👑</Text>
+                <View style={styles.adminContent}>
+                  <Text style={styles.adminTitle}>Admin Dashboard</Text>
+                  <Text style={[styles.adminSubtitle, { color: colors.textSecondary }]}>
+                    Manage host requests and events
+                  </Text>
                 </View>
-                {pendingHostRequests > 0 && (
-                  <View style={styles.adminBadgeCount}>
-                    <Text style={styles.badgeText}>{pendingHostRequests}</Text>
-                  </View>
-                )}
               </View>
             </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Safety Notice */}
-        <View style={styles.safetyCard}>
-          <View style={[styles.safetyGlass, {
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            borderColor: 'rgba(245, 158, 11, 0.2)'
-          }]}>
-            <Text style={styles.safetyIcon}>🛡️</Text>
-            <View style={styles.safetyContent}>
-              <Text style={styles.safetyTitle}>Stay Safe</Text>
-              <Text style={[styles.safetyText, { color: colors.textSecondary }]}>
-                Always meet in public places
-              </Text>
-            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -297,259 +252,202 @@ function createStyles(colors) {
     container: {
       flex: 1,
     },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: 24,
       paddingTop: 60,
-      paddingBottom: 24,
+      paddingBottom: 20,
     },
     greeting: {
-      fontSize: 13,
+      fontSize: 14,
       marginBottom: 4,
-      letterSpacing: 0.3,
     },
-    userName: {
-      fontSize: 26,
+    name: {
+      fontSize: 28,
       fontWeight: '700',
       letterSpacing: -0.5,
     },
-    profileButton: {
-      borderRadius: 20,
-      overflow: 'hidden',
-    },
-    profileGlass: {
-      width: 56,
-      height: 56,
-      borderWidth: 1,
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 2,
       justifyContent: 'center',
       alignItems: 'center',
     },
-    profileEmoji: {
-      fontSize: 28,
+    avatarEmoji: {
+      fontSize: 24,
     },
     scrollView: {
       flex: 1,
     },
     scrollContent: {
-      paddingHorizontal: 24,
       paddingBottom: 40,
     },
-    adminBadge: {
-      marginBottom: 20,
-      borderRadius: 16,
-      overflow: 'hidden',
-    },
-    adminGlass: {
-      backgroundColor: 'rgba(255, 215, 0, 0.1)',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 215, 0, 0.2)',
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    adminIcon: {
-      fontSize: 16,
-      marginRight: 8,
-    },
-    adminText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: '#FFD700',
-      letterSpacing: 0.5,
-    },
-    statsContainer: {
-      flexDirection: 'row',
-      gap: 10,
+    section: {
       marginBottom: 28,
     },
-    statCard: {
-      flex: 1,
-      borderRadius: 16,
-      overflow: 'hidden',
-    },
-    statGlass: {
-      borderWidth: 1,
-      paddingVertical: 14,
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
-    },
-    statValue: {
-      fontSize: 22,
-      fontWeight: '700',
-      marginBottom: 2,
-      letterSpacing: -0.5,
-    },
-    statLabel: {
-      fontSize: 11,
-      letterSpacing: 0.3,
-    },
-    actionsSection: {
-      marginBottom: 24,
+      paddingHorizontal: 24,
+      marginBottom: 16,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '700',
+      paddingHorizontal: 24,
       marginBottom: 16,
       letterSpacing: -0.3,
     },
-    primaryAction: {
-      marginBottom: 12,
+    seeAll: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    quickActionsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    quickAction: {
+      width: '48%',
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    quickActionGlass: {
+      borderWidth: 1,
+      paddingVertical: 24,
+      alignItems: 'center',
+    },
+    quickActionIcon: {
+      fontSize: 32,
+      marginBottom: 8,
+    },
+    quickActionText: {
+      fontSize: 14,
+      fontWeight: '600',
+      letterSpacing: -0.1,
+    },
+    createEventCard: {
+      marginHorizontal: 24,
       borderRadius: 20,
       overflow: 'hidden',
     },
-    primaryGlass: {
+    createEventGlass: {
       borderWidth: 1,
       padding: 20,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    actionLeft: {
+    createEventContent: {
       flexDirection: 'row',
       alignItems: 'center',
-    },
-    iconCircle: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 14,
-    },
-    iconCircleGold: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: 'rgba(255, 215, 0, 0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 14,
-    },
-    actionIcon: {
-      fontSize: 22,
-    },
-    actionTitle: {
-      fontSize: 17,
-      fontWeight: '600',
-      letterSpacing: -0.2,
-    },
-    actionArrow: {
-      fontSize: 24,
-      fontWeight: '300',
-    },
-    secondaryActions: {
-      flexDirection: 'row',
-      gap: 10,
-      marginBottom: 12,
-    },
-    secondaryAction: {
       flex: 1,
+    },
+    createEventIcon: {
+      fontSize: 32,
+      marginRight: 16,
+    },
+    createEventText: {
+      flex: 1,
+    },
+    createEventTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 4,
+      letterSpacing: -0.3,
+    },
+    createEventSubtitle: {
+      fontSize: 13,
+    },
+    createEventArrow: {
+      fontSize: 24,
+      marginLeft: 12,
+    },
+    categoriesScroll: {
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    categoryCard: {
+      width: 120,
       borderRadius: 16,
       overflow: 'hidden',
     },
-    secondaryGlass: {
+    categoryGlass: {
       borderWidth: 1,
-      padding: 18,
+      padding: 16,
       alignItems: 'center',
-      position: 'relative',
     },
-    secondaryIcon: {
-      fontSize: 28,
-      marginBottom: 8,
+    categoryIcon: {
+      fontSize: 36,
+      marginBottom: 10,
     },
-    secondaryTitle: {
+    categoryName: {
       fontSize: 13,
       fontWeight: '600',
       letterSpacing: -0.1,
     },
-    notificationBadge: {
-      position: 'absolute',
-      top: 12,
-      right: 12,
-      borderRadius: 10,
-      minWidth: 20,
-      height: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 6,
-    },
-    badgeText: {
-      fontSize: 11,
-      fontWeight: 'bold',
-      color: '#FFFFFF',
-    },
-    adminAction: {
-      marginBottom: 12,
+    hostCard: {
+      marginHorizontal: 24,
       borderRadius: 20,
       overflow: 'hidden',
     },
-    adminActionGlass: {
-      backgroundColor: 'rgba(255, 215, 0, 0.12)',
+    hostGlass: {
       borderWidth: 1,
-      borderColor: 'rgba(255, 215, 0, 0.25)',
       padding: 20,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
     },
-    adminBadgeCount: {
-      backgroundColor: '#EF4444',
-      borderRadius: 12,
-      minWidth: 24,
-      height: 24,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 8,
+    hostIcon: {
+      fontSize: 40,
+      marginRight: 16,
     },
-    safetyCard: {
-      borderRadius: 16,
+    hostContent: {
+      flex: 1,
+    },
+    hostTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 6,
+      letterSpacing: -0.3,
+    },
+    hostSubtitle: {
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    adminCard: {
+      marginHorizontal: 24,
+      borderRadius: 20,
       overflow: 'hidden',
     },
-    safetyGlass: {
+    adminGlass: {
       borderWidth: 1,
-      padding: 16,
+      padding: 20,
       flexDirection: 'row',
       alignItems: 'center',
     },
-    safetyIcon: {
-      fontSize: 24,
-      marginRight: 12,
+    adminIcon: {
+      fontSize: 40,
+      marginRight: 16,
     },
-    safetyContent: {
+    adminContent: {
       flex: 1,
     },
-    safetyTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: '#F59E0B',
-      marginBottom: 2,
-      letterSpacing: -0.1,
+    adminTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 6,
+      color: '#FFD700',
+      letterSpacing: -0.3,
     },
-    safetyText: {
-      fontSize: 12,
-      lineHeight: 16,
+    adminSubtitle: {
+      fontSize: 13,
+      lineHeight: 18,
     },
   });
 }
-// Agregar esto después de la línea 107, dentro del return antes del primer QuickActionCard
-
-<TouchableOpacity
-  style={styles.quickAction}
-  onPress={() => navigation.navigate('Conversations')}
->
-  <View style={[styles.quickActionGlass, {
-    backgroundColor: colors.surfaceGlass,
-    borderColor: colors.border
-  }]}>
-    <Text style={styles.quickActionIcon}>💬</Text>
-    <Text style={[styles.quickActionText, { color: colors.text }]}>Messages</Text>
-  </View>
-</TouchableOpacity>
