@@ -5,23 +5,34 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
+import SuccessModal from '../components/SuccessModal';
 
 export default function LoginScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    showSignup: false,
+  });
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Missing Information', 'Please fill in all fields');
+      setErrorModal({
+        visible: true,
+        title: 'Missing Information',
+        message: 'Please fill in all fields to continue.',
+        showSignup: false,
+      });
       return;
     }
 
@@ -33,31 +44,52 @@ export default function LoginScreen({ navigation }) {
       console.log('Login error:', error);
       console.log('Error code:', error.code);
       
-      // Mensajes de error amigables
+      setLoading(false);
+      
+      // Mensajes de error amigables con modal
       if (error.code === 'auth/user-not-found' || 
           error.code === 'auth/invalid-credential' ||
           error.code === 'auth/wrong-password') {
-        Alert.alert(
-          'Account Not Found',
-          'No account exists with this email or the password is incorrect. Would you like to create an account?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Sign Up', 
-              onPress: () => navigation.navigate('Signup'),
-              style: 'default'
-            }
-          ]
-        );
+        setErrorModal({
+          visible: true,
+          title: 'Account Not Found',
+          message: 'No account exists with this email or the password is incorrect. Would you like to create an account?',
+          showSignup: true,
+        });
       } else if (error.code === 'auth/invalid-email') {
-        Alert.alert('Invalid Email', 'Please enter a valid email address.');
+        setErrorModal({
+          visible: true,
+          title: 'Invalid Email',
+          message: 'Please enter a valid email address.',
+          showSignup: false,
+        });
       } else if (error.code === 'auth/too-many-requests') {
-        Alert.alert('Too Many Attempts', 'Too many failed login attempts. Please try again later.');
+        setErrorModal({
+          visible: true,
+          title: 'Too Many Attempts',
+          message: 'Too many failed login attempts. Please try again later.',
+          showSignup: false,
+        });
       } else {
-        Alert.alert('Login Failed', error.message);
+        setErrorModal({
+          visible: true,
+          title: 'Login Failed',
+          message: error.message,
+          showSignup: false,
+        });
       }
-    } finally {
-      setLoading(false);
+      return;
+    }
+    
+    setLoading(false);
+  };
+
+  const handleErrorModalClose = () => {
+    if (errorModal.showSignup) {
+      setErrorModal({ ...errorModal, visible: false });
+      navigation.navigate('Signup');
+    } else {
+      setErrorModal({ ...errorModal, visible: false });
     }
   };
 
@@ -148,6 +180,52 @@ export default function LoginScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Error Modal con opción de Sign Up */}
+      {errorModal.showSignup ? (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBackdrop} />
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <Text style={styles.modalEmoji}>❌</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{errorModal.title}</Text>
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              {errorModal.message}
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setErrorModal({ ...errorModal, visible: false })}
+              >
+                <View style={[styles.modalButtonGlass, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border
+                }]}>
+                  <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handleErrorModalClose}
+              >
+                <View style={[styles.modalButtonGlass, {
+                  backgroundColor: `${colors.primary}33`,
+                  borderColor: `${colors.primary}66`
+                }]}>
+                  <Text style={[styles.modalButtonText, { color: colors.primary }]}>Sign Up</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <SuccessModal
+          visible={errorModal.visible}
+          onClose={handleErrorModalClose}
+          title={errorModal.title}
+          message={errorModal.message}
+          emoji="❌"
+        />
+      )}
     </View>
   );
 }
@@ -173,5 +251,17 @@ function createStyles(colors) {
     signupButton: { borderRadius: 16, overflow: 'hidden' },
     signupGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
     signupText: { fontSize: 15 },
+    
+    // Modal personalizado para errores con botón Sign Up
+    modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+    modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)' },
+    modalContent: { width: '90%', maxWidth: 400, borderRadius: 24, padding: 32, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.3, shadowRadius: 30, elevation: 20, zIndex: 1001 },
+    modalEmoji: { fontSize: 72, marginBottom: 20 },
+    modalTitle: { fontSize: 24, fontWeight: '700', marginBottom: 12, textAlign: 'center', letterSpacing: -0.4 },
+    modalMessage: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+    modalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
+    modalButton: { flex: 1, borderRadius: 16, overflow: 'hidden' },
+    modalButtonGlass: { borderWidth: 1, paddingVertical: 14, alignItems: 'center' },
+    modalButtonText: { fontSize: 16, fontWeight: '700' },
   });
 }
