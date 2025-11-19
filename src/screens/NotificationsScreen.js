@@ -29,59 +29,51 @@ export default function NotificationsScreen({ navigation }) {
       // Cargar notificaciones regulares
       const userNotifications = await getUserNotifications(auth.currentUser.uid);
       
-      // Cargar mensajes no leídos de eventos
-      const conversationsQuery = query(
-        collection(db, 'conversations'),
-        where('type', '==', 'event')
-      );
-      const conversationsSnapshot = await getDocs(conversationsQuery);
-      
+      // Cargar mensajes de eventos (solo no leídos)
       const messageNotifications = [];
-      for (const convDoc of conversationsSnapshot.docs) {
-        const conversationId = convDoc.id;
-        const eventId = convDoc.data().eventId;
+      
+      // Obtener eventos donde el usuario participa
+      const eventsSnapshot = await getDocs(collection(db, 'events'));
+      const userEvents = eventsSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        return data.attendees?.includes(auth.currentUser.uid) || data.creatorId === auth.currentUser.uid;
+      });
+
+      // Para cada evento, verificar mensajes no leídos
+      for (const eventDoc of userEvents) {
+        const conversationId = `event_${eventDoc.id}`;
         
-        // Verificar si el usuario está en este evento
-        const eventQuery = query(
-          collection(db, 'events'),
-          where('__name__', '==', eventId.replace('event_', ''))
-        );
-        const eventSnapshot = await getDocs(eventQuery);
-        
-        if (eventSnapshot.empty) continue;
-        
-        const eventData = eventSnapshot.docs[0].data();
-        const isParticipant = eventData.attendees?.includes(auth.currentUser.uid) || 
-                             eventData.creatorId === auth.currentUser.uid;
-        
-        if (!isParticipant) continue;
-        
-        // Contar mensajes no leídos
-        const messagesQuery = query(
-          collection(db, 'conversations', conversationId, 'messages'),
-          where('senderId', '!=', auth.currentUser.uid),
-          where('read', '==', false)
-        );
-        const messagesSnapshot = await getDocs(messagesQuery);
-        
-        if (messagesSnapshot.size > 0) {
-          const lastMessage = messagesSnapshot.docs[messagesSnapshot.size - 1].data();
+        try {
+          const messagesSnapshot = await getDocs(
+            collection(db, 'conversations', conversationId, 'messages')
+          );
           
-          // Obtener info del remitente
-          const senderDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', lastMessage.senderId)));
-          const senderName = senderDoc.docs[0]?.data()?.fullName || 'Someone';
+          // Filtrar solo mensajes NO LEÍDOS que no son del usuario
+          const unreadMessages = messagesSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(msg => msg.senderId !== auth.currentUser.uid && msg.read === false);
           
-          messageNotifications.push({
-            id: `msg_${conversationId}`,
-            type: 'event_message',
-            title: `${senderName} sent a message`,
-            message: `New message in "${eventData.title}"`,
-            time: getTimeAgo(lastMessage.createdAt),
-            read: false,
-            icon: '💬',
-            createdAt: lastMessage.createdAt,
-            metadata: { eventId: eventId.replace('event_', ''), eventTitle: eventData.title, conversationId }
-          });
+          if (unreadMessages.length > 0) {
+            const lastMessage = unreadMessages[unreadMessages.length - 1];
+            
+            // Obtener info del remitente
+            const senderDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', lastMessage.senderId)));
+            const senderName = senderDoc.docs[0]?.data()?.fullName || 'Someone';
+            
+            messageNotifications.push({
+              id: `msg_${conversationId}`,
+              type: 'event_message',
+              title: `${senderName} sent a message`,
+              message: `New message in "${eventDoc.data().title}"`,
+              time: getTimeAgo(lastMessage.createdAt),
+              read: false,
+              icon: '💬',
+              createdAt: lastMessage.createdAt,
+              metadata: { eventId: eventDoc.id, eventTitle: eventDoc.data().title, conversationId }
+            });
+          }
+        } catch (err) {
+          console.log('Conversation not found for event:', eventDoc.id);
         }
       }
       
@@ -99,7 +91,7 @@ export default function NotificationsScreen({ navigation }) {
             time: 'Just now',
             read: false,
             icon: '🎉',
-            action: () => navigation.navigate('EventFeed'),
+            action: () => navigation.navigate('SearchEvents'),
             isDemo: true,
           },
         ];
@@ -160,16 +152,13 @@ export default function NotificationsScreen({ navigation }) {
       case 'host_request':
         navigation.navigate('AdminDashboard');
         break;
-      case 'new_match':
-        navigation.navigate('EventFeed');
-        break;
       default:
         if (notification.action) {
           notification.action();
         }
     }
 
-    loadNotifications();
+    setTimeout(() => loadNotifications(), 500);
   };
 
   const handleMarkAllRead = async () => {
@@ -240,7 +229,7 @@ export default function NotificationsScreen({ navigation }) {
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>🔔</Text>
+          <Text style={styles.emptyEmoji}>��</Text>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>No notifications</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             You're all caught up!

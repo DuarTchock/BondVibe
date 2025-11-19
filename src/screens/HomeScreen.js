@@ -15,6 +15,7 @@ export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [pendingHostRequests, setPendingHostRequests] = useState(0);
 
   useEffect(() => {
     loadUser();
@@ -25,10 +26,31 @@ export default function HomeScreen({ navigation }) {
     try {
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       if (userDoc.exists()) {
-        setUser(userDoc.data());
+        const userData = userDoc.data();
+        setUser(userData);
+        
+        // Si es admin, cargar host requests pendientes
+        if (userData.role === 'admin') {
+          loadPendingHostRequests();
+        }
       }
     } catch (error) {
       console.error('Error loading user:', error);
+    }
+  };
+
+  const loadPendingHostRequests = async () => {
+    try {
+      const requestsQuery = query(
+        collection(db, 'hostRequests'),
+        where('status', '==', 'pending')
+      );
+      const snapshot = await getDocs(requestsQuery);
+      const count = snapshot.size;
+      console.log('👑 Pending host requests:', count);
+      setPendingHostRequests(count);
+    } catch (error) {
+      console.error('Error loading host requests:', error);
     }
   };
 
@@ -69,7 +91,7 @@ export default function HomeScreen({ navigation }) {
         
         if (!isParticipant) continue;
         
-        // Contar mensajes no leídos - ESTE QUERY NECESITA EL ÍNDICE
+        // Contar mensajes no leídos
         const messagesQuery = query(
           collection(db, 'conversations', conversationId, 'messages'),
           where('senderId', '!=', auth.currentUser.uid),
@@ -82,7 +104,7 @@ export default function HomeScreen({ navigation }) {
         }
       }
 
-      console.log('�� Total unread notifications:', count);
+      console.log('🔔 Total unread notifications:', count);
       setUnreadNotifications(count);
     } catch (error) {
       console.error('Error loading unread notifications:', error);
@@ -251,7 +273,7 @@ export default function HomeScreen({ navigation }) {
                      category === 'Sports' ? '⚽' :
                      category === 'Food' ? '🍕' :
                      category === 'Arts' ? '🎨' :
-                     category === 'Learning' ? '📚' : '🏔️'}
+                     category === 'Learning' ? '📚' : '��️'}
                   </Text>
                   <Text style={[styles.categoryName, { color: colors.text }]}>
                     {category}
@@ -293,18 +315,31 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.section}>
             <TouchableOpacity
               style={styles.adminCard}
-              onPress={() => navigation.navigate('AdminDashboard')}
+              onPress={() => {
+                loadPendingHostRequests();
+                navigation.navigate('AdminDashboard');
+              }}
               activeOpacity={0.8}
             >
               <View style={[styles.adminGlass, {
                 backgroundColor: 'rgba(255, 215, 0, 0.15)',
                 borderColor: 'rgba(255, 215, 0, 0.3)'
               }]}>
-                <Text style={styles.adminIcon}>👑</Text>
+                <View style={styles.adminIconContainer}>
+                  <Text style={styles.adminIcon}>👑</Text>
+                  {pendingHostRequests > 0 && (
+                    <View style={[styles.adminBadge, { backgroundColor: colors.accent }]}>
+                      <Text style={styles.badgeText}>{pendingHostRequests}</Text>
+                    </View>
+                  )}
+                </View>
                 <View style={styles.adminContent}>
                   <Text style={styles.adminTitle}>Admin Dashboard</Text>
                   <Text style={[styles.adminSubtitle, { color: colors.textSecondary }]}>
-                    Manage host requests and events
+                    {pendingHostRequests > 0 
+                      ? `${pendingHostRequests} pending request${pendingHostRequests > 1 ? 's' : ''}`
+                      : 'Manage host requests and events'
+                    }
                   </Text>
                 </View>
               </View>
@@ -359,7 +394,9 @@ function createStyles(colors) {
     hostSubtitle: { fontSize: 13, lineHeight: 18 },
     adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden' },
     adminGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center' },
-    adminIcon: { fontSize: 40, marginRight: 16 },
+    adminIconContainer: { position: 'relative', marginRight: 16 },
+    adminIcon: { fontSize: 40 },
+    adminBadge: { position: 'absolute', top: -4, right: -4, minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
     adminContent: { flex: 1 },
     adminTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6, color: '#FFD700', letterSpacing: -0.3 },
     adminSubtitle: { fontSize: 13, lineHeight: 18 },
