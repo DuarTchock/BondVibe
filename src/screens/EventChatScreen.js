@@ -8,11 +8,12 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../contexts/ThemeContext';
 import { auth } from '../services/firebase';
-import { sendMessage, subscribeToMessages } from '../utils/messageService';
+import { sendMessage, subscribeToMessages, ensureEventConversation } from '../utils/messageService';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
@@ -23,31 +24,47 @@ export default function EventChatScreen({ route, navigation }) {
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const [users, setUsers] = useState({});
+  const [loading, setLoading] = useState(true);
   const scrollViewRef = useRef();
 
   useEffect(() => {
-    const conversationId = `event_${eventId}`;
-    const unsubscribe = subscribeToMessages(conversationId, async (newMessages) => {
-      setMessages(newMessages);
+    initChat();
+  }, [eventId]);
+
+  const initChat = async () => {
+    try {
+      const conversationId = `event_${eventId}`;
       
-      // Cargar info de usuarios
-      const userIds = [...new Set(newMessages.map(m => m.senderId))];
-      const usersData = {};
-      for (const userId of userIds) {
-        if (!users[userId]) {
-          const userDoc = await getDoc(doc(db, 'users', userId));
-          if (userDoc.exists()) {
-            usersData[userId] = userDoc.data();
+      // Asegurar que la conversación existe
+      await ensureEventConversation(conversationId);
+      
+      // Suscribirse a mensajes
+      const unsubscribe = subscribeToMessages(conversationId, async (newMessages) => {
+        setMessages(newMessages);
+        
+        // Cargar info de usuarios
+        const userIds = [...new Set(newMessages.map(m => m.senderId))];
+        const usersData = {};
+        for (const userId of userIds) {
+          if (!users[userId]) {
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (userDoc.exists()) {
+              usersData[userId] = userDoc.data();
+            }
           }
         }
-      }
-      setUsers(prev => ({ ...prev, ...usersData }));
-      
-      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
-    });
+        setUsers(prev => ({ ...prev, ...usersData }));
+        
+        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+      });
 
-    return () => unsubscribe();
-  }, [eventId]);
+      setLoading(false);
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error initializing chat:', error);
+      setLoading(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!inputText.trim() || sending) return;
@@ -112,6 +129,14 @@ export default function EventChatScreen({ route, navigation }) {
       </View>
     );
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -203,6 +228,7 @@ export default function EventChatScreen({ route, navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
     backButton: { fontSize: 28 },
     headerInfo: { flex: 1, marginLeft: 16 },

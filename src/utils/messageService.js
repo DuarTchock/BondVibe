@@ -7,6 +7,7 @@ import {
   orderBy,
   doc,
   getDoc,
+  setDoc,
   onSnapshot,
   updateDoc
 } from 'firebase/firestore';
@@ -51,9 +52,37 @@ export const getOrCreateConversation = async (userId1, userId2) => {
   }
 };
 
+// Asegurar que existe la conversación del evento
+export const ensureEventConversation = async (eventId) => {
+  try {
+    const conversationRef = doc(db, 'conversations', eventId);
+    const conversationDoc = await getDoc(conversationRef);
+    
+    if (!conversationDoc.exists()) {
+      console.log('📝 Creating event conversation:', eventId);
+      await setDoc(conversationRef, {
+        type: 'event',
+        eventId: eventId,
+        createdAt: new Date().toISOString(),
+        lastMessage: null,
+        lastMessageAt: null,
+      });
+    }
+  } catch (error) {
+    console.error('Error ensuring event conversation:', error);
+    throw error;
+  }
+};
+
 // Enviar mensaje
 export const sendMessage = async (conversationId, senderId, text) => {
   try {
+    // Si es conversación de evento, asegurar que existe
+    if (conversationId.startsWith('event_')) {
+      await ensureEventConversation(conversationId);
+    }
+
+    // Agregar mensaje
     await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
       senderId,
       text: text.trim(),
@@ -61,6 +90,7 @@ export const sendMessage = async (conversationId, senderId, text) => {
       read: false,
     });
 
+    // Actualizar última mensaje en conversación
     await updateDoc(doc(db, 'conversations', conversationId), {
       lastMessage: text.trim(),
       lastMessageAt: new Date().toISOString(),
