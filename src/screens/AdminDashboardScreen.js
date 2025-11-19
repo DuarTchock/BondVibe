@@ -11,8 +11,10 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminDashboardScreen({ navigation }) {
+  const { colors, isDark } = useTheme();
   const [hostRequests, setHostRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -27,7 +29,6 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const loadData = async () => {
     try {
-      // Load host requests
       const requestsQuery = query(
         collection(db, 'hostRequests'),
         where('status', '==', 'pending')
@@ -39,7 +40,6 @@ export default function AdminDashboardScreen({ navigation }) {
       }));
       setHostRequests(requests);
 
-      // Load stats
       const eventsSnapshot = await getDocs(collection(db, 'events'));
       const usersSnapshot = await getDocs(collection(db, 'users'));
       
@@ -101,16 +101,21 @@ export default function AdminDashboardScreen({ navigation }) {
     );
   };
 
+  const styles = createStyles(colors);
+
   const RequestCard = ({ request }) => (
     <View style={styles.requestCard}>
-      <View style={styles.requestGlass}>
+      <View style={[styles.requestGlass, {
+        backgroundColor: colors.surfaceGlass,
+        borderColor: colors.border
+      }]}>
         <View style={styles.requestHeader}>
           <View style={styles.requestAvatar}>
             <Text style={styles.requestEmoji}>👤</Text>
           </View>
           <View style={styles.requestInfo}>
-            <Text style={styles.requestName}>User Request</Text>
-            <Text style={styles.requestDate}>
+            <Text style={[styles.requestName, { color: colors.text }]}>User Request</Text>
+            <Text style={[styles.requestDate, { color: colors.textSecondary }]}>
               {new Date(request.createdAt).toLocaleDateString()}
             </Text>
           </View>
@@ -118,19 +123,31 @@ export default function AdminDashboardScreen({ navigation }) {
 
         <View style={styles.requestContent}>
           <View style={styles.requestSection}>
-            <Text style={styles.requestLabel}>Why host?</Text>
-            <Text style={styles.requestText}>{request.reason}</Text>
+            <Text style={[styles.requestLabel, { color: colors.textSecondary }]}>
+              WHY HOST?
+            </Text>
+            <Text style={[styles.requestText, { color: colors.text }]}>
+              {request.reason}
+            </Text>
           </View>
 
           <View style={styles.requestSection}>
-            <Text style={styles.requestLabel}>Experience</Text>
-            <Text style={styles.requestText}>{request.experience}</Text>
+            <Text style={[styles.requestLabel, { color: colors.textSecondary }]}>
+              EXPERIENCE
+            </Text>
+            <Text style={[styles.requestText, { color: colors.text }]}>
+              {request.experience}
+            </Text>
           </View>
 
           {request.eventIdeas && (
             <View style={styles.requestSection}>
-              <Text style={styles.requestLabel}>Event Ideas</Text>
-              <Text style={styles.requestText}>{request.eventIdeas}</Text>
+              <Text style={[styles.requestLabel, { color: colors.textSecondary }]}>
+                EVENT IDEAS
+              </Text>
+              <Text style={[styles.requestText, { color: colors.text }]}>
+                {request.eventIdeas}
+              </Text>
             </View>
           )}
         </View>
@@ -159,21 +176,21 @@ export default function AdminDashboardScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
       
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Admin Dashboard</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Admin Dashboard</Text>
         <View style={{ width: 28 }} />
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF3EA5" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <ScrollView
@@ -184,40 +201,68 @@ export default function AdminDashboardScreen({ navigation }) {
           {/* Stats */}
           <View style={styles.statsSection}>
             <View style={styles.statCard}>
-              <View style={styles.statGlass}>
+              <View style={[styles.statGlass, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}>
                 <Text style={styles.statIcon}>⏳</Text>
-                <Text style={styles.statValue}>{stats.pendingRequests}</Text>
-                <Text style={styles.statLabel}>Pending</Text>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {stats.pendingRequests}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                  Pending
+                </Text>
               </View>
             </View>
 
             <View style={styles.statCard}>
-              <View style={styles.statGlass}>
+              <View style={[styles.statGlass, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}>
                 <Text style={styles.statIcon}>🎉</Text>
-                <Text style={styles.statValue}>{stats.totalEvents}</Text>
-                <Text style={styles.statLabel}>Events</Text>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {stats.totalEvents}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                  Events
+                </Text>
               </View>
             </View>
 
             <View style={styles.statCard}>
-              <View style={styles.statGlass}>
+              <View style={[styles.statGlass, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}>
                 <Text style={styles.statIcon}>👥</Text>
-                <Text style={styles.statValue}>{stats.totalUsers}</Text>
-                <Text style={styles.statLabel}>Users</Text>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {stats.totalUsers}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                  Users
+                </Text>
               </View>
             </View>
           </View>
 
           {/* Pending Requests */}
           <View style={styles.requestsSection}>
-            <Text style={styles.sectionTitle}>Pending Host Requests</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Pending Host Requests
+            </Text>
             
             {hostRequests.length === 0 ? (
               <View style={styles.emptyState}>
-                <View style={styles.emptyGlass}>
+                <View style={[styles.emptyGlass, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border
+                }]}>
                   <Text style={styles.emptyEmoji}>✅</Text>
-                  <Text style={styles.emptyTitle}>All caught up!</Text>
-                  <Text style={styles.emptyText}>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                    All caught up!
+                  </Text>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                     No pending host requests at the moment
                   </Text>
                 </View>
@@ -234,209 +279,192 @@ export default function AdminDashboardScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B0F1A',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  backButton: {
-    fontSize: 28,
-    color: '#F1F5F9',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    letterSpacing: -0.3,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  statsSection: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 28,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  statGlass: {
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  statIcon: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FF3EA5',
-    marginBottom: 4,
-    letterSpacing: -0.5,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  requestsSection: {
-    gap: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    marginBottom: 4,
-    letterSpacing: -0.3,
-  },
-  requestCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
-  requestGlass: {
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 20,
-  },
-  requestHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  requestAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 215, 0, 0.15)',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  requestEmoji: {
-    fontSize: 24,
-  },
-  requestInfo: {
-    flex: 1,
-  },
-  requestName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#F1F5F9',
-    marginBottom: 2,
-    letterSpacing: -0.2,
-  },
-  requestDate: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  requestContent: {
-    gap: 14,
-    marginBottom: 18,
-  },
-  requestSection: {
-    gap: 6,
-  },
-  requestLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#94A3B8',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  requestText: {
-    fontSize: 14,
-    color: '#F1F5F9',
-    lineHeight: 20,
-  },
-  requestActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  rejectButton: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  rejectGlass: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  rejectButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#EF4444',
-  },
-  approveButton: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  approveGlass: {
-    backgroundColor: 'rgba(166, 255, 150, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(166, 255, 150, 0.3)',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  approveButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#A6FF96',
-  },
-  emptyState: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  emptyGlass: {
-    backgroundColor: 'rgba(17, 24, 39, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyEmoji: {
-    fontSize: 56,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F1F5F9',
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#94A3B8',
-    textAlign: 'center',
-  },
-});
+function createStyles(colors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 60,
+      paddingBottom: 20,
+    },
+    backButton: {
+      fontSize: 28,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      letterSpacing: -0.3,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 24,
+      paddingBottom: 40,
+    },
+    statsSection: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 28,
+    },
+    statCard: {
+      flex: 1,
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    statGlass: {
+      borderWidth: 1,
+      paddingVertical: 18,
+      alignItems: 'center',
+    },
+    statIcon: {
+      fontSize: 28,
+      marginBottom: 8,
+    },
+    statValue: {
+      fontSize: 24,
+      fontWeight: '700',
+      marginBottom: 4,
+      letterSpacing: -0.5,
+    },
+    statLabel: {
+      fontSize: 12,
+    },
+    requestsSection: {
+      gap: 16,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 4,
+      letterSpacing: -0.3,
+    },
+    requestCard: {
+      borderRadius: 20,
+      overflow: 'hidden',
+      marginBottom: 16,
+    },
+    requestGlass: {
+      borderWidth: 1,
+      padding: 20,
+    },
+    requestHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    requestAvatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: 'rgba(255, 215, 0, 0.15)',
+      borderWidth: 2,
+      borderColor: 'rgba(255, 215, 0, 0.3)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    requestEmoji: {
+      fontSize: 24,
+    },
+    requestInfo: {
+      flex: 1,
+    },
+    requestName: {
+      fontSize: 16,
+      fontWeight: '600',
+      marginBottom: 2,
+      letterSpacing: -0.2,
+    },
+    requestDate: {
+      fontSize: 12,
+    },
+    requestContent: {
+      gap: 14,
+      marginBottom: 18,
+    },
+    requestSection: {
+      gap: 6,
+    },
+    requestLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      letterSpacing: 0.3,
+    },
+    requestText: {
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    requestActions: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    rejectButton: {
+      flex: 1,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    rejectGlass: {
+      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+      borderWidth: 1,
+      borderColor: 'rgba(239, 68, 68, 0.3)',
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    rejectButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#EF4444',
+    },
+    approveButton: {
+      flex: 1,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    approveGlass: {
+      backgroundColor: 'rgba(166, 255, 150, 0.15)',
+      borderWidth: 1,
+      borderColor: 'rgba(166, 255, 150, 0.3)',
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    approveButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#A6FF96',
+    },
+    emptyState: {
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    emptyGlass: {
+      borderWidth: 1,
+      padding: 40,
+      alignItems: 'center',
+    },
+    emptyEmoji: {
+      fontSize: 56,
+      marginBottom: 16,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 8,
+      letterSpacing: -0.3,
+    },
+    emptyText: {
+      fontSize: 14,
+      textAlign: 'center',
+    },
+  });
+}
