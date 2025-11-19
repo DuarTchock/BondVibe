@@ -22,7 +22,6 @@ export default function HomeScreen({ navigation }) {
     loadUser();
   }, []);
 
-  // Recargar notificaciones cada vez que la pantalla vuelve al foco
   useFocusEffect(
     useCallback(() => {
       console.log('🔄 HomeScreen focused - reloading notifications');
@@ -66,7 +65,6 @@ export default function HomeScreen({ navigation }) {
 
   const loadUnreadNotifications = async () => {
     try {
-      // Contar notificaciones no leídas
       const notificationsQuery = query(
         collection(db, 'notifications'),
         where('userId', '==', auth.currentUser.uid),
@@ -75,7 +73,6 @@ export default function HomeScreen({ navigation }) {
       const notificationsSnapshot = await getDocs(notificationsQuery);
       let count = notificationsSnapshot.size;
 
-      // Contar TODOS los mensajes no leídos
       const conversationsQuery = query(
         collection(db, 'conversations'),
         where('type', '==', 'event')
@@ -124,7 +121,9 @@ export default function HomeScreen({ navigation }) {
     return 'Good evening';
   };
 
-  const canCreateEvents = user?.role === 'admin' || user?.role === 'host';
+  const isAdmin = user?.role === 'admin';
+  const isHost = user?.role === 'host';
+  const canCreateEvents = isAdmin || isHost;
 
   const styles = createStyles(colors);
 
@@ -156,6 +155,7 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
@@ -205,6 +205,7 @@ export default function HomeScreen({ navigation }) {
               </View>
             </TouchableOpacity>
 
+            {/* Create o Request Host según permisos */}
             {canCreateEvents ? (
               <TouchableOpacity
                 style={styles.quickAction}
@@ -235,34 +236,44 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {canCreateEvents && (
+        {/* Admin Dashboard Card - Reemplaza "Create an Event" para admins */}
+        {isAdmin && (
           <View style={styles.section}>
             <TouchableOpacity
-              style={styles.createEventCard}
-              onPress={() => navigation.navigate('CreateEvent')}
+              style={styles.adminCard}
+              onPress={() => navigation.navigate('AdminDashboard')}
               activeOpacity={0.8}
             >
-              <View style={[styles.createEventGlass, {
-                backgroundColor: `${colors.primary}1A`,
-                borderColor: `${colors.primary}33`
+              <View style={[styles.adminGlass, {
+                backgroundColor: 'rgba(255, 215, 0, 0.15)',
+                borderColor: 'rgba(255, 215, 0, 0.3)'
               }]}>
-                <View style={styles.createEventContent}>
-                  <Text style={styles.createEventIcon}>✨</Text>
-                  <View style={styles.createEventText}>
-                    <Text style={[styles.createEventTitle, { color: colors.primary }]}>
-                      Create an Event
-                    </Text>
-                    <Text style={[styles.createEventSubtitle, { color: colors.textSecondary }]}>
-                      Bring people together
+                <View style={styles.adminContent}>
+                  <View style={styles.adminIconContainer}>
+                    <Text style={styles.adminIcon}>👑</Text>
+                    {pendingHostRequests > 0 && (
+                      <View style={[styles.adminBadge, { backgroundColor: colors.accent }]}>
+                        <Text style={styles.badgeText}>{pendingHostRequests}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.adminText}>
+                    <Text style={styles.adminTitle}>Admin Dashboard</Text>
+                    <Text style={[styles.adminSubtitle, { color: colors.textSecondary }]}>
+                      {pendingHostRequests > 0 
+                        ? `${pendingHostRequests} pending request${pendingHostRequests > 1 ? 's' : ''}`
+                        : 'Manage host requests and events'
+                      }
                     </Text>
                   </View>
                 </View>
-                <Text style={[styles.createEventArrow, { color: colors.primary }]}>→</Text>
+                <Text style={styles.adminArrow}>→</Text>
               </View>
             </TouchableOpacity>
           </View>
         )}
 
+        {/* Discover */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Discover</Text>
@@ -301,39 +312,6 @@ export default function HomeScreen({ navigation }) {
             ))}
           </ScrollView>
         </View>
-
-        {user?.role === 'admin' && (
-          <View style={styles.section}>
-            <TouchableOpacity
-              style={styles.adminCard}
-              onPress={() => navigation.navigate('AdminDashboard')}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.adminGlass, {
-                backgroundColor: 'rgba(255, 215, 0, 0.15)',
-                borderColor: 'rgba(255, 215, 0, 0.3)'
-              }]}>
-                <View style={styles.adminIconContainer}>
-                  <Text style={styles.adminIcon}>👑</Text>
-                  {pendingHostRequests > 0 && (
-                    <View style={[styles.adminBadge, { backgroundColor: colors.accent }]}>
-                      <Text style={styles.badgeText}>{pendingHostRequests}</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.adminContent}>
-                  <Text style={styles.adminTitle}>Admin Dashboard</Text>
-                  <Text style={[styles.adminSubtitle, { color: colors.textSecondary }]}>
-                    {pendingHostRequests > 0 
-                      ? `${pendingHostRequests} pending request${pendingHostRequests > 1 ? 's' : ''}`
-                      : 'Manage host requests and events'
-                    }
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -361,26 +339,24 @@ function createStyles(colors) {
     badge: { position: 'absolute', top: -4, right: -8, minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
     badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
     quickActionText: { fontSize: 14, fontWeight: '600', letterSpacing: -0.1 },
-    createEventCard: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden' },
-    createEventGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    createEventContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    createEventIcon: { fontSize: 32, marginRight: 16 },
-    createEventText: { flex: 1 },
-    createEventTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4, letterSpacing: -0.3 },
-    createEventSubtitle: { fontSize: 13 },
-    createEventArrow: { fontSize: 24, marginLeft: 12 },
+    
+    // Admin Dashboard Card (reemplaza Create an Event)
+    adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden' },
+    adminGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    adminContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    adminIconContainer: { position: 'relative', marginRight: 16 },
+    adminIcon: { fontSize: 40 },
+    adminBadge: { position: 'absolute', top: -4, right: -4, minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
+    adminText: { flex: 1 },
+    adminTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4, color: '#FFD700', letterSpacing: -0.3 },
+    adminSubtitle: { fontSize: 13, lineHeight: 18 },
+    adminArrow: { fontSize: 24, marginLeft: 12, color: '#FFD700' },
+    
+    // Categories
     categoriesScroll: { paddingHorizontal: 24, gap: 12 },
     categoryCard: { width: 120, borderRadius: 16, overflow: 'hidden' },
     categoryGlass: { borderWidth: 1, padding: 16, alignItems: 'center' },
     categoryIcon: { fontSize: 36, marginBottom: 10 },
     categoryName: { fontSize: 13, fontWeight: '600', letterSpacing: -0.1 },
-    adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden' },
-    adminGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center' },
-    adminIconContainer: { position: 'relative', marginRight: 16 },
-    adminIcon: { fontSize: 40 },
-    adminBadge: { position: 'absolute', top: -4, right: -4, minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
-    adminContent: { flex: 1 },
-    adminTitle: { fontSize: 18, fontWeight: '700', marginBottom: 6, color: '#FFD700', letterSpacing: -0.3 },
-    adminSubtitle: { fontSize: 13, lineHeight: 18 },
   });
 }
