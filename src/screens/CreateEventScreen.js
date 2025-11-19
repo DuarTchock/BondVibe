@@ -6,54 +6,157 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { collection, addDoc } from 'firebase/firestore';
-import { db, auth } from '../services/firebase';
+import DateTimePicker from 'expo-date-time-picker';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 
-const CATEGORIES = ['Social', 'Sports', 'Food', 'Arts', 'Learning', 'Adventure'];
+const CATEGORIES = [
+  { id: 'social', label: 'Social', emoji: '🎉' },
+  { id: 'sports', label: 'Sports', emoji: '⚽' },
+  { id: 'food', label: 'Food', emoji: '🍕' },
+  { id: 'arts', label: 'Arts', emoji: '🎨' },
+  { id: 'learning', label: 'Learning', emoji: '📚' },
+  { id: 'adventure', label: 'Adventure', emoji: '🏔️' },
+];
 
 export default function CreateEventScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const [form, setForm] = useState({
-    title: '',
-    description: '',
-    category: 'Social',
-    date: '',
-    time: '',
-    location: '',
-    maxAttendees: '',
-    price: '',
-  });
-  const [creating, setCreating] = useState(false);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('social');
+  const [date, setDate] = useState(new Date());
+  const [time, setTime] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [location, setLocation] = useState('');
+  const [maxPeople, setMaxPeople] = useState('');
+  const [price, setPrice] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleCreate = async () => {
-    if (!form.title.trim() || !form.description.trim() || !form.location.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      // Validate that date is not in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        Alert.alert('Invalid Date', 'Please select a future date for your event.');
+        return;
+      }
+      setDate(selectedDate);
+    }
+  };
+
+  const handleTimeChange = (event, selectedTime) => {
+    setShowTimePicker(Platform.OS === 'ios');
+    if (selectedTime) {
+      setTime(selectedTime);
+    }
+  };
+
+  const formatDate = (date) => {
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  const formatTime = (time) => {
+    return time.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const handleCreateEvent = async () => {
+    console.log('✨ Create Event clicked');
+
+    // Validation
+    if (!title.trim()) {
+      Alert.alert('Missing Information', 'Please enter an event title.');
+      return;
+    }
+    if (!description.trim()) {
+      Alert.alert('Missing Information', 'Please enter an event description.');
+      return;
+    }
+    if (!location.trim()) {
+      Alert.alert('Missing Information', 'Please enter a location.');
+      return;
+    }
+    if (!maxPeople || parseInt(maxPeople) < 2) {
+      Alert.alert('Invalid Max People', 'Maximum people must be at least 2.');
+      return;
+    }
+    if (!price || parseFloat(price) < 0) {
+      Alert.alert('Invalid Price', 'Please enter a valid price (0 for free events).');
       return;
     }
 
-    setCreating(true);
+    // Combine date and time
+    const eventDateTime = new Date(date);
+    eventDateTime.setHours(time.getHours(), time.getMinutes(), 0, 0);
+
+    // Validate datetime is in the future
+    if (eventDateTime <= new Date()) {
+      Alert.alert('Invalid Date/Time', 'Event must be scheduled for a future date and time.');
+      return;
+    }
+
+    setLoading(true);
+    console.log('📅 Creating event...');
+
     try {
-      await addDoc(collection(db, 'events'), {
-        ...form,
-        maxAttendees: parseInt(form.maxAttendees) || 10,
-        price: parseFloat(form.price) || 0,
-        creatorId: auth.currentUser.uid,
-        status: 'published',
-        attendees: [],
-        createdAt: new Date().toISOString(),
-      });
-      Alert.alert('Success', 'Event created!', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to create an event.');
+        setLoading(false);
+        return;
+      }
+
+      const eventData = {
+        title: title.trim(),
+        description: description.trim(),
+        category: selectedCategory,
+        date: eventDateTime.toISOString(),
+        location: location.trim(),
+        maxPeople: parseInt(maxPeople),
+        price: parseFloat(price),
+        currency: 'MXN',
+        hostId: user.uid,
+        hostName: user.displayName || 'Anonymous',
+        participants: [user.uid],
+        participantCount: 1,
+        status: 'active',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      console.log('💾 Saving event:', eventData);
+      const docRef = await addDoc(collection(db, 'events'), eventData);
+      console.log('✅ Event created with ID:', docRef.id);
+
+      Alert.alert(
+        'Success!',
+        'Your event has been created successfully.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
     } catch (error) {
-      console.error('Error creating event:', error);
-      Alert.alert('Error', 'Failed to create event');
+      console.error('❌ Error creating event:', error);
+      Alert.alert('Error', 'Failed to create event. Please try again.');
     } finally {
-      setCreating(false);
+      setLoading(false);
     }
   };
 
@@ -65,223 +168,230 @@ export default function CreateEventScreen({ navigation }) {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Create Event</Text>
-        <View style={{ width: 28 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {/* Title */}
-        <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Event Title *</Text>
-          <View style={styles.inputWrapper}>
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.text }]}>Title *</Text>
+          <View style={[styles.inputWrapper, {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border
+          }]}>
             <TextInput
-              style={[styles.input, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-              value={form.title}
-              onChangeText={(text) => setForm({ ...form, title: text })}
-              placeholder="Coffee & Chat"
+              style={[styles.input, { color: colors.text }]}
+              placeholder="What's your event called?"
               placeholderTextColor={colors.textTertiary}
-              maxLength={80}
+              value={title}
+              onChangeText={setTitle}
             />
           </View>
         </View>
 
         {/* Description */}
-        <View style={styles.section}>
+        <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>Description *</Text>
-          <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+          <View style={[styles.textAreaWrapper, {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border
+          }]}>
             <TextInput
-              style={[styles.input, styles.textArea, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-              value={form.description}
-              onChangeText={(text) => setForm({ ...form, description: text })}
-              placeholder="Tell people what to expect..."
+              style={[styles.textArea, { color: colors.text }]}
+              placeholder="Describe your event..."
               placeholderTextColor={colors.textTertiary}
+              value={description}
+              onChangeText={setDescription}
               multiline
-              maxLength={500}
+              numberOfLines={4}
+              textAlignVertical="top"
             />
           </View>
           <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-            {form.description.length}/500
+            {description.length}/500
           </Text>
         </View>
 
         {/* Category */}
-        <View style={styles.section}>
+        <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>Category</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryScroll}
-          >
+          <View style={styles.categoryGrid}>
             {CATEGORIES.map((cat) => (
               <TouchableOpacity
-                key={cat}
-                style={styles.categoryChip}
-                onPress={() => setForm({ ...form, category: cat })}
+                key={cat.id}
+                style={[styles.categoryButton, {
+                  backgroundColor: selectedCategory === cat.id ? `${colors.primary}33` : colors.surfaceGlass,
+                  borderColor: selectedCategory === cat.id ? colors.primary : colors.border,
+                  borderWidth: selectedCategory === cat.id ? 2 : 1,
+                }]}
+                onPress={() => setSelectedCategory(cat.id)}
               >
-                <View style={[
-                  styles.categoryChipGlass,
-                  {
-                    backgroundColor: form.category === cat ? `${colors.primary}33` : colors.surfaceGlass,
-                    borderColor: form.category === cat ? `${colors.primary}66` : colors.border
-                  }
-                ]}>
-                  <Text style={[
-                    styles.categoryChipText,
-                    { color: form.category === cat ? colors.primary : colors.textSecondary }
-                  ]}>
-                    {cat}
-                  </Text>
-                </View>
+                <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
+                <Text style={[styles.categoryLabel, {
+                  color: selectedCategory === cat.id ? colors.primary : colors.text
+                }]}>{cat.label}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
         </View>
 
-        {/* Date & Time */}
-        <View style={styles.rowSection}>
-          <View style={[styles.section, { flex: 1 }]}>
+        {/* Date and Time */}
+        <View style={styles.row}>
+          <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>Date *</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.input, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.date}
-                onChangeText={(text) => setForm({ ...form, date: text })}
-                placeholder="Dec 25"
-                placeholderTextColor={colors.textTertiary}
-              />
-            </View>
+            <TouchableOpacity
+              style={[styles.pickerButton, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={[styles.pickerText, { color: colors.text }]}>
+                {formatDate(date)}
+              </Text>
+              <Text style={styles.pickerIcon}>📅</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={[styles.section, { flex: 1, marginLeft: 12 }]}>
+          <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>Time *</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.input, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.time}
-                onChangeText={(text) => setForm({ ...form, time: text })}
-                placeholder="7:00 PM"
-                placeholderTextColor={colors.textTertiary}
-              />
-            </View>
+            <TouchableOpacity
+              style={[styles.pickerButton, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={[styles.pickerText, { color: colors.text }]}>
+                {formatTime(time)}
+              </Text>
+              <Text style={styles.pickerIcon}>🕐</Text>
+            </TouchableOpacity>
           </View>
         </View>
+
+        {/* Date Picker Modal */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={date}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+            minimumDate={new Date()}
+          />
+        )}
+
+        {/* Time Picker Modal */}
+        {showTimePicker && (
+          <DateTimePicker
+            value={time}
+            mode="time"
+            display="default"
+            onChange={handleTimeChange}
+          />
+        )}
 
         {/* Location */}
-        <View style={styles.section}>
+        <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>Location *</Text>
-          <View style={styles.inputWrapper}>
+          <View style={[styles.inputWrapper, {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border
+          }]}>
             <Text style={styles.inputIcon}>📍</Text>
             <TextInput
-              style={[styles.input, styles.inputWithIcon, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
-                color: colors.text
-              }]}
-              value={form.location}
-              onChangeText={(text) => setForm({ ...form, location: text })}
-              placeholder="Starbucks Downtown"
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Where will it be?"
               placeholderTextColor={colors.textTertiary}
+              value={location}
+              onChangeText={setLocation}
             />
           </View>
         </View>
 
-        {/* Max Attendees & Price */}
-        <View style={styles.rowSection}>
-          <View style={[styles.section, { flex: 1 }]}>
+        {/* Max People and Price */}
+        <View style={styles.row}>
+          <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>Max People</Text>
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
+            }]}>
               <TextInput
-                style={[styles.input, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.maxAttendees}
-                onChangeText={(text) => setForm({ ...form, maxAttendees: text.replace(/[^0-9]/g, '') })}
-                placeholder="10"
+                style={[styles.input, { color: colors.text }]}
+                placeholder="20"
                 placeholderTextColor={colors.textTertiary}
+                value={maxPeople}
+                onChangeText={setMaxPeople}
                 keyboardType="numeric"
               />
             </View>
           </View>
 
-          <View style={[styles.section, { flex: 1, marginLeft: 12 }]}>
-            <Text style={[styles.label, { color: colors.text }]}>Price ($)</Text>
-            <View style={styles.inputWrapper}>
+          <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
+            <Text style={[styles.label, { color: colors.text }]}>Price (MXN)</Text>
+            <View style={[styles.inputWrapper, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
+            }]}>
+              <Text style={styles.inputIcon}>$</Text>
               <TextInput
-                style={[styles.input, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.price}
-                onChangeText={(text) => setForm({ ...form, price: text.replace(/[^0-9.]/g, '') })}
-                placeholder="0"
+                style={[styles.input, { color: colors.text }]}
+                placeholder="100"
                 placeholderTextColor={colors.textTertiary}
-                keyboardType="decimal-pad"
+                value={price}
+                onChangeText={setPrice}
+                keyboardType="numeric"
               />
             </View>
           </View>
         </View>
 
+        {/* Tips */}
+        <View style={[styles.tipsCard, {
+          backgroundColor: `${colors.primary}11`,
+          borderColor: `${colors.primary}33`
+        }]}>
+          <Text style={[styles.tipsTitle, { color: colors.primary }]}>💡 Tips for great events</Text>
+          <Text style={[styles.tipsText, { color: colors.textSecondary }]}>
+            • Be specific about the vibe{'\n'}
+            • Choose public, accessible locations{'\n'}
+            • Set clear expectations
+          </Text>
+        </View>
+
         {/* Create Button */}
         <TouchableOpacity
-          style={styles.createButton}
-          onPress={handleCreate}
-          disabled={creating}
+          style={[styles.createButton, {
+            opacity: loading ? 0.7 : 1
+          }]}
+          onPress={handleCreateEvent}
+          disabled={loading}
         >
           <View style={[styles.createGlass, {
             backgroundColor: `${colors.primary}33`,
             borderColor: `${colors.primary}66`
           }]}>
-            <Text style={[styles.createButtonText, { color: colors.primary }]}>
-              {creating ? 'Creating...' : '✨ Create Event'}
-            </Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <>
+                <Text style={styles.createIcon}>✨</Text>
+                <Text style={[styles.createText, { color: colors.primary }]}>
+                  Create Event
+                </Text>
+              </>
+            )}
           </View>
         </TouchableOpacity>
-
-        {/* Info Card */}
-        <View style={styles.infoCard}>
-          <View style={[styles.infoGlass, {
-            backgroundColor: `${colors.secondary}1A`,
-            borderColor: `${colors.secondary}33`
-          }]}>
-            <Text style={styles.infoIcon}>💡</Text>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoTitle, { color: colors.secondary }]}>
-                Tips for great events
-              </Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                • Be specific about the vibe{'\n'}
-                • Choose public, accessible locations{'\n'}
-                • Set clear expectations
-              </Text>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </View>
   );
@@ -289,133 +399,82 @@ export default function CreateEventScreen({ navigation }) {
 
 function createStyles(colors) {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
+    container: { flex: 1 },
     header: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 24,
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
       paddingTop: 60,
-      paddingBottom: 20,
+      paddingBottom: 16,
     },
-    backButton: {
-      fontSize: 28,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      letterSpacing: -0.3,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 24,
-      paddingBottom: 40,
-    },
-    section: {
-      marginBottom: 20,
-    },
-    rowSection: {
-      flexDirection: 'row',
-      marginBottom: 20,
-    },
-    label: {
-      fontSize: 13,
-      fontWeight: '600',
-      marginBottom: 10,
-      letterSpacing: -0.1,
-    },
+    backButton: { width: 40, height: 40, justifyContent: 'center' },
+    backIcon: { fontSize: 28 },
+    headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
+    scrollView: { flex: 1 },
+    content: { padding: 20, paddingBottom: 40 },
+    field: { marginBottom: 24 },
+    label: { fontSize: 16, fontWeight: '700', marginBottom: 12, letterSpacing: -0.2 },
     inputWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-    input: {
-      flex: 1,
       borderWidth: 1,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      fontSize: 15,
-    },
-    inputWithIcon: {
-      paddingLeft: 0,
-    },
-    inputIcon: {
-      fontSize: 18,
-      marginLeft: 16,
-      marginRight: 8,
-    },
-    textAreaWrapper: {},
-    textArea: {
-      minHeight: 120,
-      textAlignVertical: 'top',
-      paddingTop: 14,
-    },
-    charCount: {
-      fontSize: 11,
-      textAlign: 'right',
-      marginTop: 6,
-    },
-    categoryScroll: {
-      gap: 8,
-    },
-    categoryChip: {
-      borderRadius: 10,
-      overflow: 'hidden',
-    },
-    categoryChipGlass: {
-      borderWidth: 1,
-      paddingVertical: 10,
-      paddingHorizontal: 18,
-    },
-    categoryChipText: {
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    createButton: {
       borderRadius: 16,
-      overflow: 'hidden',
-      marginBottom: 20,
+      paddingHorizontal: 16,
     },
-    createGlass: {
+    inputIcon: { fontSize: 20, marginRight: 12 },
+    input: { flex: 1, fontSize: 16, paddingVertical: 16 },
+    textAreaWrapper: {
       borderWidth: 1,
+      borderRadius: 16,
+      padding: 16,
+    },
+    textArea: { fontSize: 16, minHeight: 100 },
+    charCount: { fontSize: 12, marginTop: 8, textAlign: 'right' },
+    categoryGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    categoryButton: {
+      flex: 1,
+      minWidth: '30%',
       paddingVertical: 16,
+      paddingHorizontal: 12,
+      borderRadius: 16,
       alignItems: 'center',
     },
-    createButtonText: {
-      fontSize: 17,
-      fontWeight: '700',
-      letterSpacing: -0.2,
-    },
-    infoCard: {
-      borderRadius: 16,
-      overflow: 'hidden',
-    },
-    infoGlass: {
-      borderWidth: 1,
-      padding: 16,
+    categoryEmoji: { fontSize: 24, marginBottom: 4 },
+    categoryLabel: { fontSize: 14, fontWeight: '600' },
+    row: { flexDirection: 'row', marginBottom: 24 },
+    pickerButton: {
       flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth: 1,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
     },
-    infoIcon: {
-      fontSize: 24,
-      marginRight: 12,
+    pickerText: { fontSize: 16, flex: 1 },
+    pickerIcon: { fontSize: 20, marginLeft: 8 },
+    tipsCard: {
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 24,
     },
-    infoContent: {
-      flex: 1,
+    tipsTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+    tipsText: { fontSize: 14, lineHeight: 22 },
+    createButton: { borderRadius: 16, overflow: 'hidden', marginTop: 8 },
+    createGlass: {
+      borderWidth: 1,
+      paddingVertical: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    infoTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      marginBottom: 8,
-      letterSpacing: -0.1,
-    },
-    infoText: {
-      fontSize: 12,
-      lineHeight: 18,
-    },
+    createIcon: { fontSize: 20, marginRight: 8 },
+    createText: { fontSize: 18, fontWeight: '700', letterSpacing: -0.2 },
   });
 }
