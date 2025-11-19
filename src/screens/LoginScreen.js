@@ -21,7 +21,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Missing Information', 'Please fill in all fields');
       return;
     }
 
@@ -30,7 +30,37 @@ export default function LoginScreen({ navigation }) {
       await signInWithEmailAndPassword(auth, email, password);
       // AppNavigator will handle navigation based on user state
     } catch (error) {
-      Alert.alert('Login Failed', error.message);
+      console.error('Login error:', error);
+      
+      // Mensajes de error amigables
+      let errorTitle = 'Login Failed';
+      let errorMessage = '';
+      
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        errorTitle = 'Account Not Found';
+        errorMessage = 'No account exists with this email. Would you like to create one?';
+        
+        Alert.alert(
+          errorTitle,
+          errorMessage,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Sign Up', 
+              onPress: () => navigation.navigate('Signup'),
+              style: 'default'
+            }
+          ]
+        );
+      } else if (error.code === 'auth/wrong-password') {
+        Alert.alert('Incorrect Password', 'The password you entered is incorrect. Please try again.');
+      } else if (error.code === 'auth/invalid-email') {
+        Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      } else if (error.code === 'auth/too-many-requests') {
+        Alert.alert('Too Many Attempts', 'Too many failed login attempts. Please try again later.');
+      } else {
+        Alert.alert(errorTitle, error.message);
+      }
     } finally {
       setLoading(false);
     }
