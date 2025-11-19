@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
@@ -43,14 +43,16 @@ export default function SignupScreen({ navigation }) {
 
     setLoading(true);
     
-    let user = null;
-    let emailSent = false;
-    
     try {
       console.log('📤 Creating user account...');
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      user = userCredential.user;
+      const user = userCredential.user;
       console.log('✅ User account created:', user.uid);
+
+      // Inmediatamente cerrar sesión para evitar race condition
+      console.log('🚪 Signing out immediately...');
+      await signOut(auth);
+      console.log('✅ Signed out');
 
       console.log('📄 Creating Firestore document...');
       await setDoc(doc(db, 'users', user.uid), {
@@ -63,24 +65,23 @@ export default function SignupScreen({ navigation }) {
       });
       console.log('✅ Firestore document created');
 
-      console.log('📧 Attempting to send verification email...');
+      console.log('📧 Sending verification email...');
       try {
         await sendEmailVerification(user, {
           url: window.location.origin,
           handleCodeInApp: false,
         });
         console.log('✅ Verification email sent to:', user.email);
-        emailSent = true;
       } catch (emailError) {
-        console.error('⚠️ Email verification error:', emailError);
-        console.error('Error code:', emailError.code);
-        console.error('Error message:', emailError.message);
-        // Continuar aunque falle el email - el usuario puede reenviar después
+        console.error('⚠️ Email error:', emailError.code, emailError.message);
       }
 
+      setLoading(false);
+      setShowSuccess(true);
+      console.log('🎉 Showing success modal');
+
     } catch (error) {
-      console.error('❌ Signup error:', error);
-      console.error('Error code:', error.code);
+      console.error('❌ Signup error:', error.code, error.message);
       setLoading(false);
       
       if (error.code === 'auth/email-already-in-use') {
@@ -92,27 +93,6 @@ export default function SignupScreen({ navigation }) {
       } else {
         Alert.alert('Signup Failed', error.message);
       }
-      return;
-    }
-
-    // Cerrar sesión y mostrar modal
-    try {
-      console.log('🚪 Signing out user...');
-      await auth.signOut();
-      console.log('✅ User signed out');
-      
-      setLoading(false);
-      setShowSuccess(true);
-      console.log('🎉 Showing success modal');
-      
-      if (!emailSent) {
-        console.log('⚠️ Note: Verification email may not have been sent');
-      }
-      
-    } catch (error) {
-      console.error('❌ Error signing out:', error);
-      setLoading(false);
-      setShowSuccess(true);
     }
   };
 
