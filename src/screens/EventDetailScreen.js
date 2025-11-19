@@ -79,10 +79,11 @@ export default function EventDetailScreen({ route, navigation }) {
         setIsJoined(true);
 
         // Crear notificación para el creador del evento
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        const userName = userDoc.data()?.fullName || 'Someone';
-        
-        if (event.creatorId !== auth.currentUser.uid) {
+        if (event.creatorId && event.creatorId !== auth.currentUser.uid) {
+          const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          const userName = userDoc.data()?.fullName || 'Someone';
+          
+          console.log('📬 Creating notification for:', event.creatorId);
           await createNotification(event.creatorId, {
             type: 'event_joined',
             title: 'New attendee!',
@@ -260,8 +261,6 @@ export default function EventDetailScreen({ route, navigation }) {
             </Text>
           </View>
         </View>
-
-        {/* Rest of content remains the same... */}
       </ScrollView>
 
       {/* Bottom Action */}
@@ -301,7 +300,6 @@ export default function EventDetailScreen({ route, navigation }) {
   );
 }
 
-// Styles remain the same...
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },

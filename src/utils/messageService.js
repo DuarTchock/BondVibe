@@ -4,12 +4,10 @@ import {
   query, 
   where, 
   getDocs, 
-  orderBy, 
-  limit,
+  orderBy,
   doc,
   getDoc,
   onSnapshot,
-  serverTimestamp,
   updateDoc
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -17,7 +15,6 @@ import { db } from '../services/firebase';
 // Crear o obtener conversación
 export const getOrCreateConversation = async (userId1, userId2) => {
   try {
-    // Buscar conversación existente
     const conversationsRef = collection(db, 'conversations');
     const q = query(
       conversationsRef,
@@ -34,16 +31,11 @@ export const getOrCreateConversation = async (userId1, userId2) => {
       return { id: existingConversation.id, ...existingConversation.data() };
     }
 
-    // Crear nueva conversación
     const newConversation = await addDoc(conversationsRef, {
       participants: [userId1, userId2],
       createdAt: new Date().toISOString(),
       lastMessage: null,
       lastMessageAt: null,
-      unreadCount: {
-        [userId1]: 0,
-        [userId2]: 0,
-      }
     });
 
     return {
@@ -62,7 +54,6 @@ export const getOrCreateConversation = async (userId1, userId2) => {
 // Enviar mensaje
 export const sendMessage = async (conversationId, senderId, text) => {
   try {
-    // Crear mensaje
     await addDoc(collection(db, 'conversations', conversationId, 'messages'), {
       senderId,
       text: text.trim(),
@@ -70,7 +61,6 @@ export const sendMessage = async (conversationId, senderId, text) => {
       read: false,
     });
 
-    // Actualizar última mensaje en conversación
     await updateDoc(doc(db, 'conversations', conversationId), {
       lastMessage: text.trim(),
       lastMessageAt: new Date().toISOString(),
@@ -83,13 +73,12 @@ export const sendMessage = async (conversationId, senderId, text) => {
   }
 };
 
-// Obtener conversaciones del usuario
+// Obtener conversaciones del usuario (simplificado sin orderBy para evitar índice)
 export const getUserConversations = async (userId) => {
   try {
     const q = query(
       collection(db, 'conversations'),
-      where('participants', 'array-contains', userId),
-      orderBy('lastMessageAt', 'desc')
+      where('participants', 'array-contains', userId)
     );
 
     const snapshot = await getDocs(q);
@@ -98,7 +87,6 @@ export const getUserConversations = async (userId) => {
         const data = docSnap.data();
         const otherUserId = data.participants.find(id => id !== userId);
         
-        // Obtener datos del otro usuario
         const userDoc = await getDoc(doc(db, 'users', otherUserId));
         const userData = userDoc.exists() ? userDoc.data() : null;
 
@@ -113,6 +101,13 @@ export const getUserConversations = async (userId) => {
       })
     );
 
+    // Ordenar manualmente por lastMessageAt
+    conversations.sort((a, b) => {
+      const dateA = a.lastMessageAt ? new Date(a.lastMessageAt) : new Date(0);
+      const dateB = b.lastMessageAt ? new Date(b.lastMessageAt) : new Date(0);
+      return dateB - dateA;
+    });
+
     return conversations;
   } catch (error) {
     console.error('Error getting conversations:', error);
@@ -125,8 +120,7 @@ export const getMessages = async (conversationId) => {
   try {
     const q = query(
       collection(db, 'conversations', conversationId, 'messages'),
-      orderBy('createdAt', 'asc'),
-      limit(100)
+      orderBy('createdAt', 'asc')
     );
 
     const snapshot = await getDocs(q);

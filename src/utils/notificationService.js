@@ -4,6 +4,12 @@ import { db } from '../services/firebase';
 // Crear notificación
 export const createNotification = async (userId, notification) => {
   try {
+    // Validar que userId existe
+    if (!userId) {
+      console.error('❌ Cannot create notification: userId is undefined');
+      return;
+    }
+
     await addDoc(collection(db, 'notifications'), {
       userId,
       type: notification.type,
@@ -14,7 +20,7 @@ export const createNotification = async (userId, notification) => {
       metadata: notification.metadata || {},
       createdAt: new Date().toISOString(),
     });
-    console.log('✅ Notification created');
+    console.log('✅ Notification created for user:', userId);
   } catch (error) {
     console.error('Error creating notification:', error);
   }
@@ -77,23 +83,33 @@ export const markAllAsRead = async (userId) => {
 };
 
 // Función helper para crear notificaciones cuando alguien se une a un evento
-export const notifyEventJoin = async (eventCreatorId, joinerName, eventTitle) => {
+export const notifyEventJoin = async (eventCreatorId, joinerName, eventTitle, eventId) => {
+  if (!eventCreatorId) {
+    console.error('❌ Cannot notify: eventCreatorId is undefined');
+    return;
+  }
+
   await createNotification(eventCreatorId, {
     type: 'event_joined',
     title: 'New attendee!',
     message: `${joinerName} joined your "${eventTitle}" event`,
     icon: '👋',
-    metadata: { eventTitle }
+    metadata: { eventTitle, eventId }
   });
 };
 
 // Función helper para recordatorios de eventos
-export const notifyEventReminder = async (userId, eventTitle, eventTime) => {
+export const notifyEventReminder = async (userId, eventTitle, eventTime, eventId) => {
+  if (!userId) {
+    console.error('❌ Cannot notify: userId is undefined');
+    return;
+  }
+
   await createNotification(userId, {
     type: 'event_reminder',
     title: 'Event Tomorrow',
     message: `Don't forget: "${eventTitle}" starts at ${eventTime}`,
     icon: '⏰',
-    metadata: { eventTitle, eventTime }
+    metadata: { eventTitle, eventTime, eventId }
   });
 };
