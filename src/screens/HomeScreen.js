@@ -69,7 +69,7 @@ export default function HomeScreen({ navigation }) {
         
         if (!isParticipant) continue;
         
-        // Contar mensajes no leídos
+        // Contar mensajes no leídos - ESTE QUERY NECESITA EL ÍNDICE
         const messagesQuery = query(
           collection(db, 'conversations', conversationId, 'messages'),
           where('senderId', '!=', auth.currentUser.uid),
@@ -82,7 +82,7 @@ export default function HomeScreen({ navigation }) {
         }
       }
 
-      console.log('🔔 Total unread notifications:', count);
+      console.log('�� Total unread notifications:', count);
       setUnreadNotifications(count);
     } catch (error) {
       console.error('Error loading unread notifications:', error);
@@ -117,7 +117,7 @@ export default function HomeScreen({ navigation }) {
             backgroundColor: `${colors.primary}26`,
             borderColor: `${colors.primary}66`
           }]}>
-            <Text style={styles.avatarEmoji}>{user?.avatar || '��'}</Text>
+            <Text style={styles.avatarEmoji}>{user?.avatar || '😊'}</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -133,7 +133,10 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.quickActionsGrid}>
             <TouchableOpacity
               style={styles.quickAction}
-              onPress={() => navigation.navigate('Notifications')}
+              onPress={() => {
+                loadUnreadNotifications();
+                navigation.navigate('Notifications');
+              }}
             >
               <View style={[styles.quickActionGlass, {
                 backgroundColor: colors.surfaceGlass,
