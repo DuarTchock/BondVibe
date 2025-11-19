@@ -6,206 +6,202 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
+import { useTheme } from '../contexts/ThemeContext';
 
-export default function ProfileSetupScreen({ onComplete }) {
-  const [fullName, setFullName] = useState('');
-  const [age, setAge] = useState('');
-  const [location, setLocation] = useState('');
-  const [bio, setBio] = useState('');
+const EMOJI_OPTIONS = ['😊', '🎨', '🎮', '📚', '🎵', '⚽', '🍕', '✈️', '🌟', '🎭', '🏃', '💻'];
+
+export default function ProfileSetupScreen({ navigation }) {
+  const { colors, isDark } = useTheme();
+  const [name, setName] = useState('');
+  const [selectedEmoji, setSelectedEmoji] = useState('😊');
   const [loading, setLoading] = useState(false);
 
-  const getRandomAvatar = () => {
-    const emojis = ['🎭', '🎨', '🎸', '🎯', '🎪', '🎬', '🎮', '🎲', '🎵', '🎺'];
-    return emojis[Math.floor(Math.random() * emojis.length)];
-  };
-
   const handleSubmit = async () => {
-    // Validaciones
-    if (!fullName.trim()) {
-      Alert.alert('Error', 'Please enter your full name');
-      return;
-    }
+    console.log('🎯 Complete Profile clicked');
+    console.log('👤 Name:', name);
+    console.log('🎨 Emoji:', selectedEmoji);
 
-    if (!age || parseInt(age) < 18) {
-      Alert.alert('Error', 'You must be 18 or older to use BondVibe');
-      return;
-    }
-
-    if (parseInt(age) > 100) {
-      Alert.alert('Error', 'Please enter a valid age');
-      return;
-    }
-
-    if (!location.trim()) {
-      Alert.alert('Error', 'Please enter your location');
+    if (!name.trim()) {
+      console.log('❌ Name is empty');
+      Alert.alert('Name Required', 'Please enter your name to continue.');
       return;
     }
 
     setLoading(true);
+    console.log('⏳ Updating profile...');
 
     try {
-      // Save profile to Firestore
-      await setDoc(doc(db, 'users', auth.currentUser.uid), {
-        fullName: fullName.trim(),
-        age: parseInt(age),
-        location: location.trim(),
-        bio: bio.trim() || '',
-        avatar: getRandomAvatar(),
-        email: auth.currentUser.email,
-        createdAt: new Date().toISOString(),
-        legalAccepted: true,
-        profileCompleted: true,
-      }, { merge: true });
+      const user = auth.currentUser;
+      if (!user) {
+        console.log('❌ No user found');
+        Alert.alert('Error', 'No user found. Please log in again.');
+        setLoading(false);
+        return;
+      }
 
-      onComplete();
+      console.log('💾 Saving profile data for user:', user.uid);
+
+      await updateDoc(doc(db, 'users', user.uid), {
+        name: name.trim(),
+        emoji: selectedEmoji,
+        profileCompleted: true,
+        profileCompletedAt: new Date().toISOString(),
+      });
+
+      console.log('✅ Profile completed successfully');
+      console.log('🔄 AppNavigator should detect change and navigate to Home...');
+
+      // AppNavigator will automatically navigate to Home
+      
     } catch (error) {
-      console.error('Profile creation error:', error);
-      Alert.alert('Error', 'Failed to create profile. Please try again.');
-    } finally {
+      console.error('❌ Profile creation error:', error);
+      Alert.alert('Error', 'Failed to save your profile. Please try again.');
       setLoading(false);
     }
   };
 
+  const styles = createStyles(colors);
+
   return (
-    <ScrollView style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
       
-      <View style={styles.content}>
-        <Text style={styles.emoji}>✨</Text>
-        <Text style={styles.title}>Complete Your Profile</Text>
-        <Text style={styles.subtitle}>
-          We focus on personality, not appearance
-        </Text>
-
-        {/* Form */}
-        <View style={styles.form}>
-          <Text style={styles.label}>Full Name *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="John Doe"
-            value={fullName}
-            onChangeText={setFullName}
-          />
-
-          <Text style={styles.label}>Age *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="25"
-            value={age}
-            onChangeText={setAge}
-            keyboardType="number-pad"
-            maxLength={2}
-          />
-
-          <Text style={styles.label}>Location *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Guadalajara, Mexico"
-            value={location}
-            onChangeText={setLocation}
-          />
-
-          <Text style={styles.label}>Bio (Optional)</Text>
-          <TextInput
-            style={[styles.input, styles.bioInput]}
-            placeholder="Tell us about yourself..."
-            value={bio}
-            onChangeText={setBio}
-            multiline
-            maxLength={150}
-          />
-          <Text style={styles.charCount}>{bio.length}/150</Text>
-
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Creating Profile...' : 'Complete Profile'}
-            </Text>
-          </TouchableOpacity>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.selectedEmoji}>{selectedEmoji}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Create Your Profile</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Let's get to know you
+          </Text>
         </View>
-      </View>
-    </ScrollView>
+
+        {/* Name Input */}
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: colors.text }]}>Your Name</Text>
+          <View style={[styles.inputWrapper, {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border
+          }]}>
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="Enter your name"
+              placeholderTextColor={colors.textTertiary}
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+          </View>
+        </View>
+
+        {/* Emoji Picker */}
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: colors.text }]}>Choose Your Avatar</Text>
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+            Pick an emoji that represents you
+          </Text>
+          <View style={styles.emojiGrid}>
+            {EMOJI_OPTIONS.map((emoji) => (
+              <TouchableOpacity
+                key={emoji}
+                style={[styles.emojiButton, {
+                  backgroundColor: selectedEmoji === emoji ? `${colors.primary}33` : colors.surfaceGlass,
+                  borderColor: selectedEmoji === emoji ? colors.primary : colors.border,
+                  borderWidth: selectedEmoji === emoji ? 2 : 1,
+                }]}
+                onPress={() => {
+                  console.log('🎨 Emoji selected:', emoji);
+                  setSelectedEmoji(emoji);
+                }}
+              >
+                <Text style={styles.emoji}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.submitButton, {
+            opacity: name.trim() ? 1 : 0.5,
+          }]}
+          onPress={handleSubmit}
+          disabled={!name.trim() || loading}
+        >
+          <View style={[styles.submitGlass, {
+            backgroundColor: `${colors.primary}33`,
+            borderColor: `${colors.primary}66`,
+          }]}>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={[styles.submitText, { color: colors.primary }]}>
+                Complete Profile
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  content: {
-    padding: Sizes.padding * 2,
-  },
-  emoji: {
-    fontSize: 60,
-    textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  form: {
-    width: '100%',
-  },
-  label: {
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#F8F9FA',
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    marginBottom: 16,
-    fontSize: Sizes.fontSize.medium,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  bioInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  charCount: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    textAlign: 'right',
-    marginTop: -12,
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: Colors.primary,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-  },
-});
+function createStyles(colors) {
+  return StyleSheet.create({
+    container: { flex: 1 },
+    scrollView: { flex: 1 },
+    content: { padding: 24, paddingTop: 60 },
+    header: { alignItems: 'center', marginBottom: 48 },
+    selectedEmoji: { fontSize: 80, marginBottom: 16 },
+    title: { fontSize: 28, fontWeight: '700', marginBottom: 8, letterSpacing: -0.4 },
+    subtitle: { fontSize: 15, textAlign: 'center' },
+    section: { marginBottom: 32 },
+    label: { fontSize: 16, fontWeight: '700', marginBottom: 12, letterSpacing: -0.2 },
+    helperText: { fontSize: 14, marginBottom: 16 },
+    inputWrapper: { 
+      borderWidth: 1, 
+      borderRadius: 16, 
+      paddingHorizontal: 16,
+    },
+    input: { 
+      fontSize: 16, 
+      paddingVertical: 16,
+    },
+    emojiGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    emojiButton: {
+      width: 60,
+      height: 60,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emoji: { fontSize: 28 },
+    submitButton: { 
+      borderRadius: 16, 
+      overflow: 'hidden', 
+      marginTop: 16,
+    },
+    submitGlass: { 
+      borderWidth: 1, 
+      paddingVertical: 18, 
+      alignItems: 'center',
+    },
+    submitText: { 
+      fontSize: 18, 
+      fontWeight: '700', 
+      letterSpacing: -0.2,
+    },
+  });
+}
