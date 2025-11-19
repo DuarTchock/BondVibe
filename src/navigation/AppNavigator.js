@@ -5,6 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { ActivityIndicator, View } from 'react-native';
+import SuccessModal from '../components/SuccessModal';
 
 // Auth Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -31,6 +32,7 @@ export default function AppNavigator() {
   const [initialUser, setInitialUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('Login');
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
 
   useEffect(() => {
     console.log('🔄 Setting up auth listener...');
@@ -41,7 +43,6 @@ export default function AppNavigator() {
         console.log('👤 User logged in:', user.uid);
         console.log('📧 Email verified:', user.emailVerified);
         
-        // Verificar si el documento del usuario existe
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         console.log('📄 User doc exists:', userDoc.exists());
         
@@ -49,14 +50,13 @@ export default function AppNavigator() {
           const userData = userDoc.data();
           console.log('✅ User data:', userData);
           
-          // VERIFICACIÓN COMPLETA DEL FLUJO
-          
           // 1. Verificar email
           if (!user.emailVerified) {
-            console.log('❌ Email not verified - staying on Login');
+            console.log('❌ Email not verified - showing modal and signing out');
+            setShowVerificationModal(true);
             setInitialRoute('Login');
             setInitialUser(null);
-            await auth.signOut(); // Forzar logout si email no verificado
+            await auth.signOut();
           }
           // 2. Verificar términos legales
           else if (!userData.legalAccepted) {
@@ -94,6 +94,11 @@ export default function AppNavigator() {
     return () => unsubscribe();
   }, []);
 
+  const handleVerificationModalClose = () => {
+    console.log('✅ Verification modal closed');
+    setShowVerificationModal(false);
+  };
+
   if (loading) {
     console.log('⏳ Loading initial user state...');
     return (
@@ -103,47 +108,58 @@ export default function AppNavigator() {
     );
   }
 
-  console.log('🎨 Rendering AppNavigator, user:', initialUser?.uid || 'null');
+  console.log('🗺️ AppNavigator rendering, initialUser:', initialUser?.uid || 'null');
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName={initialRoute}
-        screenOptions={{ headerShown: false }}
-      >
-        {!initialUser ? (
-          // Auth Stack
-          <>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Signup" component={SignupScreen} />
-          </>
-        ) : initialRoute === 'Legal' ? (
-          // Legal Stack
-          <>
-            <Stack.Screen name="Legal" component={LegalScreen} />
-          </>
-        ) : initialRoute === 'ProfileSetup' ? (
-          // Profile Setup Stack
-          <>
-            <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-          </>
-        ) : (
-          // Main App Stack
-          <>
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="SearchEvents" component={SearchEventsScreen} />
-            <Stack.Screen name="EventDetail" component={EventDetailScreen} />
-            <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
-            <Stack.Screen name="EditEvent" component={EditEventScreen} />
-            <Stack.Screen name="MyEvents" component={MyEventsScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="Notifications" component={NotificationsScreen} />
-            <Stack.Screen name="EventChat" component={EventChatScreen} />
-            <Stack.Screen name="RequestHost" component={RequestHostScreen} />
-            <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <>
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName={initialRoute}
+          screenOptions={{ headerShown: false }}
+        >
+          {!initialUser ? (
+            // Auth Stack
+            <>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Signup" component={SignupScreen} />
+            </>
+          ) : initialRoute === 'Legal' ? (
+            // Legal Stack
+            <>
+              <Stack.Screen name="Legal" component={LegalScreen} />
+            </>
+          ) : initialRoute === 'ProfileSetup' ? (
+            // Profile Setup Stack
+            <>
+              <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+            </>
+          ) : (
+            // Main App Stack
+            <>
+              <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen name="SearchEvents" component={SearchEventsScreen} />
+              <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+              <Stack.Screen name="CreateEvent" component={CreateEventScreen} />
+              <Stack.Screen name="EditEvent" component={EditEventScreen} />
+              <Stack.Screen name="MyEvents" component={MyEventsScreen} />
+              <Stack.Screen name="Profile" component={ProfileScreen} />
+              <Stack.Screen name="Notifications" component={NotificationsScreen} />
+              <Stack.Screen name="EventChat" component={EventChatScreen} />
+              <Stack.Screen name="RequestHost" component={RequestHostScreen} />
+              <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+
+      {/* Modal de verificación de email */}
+      <SuccessModal
+        visible={showVerificationModal}
+        onClose={handleVerificationModalClose}
+        title="Verify Your Email"
+        message="Please verify your email address before logging in. Check your inbox (and spam folder) and click the verification link we sent you."
+        emoji="📧"
+      />
+    </>
   );
 }
