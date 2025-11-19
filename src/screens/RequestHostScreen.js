@@ -6,47 +6,82 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function RequestHostScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const [form, setForm] = useState({
-    reason: '',
+  const [formData, setFormData] = useState({
+    whyHost: '',
     experience: '',
     eventIdeas: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!form.reason.trim() || !form.experience.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    // Validación
+    if (!formData.whyHost.trim() || !formData.experience.trim() || !formData.eventIdeas.trim()) {
+      Alert.alert('Incomplete Form', 'Please fill in all fields before submitting.');
       return;
     }
 
     setSubmitting(true);
+
     try {
+      // Verificar si ya tiene una solicitud pendiente
+      const existingQuery = query(
+        collection(db, 'hostRequests'),
+        where('userId', '==', auth.currentUser.uid),
+        where('status', '==', 'pending')
+      );
+      const existingSnapshot = await getDocs(existingQuery);
+
+      if (!existingSnapshot.empty) {
+        Alert.alert(
+          'Request Already Submitted',
+          'You already have a pending host request. Please wait for admin review.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+        );
+        return;
+      }
+
+      // Crear nueva solicitud
       await addDoc(collection(db, 'hostRequests'), {
         userId: auth.currentUser.uid,
-        reason: form.reason.trim(),
-        experience: form.experience.trim(),
-        eventIdeas: form.eventIdeas.trim(),
+        whyHost: formData.whyHost.trim(),
+        experience: formData.experience.trim(),
+        eventIdeas: formData.eventIdeas.trim(),
         status: 'pending',
         createdAt: new Date().toISOString(),
       });
-      
+
+      // Mostrar mensaje de éxito y navegar
       Alert.alert(
-        'Request Submitted!',
-        'We\'ll review your application and get back to you soon.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        'Application Submitted! 🎉',
+        'Your host request has been submitted successfully. Our team will review it soon and notify you of the decision.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('Home')
+          }
+        ]
       );
+
+      console.log('✅ Host request submitted successfully');
     } catch (error) {
-      console.error('Error submitting request:', error);
-      Alert.alert('Error', 'Failed to submit request');
+      console.error('Error submitting host request:', error);
+      Alert.alert(
+        'Submission Error',
+        'Could not submit your request. Please try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setSubmitting(false);
     }
@@ -55,7 +90,10 @@ export default function RequestHostScreen({ navigation }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <StatusBar style={isDark ? "light" : "dark"} />
       
       {/* Header */}
@@ -72,167 +110,112 @@ export default function RequestHostScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero */}
-        <View style={styles.heroSection}>
-          <Text style={styles.heroEmoji}>✨</Text>
-          <Text style={[styles.heroTitle, { color: colors.text }]}>Host Amazing Events</Text>
-          <Text style={[styles.heroText, { color: colors.textSecondary }]}>
-            Share your passion and bring people together through unique experiences
+        {/* Intro */}
+        <View style={styles.introSection}>
+          <Text style={styles.introEmoji}>��</Text>
+          <Text style={[styles.introTitle, { color: colors.text }]}>
+            Share Your Passion
           </Text>
-        </View>
-
-        {/* Benefits */}
-        <View style={styles.benefitsSection}>
-          <View style={styles.benefitCard}>
-            <View style={[styles.benefitGlass, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <Text style={styles.benefitIcon}>🎯</Text>
-              <Text style={[styles.benefitText, { color: colors.text }]}>
-                Create unlimited events
-              </Text>
-            </View>
-          </View>
-          <View style={styles.benefitCard}>
-            <View style={[styles.benefitGlass, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <Text style={styles.benefitIcon}>👥</Text>
-              <Text style={[styles.benefitText, { color: colors.text }]}>
-                Build your community
-              </Text>
-            </View>
-          </View>
-          <View style={styles.benefitCard}>
-            <View style={[styles.benefitGlass, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <Text style={styles.benefitIcon}>⚡</Text>
-              <Text style={[styles.benefitText, { color: colors.text }]}>
-                Priority support
-              </Text>
-            </View>
-          </View>
+          <Text style={[styles.introText, { color: colors.textSecondary }]}>
+            As a host, you'll be able to create unlimited events and build your community. Tell us why you'd be a great host!
+          </Text>
         </View>
 
         {/* Form */}
         <View style={styles.formSection}>
-          <Text style={[styles.formTitle, { color: colors.text }]}>
-            Tell us about yourself
-          </Text>
-
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>
-              Why do you want to host? *
+              Why do you want to be a host?
             </Text>
-            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-              <TextInput
-                style={[styles.input, styles.textArea, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.reason}
-                onChangeText={(text) => setForm({ ...form, reason: text })}
-                placeholder="I'm passionate about..."
-                placeholderTextColor={colors.textTertiary}
-                multiline
-                maxLength={300}
-              />
-            </View>
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {form.reason.length}/300
-            </Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              Your experience *
-            </Text>
-            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-              <TextInput
-                style={[styles.input, styles.textArea, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.experience}
-                onChangeText={(text) => setForm({ ...form, experience: text })}
-                placeholder="I've organized..."
-                placeholderTextColor={colors.textTertiary}
-                multiline
-                maxLength={300}
-              />
-            </View>
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {form.experience.length}/300
-            </Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              Event ideas (optional)
-            </Text>
-            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-              <TextInput
-                style={[styles.input, styles.textArea, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text
-                }]}
-                value={form.eventIdeas}
-                onChangeText={(text) => setForm({ ...form, eventIdeas: text })}
-                placeholder="I'd love to host..."
-                placeholderTextColor={colors.textTertiary}
-                multiline
-                maxLength={300}
-              />
-            </View>
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {form.eventIdeas.length}/300
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={handleSubmit}
-            disabled={submitting}
-          >
-            <View style={[styles.submitGlass, {
-              backgroundColor: `${colors.primary}33`,
-              borderColor: `${colors.primary}66`
+            <View style={[styles.inputWrapper, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
             }]}>
-              <Text style={[styles.submitButtonText, { color: colors.primary }]}>
-                {submitting ? 'Submitting...' : '✨ Submit Application'}
-              </Text>
+              <TextInput
+                style={[styles.textArea, { color: colors.text }]}
+                placeholder="Share your motivation..."
+                placeholderTextColor={colors.textTertiary}
+                value={formData.whyHost}
+                onChangeText={(text) => setFormData({ ...formData, whyHost: text })}
+                multiline
+                numberOfLines={4}
+                maxLength={500}
+              />
             </View>
-          </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>
+              What's your experience with organizing events?
+            </Text>
+            <View style={[styles.inputWrapper, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
+            }]}>
+              <TextInput
+                style={[styles.textArea, { color: colors.text }]}
+                placeholder="Describe your background..."
+                placeholderTextColor={colors.textTertiary}
+                value={formData.experience}
+                onChangeText={(text) => setFormData({ ...formData, experience: text })}
+                multiline
+                numberOfLines={4}
+                maxLength={500}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>
+              What kind of events would you like to host?
+            </Text>
+            <View style={[styles.inputWrapper, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
+            }]}>
+              <TextInput
+                style={[styles.textArea, { color: colors.text }]}
+                placeholder="Share your ideas..."
+                placeholderTextColor={colors.textTertiary}
+                value={formData.eventIdeas}
+                onChangeText={(text) => setFormData({ ...formData, eventIdeas: text })}
+                multiline
+                numberOfLines={4}
+                maxLength={500}
+              />
+            </View>
+          </View>
         </View>
 
-        {/* Info */}
-        <View style={styles.infoCard}>
-          <View style={[styles.infoGlass, {
-            backgroundColor: `${colors.secondary}1A`,
-            borderColor: `${colors.secondary}33`
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={handleSubmit}
+          disabled={submitting}
+        >
+          <View style={[styles.submitGlass, {
+            backgroundColor: `${colors.primary}33`,
+            borderColor: `${colors.primary}66`,
+            opacity: submitting ? 0.6 : 1
           }]}>
-            <Text style={styles.infoIcon}>💡</Text>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoTitle, { color: colors.secondary }]}>
-                What happens next?
+            {submitting ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={[styles.submitText, { color: colors.primary }]}>
+                Submit Application
               </Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                • We review applications within 48 hours{'\n'}
-                • You'll receive an email notification{'\n'}
-                • Approved hosts can start creating events
-              </Text>
-            </View>
+            )}
           </View>
+        </TouchableOpacity>
+
+        {/* Info Note */}
+        <View style={styles.noteSection}>
+          <Text style={[styles.noteText, { color: colors.textTertiary }]}>
+            📋 Your application will be reviewed by our team. We'll notify you once a decision has been made.
+          </Text>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -264,126 +247,71 @@ function createStyles(colors) {
       paddingHorizontal: 24,
       paddingBottom: 40,
     },
-    heroSection: {
+    introSection: {
       alignItems: 'center',
       marginBottom: 32,
     },
-    heroEmoji: {
+    introEmoji: {
       fontSize: 64,
       marginBottom: 16,
     },
-    heroTitle: {
+    introTitle: {
       fontSize: 24,
       fontWeight: '700',
       marginBottom: 12,
-      letterSpacing: -0.5,
+      letterSpacing: -0.4,
     },
-    heroText: {
-      fontSize: 15,
+    introText: {
+      fontSize: 14,
       textAlign: 'center',
       lineHeight: 22,
-      paddingHorizontal: 20,
-    },
-    benefitsSection: {
-      gap: 12,
-      marginBottom: 32,
-    },
-    benefitCard: {
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-    benefitGlass: {
-      borderWidth: 1,
-      padding: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    benefitIcon: {
-      fontSize: 24,
-      marginRight: 14,
-    },
-    benefitText: {
-      fontSize: 15,
-      fontWeight: '600',
-      letterSpacing: -0.1,
     },
     formSection: {
       marginBottom: 24,
     },
-    formTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      marginBottom: 20,
-      letterSpacing: -0.3,
-    },
     inputGroup: {
-      marginBottom: 20,
+      marginBottom: 24,
     },
     label: {
-      fontSize: 13,
+      fontSize: 15,
       fontWeight: '600',
-      marginBottom: 10,
-      letterSpacing: -0.1,
+      marginBottom: 12,
+      letterSpacing: -0.2,
     },
     inputWrapper: {
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-    input: {
       borderWidth: 1,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      fontSize: 15,
+      borderRadius: 16,
+      padding: 16,
     },
-    textAreaWrapper: {},
     textArea: {
+      fontSize: 15,
       minHeight: 100,
       textAlignVertical: 'top',
-    },
-    charCount: {
-      fontSize: 11,
-      textAlign: 'right',
-      marginTop: 6,
     },
     submitButton: {
       borderRadius: 16,
       overflow: 'hidden',
-      marginTop: 8,
+      marginBottom: 24,
     },
     submitGlass: {
       borderWidth: 1,
       paddingVertical: 16,
       alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 56,
     },
-    submitButtonText: {
+    submitText: {
       fontSize: 17,
       fontWeight: '700',
       letterSpacing: -0.2,
     },
-    infoCard: {
-      borderRadius: 16,
-      overflow: 'hidden',
+    noteSection: {
+      padding: 16,
+      alignItems: 'center',
     },
-    infoGlass: {
-      borderWidth: 1,
-      padding: 18,
-      flexDirection: 'row',
-    },
-    infoIcon: {
-      fontSize: 24,
-      marginRight: 12,
-    },
-    infoContent: {
-      flex: 1,
-    },
-    infoTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      marginBottom: 10,
-      letterSpacing: -0.1,
-    },
-    infoText: {
+    noteText: {
       fontSize: 13,
+      textAlign: 'center',
       lineHeight: 20,
     },
   });
