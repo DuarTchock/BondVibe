@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,9 @@ const CATEGORIES = [
 
 export default function CreateEventScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const dateInputRef = useRef(null);
+  const timeInputRef = useRef(null);
+  
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('social');
@@ -228,57 +231,65 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Date and Time - Web Native Inputs */}
+        {/* Date and Time - Web Native Inputs with Custom Icons */}
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>Date *</Text>
-            <View style={[styles.pickerButton, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
+            <TouchableOpacity
+              style={[styles.pickerButton, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}
+              onPress={() => dateInputRef.current?.showPicker()}
+            >
+              <Text style={[styles.pickerText, { color: colors.text }]}>
+                {formatDate(dateValue)}
+              </Text>
+              <Text style={styles.pickerIcon}>📅</Text>
               <input
+                ref={dateInputRef}
                 type="date"
                 value={dateValue}
                 min={today}
                 onChange={(e) => setDateValue(e.target.value)}
                 style={{
-                  flex: 1,
-                  fontSize: 16,
-                  padding: '16px 0',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: colors.text,
-                  outline: 'none',
-                  cursor: 'pointer',
+                  position: 'absolute',
+                  opacity: 0,
+                  width: 0,
+                  height: 0,
+                  pointerEvents: 'none',
                 }}
               />
-              <Text style={styles.pickerIcon}>📅</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>Time *</Text>
-            <View style={[styles.pickerButton, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
+            <TouchableOpacity
+              style={[styles.pickerButton, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}
+              onPress={() => timeInputRef.current?.showPicker()}
+            >
+              <Text style={[styles.pickerText, { color: colors.text }]}>
+                {formatTime(timeValue)}
+              </Text>
+              <Text style={styles.pickerIcon}>🕐</Text>
               <input
+                ref={timeInputRef}
                 type="time"
                 value={timeValue}
                 onChange={(e) => setTimeValue(e.target.value)}
                 style={{
-                  flex: 1,
-                  fontSize: 16,
-                  padding: '16px 0',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: colors.text,
-                  outline: 'none',
-                  cursor: 'pointer',
+                  position: 'absolute',
+                  opacity: 0,
+                  width: 0,
+                  height: 0,
+                  pointerEvents: 'none',
                 }}
               />
-              <Text style={styles.pickerIcon}>🕐</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -437,7 +448,11 @@ function createStyles(colors) {
       borderWidth: 1,
       borderRadius: 16,
       paddingHorizontal: 16,
+      paddingVertical: 16,
+      position: 'relative',
+      cursor: 'pointer',
     },
+    pickerText: { fontSize: 16, flex: 1 },
     pickerIcon: { fontSize: 20, marginLeft: 8 },
     tipsCard: {
       borderWidth: 1,
