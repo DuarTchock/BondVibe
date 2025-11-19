@@ -14,7 +14,7 @@ import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 import LegalDocumentModal from '../components/LegalDocumentModal';
 
-// Contenido de los documentos legales
+// Contenido de los documentos legales  
 const TERMS_OF_SERVICE = `Terms of Service
 
 Last Updated: November 2024
@@ -213,9 +213,10 @@ export default function LegalScreen({ navigation }) {
       });
       
       console.log('✅ Legal acceptance updated successfully');
-      console.log('🔄 AppNavigator should detect change and navigate...');
+      console.log('🔄 Forcing page reload to trigger navigation...');
       
-      // AppNavigator will handle navigation automatically
+      // Force full page reload - this will trigger AppNavigator's useEffect
+      window.location.reload();
       
     } catch (error) {
       console.error('❌ Error updating legal acceptance:', error);
