@@ -9,30 +9,58 @@ import {
   Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 
-export default function LoginScreen({ navigation }) {
+export default function SignupScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [form, setForm] = useState({
+    fullName: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    if (!form.email.trim() || !form.password) {
+  const handleSignup = async () => {
+    if (!form.fullName.trim() || !form.email.trim() || !form.password) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (form.password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, form.email.trim(), form.password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        form.email.trim(),
+        form.password
+      );
+
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        avatar: '😊',
+        role: 'user',
+        createdAt: new Date().toISOString(),
+        onboardingComplete: false,
+      });
+
+      navigation.replace('Legal');
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Error', 'Invalid email or password');
+      console.error('Signup error:', error);
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -58,15 +86,33 @@ export default function LoginScreen({ navigation }) {
 
         {/* Title */}
         <View style={styles.titleSection}>
-          <Text style={styles.emoji}>👋</Text>
-          <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
+          <Text style={styles.emoji}>✨</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Create Account</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Log in to continue
+            Join BondVibe and start connecting
           </Text>
         </View>
 
         {/* Form */}
         <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Full Name</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[styles.input, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
+                value={form.fullName}
+                onChangeText={(text) => setForm({ ...form, fullName: text })}
+                placeholder="John Doe"
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="words"
+              />
+            </View>
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>Email</Text>
             <View style={styles.inputWrapper}>
@@ -97,7 +143,25 @@ export default function LoginScreen({ navigation }) {
                 }]}
                 value={form.password}
                 onChangeText={(text) => setForm({ ...form, password: text })}
-                placeholder="Enter your password"
+                placeholder="At least 6 characters"
+                placeholderTextColor={colors.textTertiary}
+                secureTextEntry
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.text }]}>Confirm Password</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[styles.input, {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                  color: colors.text
+                }]}
+                value={form.confirmPassword}
+                onChangeText={(text) => setForm({ ...form, confirmPassword: text })}
+                placeholder="Re-enter password"
                 placeholderTextColor={colors.textTertiary}
                 secureTextEntry
               />
@@ -105,27 +169,27 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <TouchableOpacity
-            style={styles.loginButton}
-            onPress={handleLogin}
+            style={styles.signupButton}
+            onPress={handleSignup}
             disabled={loading}
           >
-            <View style={[styles.loginGlass, {
+            <View style={[styles.signupGlass, {
               backgroundColor: `${colors.primary}33`,
               borderColor: `${colors.primary}66`
             }]}>
-              <Text style={[styles.loginButtonText, { color: colors.primary }]}>
-                {loading ? 'Logging In...' : 'Log In'}
+              <Text style={[styles.signupButtonText, { color: colors.primary }]}>
+                {loading ? 'Creating Account...' : 'Sign Up'}
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.signupLink}
-            onPress={() => navigation.navigate('Signup')}
+            style={styles.loginLink}
+            onPress={() => navigation.navigate('Login')}
           >
-            <Text style={[styles.signupLinkText, { color: colors.textSecondary }]}>
-              Don't have an account?{' '}
-              <Text style={{ color: colors.primary, fontWeight: '600' }}>Sign Up</Text>
+            <Text style={[styles.loginLinkText, { color: colors.textSecondary }]}>
+              Already have an account?{' '}
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>Log In</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -150,10 +214,10 @@ function createStyles(colors) {
     label: { fontSize: 13, fontWeight: '600', letterSpacing: -0.1 },
     inputWrapper: { borderRadius: 12, overflow: 'hidden' },
     input: { borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15 },
-    loginButton: { borderRadius: 16, overflow: 'hidden', marginTop: 8 },
-    loginGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
-    loginButtonText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-    signupLink: { alignItems: 'center', marginTop: 8 },
-    signupLinkText: { fontSize: 14 },
+    signupButton: { borderRadius: 16, overflow: 'hidden', marginTop: 8 },
+    signupGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
+    signupButtonText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
+    loginLink: { alignItems: 'center', marginTop: 8 },
+    loginLinkText: { fontSize: 14 },
   });
 }
