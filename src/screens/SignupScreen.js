@@ -42,11 +42,14 @@ export default function SignupScreen({ navigation }) {
     }
 
     setLoading(true);
+    
+    let user = null;
+    
     try {
-      console.log('�� Creating user account...');
+      console.log('📤 Creating user account...');
       // Crear cuenta
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      user = userCredential.user;
       console.log('✅ User account created:', user.uid);
 
       // Crear documento de usuario en Firestore
@@ -61,20 +64,11 @@ export default function SignupScreen({ navigation }) {
       });
       console.log('✅ Firestore document created');
 
-      // Enviar email de verificación
-      console.log('�� Sending verification email...');
+      // Enviar email de verificación ANTES de cerrar sesión
+      console.log('📧 Sending verification email...');
       await sendEmailVerification(user);
-      console.log('✅ Verification email sent');
+      console.log('✅ Verification email sent to:', user.email);
 
-      // Cerrar sesión para forzar verificación
-      console.log('🚪 Signing out user...');
-      await auth.signOut();
-      console.log('✅ User signed out');
-
-      // Mostrar modal de éxito
-      setLoading(false);
-      setShowSuccess(true);
-      
     } catch (error) {
       console.error('❌ Signup error:', error);
       console.error('Error code:', error.code);
@@ -89,6 +83,25 @@ export default function SignupScreen({ navigation }) {
       } else {
         Alert.alert('Signup Failed', error.message);
       }
+      return;
+    }
+
+    // Ahora que todo está completo, cerrar sesión y mostrar modal
+    try {
+      console.log('🚪 Signing out user...');
+      await auth.signOut();
+      console.log('✅ User signed out');
+      
+      // Mostrar modal de éxito
+      setLoading(false);
+      setShowSuccess(true);
+      console.log('🎉 Showing success modal');
+      
+    } catch (error) {
+      console.error('❌ Error signing out:', error);
+      setLoading(false);
+      // Aún así mostrar el modal porque el registro fue exitoso
+      setShowSuccess(true);
     }
   };
 
@@ -173,7 +186,8 @@ export default function SignupScreen({ navigation }) {
           >
             <View style={[styles.signupGlass, {
               backgroundColor: `${colors.primary}33`,
-              borderColor: `${colors.primary}66`
+              borderColor: `${colors.primary}66`,
+              opacity: loading ? 0.7 : 1
             }]}>
               {loading ? (
                 <View style={styles.loadingRow}>
