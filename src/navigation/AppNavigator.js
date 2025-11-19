@@ -26,6 +26,7 @@ import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 // Chat Screens
 import ConversationsScreen from '../screens/ConversationsScreen';
 import ChatScreen from '../screens/ChatScreen';
+import EventChatScreen from '../screens/EventChatScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -66,6 +67,7 @@ export default function AppNavigator({ initialUser }) {
             <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
             <Stack.Screen name="Conversations" component={ConversationsScreen} />
             <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="EventChat" component={EventChatScreen} />
           </>
         )}
       </Stack.Navigator>

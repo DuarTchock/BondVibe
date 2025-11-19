@@ -78,12 +78,11 @@ export default function EventDetailScreen({ route, navigation }) {
         });
         setIsJoined(true);
 
-        // Crear notificación para el creador del evento
         if (event.creatorId && event.creatorId !== auth.currentUser.uid) {
           const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
           const userName = userDoc.data()?.fullName || 'Someone';
           
-          console.log('📬 Creating notification for:', event.creatorId);
+          console.log('�� Creating notification for:', event.creatorId);
           await createNotification(event.creatorId, {
             type: 'event_joined',
             title: 'New attendee!',
@@ -103,6 +102,17 @@ export default function EventDetailScreen({ route, navigation }) {
     } finally {
       setJoining(false);
     }
+  };
+
+  const handleOpenChat = () => {
+    if (event.id.startsWith('mock')) {
+      Alert.alert('Demo Event', 'Chat is not available for demo events');
+      return;
+    }
+    navigation.navigate('EventChat', { 
+      eventId: event.id,
+      eventTitle: event.title 
+    });
   };
 
   const styles = createStyles(colors);
@@ -144,6 +154,16 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         </TouchableOpacity>
         <View style={styles.headerActions}>
+          {(isJoined || isCreator) && !event.id.startsWith('mock') && (
+            <TouchableOpacity onPress={handleOpenChat}>
+              <View style={[styles.headerButton, {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border
+              }]}>
+                <Text style={styles.headerButtonText}>💬</Text>
+              </View>
+            </TouchableOpacity>
+          )}
           {isCreator && !event.id.startsWith('mock') && (
             <TouchableOpacity
               onPress={() => navigation.navigate('EditEvent', { eventId })}
@@ -249,6 +269,33 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Group Chat Button (if joined) */}
+        {(isJoined || isCreator) && !event.id.startsWith('mock') && (
+          <View style={styles.chatSection}>
+            <TouchableOpacity
+              style={styles.chatButton}
+              onPress={handleOpenChat}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.chatGlass, {
+                backgroundColor: `${colors.primary}1A`,
+                borderColor: `${colors.primary}33`
+              }]}>
+                <Text style={styles.chatIcon}>💬</Text>
+                <View style={styles.chatContent}>
+                  <Text style={[styles.chatTitle, { color: colors.primary }]}>
+                    Group Chat
+                  </Text>
+                  <Text style={[styles.chatSubtitle, { color: colors.textSecondary }]}>
+                    Connect with other attendees
+                  </Text>
+                </View>
+                <Text style={[styles.chatArrow, { color: colors.primary }]}>→</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Description */}
         <View style={styles.descriptionSection}>
           <View style={[styles.descriptionGlass, {
@@ -261,6 +308,32 @@ export default function EventDetailScreen({ route, navigation }) {
             </Text>
           </View>
         </View>
+
+        {/* Attendees List */}
+        {event.attendees && event.attendees.length > 0 && (
+          <View style={styles.attendeesSection}>
+            <View style={[styles.attendeesGlass, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border
+            }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Who's Going ({event.attendees.length})
+              </Text>
+              <View style={styles.attendeesGrid}>
+                {event.attendees.slice(0, 12).map((attendeeId, index) => (
+                  <View key={index} style={styles.attendeeCard}>
+                    <View style={[styles.attendeeAvatar, {
+                      backgroundColor: `${colors.primary}26`,
+                      borderColor: `${colors.primary}4D`
+                    }]}>
+                      <Text style={styles.attendeeEmoji}>😊</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Bottom Action */}
@@ -307,9 +380,9 @@ function createStyles(colors) {
     errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     errorText: { fontSize: 16 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
-    headerButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+    headerButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
     headerButtonText: { fontSize: 20 },
-    headerActions: { flexDirection: 'row', gap: 10 },
+    headerActions: { flexDirection: 'row' },
     scrollView: { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 120 },
     heroSection: { marginBottom: 24 },
@@ -328,10 +401,24 @@ function createStyles(colors) {
     infoContent: { flex: 1 },
     infoLabel: { fontSize: 12, marginBottom: 4, letterSpacing: 0.3 },
     infoValue: { fontSize: 15, fontWeight: '600', letterSpacing: -0.2 },
+    chatSection: { marginBottom: 24 },
+    chatButton: { borderRadius: 20, overflow: 'hidden' },
+    chatGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center' },
+    chatIcon: { fontSize: 32, marginRight: 16 },
+    chatContent: { flex: 1 },
+    chatTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4, letterSpacing: -0.3 },
+    chatSubtitle: { fontSize: 13 },
+    chatArrow: { fontSize: 24, marginLeft: 12 },
     descriptionSection: { marginBottom: 24, borderRadius: 16, overflow: 'hidden' },
     descriptionGlass: { borderWidth: 1, padding: 20 },
     sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 14, letterSpacing: -0.2 },
     descriptionText: { fontSize: 15, lineHeight: 24 },
+    attendeesSection: { marginBottom: 24, borderRadius: 16, overflow: 'hidden' },
+    attendeesGlass: { borderWidth: 1, padding: 20 },
+    attendeesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    attendeeCard: { width: 56, alignItems: 'center' },
+    attendeeAvatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+    attendeeEmoji: { fontSize: 28 },
     bottomAction: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 40 },
     bottomGlass: { borderTopWidth: 1, padding: 24 },
     actionButton: { borderRadius: 16, overflow: 'hidden' },
