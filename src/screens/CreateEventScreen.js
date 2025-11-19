@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import DateTimePicker from 'expo-date-time-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
