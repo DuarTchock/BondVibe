@@ -44,15 +44,14 @@ export default function SignupScreen({ navigation }) {
     setLoading(true);
     
     let user = null;
+    let emailSent = false;
     
     try {
       console.log('📤 Creating user account...');
-      // Crear cuenta
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       user = userCredential.user;
       console.log('✅ User account created:', user.uid);
 
-      // Crear documento de usuario en Firestore
       console.log('📄 Creating Firestore document...');
       await setDoc(doc(db, 'users', user.uid), {
         email: user.email,
@@ -64,10 +63,20 @@ export default function SignupScreen({ navigation }) {
       });
       console.log('✅ Firestore document created');
 
-      // Enviar email de verificación ANTES de cerrar sesión
-      console.log('📧 Sending verification email...');
-      await sendEmailVerification(user);
-      console.log('✅ Verification email sent to:', user.email);
+      console.log('📧 Attempting to send verification email...');
+      try {
+        await sendEmailVerification(user, {
+          url: window.location.origin,
+          handleCodeInApp: false,
+        });
+        console.log('✅ Verification email sent to:', user.email);
+        emailSent = true;
+      } catch (emailError) {
+        console.error('⚠️ Email verification error:', emailError);
+        console.error('Error code:', emailError.code);
+        console.error('Error message:', emailError.message);
+        // Continuar aunque falle el email - el usuario puede reenviar después
+      }
 
     } catch (error) {
       console.error('❌ Signup error:', error);
@@ -86,21 +95,23 @@ export default function SignupScreen({ navigation }) {
       return;
     }
 
-    // Ahora que todo está completo, cerrar sesión y mostrar modal
+    // Cerrar sesión y mostrar modal
     try {
       console.log('🚪 Signing out user...');
       await auth.signOut();
       console.log('✅ User signed out');
       
-      // Mostrar modal de éxito
       setLoading(false);
       setShowSuccess(true);
       console.log('🎉 Showing success modal');
       
+      if (!emailSent) {
+        console.log('⚠️ Note: Verification email may not have been sent');
+      }
+      
     } catch (error) {
       console.error('❌ Error signing out:', error);
       setLoading(false);
-      // Aún así mostrar el modal porque el registro fue exitoso
       setShowSuccess(true);
     }
   };
