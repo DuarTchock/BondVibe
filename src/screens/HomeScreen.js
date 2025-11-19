@@ -7,16 +7,18 @@ import {
   ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [user, setUser] = useState(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     loadUser();
+    loadUnreadNotifications();
   }, []);
 
   const loadUser = async () => {
@@ -27,6 +29,63 @@ export default function HomeScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Error loading user:', error);
+    }
+  };
+
+  const loadUnreadNotifications = async () => {
+    try {
+      // Contar notificaciones no leídas
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('userId', '==', auth.currentUser.uid),
+        where('read', '==', false)
+      );
+      const notificationsSnapshot = await getDocs(notificationsQuery);
+      let count = notificationsSnapshot.size;
+
+      // Contar mensajes no leídos de eventos
+      const conversationsQuery = query(
+        collection(db, 'conversations'),
+        where('type', '==', 'event')
+      );
+      const conversationsSnapshot = await getDocs(conversationsQuery);
+      
+      for (const convDoc of conversationsSnapshot.docs) {
+        const conversationId = convDoc.id;
+        const eventId = convDoc.data().eventId;
+        
+        // Verificar si el usuario está en este evento
+        const eventQuery = query(
+          collection(db, 'events'),
+          where('__name__', '==', eventId.replace('event_', ''))
+        );
+        const eventSnapshot = await getDocs(eventQuery);
+        
+        if (eventSnapshot.empty) continue;
+        
+        const eventData = eventSnapshot.docs[0].data();
+        const isParticipant = eventData.attendees?.includes(auth.currentUser.uid) || 
+                             eventData.creatorId === auth.currentUser.uid;
+        
+        if (!isParticipant) continue;
+        
+        // Contar mensajes no leídos
+        const messagesQuery = query(
+          collection(db, 'conversations', conversationId, 'messages'),
+          where('senderId', '!=', auth.currentUser.uid),
+          where('read', '==', false)
+        );
+        const messagesSnapshot = await getDocs(messagesQuery);
+        
+        if (messagesSnapshot.size > 0) {
+          count++;
+        }
+      }
+
+      console.log('🔔 Total unread notifications:', count);
+      setUnreadNotifications(count);
+    } catch (error) {
+      console.error('Error loading unread notifications:', error);
     }
   };
 
@@ -58,7 +117,7 @@ export default function HomeScreen({ navigation }) {
             backgroundColor: `${colors.primary}26`,
             borderColor: `${colors.primary}66`
           }]}>
-            <Text style={styles.avatarEmoji}>{user?.avatar || '😊'}</Text>
+            <Text style={styles.avatarEmoji}>{user?.avatar || '��'}</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -80,14 +139,21 @@ export default function HomeScreen({ navigation }) {
                 backgroundColor: colors.surfaceGlass,
                 borderColor: colors.border
               }]}>
-                <Text style={styles.quickActionIcon}>🔔</Text>
+                <View style={styles.quickActionIconContainer}>
+                  <Text style={styles.quickActionIcon}>🔔</Text>
+                  {unreadNotifications > 0 && (
+                    <View style={[styles.badge, { backgroundColor: colors.accent }]}>
+                      <Text style={styles.badgeText}>{unreadNotifications}</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[styles.quickActionText, { color: colors.text }]}>Notifications</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickAction}
-              onPress={() => navigation.navigate('EventFeed')}
+              onPress={() => navigation.navigate('SearchEvents')}
             >
               <View style={[styles.quickActionGlass, {
                 backgroundColor: colors.surfaceGlass,
@@ -113,14 +179,14 @@ export default function HomeScreen({ navigation }) {
 
             <TouchableOpacity
               style={styles.quickAction}
-              onPress={() => navigation.navigate('SearchEvents')}
+              onPress={() => navigation.navigate('CreateEvent')}
             >
               <View style={[styles.quickActionGlass, {
                 backgroundColor: colors.surfaceGlass,
                 borderColor: colors.border
               }]}>
-                <Text style={styles.quickActionIcon}>🔎</Text>
-                <Text style={[styles.quickActionText, { color: colors.text }]}>Search</Text>
+                <Text style={styles.quickActionIcon}>✨</Text>
+                <Text style={[styles.quickActionText, { color: colors.text }]}>Create</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -171,7 +237,7 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 key={category}
                 style={styles.categoryCard}
-                onPress={() => navigation.navigate('EventFeed')}
+                onPress={() => navigation.navigate('SearchEvents')}
               >
                 <View style={[styles.categoryGlass, {
                   backgroundColor: colors.surfaceGlass,
@@ -264,7 +330,10 @@ function createStyles(colors) {
     quickActionsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 24, gap: 12 },
     quickAction: { width: '48%', borderRadius: 16, overflow: 'hidden' },
     quickActionGlass: { borderWidth: 1, paddingVertical: 24, alignItems: 'center' },
+    quickActionIconContainer: { position: 'relative' },
     quickActionIcon: { fontSize: 32, marginBottom: 8 },
+    badge: { position: 'absolute', top: -4, right: -8, minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
+    badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
     quickActionText: { fontSize: 14, fontWeight: '600', letterSpacing: -0.1 },
     createEventCard: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden' },
     createEventGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

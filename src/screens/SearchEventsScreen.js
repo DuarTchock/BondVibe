@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,40 +6,122 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
-
-const QUICK_FILTERS = [
-  { label: 'This Week', icon: '📅' },
-  { label: 'Free Events', icon: '🎉' },
-  { label: 'Near Me', icon: '📍' },
-  { label: 'Popular', icon: '🔥' },
-];
-
-const CATEGORIES = [
-  { name: 'Social', icon: '👥', color: '#FF3EA5' },
-  { name: 'Sports', icon: '⚽', color: '#00F2FE' },
-  { name: 'Food', icon: '🍕', color: '#A6FF96' },
-  { name: 'Arts', icon: '🎨', color: '#8B5CF6' },
-  { name: 'Learning', icon: '📚', color: '#F59E0B' },
-  { name: 'Adventure', icon: '🏔️', color: '#EC4899' },
-];
+import { generateMockEvents } from '../utils/mockEvents';
 
 export default function SearchEventsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilters, setSelectedFilters] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [events, setEvents] = useState([]);
+  const [filteredEvents, setFilteredEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const toggleFilter = (filter) => {
-    if (selectedFilters.includes(filter)) {
-      setSelectedFilters(selectedFilters.filter(f => f !== filter));
-    } else {
-      setSelectedFilters([...selectedFilters, filter]);
+  const categories = ['All', 'Social', 'Sports', 'Food', 'Arts', 'Learning', 'Adventure'];
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  useEffect(() => {
+    filterEvents();
+  }, [searchQuery, selectedCategory, events]);
+
+  const loadEvents = async () => {
+    try {
+      const eventsSnapshot = await getDocs(collection(db, 'events'));
+      const realEvents = eventsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      const mockEvents = generateMockEvents();
+      const allEvents = [...realEvents, ...mockEvents];
+      
+      console.log('📊 Loaded events:', allEvents.length);
+      setEvents(allEvents);
+      setFilteredEvents(allEvents);
+    } catch (error) {
+      console.error('Error loading events:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const filterEvents = () => {
+    let filtered = events;
+
+    if (selectedCategory !== 'All') {
+      filtered = filtered.filter(event => event.category === selectedCategory);
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(event =>
+        event.title.toLowerCase().includes(query) ||
+        event.location.toLowerCase().includes(query) ||
+        event.category.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredEvents(filtered);
+  };
+
   const styles = createStyles(colors);
+
+  const EventCard = ({ event }) => (
+    <TouchableOpacity
+      style={styles.eventCard}
+      onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+      activeOpacity={0.8}
+    >
+      <View style={[styles.eventGlass, {
+        backgroundColor: colors.surfaceGlass,
+        borderColor: colors.border
+      }]}>
+        <View style={styles.eventHeader}>
+          <View style={[styles.categoryBadge, {
+            backgroundColor: `${colors.primary}26`,
+            borderColor: `${colors.primary}4D`
+          }]}>
+            <Text style={[styles.categoryText, { color: colors.primary }]}>
+              {event.category}
+            </Text>
+          </View>
+          <Text style={[styles.eventDate, { color: colors.textSecondary }]}>
+            {event.date}
+          </Text>
+        </View>
+        
+        <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={2}>
+          {event.title}
+        </Text>
+        
+        <View style={styles.eventMeta}>
+          <Text style={styles.metaIcon}>📍</Text>
+          <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>
+            {event.location}
+          </Text>
+        </View>
+
+        <View style={styles.attendeesRow}>
+          <Text style={[styles.attendeesText, { color: colors.textSecondary }]}>
+            {event.attendees?.length || 0}/{event.maxAttendees} people
+          </Text>
+          {event.price === 0 && (
+            <View style={styles.freeBadge}>
+              <Text style={styles.freeBadgeText}>FREE</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -50,7 +132,7 @@ export default function SearchEventsScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Search</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Explore Events</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -60,151 +142,86 @@ export default function SearchEventsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={[styles.searchBar, {
-            backgroundColor: colors.surfaceGlass,
-            borderColor: `${colors.primary}66`
-          }]}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Search events, people, places..."
-              placeholderTextColor={colors.textTertiary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Text style={[styles.clearIcon, { color: colors.textTertiary }]}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+        <View style={[styles.searchBar, {
+          backgroundColor: colors.surfaceGlass,
+          borderColor: colors.border
+        }]}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search events..."
+            placeholderTextColor={colors.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
 
-        {/* Quick Filters */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Filters</Text>
-          <View style={styles.filtersGrid}>
-            {QUICK_FILTERS.map((filter) => (
+        {/* Category Filter */}
+        <View style={styles.categorySection}>
+          <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>
+            Categories
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesScroll}
+          >
+            {categories.map((category) => (
               <TouchableOpacity
-                key={filter.label}
-                style={styles.filterChip}
-                onPress={() => toggleFilter(filter.label)}
-                activeOpacity={0.8}
+                key={category}
+                style={styles.categoryChip}
+                onPress={() => setSelectedCategory(category)}
               >
                 <View style={[
-                  styles.filterGlass,
+                  styles.categoryChipGlass,
                   {
-                    backgroundColor: selectedFilters.includes(filter.label) 
-                      ? `${colors.primary}33`
+                    backgroundColor: selectedCategory === category 
+                      ? `${colors.primary}33` 
                       : colors.surfaceGlass,
-                    borderColor: selectedFilters.includes(filter.label)
-                      ? `${colors.primary}66`
+                    borderColor: selectedCategory === category 
+                      ? `${colors.primary}66` 
                       : colors.border
                   }
                 ]}>
-                  <Text style={styles.filterIcon}>{filter.icon}</Text>
                   <Text style={[
-                    styles.filterText,
-                    { color: selectedFilters.includes(filter.label) ? colors.primary : colors.textSecondary }
+                    styles.categoryChipText,
+                    { color: selectedCategory === category ? colors.primary : colors.text }
                   ]}>
-                    {filter.label}
+                    {category}
                   </Text>
                 </View>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
-        {/* Categories */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Browse by Category</Text>
-          <View style={styles.categoriesGrid}>
-            {CATEGORIES.map((category) => (
-              <TouchableOpacity
-                key={category.name}
-                style={styles.categoryCard}
-                onPress={() => navigation.navigate('EventFeed')}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.categoryGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
-                  <Text style={styles.categoryIcon}>{category.icon}</Text>
-                  <Text style={[styles.categoryName, { color: colors.text }]}>
-                    {category.name}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* Results Header */}
+        <View style={styles.resultsHeader}>
+          <Text style={[styles.resultsTitle, { color: colors.text }]}>
+            {filteredEvents.length} Events Found
+          </Text>
         </View>
 
-        {/* Recent Searches */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent</Text>
-            <TouchableOpacity>
-              <Text style={[styles.clearAllText, { color: colors.primary }]}>Clear</Text>
-            </TouchableOpacity>
+        {/* Events List */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
-          
-          <View style={styles.recentList}>
-            {['Coffee meetups', 'Basketball', 'Art gallery'].map((search, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.recentItem}
-                onPress={() => setSearchQuery(search)}
-              >
-                <View style={[styles.recentGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
-                  <Text style={styles.recentIcon}>🕐</Text>
-                  <Text style={[styles.recentText, { color: colors.text }]}>{search}</Text>
-                  <Text style={[styles.recentArrow, { color: colors.textTertiary }]}>↗</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+        ) : filteredEvents.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              No events found
+            </Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              Try adjusting your filters or search terms
+            </Text>
           </View>
-        </View>
-
-        {/* Trending */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Trending Now</Text>
-          <View style={styles.trendingList}>
-            {[
-              { text: 'Summer BBQ', trend: '↗️ 45%' },
-              { text: 'Yoga Sessions', trend: '↗️ 38%' },
-              { text: 'Board Games', trend: '↗️ 29%' },
-            ].map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.trendingItem}
-                onPress={() => setSearchQuery(item.text)}
-              >
-                <View style={[styles.trendingGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
-                  <Text style={[styles.trendingRank, { color: colors.primary }]}>
-                    #{index + 1}
-                  </Text>
-                  <View style={styles.trendingContent}>
-                    <Text style={[styles.trendingText, { color: colors.text }]}>
-                      {item.text}
-                    </Text>
-                    <Text style={[styles.trendingTrend, { color: colors.accent }]}>
-                      {item.trend}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        ) : (
+          filteredEvents.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -212,185 +229,41 @@ export default function SearchEventsScreen({ navigation }) {
 
 function createStyles(colors) {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingTop: 60,
-      paddingBottom: 20,
-    },
-    backButton: {
-      fontSize: 28,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      letterSpacing: -0.3,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingBottom: 40,
-    },
-    searchContainer: {
-      paddingHorizontal: 24,
-      marginBottom: 28,
-    },
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      height: 52,
-    },
-    searchIcon: {
-      fontSize: 20,
-      marginRight: 12,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 15,
-    },
-    clearIcon: {
-      fontSize: 16,
-      padding: 4,
-    },
-    section: {
-      marginBottom: 32,
-    },
-    sectionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      marginBottom: 16,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      paddingHorizontal: 24,
-      marginBottom: 16,
-      letterSpacing: -0.3,
-    },
-    clearAllText: {
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    filtersGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      paddingHorizontal: 24,
-      gap: 10,
-    },
-    filterChip: {
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-    filterGlass: {
-      borderWidth: 1,
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    filterIcon: {
-      fontSize: 16,
-    },
-    filterText: {
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    categoriesGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      paddingHorizontal: 24,
-      gap: 12,
-    },
-    categoryCard: {
-      width: '47%',
-      borderRadius: 16,
-      overflow: 'hidden',
-    },
-    categoryGlass: {
-      borderWidth: 1,
-      padding: 20,
-      alignItems: 'center',
-    },
-    categoryIcon: {
-      fontSize: 36,
-      marginBottom: 10,
-    },
-    categoryName: {
-      fontSize: 14,
-      fontWeight: '600',
-      letterSpacing: -0.1,
-    },
-    recentList: {
-      paddingHorizontal: 24,
-      gap: 10,
-    },
-    recentItem: {
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-    recentGlass: {
-      borderWidth: 1,
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    recentIcon: {
-      fontSize: 18,
-      marginRight: 12,
-    },
-    recentText: {
-      flex: 1,
-      fontSize: 15,
-      fontWeight: '500',
-    },
-    recentArrow: {
-      fontSize: 16,
-    },
-    trendingList: {
-      paddingHorizontal: 24,
-      gap: 10,
-    },
-    trendingItem: {
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-    trendingGlass: {
-      borderWidth: 1,
-      padding: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    trendingRank: {
-      fontSize: 16,
-      fontWeight: '700',
-      marginRight: 14,
-      width: 28,
-    },
-    trendingContent: {
-      flex: 1,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    trendingText: {
-      fontSize: 15,
-      fontWeight: '600',
-    },
-    trendingTrend: {
-      fontSize: 13,
-      fontWeight: '600',
-    },
+    container: { flex: 1 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
+    backButton: { fontSize: 28 },
+    headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
+    scrollView: { flex: 1 },
+    scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+    searchBar: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 24 },
+    searchIcon: { fontSize: 20, marginRight: 10 },
+    searchInput: { flex: 1, fontSize: 15 },
+    categorySection: { marginBottom: 24 },
+    filterLabel: { fontSize: 13, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+    categoriesScroll: { gap: 10 },
+    categoryChip: { borderRadius: 12, overflow: 'hidden' },
+    categoryChipGlass: { borderWidth: 1, paddingVertical: 8, paddingHorizontal: 16 },
+    categoryChipText: { fontSize: 14, fontWeight: '600' },
+    resultsHeader: { marginBottom: 20 },
+    resultsTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
+    loadingContainer: { paddingVertical: 60, alignItems: 'center' },
+    eventCard: { marginBottom: 16, borderRadius: 16, overflow: 'hidden' },
+    eventGlass: { borderWidth: 1, padding: 16 },
+    eventHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    categoryBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1 },
+    categoryText: { fontSize: 11, fontWeight: '600' },
+    eventDate: { fontSize: 13, fontWeight: '600' },
+    eventTitle: { fontSize: 17, fontWeight: '700', marginBottom: 10, letterSpacing: -0.3 },
+    eventMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    metaIcon: { fontSize: 14, marginRight: 6 },
+    metaText: { fontSize: 13, flex: 1 },
+    attendeesRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    attendeesText: { fontSize: 13, fontWeight: '600' },
+    freeBadge: { backgroundColor: 'rgba(166, 255, 150, 0.15)', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(166, 255, 150, 0.3)' },
+    freeBadgeText: { fontSize: 11, fontWeight: '600', color: '#A6FF96' },
+    emptyState: { paddingVertical: 60, alignItems: 'center' },
+    emptyEmoji: { fontSize: 64, marginBottom: 20 },
+    emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 10, letterSpacing: -0.3 },
+    emptyText: { fontSize: 14, textAlign: 'center' },
   });
 }
