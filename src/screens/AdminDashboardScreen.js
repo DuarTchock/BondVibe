@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -27,7 +28,6 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const loadData = async () => {
     try {
-      // Cargar requests pendientes
       const requestsQuery = query(
         collection(db, 'hostRequests'),
         where('status', '==', 'pending')
@@ -46,7 +46,6 @@ export default function AdminDashboardScreen({ navigation }) {
       );
       setPendingRequests(requests);
 
-      // Cargar estadísticas
       const eventsSnapshot = await getDocs(collection(db, 'events'));
       const usersSnapshot = await getDocs(collection(db, 'users'));
       
@@ -62,88 +61,108 @@ export default function AdminDashboardScreen({ navigation }) {
     }
   };
 
-  const handleApprove = async (requestId, userId, userName) => {
-    Alert.alert(
+  const handleApprove = (requestId, userId, userName) => {
+    Alert.prompt(
       'Approve Host Request',
-      `Are you sure you want to approve ${userName} as a host?`,
+      `Write a message for ${userName} about why they were approved:`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
         {
           text: 'Approve',
-          style: 'default',
-          onPress: async () => {
+          onPress: async (message) => {
+            if (!message || !message.trim()) {
+              Alert.alert('Message Required', 'Please provide a message for the applicant.');
+              return;
+            }
+
             setProcessing(requestId);
             try {
-              // Actualizar status del request
               await updateDoc(doc(db, 'hostRequests', requestId), {
                 status: 'approved',
                 reviewedAt: new Date().toISOString(),
+                adminMessage: message.trim(),
               });
 
-              // Actualizar rol del usuario a 'host'
               await updateDoc(doc(db, 'users', userId), {
                 role: 'host',
               });
 
-              // Crear notificación para el usuario
               await createNotification(userId, {
                 type: 'host_approved',
                 title: 'Congratulations! 🎉',
-                message: 'Your host request has been approved. You can now create unlimited events!',
+                message: `Your host request has been approved! Admin says: "${message.trim()}"`,
                 icon: '🎪',
               });
 
+              console.log('✅ Host request approved');
               Alert.alert('Success', `${userName} is now a host!`);
               await loadData();
             } catch (error) {
               console.error('Error approving request:', error);
-              Alert.alert('Error', 'Could not approve request');
+              Alert.alert('Error', 'Could not approve request. Please try again.');
             } finally {
               setProcessing(null);
             }
           },
         },
-      ]
+      ],
+      'plain-text',
+      '',
+      'default'
     );
   };
 
-  const handleReject = async (requestId, userId, userName) => {
-    Alert.alert(
+  const handleReject = (requestId, userId, userName) => {
+    Alert.prompt(
       'Reject Host Request',
-      `Are you sure you want to reject ${userName}'s request?`,
+      `Write a message for ${userName} explaining why they were rejected:`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
         {
           text: 'Reject',
           style: 'destructive',
-          onPress: async () => {
+          onPress: async (message) => {
+            if (!message || !message.trim()) {
+              Alert.alert('Message Required', 'Please provide a message for the applicant.');
+              return;
+            }
+
             setProcessing(requestId);
             try {
-              // Actualizar status del request
               await updateDoc(doc(db, 'hostRequests', requestId), {
                 status: 'rejected',
                 reviewedAt: new Date().toISOString(),
+                adminMessage: message.trim(),
               });
 
-              // Crear notificación para el usuario
               await createNotification(userId, {
                 type: 'host_rejected',
                 title: 'Host Request Update',
-                message: 'Your host request has been reviewed. Please feel free to reapply in the future.',
+                message: `Your host request was reviewed. Admin says: "${message.trim()}"`,
                 icon: '📋',
               });
 
+              console.log('✅ Host request rejected');
               Alert.alert('Rejected', `${userName}'s request has been rejected`);
               await loadData();
             } catch (error) {
               console.error('Error rejecting request:', error);
-              Alert.alert('Error', 'Could not reject request');
+              Alert.alert('Error', 'Could not reject request. Please try again.');
             } finally {
               setProcessing(null);
             }
           },
         },
-      ]
+      ],
+      'plain-text',
+      '',
+      'default'
     );
   };
 
@@ -161,7 +180,6 @@ export default function AdminDashboardScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
@@ -175,7 +193,6 @@ export default function AdminDashboardScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Stats */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, {
             backgroundColor: colors.surfaceGlass,
@@ -205,7 +222,6 @@ export default function AdminDashboardScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Pending Requests */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Pending Host Requests</Text>
           
@@ -277,7 +293,8 @@ export default function AdminDashboardScreen({ navigation }) {
                     >
                       <View style={[styles.rejectGlass, {
                         backgroundColor: 'rgba(255, 69, 58, 0.1)',
-                        borderColor: 'rgba(255, 69, 58, 0.3)'
+                        borderColor: 'rgba(255, 69, 58, 0.3)',
+                        opacity: processing === request.id ? 0.5 : 1
                       }]}>
                         <Text style={styles.rejectText}>
                           {processing === request.id ? 'Processing...' : 'Reject'}
@@ -292,7 +309,8 @@ export default function AdminDashboardScreen({ navigation }) {
                     >
                       <View style={[styles.approveGlass, {
                         backgroundColor: 'rgba(52, 199, 89, 0.1)',
-                        borderColor: 'rgba(52, 199, 89, 0.3)'
+                        borderColor: 'rgba(52, 199, 89, 0.3)',
+                        opacity: processing === request.id ? 0.5 : 1
                       }]}>
                         <Text style={styles.approveText}>
                           {processing === request.id ? 'Processing...' : '✓ Approve'}
