@@ -14,7 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../contexts/ThemeContext';
 import { auth } from '../services/firebase';
 import { sendMessage, subscribeToMessages, ensureEventConversation } from '../utils/messageService';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 export default function EventChatScreen({ route, navigation }) {
@@ -38,9 +38,15 @@ export default function EventChatScreen({ route, navigation }) {
       // Asegurar que la conversación existe
       await ensureEventConversation(conversationId);
       
+      // Marcar mensajes como leídos
+      await markMessagesAsRead(conversationId);
+      
       // Suscribirse a mensajes
       const unsubscribe = subscribeToMessages(conversationId, async (newMessages) => {
         setMessages(newMessages);
+        
+        // Marcar nuevos mensajes como leídos automáticamente
+        await markMessagesAsRead(conversationId);
         
         // Cargar info de usuarios
         const userIds = [...new Set(newMessages.map(m => m.senderId))];
@@ -63,6 +69,35 @@ export default function EventChatScreen({ route, navigation }) {
     } catch (error) {
       console.error('Error initializing chat:', error);
       setLoading(false);
+    }
+  };
+
+  const markMessagesAsRead = async (conversationId) => {
+    try {
+      // Obtener mensajes no leídos que no son del usuario actual
+      const messagesQuery = query(
+        collection(db, 'conversations', conversationId, 'messages'),
+        where('senderId', '!=', auth.currentUser.uid),
+        where('read', '==', false)
+      );
+      
+      const snapshot = await getDocs(messagesQuery);
+      
+      // Marcar cada mensaje como leído
+      const updatePromises = snapshot.docs.map(docSnap => 
+        updateDoc(doc(db, 'conversations', conversationId, 'messages', docSnap.id), {
+          read: true,
+          readAt: new Date().toISOString()
+        })
+      );
+      
+      await Promise.all(updatePromises);
+      
+      if (snapshot.size > 0) {
+        console.log(`✅ Marked ${snapshot.size} messages as read`);
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
     }
   };
 
