@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,21 +7,50 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
-import { db } from '../services/firebase';
-import { generateMockEvents } from '../utils/mockEvents';
-import { useTheme } from '../contexts/ThemeContext';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
+  orderBy,
+} from "firebase/firestore";
+import { db } from "../services/firebase";
+import { generateMockEvents } from "../utils/mockEvents";
+import { useTheme } from "../contexts/ThemeContext";
+import { formatISODate, formatEventTime } from "../utils/dateUtils";
+
+// TEST - Remove after debugging
+console.log("🧪 Testing dateUtils import:");
+console.log("formatISODate:", formatISODate);
+console.log("formatEventTime:", formatEventTime);
+console.log(
+  'Test formatISODate("2025-11-29T03:00:00.000Z"):',
+  formatISODate("2025-11-29T03:00:00.000Z")
+);
+console.log(
+  'Test formatEventTime("2025-11-29T03:00:00.000Z"):',
+  formatEventTime("2025-11-29T03:00:00.000Z")
+);
 
 export default function EventFeedScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const categories = ['All', 'Social', 'Sports', 'Food', 'Arts', 'Learning', 'Adventure'];
+  const categories = [
+    "All",
+    "Social",
+    "Sports",
+    "Food",
+    "Arts",
+    "Learning",
+    "Adventure",
+  ];
 
   useEffect(() => {
     loadEvents();
@@ -30,36 +59,40 @@ export default function EventFeedScreen({ navigation }) {
   const loadEvents = async () => {
     try {
       const eventsQuery = query(
-        collection(db, 'events'),
-        where('status', '==', 'published'),
-        orderBy('createdAt', 'desc'),
+        collection(db, "events"),
+        where("status", "==", "published"),
+        orderBy("createdAt", "desc"),
         limit(10)
       );
       const snapshot = await getDocs(eventsQuery);
-      const realEvents = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const realEvents = snapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .filter((event) => event.status !== "cancelled");
 
       const mockEvents = generateMockEvents();
       const allEvents = [...realEvents, ...mockEvents];
-      
-      console.log('📊 Loaded events:', allEvents.length);
+
+      console.log("📊 Loaded events:", allEvents.length);
       setEvents(allEvents);
     } catch (error) {
-      console.error('Error loading events:', error);
+      console.error("Error loading events:", error);
       const mockEvents = generateMockEvents();
-      console.log('📊 Using mock events:', mockEvents.length);
+      console.log("📊 Using mock events:", mockEvents.length);
       setEvents(mockEvents);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredEvents = events.filter(event => {
-    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         event.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || event.category === selectedCategory;
+  const filteredEvents = events.filter((event) => {
+    const matchesSearch =
+      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "All" || event.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -68,19 +101,29 @@ export default function EventFeedScreen({ navigation }) {
   const EventCard = ({ event }) => (
     <TouchableOpacity
       style={styles.eventCard}
-      onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+      onPress={() => navigation.navigate("EventDetail", { eventId: event.id })}
       activeOpacity={0.8}
     >
-      <View style={[styles.eventGlass, {
-        backgroundColor: colors.surfaceGlass,
-        borderColor: colors.border
-      }]}>
+      <View
+        style={[
+          styles.eventGlass,
+          {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border,
+          },
+        ]}
+      >
         {/* Header */}
         <View style={styles.eventHeader}>
-          <View style={[styles.categoryBadge, {
-            backgroundColor: `${colors.primary}26`,
-            borderColor: `${colors.primary}4D`
-          }]}>
+          <View
+            style={[
+              styles.categoryBadge,
+              {
+                backgroundColor: `${colors.primary}26`,
+                borderColor: `${colors.primary}4D`,
+              },
+            ]}
+          >
             <Text style={[styles.categoryText, { color: colors.primary }]}>
               {event.category}
             </Text>
@@ -97,7 +140,10 @@ export default function EventFeedScreen({ navigation }) {
         </View>
 
         {/* Title */}
-        <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={2}>
+        <Text
+          style={[styles.eventTitle, { color: colors.text }]}
+          numberOfLines={2}
+        >
           {event.title}
         </Text>
 
@@ -106,12 +152,16 @@ export default function EventFeedScreen({ navigation }) {
           <View style={styles.metaItem}>
             <Text style={styles.metaIcon}>📅</Text>
             <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-              {event.date}
+              {formatISODate(event.date)} •{" "}
+              {formatEventTime(event.date, event.time)}
             </Text>
           </View>
           <View style={styles.metaItem}>
             <Text style={styles.metaIcon}>📍</Text>
-            <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>
+            <Text
+              style={[styles.metaText, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
               {event.location}
             </Text>
           </View>
@@ -123,27 +173,38 @@ export default function EventFeedScreen({ navigation }) {
             {event.attendees?.slice(0, 3).map((attendee, index) => (
               <View
                 key={index}
-                style={[styles.avatar, { 
-                  marginLeft: index > 0 ? -8 : 0,
-                  backgroundColor: colors.surface,
-                  borderColor: colors.background
-                }]}
+                style={[
+                  styles.avatar,
+                  {
+                    marginLeft: index > 0 ? -8 : 0,
+                    backgroundColor: colors.surface,
+                    borderColor: colors.background,
+                  },
+                ]}
               >
                 <Text style={styles.avatarEmoji}>😊</Text>
               </View>
             ))}
             {event.attendees?.length > 3 && (
-              <View style={[styles.avatar, styles.avatarMore, {
-                backgroundColor: `${colors.primary}4D`,
-                borderColor: colors.background
-              }]}>
+              <View
+                style={[
+                  styles.avatar,
+                  styles.avatarMore,
+                  {
+                    backgroundColor: `${colors.primary}4D`,
+                    borderColor: colors.background,
+                  },
+                ]}
+              >
                 <Text style={[styles.avatarMoreText, { color: colors.text }]}>
                   +{event.attendees.length - 3}
                 </Text>
               </View>
             )}
           </View>
-          <Text style={[styles.attendeesCount, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.attendeesCount, { color: colors.textSecondary }]}
+          >
             {event.attendees?.length || 0}/{event.maxAttendees}
           </Text>
         </View>
@@ -151,14 +212,22 @@ export default function EventFeedScreen({ navigation }) {
         {/* Compatibility */}
         {event.compatibilityScore && (
           <View style={styles.compatibilityContainer}>
-            <View style={[styles.compatibilityBar, {
-              backgroundColor: `${colors.border}`
-            }]}>
-              <View 
-                style={[styles.compatibilityFill, { 
-                  width: `${event.compatibilityScore}%`,
-                  backgroundColor: colors.accent
-                }]} 
+            <View
+              style={[
+                styles.compatibilityBar,
+                {
+                  backgroundColor: `${colors.border}`,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.compatibilityFill,
+                  {
+                    width: `${event.compatibilityScore}%`,
+                    backgroundColor: colors.accent,
+                  },
+                ]}
               />
             </View>
             <Text style={[styles.compatibilityText, { color: colors.accent }]}>
@@ -173,24 +242,31 @@ export default function EventFeedScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Discover</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('SearchEvents')}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Discover
+        </Text>
+        <TouchableOpacity onPress={() => navigation.navigate("SearchEvents")}>
           <Text style={styles.searchIcon}>🔍</Text>
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={[styles.searchBar, {
-          backgroundColor: colors.surfaceGlass,
-          borderColor: colors.border
-        }]}>
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <Text style={styles.searchBarIcon}>🔍</Text>
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -200,8 +276,10 @@ export default function EventFeedScreen({ navigation }) {
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Text style={[styles.clearIcon, { color: colors.textTertiary }]}>✕</Text>
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Text style={[styles.clearIcon, { color: colors.textTertiary }]}>
+                ✕
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -221,21 +299,32 @@ export default function EventFeedScreen({ navigation }) {
             onPress={() => setSelectedCategory(category)}
             activeOpacity={0.7}
           >
-            <View style={[
-              styles.categoryChipGlass,
-              {
-                backgroundColor: selectedCategory === category 
-                  ? `${colors.primary}33` 
-                  : colors.surfaceGlass,
-                borderColor: selectedCategory === category 
-                  ? `${colors.primary}66` 
-                  : colors.border
-              }
-            ]}>
-              <Text style={[
-                styles.categoryChipText,
-                { color: selectedCategory === category ? colors.primary : colors.textSecondary }
-              ]}>
+            <View
+              style={[
+                styles.categoryChipGlass,
+                {
+                  backgroundColor:
+                    selectedCategory === category
+                      ? `${colors.primary}33`
+                      : colors.surfaceGlass,
+                  borderColor:
+                    selectedCategory === category
+                      ? `${colors.primary}66`
+                      : colors.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  {
+                    color:
+                      selectedCategory === category
+                        ? colors.primary
+                        : colors.textSecondary,
+                  },
+                ]}
+              >
                 {category}
               </Text>
             </View>
@@ -257,7 +346,9 @@ export default function EventFeedScreen({ navigation }) {
           {filteredEvents.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyEmoji}>🎯</Text>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No events found</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                No events found
+              </Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 Try adjusting your filters
               </Text>
@@ -279,9 +370,9 @@ function createStyles(colors) {
       flex: 1,
     },
     header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       paddingHorizontal: 24,
       paddingTop: 60,
       paddingBottom: 20,
@@ -291,7 +382,7 @@ function createStyles(colors) {
     },
     headerTitle: {
       fontSize: 20,
-      fontWeight: '700',
+      fontWeight: "700",
       letterSpacing: -0.3,
     },
     searchIcon: {
@@ -302,8 +393,8 @@ function createStyles(colors) {
       marginBottom: 16,
     },
     searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       borderWidth: 1,
       borderRadius: 16,
       paddingHorizontal: 16,
@@ -330,7 +421,7 @@ function createStyles(colors) {
     },
     categoryChip: {
       borderRadius: 12,
-      overflow: 'hidden',
+      overflow: "hidden",
       marginRight: 8,
     },
     categoryChipGlass: {
@@ -340,13 +431,13 @@ function createStyles(colors) {
     },
     categoryChipText: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
       letterSpacing: -0.1,
     },
     loadingContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     scrollView: {
       flex: 1,
@@ -358,16 +449,16 @@ function createStyles(colors) {
     eventCard: {
       marginBottom: 16,
       borderRadius: 20,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     eventGlass: {
       borderWidth: 1,
       padding: 18,
     },
     eventHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       marginBottom: 14,
     },
     categoryBadge: {
@@ -378,31 +469,31 @@ function createStyles(colors) {
     },
     categoryText: {
       fontSize: 11,
-      fontWeight: '600',
+      fontWeight: "600",
       letterSpacing: 0.3,
     },
     freeBadge: {
-      backgroundColor: 'rgba(166, 255, 150, 0.15)',
+      backgroundColor: "rgba(166, 255, 150, 0.15)",
       paddingVertical: 4,
       paddingHorizontal: 10,
       borderRadius: 8,
       borderWidth: 1,
-      borderColor: 'rgba(166, 255, 150, 0.3)',
+      borderColor: "rgba(166, 255, 150, 0.3)",
     },
     freeBadgeText: {
       fontSize: 11,
-      fontWeight: '700',
-      color: '#A6FF96',
+      fontWeight: "700",
+      color: "#A6FF96",
       letterSpacing: 0.5,
     },
     priceText: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       letterSpacing: -0.5,
     },
     eventTitle: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 12,
       lineHeight: 24,
       letterSpacing: -0.3,
@@ -412,8 +503,8 @@ function createStyles(colors) {
       marginBottom: 14,
     },
     metaItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     metaIcon: {
       fontSize: 14,
@@ -424,21 +515,21 @@ function createStyles(colors) {
       flex: 1,
     },
     attendeesRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       marginBottom: 12,
     },
     attendeesAvatars: {
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     avatar: {
       width: 28,
       height: 28,
       borderRadius: 14,
       borderWidth: 2,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     avatarEmoji: {
       fontSize: 14,
@@ -446,33 +537,33 @@ function createStyles(colors) {
     avatarMore: {},
     avatarMoreText: {
       fontSize: 10,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     attendeesCount: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     compatibilityContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 10,
     },
     compatibilityBar: {
       flex: 1,
       height: 6,
       borderRadius: 3,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     compatibilityFill: {
-      height: '100%',
+      height: "100%",
       borderRadius: 3,
     },
     compatibilityText: {
       fontSize: 12,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     emptyState: {
-      alignItems: 'center',
+      alignItems: "center",
       marginTop: 80,
     },
     emptyEmoji: {
@@ -481,13 +572,13 @@ function createStyles(colors) {
     },
     emptyTitle: {
       fontSize: 20,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 8,
       letterSpacing: -0.3,
     },
     emptyText: {
       fontSize: 14,
-      textAlign: 'center',
+      textAlign: "center",
     },
   });
 }

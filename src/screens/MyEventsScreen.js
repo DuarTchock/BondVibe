@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,17 +6,18 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db, auth } from '../services/firebase';
-import { useTheme } from '../contexts/ThemeContext';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db, auth } from "../services/firebase";
+import { useTheme } from "../contexts/ThemeContext";
+import { formatISODate, formatEventTime } from "../utils/dateUtils";
 
 export default function MyEventsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('joined');
+  const [activeTab, setActiveTab] = useState("joined");
 
   useEffect(() => {
     loadMyEvents();
@@ -27,31 +28,40 @@ export default function MyEventsScreen({ navigation }) {
     try {
       let userEvents = [];
 
-      if (activeTab === 'hosting') {
+      if (activeTab === "hosting") {
         // Eventos que creaste
         const hostingQuery = query(
-          collection(db, 'events'),
-          where('creatorId', '==', auth.currentUser.uid)
+          collection(db, "events"),
+          where("hostId", "==", auth.currentUser.uid)
         );
         const snapshot = await getDocs(hostingQuery);
-        userEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log('📅 Hosting events:', userEvents.length);
-        console.log('�� Events:', userEvents.map(e => e.title));
+        userEvents = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((event) => event.status !== "cancelled");
+        console.log("📅 Hosting events:", userEvents.length);
+        console.log(
+          "�� Events:",
+          userEvents.map((e) => e.title)
+        );
       } else {
         // Eventos a los que te uniste
-        const allEventsSnapshot = await getDocs(collection(db, 'events'));
-        
+        const allEventsSnapshot = await getDocs(collection(db, "events"));
+
         // Filtrar eventos donde el usuario está en attendees
         userEvents = allEventsSnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(event => event.attendees?.includes(auth.currentUser.uid));
-        
-        console.log('�� Joined events:', userEvents.length);
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter(
+            (event) =>
+              event.participants?.includes(auth.currentUser.uid) &&
+              event.status !== "cancelled"
+          );
+
+        console.log("�� Joined events:", userEvents.length);
       }
 
       setEvents(userEvents);
     } catch (error) {
-      console.error('Error loading events:', error);
+      console.error("Error loading events:", error);
     } finally {
       setLoading(false);
     }
@@ -62,43 +72,61 @@ export default function MyEventsScreen({ navigation }) {
   const EventCard = ({ event }) => (
     <TouchableOpacity
       style={styles.eventCard}
-      onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+      onPress={() => navigation.navigate("EventDetail", { eventId: event.id })}
       activeOpacity={0.8}
     >
-      <View style={[styles.eventGlass, {
-        backgroundColor: colors.surfaceGlass,
-        borderColor: colors.border
-      }]}>
+      <View
+        style={[
+          styles.eventGlass,
+          {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border,
+          },
+        ]}
+      >
         <View style={styles.eventHeader}>
-          <View style={[styles.categoryBadge, {
-            backgroundColor: `${colors.primary}26`,
-            borderColor: `${colors.primary}4D`
-          }]}>
+          <View
+            style={[
+              styles.categoryBadge,
+              {
+                backgroundColor: `${colors.primary}26`,
+                borderColor: `${colors.primary}4D`,
+              },
+            ]}
+          >
             <Text style={[styles.categoryText, { color: colors.primary }]}>
               {event.category}
             </Text>
           </View>
           <Text style={[styles.eventDate, { color: colors.textSecondary }]}>
-            {event.date}
+            {formatISODate(event.date)} •{" "}
+            {formatEventTime(event.date, event.time)}
           </Text>
         </View>
-        
-        <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={2}>
+
+        <Text
+          style={[styles.eventTitle, { color: colors.text }]}
+          numberOfLines={2}
+        >
           {event.title}
         </Text>
-        
+
         <View style={styles.eventMeta}>
           <Text style={styles.metaIcon}>📍</Text>
-          <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[styles.metaText, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
             {event.location}
           </Text>
         </View>
 
         <View style={styles.attendeesRow}>
           <Text style={[styles.attendeesText, { color: colors.textSecondary }]}>
-            {event.attendees?.length || 0}/{event.maxAttendees} people
+            {event.participantCount || event.participants?.length || 0}/
+            {event.maxPeople} people
           </Text>
-          {event.status === 'published' && (
+          {event.status === "published" && (
             <View style={styles.statusBadge}>
               <Text style={styles.statusText}>Active</Text>
             </View>
@@ -111,13 +139,15 @@ export default function MyEventsScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>My Events</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          My Events
+        </Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -125,39 +155,69 @@ export default function MyEventsScreen({ navigation }) {
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={styles.tab}
-          onPress={() => setActiveTab('joined')}
+          onPress={() => setActiveTab("joined")}
         >
-          <View style={[
-            styles.tabGlass,
-            {
-              backgroundColor: activeTab === 'joined' ? `${colors.primary}33` : colors.surfaceGlass,
-              borderColor: activeTab === 'joined' ? `${colors.primary}66` : colors.border
-            }
-          ]}>
-            <Text style={[
-              styles.tabText,
-              { color: activeTab === 'joined' ? colors.primary : colors.textSecondary }
-            ]}>
+          <View
+            style={[
+              styles.tabGlass,
+              {
+                backgroundColor:
+                  activeTab === "joined"
+                    ? `${colors.primary}33`
+                    : colors.surfaceGlass,
+                borderColor:
+                  activeTab === "joined"
+                    ? `${colors.primary}66`
+                    : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color:
+                    activeTab === "joined"
+                      ? colors.primary
+                      : colors.textSecondary,
+                },
+              ]}
+            >
               Joined
             </Text>
           </View>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           style={styles.tab}
-          onPress={() => setActiveTab('hosting')}
+          onPress={() => setActiveTab("hosting")}
         >
-          <View style={[
-            styles.tabGlass,
-            {
-              backgroundColor: activeTab === 'hosting' ? `${colors.primary}33` : colors.surfaceGlass,
-              borderColor: activeTab === 'hosting' ? `${colors.primary}66` : colors.border
-            }
-          ]}>
-            <Text style={[
-              styles.tabText,
-              { color: activeTab === 'hosting' ? colors.primary : colors.textSecondary }
-            ]}>
+          <View
+            style={[
+              styles.tabGlass,
+              {
+                backgroundColor:
+                  activeTab === "hosting"
+                    ? `${colors.primary}33`
+                    : colors.surfaceGlass,
+                borderColor:
+                  activeTab === "hosting"
+                    ? `${colors.primary}66`
+                    : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color:
+                    activeTab === "hosting"
+                      ? colors.primary
+                      : colors.textSecondary,
+                },
+              ]}
+            >
               Hosting
             </Text>
           </View>
@@ -172,27 +232,37 @@ export default function MyEventsScreen({ navigation }) {
       ) : events.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>
-            {activeTab === 'joined' ? '🎯' : '��'}
+            {activeTab === "joined" ? "🎯" : "��"}
           </Text>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {activeTab === 'joined' ? 'No events joined yet' : 'No events created yet'}
+            {activeTab === "joined"
+              ? "No events joined yet"
+              : "No events created yet"}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            {activeTab === 'joined' 
-              ? 'Explore events and join your first experience'
-              : 'Create an event to bring people together'
-            }
+            {activeTab === "joined"
+              ? "Explore events and join your first experience"
+              : "Create an event to bring people together"}
           </Text>
           <TouchableOpacity
             style={styles.emptyButton}
-            onPress={() => navigation.navigate(activeTab === 'joined' ? 'SearchEvents' : 'CreateEvent')}
+            onPress={() =>
+              navigation.navigate(
+                activeTab === "joined" ? "SearchEvents" : "CreateEvent"
+              )
+            }
           >
-            <View style={[styles.emptyButtonGlass, {
-              backgroundColor: `${colors.primary}33`,
-              borderColor: `${colors.primary}66`
-            }]}>
+            <View
+              style={[
+                styles.emptyButtonGlass,
+                {
+                  backgroundColor: `${colors.primary}33`,
+                  borderColor: `${colors.primary}66`,
+                },
+              ]}
+            >
               <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
-                {activeTab === 'joined' ? 'Explore Events' : 'Create Event'}
+                {activeTab === "joined" ? "Explore Events" : "Create Event"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -215,36 +285,97 @@ export default function MyEventsScreen({ navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 24,
+      paddingTop: 60,
+      paddingBottom: 20,
+    },
     backButton: { fontSize: 28 },
-    headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
-    tabsContainer: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 20, gap: 12 },
-    tab: { flex: 1, borderRadius: 12, overflow: 'hidden' },
-    tabGlass: { borderWidth: 1, paddingVertical: 12, alignItems: 'center' },
-    tabText: { fontSize: 15, fontWeight: '600' },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
+    tabsContainer: {
+      flexDirection: "row",
+      paddingHorizontal: 24,
+      marginBottom: 20,
+      gap: 12,
+    },
+    tab: { flex: 1, borderRadius: 12, overflow: "hidden" },
+    tabGlass: { borderWidth: 1, paddingVertical: 12, alignItems: "center" },
+    tabText: { fontSize: 15, fontWeight: "600" },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
     scrollView: { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
-    eventCard: { marginBottom: 16, borderRadius: 16, overflow: 'hidden' },
+    eventCard: { marginBottom: 16, borderRadius: 16, overflow: "hidden" },
     eventGlass: { borderWidth: 1, padding: 16 },
-    eventHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    categoryBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1 },
-    categoryText: { fontSize: 11, fontWeight: '600' },
-    eventDate: { fontSize: 13, fontWeight: '600' },
-    eventTitle: { fontSize: 17, fontWeight: '700', marginBottom: 10, letterSpacing: -0.3 },
-    eventMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    eventHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    categoryBadge: {
+      paddingVertical: 4,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    categoryText: { fontSize: 11, fontWeight: "600" },
+    eventDate: { fontSize: 13, fontWeight: "600" },
+    eventTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      marginBottom: 10,
+      letterSpacing: -0.3,
+    },
+    eventMeta: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
     metaIcon: { fontSize: 14, marginRight: 6 },
     metaText: { fontSize: 13, flex: 1 },
-    attendeesRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    attendeesText: { fontSize: 13, fontWeight: '600' },
-    statusBadge: { backgroundColor: 'rgba(166, 255, 150, 0.15)', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(166, 255, 150, 0.3)' },
-    statusText: { fontSize: 11, fontWeight: '600', color: '#A6FF96' },
-    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
+    attendeesRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    attendeesText: { fontSize: 13, fontWeight: "600" },
+    statusBadge: {
+      backgroundColor: "rgba(166, 255, 150, 0.15)",
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: "rgba(166, 255, 150, 0.3)",
+    },
+    statusText: { fontSize: 11, fontWeight: "600", color: "#A6FF96" },
+    emptyState: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 40,
+    },
     emptyEmoji: { fontSize: 64, marginBottom: 20 },
-    emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 10, letterSpacing: -0.3 },
-    emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
-    emptyButton: { borderRadius: 12, overflow: 'hidden' },
-    emptyButtonGlass: { borderWidth: 1, paddingVertical: 14, paddingHorizontal: 32 },
-    emptyButtonText: { fontSize: 15, fontWeight: '600' },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      marginBottom: 10,
+      letterSpacing: -0.3,
+    },
+    emptyText: {
+      fontSize: 14,
+      textAlign: "center",
+      lineHeight: 22,
+      marginBottom: 28,
+    },
+    emptyButton: { borderRadius: 12, overflow: "hidden" },
+    emptyButtonGlass: {
+      borderWidth: 1,
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+    },
+    emptyButtonText: { fontSize: 15, fontWeight: "600" },
   });
 }

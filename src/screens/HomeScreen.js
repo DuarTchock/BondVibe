@@ -1,16 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
-import { useTheme } from '../contexts/ThemeContext';
-import { useFocusEffect } from '@react-navigation/native';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
+import { auth, db } from "../services/firebase";
+import { useTheme } from "../contexts/ThemeContext";
+import { useFocusEffect } from "@react-navigation/native";
+import { EVENT_CATEGORIES } from "../utils/eventCategories";
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -24,9 +32,9 @@ export default function HomeScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('🔄 HomeScreen focused - reloading notifications');
+      console.log("🔄 HomeScreen focused - reloading notifications");
       loadUnreadNotifications();
-      if (user?.role === 'admin') {
+      if (user?.role === "admin") {
         loadPendingHostRequests();
       }
     }, [user])
@@ -34,95 +42,96 @@ export default function HomeScreen({ navigation }) {
 
   const loadUser = async () => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
         setUser(userData);
-        
-        if (userData.role === 'admin') {
+
+        if (userData.role === "admin") {
           loadPendingHostRequests();
         }
       }
     } catch (error) {
-      console.error('Error loading user:', error);
+      console.error("Error loading user:", error);
     }
   };
 
   const loadPendingHostRequests = async () => {
     try {
       const requestsQuery = query(
-        collection(db, 'hostRequests'),
-        where('status', '==', 'pending')
+        collection(db, "hostRequests"),
+        where("status", "==", "pending")
       );
       const snapshot = await getDocs(requestsQuery);
       const count = snapshot.size;
-      console.log('👑 Pending host requests:', count);
+      console.log("👑 Pending host requests:", count);
       setPendingHostRequests(count);
     } catch (error) {
-      console.error('Error loading host requests:', error);
+      console.error("Error loading host requests:", error);
     }
   };
 
   const loadUnreadNotifications = async () => {
     try {
       const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('userId', '==', auth.currentUser.uid),
-        where('read', '==', false)
+        collection(db, "notifications"),
+        where("userId", "==", auth.currentUser.uid),
+        where("read", "==", false)
       );
       const notificationsSnapshot = await getDocs(notificationsQuery);
       let count = notificationsSnapshot.size;
 
       const conversationsQuery = query(
-        collection(db, 'conversations'),
-        where('type', '==', 'event')
+        collection(db, "conversations"),
+        where("type", "==", "event")
       );
       const conversationsSnapshot = await getDocs(conversationsQuery);
-      
+
       for (const convDoc of conversationsSnapshot.docs) {
         const conversationId = convDoc.id;
         const eventId = convDoc.data().eventId;
-        
+
         const eventQuery = query(
-          collection(db, 'events'),
-          where('__name__', '==', eventId.replace('event_', ''))
+          collection(db, "events"),
+          where("__name__", "==", eventId.replace("event_", ""))
         );
         const eventSnapshot = await getDocs(eventQuery);
-        
+
         if (eventSnapshot.empty) continue;
-        
+
         const eventData = eventSnapshot.docs[0].data();
-        const isParticipant = eventData.attendees?.includes(auth.currentUser.uid) || 
-                             eventData.creatorId === auth.currentUser.uid;
-        
+        const isParticipant =
+          eventData.attendees?.includes(auth.currentUser.uid) ||
+          eventData.creatorId === auth.currentUser.uid;
+
         if (!isParticipant) continue;
-        
+
         const messagesQuery = query(
-          collection(db, 'conversations', conversationId, 'messages'),
-          where('senderId', '!=', auth.currentUser.uid),
-          where('read', '==', false)
+          collection(db, "conversations", conversationId, "messages"),
+          where("senderId", "!=", auth.currentUser.uid),
+          where("read", "==", false)
         );
         const messagesSnapshot = await getDocs(messagesQuery);
-        
+
         count += messagesSnapshot.size;
       }
 
-      console.log('🔔 Total unread notifications:', count);
+      console.log("🔔 Total unread notifications:", count);
       setUnreadNotifications(count);
     } catch (error) {
-      console.error('Error loading unread notifications:', error);
+      console.error("Error loading unread notifications:", error);
     }
   };
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
   };
 
-  const isAdmin = user?.role === 'admin';
-  const isHost = user?.role === 'host';
+  const isAdmin = user?.role === "admin";
+  const isHost = user?.role === "host";
   const canCreateEvents = isAdmin || isHost;
 
   const styles = createStyles(colors);
@@ -130,78 +139,110 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
-      
+
       <View style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: colors.textSecondary }]}>
             {getGreeting()}
           </Text>
           <Text style={[styles.name, { color: colors.text }]}>
-            {user?.fullName || 'Friend'}
+            {user?.fullName || "Friend"}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <View style={[styles.avatar, {
-            backgroundColor: `${colors.primary}26`,
-            borderColor: `${colors.primary}66`
-          }]}>
-            <Text style={styles.avatarEmoji}>{user?.avatar || '😊'}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+          <View
+            style={[
+              styles.avatar,
+              {
+                backgroundColor: `${colors.primary}26`,
+                borderColor: `${colors.primary}66`,
+              },
+            ]}
+          >
+            <Text style={styles.avatarEmoji}>{user?.avatar || "😊"}</Text>
           </View>
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Quick Actions
+          </Text>
           <View style={styles.quickActionsGrid}>
             <TouchableOpacity
               style={styles.quickAction}
-              onPress={() => navigation.navigate('Notifications')}
+              onPress={() => navigation.navigate("Notifications")}
             >
-              <View style={[styles.quickActionGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
+              <View
+                style={[
+                  styles.quickActionGlass,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <View style={styles.quickActionIconContainer}>
                   <Text style={styles.quickActionIcon}>🔔</Text>
                   {unreadNotifications > 0 && (
-                    <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-                      <Text style={styles.badgeText}>{unreadNotifications}</Text>
+                    <View
+                      style={[styles.badge, { backgroundColor: colors.accent }]}
+                    >
+                      <Text style={styles.badgeText}>
+                        {unreadNotifications}
+                      </Text>
                     </View>
                   )}
                 </View>
-                <Text style={[styles.quickActionText, { color: colors.text }]}>Notifications</Text>
+                <Text style={[styles.quickActionText, { color: colors.text }]}>
+                  Notifications
+                </Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickAction}
-              onPress={() => navigation.navigate('SearchEvents')}
+              onPress={() => navigation.navigate("SearchEvents")}
             >
-              <View style={[styles.quickActionGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
+              <View
+                style={[
+                  styles.quickActionGlass,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <Text style={styles.quickActionIcon}>🔍</Text>
-                <Text style={[styles.quickActionText, { color: colors.text }]}>Explore</Text>
+                <Text style={[styles.quickActionText, { color: colors.text }]}>
+                  Explore
+                </Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickAction}
-              onPress={() => navigation.navigate('MyEvents')}
+              onPress={() => navigation.navigate("MyEvents")}
             >
-              <View style={[styles.quickActionGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
+              <View
+                style={[
+                  styles.quickActionGlass,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <Text style={styles.quickActionIcon}>📅</Text>
-                <Text style={[styles.quickActionText, { color: colors.text }]}>My Events</Text>
+                <Text style={[styles.quickActionText, { color: colors.text }]}>
+                  My Events
+                </Text>
               </View>
             </TouchableOpacity>
 
@@ -209,27 +250,45 @@ export default function HomeScreen({ navigation }) {
             {canCreateEvents ? (
               <TouchableOpacity
                 style={styles.quickAction}
-                onPress={() => navigation.navigate('CreateEvent')}
+                onPress={() => navigation.navigate("CreateEvent")}
               >
-                <View style={[styles.quickActionGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
+                <View
+                  style={[
+                    styles.quickActionGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
                   <Text style={styles.quickActionIcon}>✨</Text>
-                  <Text style={[styles.quickActionText, { color: colors.text }]}>Create</Text>
+                  <Text
+                    style={[styles.quickActionText, { color: colors.text }]}
+                  >
+                    Create
+                  </Text>
                 </View>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 style={styles.quickAction}
-                onPress={() => navigation.navigate('RequestHost')}
+                onPress={() => navigation.navigate("RequestHost")}
               >
-                <View style={[styles.quickActionGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
+                <View
+                  style={[
+                    styles.quickActionGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
                   <Text style={styles.quickActionIcon}>🎪</Text>
-                  <Text style={[styles.quickActionText, { color: colors.text }]}>Be a Host</Text>
+                  <Text
+                    style={[styles.quickActionText, { color: colors.text }]}
+                  >
+                    Be a Host
+                  </Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -241,29 +300,47 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.section}>
             <TouchableOpacity
               style={styles.adminCard}
-              onPress={() => navigation.navigate('AdminDashboard')}
+              onPress={() => navigation.navigate("AdminDashboard")}
               activeOpacity={0.8}
             >
-              <View style={[styles.adminGlass, {
-                backgroundColor: 'rgba(255, 215, 0, 0.15)',
-                borderColor: 'rgba(255, 215, 0, 0.3)'
-              }]}>
+              <View
+                style={[
+                  styles.adminGlass,
+                  {
+                    backgroundColor: "rgba(255, 215, 0, 0.15)",
+                    borderColor: "rgba(255, 215, 0, 0.3)",
+                  },
+                ]}
+              >
                 <View style={styles.adminContent}>
                   <View style={styles.adminIconContainer}>
                     <Text style={styles.adminIcon}>👑</Text>
                     {pendingHostRequests > 0 && (
-                      <View style={[styles.adminBadge, { backgroundColor: colors.accent }]}>
-                        <Text style={styles.badgeText}>{pendingHostRequests}</Text>
+                      <View
+                        style={[
+                          styles.adminBadge,
+                          { backgroundColor: colors.accent },
+                        ]}
+                      >
+                        <Text style={styles.badgeText}>
+                          {pendingHostRequests}
+                        </Text>
                       </View>
                     )}
                   </View>
                   <View style={styles.adminText}>
                     <Text style={styles.adminTitle}>Admin Dashboard</Text>
-                    <Text style={[styles.adminSubtitle, { color: colors.textSecondary }]}>
-                      {pendingHostRequests > 0 
-                        ? `${pendingHostRequests} pending request${pendingHostRequests > 1 ? 's' : ''}`
-                        : 'Manage host requests and events'
-                      }
+                    <Text
+                      style={[
+                        styles.adminSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {pendingHostRequests > 0
+                        ? `${pendingHostRequests} pending request${
+                            pendingHostRequests > 1 ? "s" : ""
+                          }`
+                        : "Manage host requests and events"}
                     </Text>
                   </View>
                 </View>
@@ -276,33 +353,52 @@ export default function HomeScreen({ navigation }) {
         {/* Discover */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Discover</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('SearchEvents')}>
-              <Text style={[styles.seeAll, { color: colors.primary }]}>See all</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Discover
+            </Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("SearchEvents")}
+            >
+              <Text style={[styles.seeAll, { color: colors.primary }]}>
+                See all
+              </Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesScroll}
           >
-            {['Social', 'Sports', 'Food', 'Arts', 'Learning', 'Adventure'].map((category) => (
+            {EVENT_CATEGORIES.map((category) => (
               <TouchableOpacity
                 key={category}
                 style={styles.categoryCard}
-                onPress={() => navigation.navigate('SearchEvents')}
+                onPress={() =>
+                  navigation.navigate("SearchEvents", { category })
+                }
               >
-                <View style={[styles.categoryGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
+                <View
+                  style={[
+                    styles.categoryGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
                   <Text style={styles.categoryIcon}>
-                    {category === 'Social' ? '👥' :
-                     category === 'Sports' ? '⚽' :
-                     category === 'Food' ? '🍕' :
-                     category === 'Arts' ? '🎨' :
-                     category === 'Learning' ? '📚' : '🏔️'}
+                    {category === "Social"
+                      ? "👥"
+                      : category === "Sports"
+                      ? "⚽"
+                      : category === "Food"
+                      ? "🍕"
+                      : category === "Arts"
+                      ? "🎨"
+                      : category === "Learning"
+                      ? "📚"
+                      : "🏔️"}
                   </Text>
                   <Text style={[styles.categoryName, { color: colors.text }]}>
                     {category}
@@ -320,43 +416,110 @@ export default function HomeScreen({ navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 24,
+      paddingTop: 60,
+      paddingBottom: 20,
+    },
     greeting: { fontSize: 14, marginBottom: 4 },
-    name: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
-    avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+    name: { fontSize: 28, fontWeight: "700", letterSpacing: -0.5 },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 2,
+      justifyContent: "center",
+      alignItems: "center",
+    },
     avatarEmoji: { fontSize: 24 },
     scrollView: { flex: 1 },
     scrollContent: { paddingBottom: 40 },
     section: { marginBottom: 28 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 16 },
-    sectionTitle: { fontSize: 20, fontWeight: '700', paddingHorizontal: 24, marginBottom: 16, letterSpacing: -0.3 },
-    seeAll: { fontSize: 14, fontWeight: '600' },
-    quickActionsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 24, gap: 12 },
-    quickAction: { width: '48%', borderRadius: 16, overflow: 'hidden' },
-    quickActionGlass: { borderWidth: 1, paddingVertical: 24, alignItems: 'center' },
-    quickActionIconContainer: { position: 'relative' },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 24,
+      marginBottom: 16,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      paddingHorizontal: 24,
+      marginBottom: 16,
+      letterSpacing: -0.3,
+    },
+    seeAll: { fontSize: 14, fontWeight: "600" },
+    quickActionsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    quickAction: { width: "48%", borderRadius: 16, overflow: "hidden" },
+    quickActionGlass: {
+      borderWidth: 1,
+      paddingVertical: 24,
+      alignItems: "center",
+    },
+    quickActionIconContainer: { position: "relative" },
     quickActionIcon: { fontSize: 32, marginBottom: 8 },
-    badge: { position: 'absolute', top: -4, right: -8, minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
-    badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-    quickActionText: { fontSize: 14, fontWeight: '600', letterSpacing: -0.1 },
-    
+    badge: {
+      position: "absolute",
+      top: -4,
+      right: -8,
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 6,
+    },
+    badgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+    quickActionText: { fontSize: 14, fontWeight: "600", letterSpacing: -0.1 },
+
     // Admin Dashboard Card (reemplaza Create an Event)
-    adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden' },
-    adminGlass: { borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    adminContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    adminIconContainer: { position: 'relative', marginRight: 16 },
+    adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: "hidden" },
+    adminGlass: {
+      borderWidth: 1,
+      padding: 20,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    adminContent: { flexDirection: "row", alignItems: "center", flex: 1 },
+    adminIconContainer: { position: "relative", marginRight: 16 },
     adminIcon: { fontSize: 40 },
-    adminBadge: { position: 'absolute', top: -4, right: -4, minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
+    adminBadge: {
+      position: "absolute",
+      top: -4,
+      right: -4,
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 6,
+    },
     adminText: { flex: 1 },
-    adminTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4, color: '#FFD700', letterSpacing: -0.3 },
+    adminTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      marginBottom: 4,
+      color: "#FFD700",
+      letterSpacing: -0.3,
+    },
     adminSubtitle: { fontSize: 13, lineHeight: 18 },
-    adminArrow: { fontSize: 24, marginLeft: 12, color: '#FFD700' },
-    
+    adminArrow: { fontSize: 24, marginLeft: 12, color: "#FFD700" },
+
     // Categories
     categoriesScroll: { paddingHorizontal: 24, gap: 12 },
-    categoryCard: { width: 120, borderRadius: 16, overflow: 'hidden' },
-    categoryGlass: { borderWidth: 1, padding: 16, alignItems: 'center' },
+    categoryCard: { width: 120, borderRadius: 16, overflow: "hidden" },
+    categoryGlass: { borderWidth: 1, padding: 16, alignItems: "center" },
     categoryIcon: { fontSize: 36, marginBottom: 10 },
-    categoryName: { fontSize: 13, fontWeight: '600', letterSpacing: -0.1 },
+    categoryName: { fontSize: 13, fontWeight: "600", letterSpacing: -0.1 },
   });
 }

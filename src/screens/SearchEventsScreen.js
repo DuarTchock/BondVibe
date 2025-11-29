@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,22 +7,26 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../services/firebase';
-import { useTheme } from '../contexts/ThemeContext';
-import { generateMockEvents } from '../utils/mockEvents';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../services/firebase";
+import { useTheme } from "../contexts/ThemeContext";
+import { generateMockEvents } from "../utils/mockEvents";
+import { formatISODate, formatEventTime } from "../utils/dateUtils";
+import { EVENT_CATEGORIES, normalizeCategory } from "../utils/eventCategories";
 
-export default function SearchEventsScreen({ navigation }) {
+export default function SearchEventsScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(
+    route.params?.category || "All"
+  );
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const categories = ['All', 'Social', 'Sports', 'Food', 'Arts', 'Learning', 'Adventure'];
+  const categories = ["All", ...EVENT_CATEGORIES];
 
   useEffect(() => {
     loadEvents();
@@ -34,20 +38,22 @@ export default function SearchEventsScreen({ navigation }) {
 
   const loadEvents = async () => {
     try {
-      const eventsSnapshot = await getDocs(collection(db, 'events'));
-      const realEvents = eventsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const eventsSnapshot = await getDocs(collection(db, "events"));
+      const realEvents = eventsSnapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .filter((event) => event.status !== "cancelled"); // Filter out cancelled events
 
       const mockEvents = generateMockEvents();
       const allEvents = [...realEvents, ...mockEvents];
-      
-      console.log('📊 Loaded events:', allEvents.length);
+
+      console.log("📊 Loaded events:", allEvents.length);
       setEvents(allEvents);
       setFilteredEvents(allEvents);
     } catch (error) {
-      console.error('Error loading events:', error);
+      console.error("Error loading events:", error);
     } finally {
       setLoading(false);
     }
@@ -56,16 +62,21 @@ export default function SearchEventsScreen({ navigation }) {
   const filterEvents = () => {
     let filtered = events;
 
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(event => event.category === selectedCategory);
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter((event) => {
+        // Normalize the event's category to standard format
+        const normalizedEventCategory = normalizeCategory(event.category);
+        return normalizedEventCategory === selectedCategory;
+      });
     }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(event =>
-        event.title.toLowerCase().includes(query) ||
-        event.location.toLowerCase().includes(query) ||
-        event.category.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (event) =>
+          event.title.toLowerCase().includes(query) ||
+          event.location.toLowerCase().includes(query) ||
+          (event.category?.toLowerCase() || "").includes(query)
       );
     }
 
@@ -77,41 +88,59 @@ export default function SearchEventsScreen({ navigation }) {
   const EventCard = ({ event }) => (
     <TouchableOpacity
       style={styles.eventCard}
-      onPress={() => navigation.navigate('EventDetail', { eventId: event.id })}
+      onPress={() => navigation.navigate("EventDetail", { eventId: event.id })}
       activeOpacity={0.8}
     >
-      <View style={[styles.eventGlass, {
-        backgroundColor: colors.surfaceGlass,
-        borderColor: colors.border
-      }]}>
+      <View
+        style={[
+          styles.eventGlass,
+          {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.border,
+          },
+        ]}
+      >
         <View style={styles.eventHeader}>
-          <View style={[styles.categoryBadge, {
-            backgroundColor: `${colors.primary}26`,
-            borderColor: `${colors.primary}4D`
-          }]}>
+          <View
+            style={[
+              styles.categoryBadge,
+              {
+                backgroundColor: `${colors.primary}26`,
+                borderColor: `${colors.primary}4D`,
+              },
+            ]}
+          >
             <Text style={[styles.categoryText, { color: colors.primary }]}>
               {event.category}
             </Text>
           </View>
           <Text style={[styles.eventDate, { color: colors.textSecondary }]}>
-            {event.date}
+            {formatISODate(event.date)} •{" "}
+            {formatEventTime(event.date, event.time)}
           </Text>
         </View>
-        
-        <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={2}>
+
+        <Text
+          style={[styles.eventTitle, { color: colors.text }]}
+          numberOfLines={2}
+        >
           {event.title}
         </Text>
-        
+
         <View style={styles.eventMeta}>
           <Text style={styles.metaIcon}>📍</Text>
-          <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[styles.metaText, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
             {event.location}
           </Text>
         </View>
 
         <View style={styles.attendeesRow}>
           <Text style={[styles.attendeesText, { color: colors.textSecondary }]}>
-            {event.attendees?.length || 0}/{event.maxAttendees} people
+            {event.attendees?.length || 0}/
+            {event.maxAttendees || event.maxPeople || 0} people
           </Text>
           {event.price === 0 && (
             <View style={styles.freeBadge}>
@@ -126,13 +155,15 @@ export default function SearchEventsScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Explore Events</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Explore Events
+        </Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -142,10 +173,15 @@ export default function SearchEventsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Search Bar */}
-        <View style={[styles.searchBar, {
-          backgroundColor: colors.surfaceGlass,
-          borderColor: colors.border
-        }]}>
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -172,21 +208,32 @@ export default function SearchEventsScreen({ navigation }) {
                 style={styles.categoryChip}
                 onPress={() => setSelectedCategory(category)}
               >
-                <View style={[
-                  styles.categoryChipGlass,
-                  {
-                    backgroundColor: selectedCategory === category 
-                      ? `${colors.primary}33` 
-                      : colors.surfaceGlass,
-                    borderColor: selectedCategory === category 
-                      ? `${colors.primary}66` 
-                      : colors.border
-                  }
-                ]}>
-                  <Text style={[
-                    styles.categoryChipText,
-                    { color: selectedCategory === category ? colors.primary : colors.text }
-                  ]}>
+                <View
+                  style={[
+                    styles.categoryChipGlass,
+                    {
+                      backgroundColor:
+                        selectedCategory === category
+                          ? `${colors.primary}33`
+                          : colors.surfaceGlass,
+                      borderColor:
+                        selectedCategory === category
+                          ? `${colors.primary}66`
+                          : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      {
+                        color:
+                          selectedCategory === category
+                            ? colors.primary
+                            : colors.text,
+                      },
+                    ]}
+                  >
                     {category}
                   </Text>
                 </View>
@@ -230,40 +277,96 @@ export default function SearchEventsScreen({ navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 24,
+      paddingTop: 60,
+      paddingBottom: 20,
+    },
     backButton: { fontSize: 28 },
-    headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
+    headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     scrollView: { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
-    searchBar: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 24 },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 24,
+    },
     searchIcon: { fontSize: 20, marginRight: 10 },
     searchInput: { flex: 1, fontSize: 15 },
     categorySection: { marginBottom: 24 },
-    filterLabel: { fontSize: 13, fontWeight: '600', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+    filterLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+      marginBottom: 12,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
     categoriesScroll: { gap: 10 },
-    categoryChip: { borderRadius: 12, overflow: 'hidden' },
-    categoryChipGlass: { borderWidth: 1, paddingVertical: 8, paddingHorizontal: 16 },
-    categoryChipText: { fontSize: 14, fontWeight: '600' },
+    categoryChip: { borderRadius: 12, overflow: "hidden" },
+    categoryChipGlass: {
+      borderWidth: 1,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+    },
+    categoryChipText: { fontSize: 14, fontWeight: "600" },
     resultsHeader: { marginBottom: 20 },
-    resultsTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3 },
-    loadingContainer: { paddingVertical: 60, alignItems: 'center' },
-    eventCard: { marginBottom: 16, borderRadius: 16, overflow: 'hidden' },
+    resultsTitle: { fontSize: 18, fontWeight: "700", letterSpacing: -0.3 },
+    loadingContainer: { paddingVertical: 60, alignItems: "center" },
+    eventCard: { marginBottom: 16, borderRadius: 16, overflow: "hidden" },
     eventGlass: { borderWidth: 1, padding: 16 },
-    eventHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    categoryBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1 },
-    categoryText: { fontSize: 11, fontWeight: '600' },
-    eventDate: { fontSize: 13, fontWeight: '600' },
-    eventTitle: { fontSize: 17, fontWeight: '700', marginBottom: 10, letterSpacing: -0.3 },
-    eventMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    eventHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    categoryBadge: {
+      paddingVertical: 4,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    categoryText: { fontSize: 11, fontWeight: "600" },
+    eventDate: { fontSize: 13, fontWeight: "600" },
+    eventTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      marginBottom: 10,
+      letterSpacing: -0.3,
+    },
+    eventMeta: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
     metaIcon: { fontSize: 14, marginRight: 6 },
     metaText: { fontSize: 13, flex: 1 },
-    attendeesRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    attendeesText: { fontSize: 13, fontWeight: '600' },
-    freeBadge: { backgroundColor: 'rgba(166, 255, 150, 0.15)', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(166, 255, 150, 0.3)' },
-    freeBadgeText: { fontSize: 11, fontWeight: '600', color: '#A6FF96' },
-    emptyState: { paddingVertical: 60, alignItems: 'center' },
+    attendeesRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    attendeesText: { fontSize: 13, fontWeight: "600" },
+    freeBadge: {
+      backgroundColor: "rgba(166, 255, 150, 0.15)",
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: "rgba(166, 255, 150, 0.3)",
+    },
+    freeBadgeText: { fontSize: 11, fontWeight: "600", color: "#A6FF96" },
+    emptyState: { paddingVertical: 60, alignItems: "center" },
     emptyEmoji: { fontSize: 64, marginBottom: 20 },
-    emptyTitle: { fontSize: 20, fontWeight: '700', marginBottom: 10, letterSpacing: -0.3 },
-    emptyText: { fontSize: 14, textAlign: 'center' },
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      marginBottom: 10,
+      letterSpacing: -0.3,
+    },
+    emptyText: { fontSize: 14, textAlign: "center" },
   });
 }
