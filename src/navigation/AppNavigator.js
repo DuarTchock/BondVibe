@@ -6,6 +6,8 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { ActivityIndicator, View } from "react-native";
 import SuccessModal from "../components/SuccessModal";
+import PersonalityQuizScreen from "../screens/PersonalityQuizScreen";
+import PersonalityResultsScreen from "../screens/PersonalityResultsScreen";
 
 // Auth Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -161,6 +163,16 @@ export default function AppNavigator() {
               <Stack.Screen name="EditEvent" component={EditEventScreen} />
               <Stack.Screen name="MyEvents" component={MyEventsScreen} />
               <Stack.Screen name="Profile" component={ProfileScreen} />
+              <Stack.Screen
+                name="PersonalityQuiz"
+                component={PersonalityQuizScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="PersonalityResults"
+                component={PersonalityResultsScreen}
+                options={{ headerShown: false }}
+              />
               <Stack.Screen
                 name="Notifications"
                 component={NotificationsScreen}

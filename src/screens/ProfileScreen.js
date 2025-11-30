@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,20 +8,63 @@ import {
   TextInput,
   Modal,
   Switch,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
-import { signOut } from 'firebase/auth';
-import { useTheme } from '../contexts/ThemeContext';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../services/firebase";
+import { signOut } from "firebase/auth";
+import { useTheme } from "../contexts/ThemeContext";
+import { useFocusEffect } from "@react-navigation/native";
 
 const EMOJI_AVATARS = [
-  '😊', '🎉', '🌟', '🎨', '🎭', '🎪', '🎬', '🎮',
-  '🎯', '🎲', '🎸', '🎹', '🎺', '🎻', '🎤', '🎧',
-  '🌈', '🌸', '🌺', '🌻', '🌼', '🌷', '🍕', '🍔',
-  '🍰', '🎂', '🍦', '🍩', '☕', '🍵', '🌮', '🌯',
-  '🦄', '🐶', '🐱', '🐼', '🦊', '🦁', '🐯', '🐨',
-  '🚀', '✨', '🔥', '💫', '⭐', '🌙', '☀️', '🌊',
+  "😊",
+  "🎉",
+  "🌟",
+  "🎨",
+  "🎭",
+  "🎪",
+  "🎬",
+  "🎮",
+  "🎯",
+  "🎲",
+  "🎸",
+  "🎹",
+  "🎺",
+  "🎻",
+  "🎤",
+  "🎧",
+  "🌈",
+  "🌸",
+  "🌺",
+  "🌻",
+  "🌼",
+  "🌷",
+  "🍕",
+  "🍔",
+  "🍰",
+  "🎂",
+  "🍦",
+  "🍩",
+  "☕",
+  "🍵",
+  "🌮",
+  "🌯",
+  "🦄",
+  "🐶",
+  "🐱",
+  "🐼",
+  "🦊",
+  "🦁",
+  "🐯",
+  "🐨",
+  "🚀",
+  "✨",
+  "🔥",
+  "💫",
+  "⭐",
+  "🌙",
+  "☀️",
+  "🌊",
 ];
 
 export default function ProfileScreen({ navigation }) {
@@ -31,42 +74,44 @@ export default function ProfileScreen({ navigation }) {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  
+
   const [editForm, setEditForm] = useState({
-    fullName: '',
-    bio: '',
-    avatar: '',
-    age: '',
-    location: '',
+    fullName: "",
+    bio: "",
+    avatar: "",
+    age: "",
+    location: "",
   });
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [])
+  );
 
   const loadProfile = async () => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
         setProfile(data);
         setEditForm({
-          fullName: data.fullName || '',
-          bio: data.bio || '',
-          avatar: data.avatar || '😊',
-          age: data.age?.toString() || '',
-          location: data.location || '',
+          fullName: data.fullName || "",
+          bio: data.bio || "",
+          avatar: data.avatar || "😊",
+          age: data.age?.toString() || "",
+          location: data.location || "",
         });
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error("Error loading profile:", error);
     }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
         fullName: editForm.fullName.trim(),
         bio: editForm.bio.trim(),
         avatar: editForm.avatar,
@@ -77,7 +122,7 @@ export default function ProfileScreen({ navigation }) {
       await loadProfile();
       setEditing(false);
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error("Error updating profile:", error);
     } finally {
       setSaving(false);
     }
@@ -88,7 +133,7 @@ export default function ProfileScreen({ navigation }) {
     try {
       await signOut(auth);
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     }
   };
 
@@ -96,8 +141,15 @@ export default function ProfileScreen({ navigation }) {
 
   if (!profile) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Loading...
+        </Text>
       </View>
     );
   }
@@ -105,7 +157,7 @@ export default function ProfileScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
-      
+
       {/* Logout Modal */}
       <Modal
         visible={showLogoutModal}
@@ -115,12 +167,21 @@ export default function ProfileScreen({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={[styles.modalGlass, {
-              backgroundColor: isDark ? 'rgba(17, 24, 39, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-              borderColor: colors.border
-            }]}>
+            <View
+              style={[
+                styles.modalGlass,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(17, 24, 39, 0.95)"
+                    : "rgba(255, 255, 255, 0.95)",
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <Text style={styles.modalEmoji}>👋</Text>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Logout</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Logout
+              </Text>
               <Text style={[styles.modalText, { color: colors.textSecondary }]}>
                 Are you sure you want to logout?
               </Text>
@@ -129,11 +190,20 @@ export default function ProfileScreen({ navigation }) {
                   style={styles.modalCancelButton}
                   onPress={() => setShowLogoutModal(false)}
                 >
-                  <View style={[styles.modalCancelGlass, {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border
-                  }]}>
-                    <Text style={[styles.modalCancelText, { color: colors.text }]}>Cancel</Text>
+                  <View
+                    style={[
+                      styles.modalCancelGlass,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.modalCancelText, { color: colors.text }]}
+                    >
+                      Cancel
+                    </Text>
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -159,10 +229,17 @@ export default function ProfileScreen({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.avatarPickerModal}>
-            <View style={[styles.avatarPickerGlass, {
-              backgroundColor: isDark ? 'rgba(17, 24, 39, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-              borderColor: colors.border
-            }]}>
+            <View
+              style={[
+                styles.avatarPickerGlass,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(17, 24, 39, 0.95)"
+                    : "rgba(255, 255, 255, 0.95)",
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <Text style={[styles.avatarPickerTitle, { color: colors.text }]}>
                 Choose Avatar
               </Text>
@@ -174,9 +251,14 @@ export default function ProfileScreen({ navigation }) {
                       styles.avatarOption,
                       {
                         backgroundColor: colors.surfaceGlass,
-                        borderColor: editForm.avatar === emoji ? `${colors.primary}99` : colors.border
+                        borderColor:
+                          editForm.avatar === emoji
+                            ? `${colors.primary}99`
+                            : colors.border,
                       },
-                      editForm.avatar === emoji && { backgroundColor: `${colors.primary}26` }
+                      editForm.avatar === emoji && {
+                        backgroundColor: `${colors.primary}26`,
+                      },
                     ]}
                     onPress={() => {
                       setEditForm({ ...editForm, avatar: emoji });
@@ -191,11 +273,21 @@ export default function ProfileScreen({ navigation }) {
                 style={styles.avatarPickerClose}
                 onPress={() => setShowAvatarPicker(false)}
               >
-                <View style={[styles.avatarPickerCloseGlass, {
-                  backgroundColor: `${colors.primary}33`,
-                  borderColor: `${colors.primary}66`
-                }]}>
-                  <Text style={[styles.avatarPickerCloseText, { color: colors.primary }]}>
+                <View
+                  style={[
+                    styles.avatarPickerCloseGlass,
+                    {
+                      backgroundColor: `${colors.primary}33`,
+                      borderColor: `${colors.primary}66`,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.avatarPickerCloseText,
+                      { color: colors.primary },
+                    ]}
+                  >
                     Close
                   </Text>
                 </View>
@@ -210,17 +302,21 @@ export default function ProfileScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Profile
+        </Text>
         {!editing ? (
           <TouchableOpacity onPress={() => setEditing(true)}>
-            <Text style={[styles.editButton, { color: colors.primary }]}>Edit</Text>
+            <Text style={[styles.editButton, { color: colors.primary }]}>
+              Edit
+            </Text>
           </TouchableOpacity>
         ) : (
           <View style={{ width: 50 }} />
         )}
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -232,10 +328,15 @@ export default function ProfileScreen({ navigation }) {
               style={styles.avatarEditContainer}
               onPress={() => setShowAvatarPicker(true)}
             >
-              <View style={[styles.avatarEditGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: `${colors.primary}66`
-              }]}>
+              <View
+                style={[
+                  styles.avatarEditGlass,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: `${colors.primary}66`,
+                  },
+                ]}
+              >
                 <Text style={styles.avatarEditEmoji}>{editForm.avatar}</Text>
               </View>
               <Text style={[styles.avatarEditText, { color: colors.primary }]}>
@@ -245,16 +346,23 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.formSection}>
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>Full Name</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  Full Name
+                </Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
-                    style={[styles.input, {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                      color: colors.text
-                    }]}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                        color: colors.text,
+                      },
+                    ]}
                     value={editForm.fullName}
-                    onChangeText={(text) => setEditForm({ ...editForm, fullName: text })}
+                    onChangeText={(text) =>
+                      setEditForm({ ...editForm, fullName: text })
+                    }
                     placeholder="Your name"
                     placeholderTextColor={colors.textTertiary}
                     maxLength={50}
@@ -263,39 +371,59 @@ export default function ProfileScreen({ navigation }) {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>Bio</Text>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  Bio
+                </Text>
                 <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
                   <TextInput
-                    style={[styles.input, styles.textArea, {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                      color: colors.text
-                    }]}
+                    style={[
+                      styles.input,
+                      styles.textArea,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                        color: colors.text,
+                      },
+                    ]}
                     value={editForm.bio}
-                    onChangeText={(text) => setEditForm({ ...editForm, bio: text })}
+                    onChangeText={(text) =>
+                      setEditForm({ ...editForm, bio: text })
+                    }
                     placeholder="Tell us about yourself..."
                     placeholderTextColor={colors.textTertiary}
                     multiline
                     maxLength={200}
                   />
                 </View>
-                <Text style={[styles.charCount, { color: colors.textTertiary }]}>
+                <Text
+                  style={[styles.charCount, { color: colors.textTertiary }]}
+                >
                   {editForm.bio.length}/200
                 </Text>
               </View>
 
               <View style={styles.inputRow}>
                 <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={[styles.inputLabel, { color: colors.text }]}>Age</Text>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>
+                    Age
+                  </Text>
                   <View style={styles.inputWrapper}>
                     <TextInput
-                      style={[styles.input, {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
-                        color: colors.text
-                      }]}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.surfaceGlass,
+                          borderColor: colors.border,
+                          color: colors.text,
+                        },
+                      ]}
                       value={editForm.age}
-                      onChangeText={(text) => setEditForm({ ...editForm, age: text.replace(/[^0-9]/g, '') })}
+                      onChangeText={(text) =>
+                        setEditForm({
+                          ...editForm,
+                          age: text.replace(/[^0-9]/g, ""),
+                        })
+                      }
                       placeholder="25"
                       placeholderTextColor={colors.textTertiary}
                       keyboardType="numeric"
@@ -305,16 +433,23 @@ export default function ProfileScreen({ navigation }) {
                 </View>
 
                 <View style={[styles.inputGroup, { flex: 2, marginLeft: 12 }]}>
-                  <Text style={[styles.inputLabel, { color: colors.text }]}>Location</Text>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>
+                    Location
+                  </Text>
                   <View style={styles.inputWrapper}>
                     <TextInput
-                      style={[styles.input, {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
-                        color: colors.text
-                      }]}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.surfaceGlass,
+                          borderColor: colors.border,
+                          color: colors.text,
+                        },
+                      ]}
                       value={editForm.location}
-                      onChangeText={(text) => setEditForm({ ...editForm, location: text })}
+                      onChangeText={(text) =>
+                        setEditForm({ ...editForm, location: text })
+                      }
                       placeholder="City, Country"
                       placeholderTextColor={colors.textTertiary}
                       maxLength={50}
@@ -332,11 +467,20 @@ export default function ProfileScreen({ navigation }) {
                   loadProfile();
                 }}
               >
-                <View style={[styles.cancelGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
-                  <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                <View
+                  style={[
+                    styles.cancelGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.cancelButtonText, { color: colors.text }]}
+                  >
+                    Cancel
+                  </Text>
                 </View>
               </TouchableOpacity>
 
@@ -345,12 +489,19 @@ export default function ProfileScreen({ navigation }) {
                 onPress={handleSave}
                 disabled={saving}
               >
-                <View style={[styles.saveGlass, {
-                  backgroundColor: `${colors.primary}33`,
-                  borderColor: `${colors.primary}66`
-                }]}>
-                  <Text style={[styles.saveButtonText, { color: colors.primary }]}>
-                    {saving ? 'Saving...' : 'Save'}
+                <View
+                  style={[
+                    styles.saveGlass,
+                    {
+                      backgroundColor: `${colors.primary}33`,
+                      borderColor: `${colors.primary}66`,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.saveButtonText, { color: colors.primary }]}
+                  >
+                    {saving ? "Saving..." : "Save"}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -360,27 +511,36 @@ export default function ProfileScreen({ navigation }) {
           /* VIEW MODE */
           <>
             <View style={styles.profileHeader}>
-              <View style={[styles.avatarViewGlass, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: `${colors.primary}66`
-              }]}>
-                <Text style={styles.avatarViewEmoji}>{profile.avatar || '😊'}</Text>
+              <View
+                style={[
+                  styles.avatarViewGlass,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: `${colors.primary}66`,
+                  },
+                ]}
+              >
+                <Text style={styles.avatarViewEmoji}>
+                  {profile.avatar || "😊"}
+                </Text>
               </View>
               <Text style={[styles.profileName, { color: colors.text }]}>
                 {profile.fullName}
               </Text>
-              <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.profileEmail, { color: colors.textSecondary }]}
+              >
                 {auth.currentUser?.email}
               </Text>
-              
-              {profile.role === 'admin' && (
+
+              {profile.role === "admin" && (
                 <View style={styles.roleBadge}>
                   <View style={styles.roleBadgeGlass}>
                     <Text style={styles.roleBadgeText}>👑 Admin</Text>
                   </View>
                 </View>
               )}
-              {profile.role === 'verified_host' && (
+              {profile.role === "verified_host" && (
                 <View style={styles.roleBadge}>
                   <View style={styles.roleBadgeGlass}>
                     <Text style={styles.roleBadgeText}>✓ Verified Host</Text>
@@ -391,10 +551,15 @@ export default function ProfileScreen({ navigation }) {
 
             {profile.bio && (
               <View style={styles.bioCard}>
-                <View style={[styles.bioGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
+                <View
+                  style={[
+                    styles.bioGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
                   <Text style={[styles.bioText, { color: colors.text }]}>
                     {profile.bio}
                   </Text>
@@ -404,92 +569,226 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.infoSection}>
               <View style={styles.infoCard}>
-                <View style={[styles.infoGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
+                <View
+                  style={[
+                    styles.infoGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
                   <Text style={styles.infoIcon}>🎂</Text>
                   <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Age</Text>
+                    <Text
+                      style={[
+                        styles.infoLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Age
+                    </Text>
                     <Text style={[styles.infoValue, { color: colors.text }]}>
-                      {profile.age || 'Not set'}
+                      {profile.age || "Not set"}
                     </Text>
                   </View>
                 </View>
               </View>
 
               <View style={styles.infoCard}>
-                <View style={[styles.infoGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
+                <View
+                  style={[
+                    styles.infoGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
                   <Text style={styles.infoIcon}>📍</Text>
                   <View style={styles.infoContent}>
-                    <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Location</Text>
+                    <Text
+                      style={[
+                        styles.infoLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Location
+                    </Text>
                     <Text style={[styles.infoValue, { color: colors.text }]}>
-                      {profile.location || 'Not set'}
+                      {profile.location || "Not set"}
                     </Text>
                   </View>
                 </View>
               </View>
             </View>
 
+            {/* 👇 AGREGA ESTA SECCIÓN COMPLETA AQUÍ */}
+            {/* PERSONALITY QUIZ SECTION */}
+            {!profile.personality ||
+            Object.keys(profile.personality).length === 0 ? (
+              <View style={styles.quizPromptSection}>
+                <TouchableOpacity
+                  style={styles.quizPromptCard}
+                  onPress={() => navigation.navigate("PersonalityQuiz")}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.quizPromptGlass,
+                      {
+                        backgroundColor: `${colors.primary}15`,
+                        borderColor: `${colors.primary}40`,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.quizPromptEmoji}>🧠</Text>
+                    <View style={styles.quizPromptContent}>
+                      <Text
+                        style={[styles.quizPromptTitle, { color: colors.text }]}
+                      >
+                        Discover Your Personality
+                      </Text>
+                      <Text
+                        style={[
+                          styles.quizPromptText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Take our Big Five quiz to get matched with compatible
+                        groups
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.quizPromptArrow,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      →
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.quizRetakeSection}>
+                <TouchableOpacity
+                  style={styles.quizRetakeButton}
+                  onPress={() => navigation.navigate("PersonalityQuiz")}
+                >
+                  <View
+                    style={[
+                      styles.quizRetakeGlass,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.quizRetakeIcon}>🔄</Text>
+                    <Text
+                      style={[styles.quizRetakeText, { color: colors.text }]}
+                    >
+                      Retake Personality Quiz
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* THEME TOGGLE SECTION */}
             <View style={styles.themeSection}>
-              <View style={[styles.themeCard, {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border
-              }]}>
+              <View
+                style={[
+                  styles.themeCard,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <View style={styles.themeContent}>
-                  <Text style={styles.themeIcon}>{isDark ? '🌙' : '☀️'}</Text>
+                  <Text style={styles.themeIcon}>{isDark ? "🌙" : "☀️"}</Text>
                   <View style={styles.themeInfo}>
                     <Text style={[styles.themeTitle, { color: colors.text }]}>
-                      {isDark ? 'Dark Mode' : 'Light Mode'}
+                      {isDark ? "Dark Mode" : "Light Mode"}
                     </Text>
-                    <Text style={[styles.themeSubtitle, { color: colors.textSecondary }]}>
-                      {isDark ? 'Easier on the eyes' : 'Bright and clear'}
+                    <Text
+                      style={[
+                        styles.themeSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {isDark ? "Easier on the eyes" : "Bright and clear"}
                     </Text>
                   </View>
                   <Switch
                     value={isDark}
                     onValueChange={toggleTheme}
-                    trackColor={{ false: '#E5E7EB', true: colors.primary }}
-                    thumbColor={isDark ? '#FFFFFF' : '#F3F4F6'}
+                    trackColor={{ false: "#E5E7EB", true: colors.primary }}
+                    thumbColor={isDark ? "#FFFFFF" : "#F3F4F6"}
                   />
                 </View>
               </View>
             </View>
 
-            {profile.personality && Object.keys(profile.personality).length > 0 && (
-              <View style={styles.personalitySection}>
-                <View style={[styles.personalityGlass, {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border
-                }]}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Personality</Text>
-                  {Object.entries(profile.personality).map(([trait, score]) => (
-                    <View key={trait} style={styles.traitRow}>
-                      <Text style={[styles.traitName, { color: colors.text }]}>
-                        {trait.charAt(0).toUpperCase() + trait.slice(1)}
-                      </Text>
-                      <View style={styles.traitBarContainer}>
-                        <View style={[styles.traitBar, { backgroundColor: `${colors.border}` }]}>
-                          <View style={[styles.traitFill, { 
-                            width: `${score}%`,
-                            backgroundColor: colors.primary
-                          }]} />
+            {profile.personality &&
+              Object.keys(profile.personality).length > 0 && (
+                <View style={styles.personalitySection}>
+                  <View
+                    style={[
+                      styles.personalityGlass,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                      Personality
+                    </Text>
+                    {Object.entries(profile.personality).map(
+                      ([trait, score]) => (
+                        <View key={trait} style={styles.traitRow}>
+                          <Text
+                            style={[styles.traitName, { color: colors.text }]}
+                          >
+                            {trait.charAt(0).toUpperCase() + trait.slice(1)}
+                          </Text>
+                          <View style={styles.traitBarContainer}>
+                            <View
+                              style={[
+                                styles.traitBar,
+                                { backgroundColor: `${colors.border}` },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.traitFill,
+                                  {
+                                    width: `${score}%`,
+                                    backgroundColor: colors.primary,
+                                  },
+                                ]}
+                              />
+                            </View>
+                            <Text
+                              style={[
+                                styles.traitScore,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              {score}%
+                            </Text>
+                          </View>
                         </View>
-                        <Text style={[styles.traitScore, { color: colors.primary }]}>
-                          {score}%
-                        </Text>
-                      </View>
-                    </View>
-                  ))}
+                      )
+                    )}
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.logoutButton}
               onPress={() => setShowLogoutModal(true)}
             >
@@ -511,16 +810,16 @@ function createStyles(colors) {
     },
     loadingContainer: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     loadingText: {
       fontSize: 15,
     },
     header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       paddingHorizontal: 24,
       paddingTop: 60,
       paddingBottom: 20,
@@ -530,12 +829,12 @@ function createStyles(colors) {
     },
     headerTitle: {
       fontSize: 20,
-      fontWeight: '700',
+      fontWeight: "700",
       letterSpacing: -0.3,
     },
     editButton: {
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     scrollView: {
       flex: 1,
@@ -544,10 +843,10 @@ function createStyles(colors) {
       paddingHorizontal: 24,
       paddingBottom: 40,
     },
-    
+
     // View Mode
     profileHeader: {
-      alignItems: 'center',
+      alignItems: "center",
       marginBottom: 24,
     },
     avatarViewGlass: {
@@ -555,8 +854,8 @@ function createStyles(colors) {
       height: 100,
       borderRadius: 50,
       borderWidth: 2,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       marginBottom: 16,
     },
     avatarViewEmoji: {
@@ -564,7 +863,7 @@ function createStyles(colors) {
     },
     profileName: {
       fontSize: 24,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 6,
       letterSpacing: -0.5,
     },
@@ -574,25 +873,25 @@ function createStyles(colors) {
     },
     roleBadge: {
       borderRadius: 10,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     roleBadgeGlass: {
-      backgroundColor: 'rgba(255, 215, 0, 0.15)',
+      backgroundColor: "rgba(255, 215, 0, 0.15)",
       borderWidth: 1,
-      borderColor: 'rgba(255, 215, 0, 0.3)',
+      borderColor: "rgba(255, 215, 0, 0.3)",
       paddingVertical: 6,
       paddingHorizontal: 14,
     },
     roleBadgeText: {
       fontSize: 12,
-      fontWeight: '600',
-      color: '#FFD700',
+      fontWeight: "600",
+      color: "#FFD700",
       letterSpacing: 0.3,
     },
     bioCard: {
       marginBottom: 20,
       borderRadius: 16,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     bioGlass: {
       borderWidth: 1,
@@ -601,7 +900,7 @@ function createStyles(colors) {
     bioText: {
       fontSize: 14,
       lineHeight: 22,
-      textAlign: 'center',
+      textAlign: "center",
     },
     infoSection: {
       gap: 12,
@@ -609,13 +908,13 @@ function createStyles(colors) {
     },
     infoCard: {
       borderRadius: 16,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     infoGlass: {
       borderWidth: 1,
       padding: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     infoIcon: {
       fontSize: 28,
@@ -630,10 +929,10 @@ function createStyles(colors) {
     },
     infoValue: {
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: "600",
       letterSpacing: -0.2,
     },
-    
+
     // Theme Section
     themeSection: {
       marginBottom: 20,
@@ -641,12 +940,12 @@ function createStyles(colors) {
     themeCard: {
       borderRadius: 16,
       borderWidth: 1,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     themeContent: {
       padding: 18,
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
     },
     themeIcon: {
       fontSize: 28,
@@ -657,18 +956,18 @@ function createStyles(colors) {
     },
     themeTitle: {
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: "600",
       marginBottom: 4,
       letterSpacing: -0.2,
     },
     themeSubtitle: {
       fontSize: 13,
     },
-    
+
     personalitySection: {
       marginBottom: 20,
       borderRadius: 16,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     personalityGlass: {
       borderWidth: 1,
@@ -676,7 +975,7 @@ function createStyles(colors) {
     },
     sectionTitle: {
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 16,
       letterSpacing: -0.2,
     },
@@ -685,52 +984,52 @@ function createStyles(colors) {
     },
     traitName: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
       marginBottom: 8,
       letterSpacing: -0.1,
     },
     traitBarContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       gap: 10,
     },
     traitBar: {
       flex: 1,
       height: 8,
       borderRadius: 4,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     traitFill: {
-      height: '100%',
+      height: "100%",
       borderRadius: 4,
     },
     traitScore: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
       width: 40,
-      textAlign: 'right',
+      textAlign: "right",
     },
     logoutButton: {
       borderRadius: 16,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     logoutGlass: {
-      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+      backgroundColor: "rgba(239, 68, 68, 0.15)",
       borderWidth: 1,
-      borderColor: 'rgba(239, 68, 68, 0.3)',
+      borderColor: "rgba(239, 68, 68, 0.3)",
       paddingVertical: 16,
-      alignItems: 'center',
+      alignItems: "center",
     },
     logoutButtonText: {
       fontSize: 16,
-      fontWeight: '600',
-      color: '#EF4444',
+      fontWeight: "600",
+      color: "#EF4444",
       letterSpacing: -0.1,
     },
-    
+
     // Edit Mode
     avatarEditContainer: {
-      alignItems: 'center',
+      alignItems: "center",
       marginBottom: 28,
     },
     avatarEditGlass: {
@@ -738,8 +1037,8 @@ function createStyles(colors) {
       height: 100,
       borderRadius: 50,
       borderWidth: 2,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
       marginBottom: 12,
     },
     avatarEditEmoji: {
@@ -747,7 +1046,7 @@ function createStyles(colors) {
     },
     avatarEditText: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     formSection: {
       gap: 16,
@@ -758,12 +1057,12 @@ function createStyles(colors) {
     },
     inputLabel: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
       letterSpacing: -0.1,
     },
     inputWrapper: {
       borderRadius: 12,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     input: {
       borderWidth: 1,
@@ -774,66 +1073,66 @@ function createStyles(colors) {
     textAreaWrapper: {},
     textArea: {
       minHeight: 100,
-      textAlignVertical: 'top',
+      textAlignVertical: "top",
     },
     charCount: {
       fontSize: 11,
-      textAlign: 'right',
+      textAlign: "right",
     },
     inputRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
     },
     formActions: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
     },
     cancelButton: {
       flex: 1,
       borderRadius: 12,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     cancelGlass: {
       borderWidth: 1,
       paddingVertical: 14,
-      alignItems: 'center',
+      alignItems: "center",
     },
     cancelButtonText: {
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     saveButton: {
       flex: 1,
       borderRadius: 12,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     saveGlass: {
       borderWidth: 1,
       paddingVertical: 14,
-      alignItems: 'center',
+      alignItems: "center",
     },
     saveButtonText: {
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: "600",
     },
-    
+
     // Modals
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      justifyContent: 'center',
-      alignItems: 'center',
+      backgroundColor: "rgba(0, 0, 0, 0.7)",
+      justifyContent: "center",
+      alignItems: "center",
       padding: 24,
     },
     modalContent: {
-      width: '100%',
+      width: "100%",
       maxWidth: 400,
       borderRadius: 20,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     modalGlass: {
       borderWidth: 1,
       padding: 28,
-      alignItems: 'center',
+      alignItems: "center",
     },
     modalEmoji: {
       fontSize: 56,
@@ -841,59 +1140,59 @@ function createStyles(colors) {
     },
     modalTitle: {
       fontSize: 20,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 8,
       letterSpacing: -0.3,
     },
     modalText: {
       fontSize: 14,
-      textAlign: 'center',
+      textAlign: "center",
       marginBottom: 24,
     },
     modalButtons: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: 12,
-      width: '100%',
+      width: "100%",
     },
     modalCancelButton: {
       flex: 1,
       borderRadius: 12,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     modalCancelGlass: {
       borderWidth: 1,
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
     },
     modalCancelText: {
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: "600",
     },
     modalLogoutButton: {
       flex: 1,
       borderRadius: 12,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     modalLogoutGlass: {
-      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+      backgroundColor: "rgba(239, 68, 68, 0.2)",
       borderWidth: 1,
-      borderColor: 'rgba(239, 68, 68, 0.4)',
+      borderColor: "rgba(239, 68, 68, 0.4)",
       paddingVertical: 12,
-      alignItems: 'center',
+      alignItems: "center",
     },
     modalLogoutText: {
       fontSize: 15,
-      fontWeight: '600',
-      color: '#EF4444',
+      fontWeight: "600",
+      color: "#EF4444",
     },
-    
+
     // Avatar Picker
     avatarPickerModal: {
-      width: '100%',
+      width: "100%",
       maxWidth: 500,
-      maxHeight: '80%',
+      maxHeight: "80%",
       borderRadius: 20,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     avatarPickerGlass: {
       borderWidth: 1,
@@ -901,15 +1200,15 @@ function createStyles(colors) {
     },
     avatarPickerTitle: {
       fontSize: 18,
-      fontWeight: '700',
-      textAlign: 'center',
+      fontWeight: "700",
+      textAlign: "center",
       marginBottom: 20,
       letterSpacing: -0.3,
     },
     avatarGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "center",
       gap: 10,
       marginBottom: 20,
     },
@@ -918,24 +1217,83 @@ function createStyles(colors) {
       height: 56,
       borderRadius: 12,
       borderWidth: 2,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: "center",
+      alignItems: "center",
     },
     avatarOptionEmoji: {
       fontSize: 28,
     },
     avatarPickerClose: {
       borderRadius: 12,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     avatarPickerCloseGlass: {
       borderWidth: 1,
       paddingVertical: 14,
-      alignItems: 'center',
+      alignItems: "center",
     },
     avatarPickerCloseText: {
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: "600",
+    },
+    // Personality Quiz Prompt
+    quizPromptSection: {
+      marginBottom: 20,
+    },
+    quizPromptCard: {
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    quizPromptGlass: {
+      borderWidth: 1,
+      padding: 20,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    quizPromptEmoji: {
+      fontSize: 36,
+      marginRight: 14,
+    },
+    quizPromptContent: {
+      flex: 1,
+    },
+    quizPromptTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 4,
+      letterSpacing: -0.2,
+    },
+    quizPromptText: {
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    quizPromptArrow: {
+      fontSize: 24,
+      marginLeft: 8,
+      fontWeight: "600",
+    },
+    quizRetakeSection: {
+      marginBottom: 20,
+    },
+    quizRetakeButton: {
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    quizRetakeGlass: {
+      borderWidth: 1,
+      padding: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    quizRetakeIcon: {
+      fontSize: 20,
+      marginRight: 8,
+    },
+    quizRetakeText: {
+      fontSize: 15,
+      fontWeight: "600",
+      letterSpacing: -0.1,
     },
   });
 }
