@@ -42,7 +42,19 @@ export default function EventChatScreen({ route, navigation }) {
   const scrollViewRef = useRef();
   const typingTimeoutRef = useRef(null);
   const hasMarkedAsReadRef = useRef(false); // ✅ Nuevo: Tracker para evitar marcar READ múltiples veces
+  // ✅ NUEVO: Marcar como READ automáticamente después de cargar
+  useEffect(() => {
+    if (messages.length > 0 && !hasMarkedAsReadRef.current && !loading) {
+      const timer = setTimeout(() => {
+        const conversationId = `event_${eventId}`;
+        markMessagesAsRead(conversationId, auth.currentUser.uid);
+        hasMarkedAsReadRef.current = true;
+        console.log("📖 Messages marked as READ (auto-mark after load)");
+      }, 1000);
 
+      return () => clearTimeout(timer);
+    }
+  }, [messages.length, loading]);
   // ============================================
   // EFECTO: Inicializar chat
   // ============================================
@@ -154,13 +166,19 @@ export default function EventChatScreen({ route, navigation }) {
   // ============================================
   // ✅ NUEVO: Marcar como READ solo cuando usuario SCROLLEA
   // ============================================
-  const handleScroll = () => {
-    // Solo marcar una vez por sesión de chat
-    if (!hasMarkedAsReadRef.current && messages.length > 0) {
+  // ✅ MEJORADO: Solo marcar cuando llega al final del chat
+  const handleScroll = (event) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+
+    // Verificar si está cerca del final (últimos 50px)
+    const isNearBottom =
+      contentSize.height - (contentOffset.y + layoutMeasurement.height) < 50;
+
+    if (isNearBottom && !hasMarkedAsReadRef.current && messages.length > 0) {
       const conversationId = `event_${eventId}`;
       markMessagesAsRead(conversationId, auth.currentUser.uid);
       hasMarkedAsReadRef.current = true;
-      console.log("📖 Messages marked as READ (user scrolled)");
+      console.log("📖 Messages marked as READ (user scrolled to bottom)");
     }
   };
 
@@ -515,7 +533,7 @@ export default function EventChatScreen({ route, navigation }) {
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
-        scrollEventThrottle={400}
+        scrollEventThrottle={100}
         onContentSizeChange={() =>
           scrollViewRef.current?.scrollToEnd({ animated: true })
         }

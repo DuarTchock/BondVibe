@@ -46,6 +46,7 @@ export default function CreateEventScreen({ navigation }) {
 
   const [location, setLocation] = useState("");
   const [maxPeople, setMaxPeople] = useState("");
+  const [isFree, setIsFree] = useState(true); // New: Free toggle
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -85,10 +86,10 @@ export default function CreateEventScreen({ navigation }) {
       Alert.alert("Invalid Max People", "Maximum people must be at least 2.");
       return;
     }
-    if (!price || parseFloat(price) < 0) {
+    if (!isFree && (!price || parseFloat(price) <= 0)) {
       Alert.alert(
         "Invalid Price",
-        "Please enter a valid price (0 for free events)."
+        "Please enter a valid price greater than 0, or mark the event as free."
       );
       return;
     }
@@ -122,6 +123,7 @@ export default function CreateEventScreen({ navigation }) {
         return;
       }
 
+      // ✅ CORREGIDO: Agregar creatorId y usar attendees en lugar de participants
       const eventData = {
         title: title.trim(),
         description: description.trim(),
@@ -129,12 +131,12 @@ export default function CreateEventScreen({ navigation }) {
         date: eventDateTime.toISOString(),
         location: location.trim(),
         maxPeople: parseInt(maxPeople),
-        price: parseFloat(price),
+        price: isFree ? 0 : parseFloat(price),
         currency: "MXN",
-        hostId: user.uid,
         hostName: userData?.name || userData?.displayName || "Anonymous",
-        participants: [user.uid],
-        participantCount: 1,
+        creatorId: user.uid, // ✅ AGREGADO - Campo correcto para identificar al creator
+        attendees: [], // ✅ CORREGIDO - Cambiado de "participants" a "attendees", vacío al crear
+        participantCount: 0, // ✅ CORREGIDO - 0 porque el creator no es attendee
         status: "active",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -239,7 +241,7 @@ export default function CreateEventScreen({ navigation }) {
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>Category</Text>
           <View style={styles.categoryGrid}>
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <TouchableOpacity
                 key={cat.id}
                 style={[
@@ -368,6 +370,67 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Free/Paid Toggle */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.text }]}>Event Type</Text>
+          <View style={styles.toggleRow}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                {
+                  backgroundColor: isFree
+                    ? `${colors.primary}33`
+                    : colors.surfaceGlass,
+                  borderColor: isFree ? colors.primary : colors.border,
+                  borderWidth: isFree ? 2 : 1,
+                },
+              ]}
+              onPress={() => {
+                setIsFree(true);
+                setPrice("");
+              }}
+            >
+              <Text style={styles.toggleEmoji}>🎁</Text>
+              <Text
+                style={[
+                  styles.toggleLabel,
+                  {
+                    color: isFree ? colors.primary : colors.text,
+                  },
+                ]}
+              >
+                Free
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                {
+                  backgroundColor: !isFree
+                    ? `${colors.primary}33`
+                    : colors.surfaceGlass,
+                  borderColor: !isFree ? colors.primary : colors.border,
+                  borderWidth: !isFree ? 2 : 1,
+                },
+              ]}
+              onPress={() => setIsFree(false)}
+            >
+              <Text style={styles.toggleEmoji}>💵</Text>
+              <Text
+                style={[
+                  styles.toggleLabel,
+                  {
+                    color: !isFree ? colors.primary : colors.text,
+                  },
+                ]}
+              >
+                Paid
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Max People and Price */}
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
@@ -396,25 +459,29 @@ export default function CreateEventScreen({ navigation }) {
 
           <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
-              Price (MXN)
+              {isFree ? "Price" : "Price (MXN) *"}
             </Text>
             <View
               style={[
                 styles.inputWrapper,
                 {
-                  backgroundColor: colors.surfaceGlass,
+                  backgroundColor: isFree
+                    ? colors.surfaceGlass
+                    : colors.surfaceGlass,
                   borderColor: colors.border,
+                  opacity: isFree ? 0.5 : 1,
                 },
               ]}
             >
               <Text style={styles.inputIcon}>$</Text>
               <TextInput
                 style={[styles.input, { color: colors.text }]}
-                placeholder="100"
+                placeholder={isFree ? "0" : "100"}
                 placeholderTextColor={colors.textTertiary}
-                value={price}
+                value={isFree ? "0" : price}
                 onChangeText={setPrice}
                 keyboardType="numeric"
+                editable={!isFree}
               />
             </View>
           </View>
@@ -540,6 +607,19 @@ function createStyles(colors) {
     },
     categoryEmoji: { fontSize: 24, marginBottom: 4 },
     categoryLabel: { fontSize: 14, fontWeight: "600" },
+    toggleRow: { flexDirection: "row", gap: 12 },
+    toggleButton: {
+      flex: 1,
+      paddingVertical: 16,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 8,
+    },
+    toggleEmoji: { fontSize: 20 },
+    toggleLabel: { fontSize: 16, fontWeight: "600" },
     row: { flexDirection: "row", marginBottom: 24 },
     pickerButton: {
       flexDirection: "row",

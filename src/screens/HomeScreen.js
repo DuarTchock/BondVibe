@@ -14,6 +14,7 @@ import {
   query,
   where,
   getDocs,
+  onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -30,10 +31,67 @@ export default function HomeScreen({ navigation }) {
     loadUser();
   }, []);
 
+  // ============================================
+  // VERSIÓN CON onSnapshot (Real-time) - FIXED
+  // ✅ Ahora cuenta mensajes individuales correctamente
+  // ============================================
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    console.log("🔔 Setting up real-time notifications listener");
+
+    // Query para notificaciones no leídas
+    const notifQuery = query(
+      collection(db, "notifications"),
+      where("userId", "==", auth.currentUser.uid),
+      where("read", "==", false)
+    );
+
+    const unsubscribe = onSnapshot(
+      notifQuery,
+      (snapshot) => {
+        let totalCount = 0;
+
+        // ✅ LOG DETALLADO: Ver cada documento
+        console.log("📊 Notification documents:");
+        snapshot.docs.forEach((doc) => {
+          const data = doc.data();
+
+          // ✅ NUEVO: Imprimir detalle de cada documento
+          console.log(
+            `  - Type: ${data.type}, unreadCount: ${
+              data.unreadCount || 1
+            }, eventTitle: ${data.eventTitle || "N/A"}`
+          );
+
+          // Si es notificación agrupada de mensajes, sumar el unreadCount
+          if (data.type === "event_messages" && data.unreadCount) {
+            totalCount += data.unreadCount;
+          } else {
+            // Otras notificaciones cuentan como 1
+            totalCount += 1;
+          }
+        });
+
+        setUnreadNotifications(totalCount);
+        console.log("🔔 Real-time notification count:", totalCount);
+      },
+      (error) => {
+        console.error("❌ Error in notifications listener:", error);
+      }
+    );
+
+    // Cleanup: Desuscribir cuando el componente se desmonte
+    return () => {
+      console.log("🔕 Cleaning up notifications listener");
+      unsubscribe();
+    };
+  }, [auth.currentUser?.uid]);
+
+  // TAMBIÉN mantener useFocusEffect para refrescar cuando navegas
   useFocusEffect(
     useCallback(() => {
-      console.log("🔄 HomeScreen focused - reloading notifications");
-      loadUnreadNotifications();
+      console.log("🔄 HomeScreen focused");
       if (user?.role === "admin") {
         loadPendingHostRequests();
       }
@@ -68,58 +126,6 @@ export default function HomeScreen({ navigation }) {
       setPendingHostRequests(count);
     } catch (error) {
       console.error("Error loading host requests:", error);
-    }
-  };
-
-  const loadUnreadNotifications = async () => {
-    try {
-      const notificationsQuery = query(
-        collection(db, "notifications"),
-        where("userId", "==", auth.currentUser.uid),
-        where("read", "==", false)
-      );
-      const notificationsSnapshot = await getDocs(notificationsQuery);
-      let count = notificationsSnapshot.size;
-
-      const conversationsQuery = query(
-        collection(db, "conversations"),
-        where("type", "==", "event")
-      );
-      const conversationsSnapshot = await getDocs(conversationsQuery);
-
-      for (const convDoc of conversationsSnapshot.docs) {
-        const conversationId = convDoc.id;
-        const eventId = convDoc.data().eventId;
-
-        const eventQuery = query(
-          collection(db, "events"),
-          where("__name__", "==", eventId.replace("event_", ""))
-        );
-        const eventSnapshot = await getDocs(eventQuery);
-
-        if (eventSnapshot.empty) continue;
-
-        const eventData = eventSnapshot.docs[0].data();
-        const isParticipant =
-          eventData.attendees?.includes(auth.currentUser.uid) ||
-          eventData.creatorId === auth.currentUser.uid;
-
-        if (!isParticipant) continue;
-
-        const messagesQuery = query(
-          collection(db, "conversations", conversationId, "messages"),
-          where("senderId", "!=", auth.currentUser.uid),
-          where("read", "==", false)
-        );
-        const messagesSnapshot = await getDocs(messagesQuery);
-
-        count += messagesSnapshot.size;
-      }
-
-      console.log("🔔 Total unread notifications:", count);
-      setUnreadNotifications(count);
-    } catch (error) {
-      console.error("Error loading unread notifications:", error);
     }
   };
 
@@ -175,6 +181,7 @@ export default function HomeScreen({ navigation }) {
             Quick Actions
           </Text>
           <View style={styles.quickActionsGrid}>
+            {/* Notifications - CON BADGE EN TIEMPO REAL CORREGIDO */}
             <TouchableOpacity
               style={styles.quickAction}
               onPress={() => navigation.navigate("Notifications")}
@@ -195,7 +202,7 @@ export default function HomeScreen({ navigation }) {
                       style={[styles.badge, { backgroundColor: colors.accent }]}
                     >
                       <Text style={styles.badgeText}>
-                        {unreadNotifications}
+                        {unreadNotifications > 99 ? "99+" : unreadNotifications}
                       </Text>
                     </View>
                   )}
@@ -295,7 +302,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Admin Dashboard Card - Reemplaza "Create an Event" para admins */}
+        {/* Admin Dashboard Card */}
         {isAdmin && (
           <View style={styles.section}>
             <TouchableOpacity
@@ -372,10 +379,12 @@ export default function HomeScreen({ navigation }) {
           >
             {EVENT_CATEGORIES.map((category) => (
               <TouchableOpacity
-                key={category}
+                key={category.id}
                 style={styles.categoryCard}
                 onPress={() =>
-                  navigation.navigate("SearchEvents", { category })
+                  navigation.navigate("SearchEvents", {
+                    category: category.label,
+                  })
                 }
               >
                 <View
@@ -387,21 +396,9 @@ export default function HomeScreen({ navigation }) {
                     },
                   ]}
                 >
-                  <Text style={styles.categoryIcon}>
-                    {category === "Social"
-                      ? "👥"
-                      : category === "Sports"
-                      ? "⚽"
-                      : category === "Food"
-                      ? "🍕"
-                      : category === "Arts"
-                      ? "🎨"
-                      : category === "Learning"
-                      ? "📚"
-                      : "🏔️"}
-                  </Text>
+                  <Text style={styles.categoryIcon}>{category.emoji}</Text>
                   <Text style={[styles.categoryName, { color: colors.text }]}>
-                    {category}
+                    {category.label}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -481,7 +478,7 @@ function createStyles(colors) {
     badgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
     quickActionText: { fontSize: 14, fontWeight: "600", letterSpacing: -0.1 },
 
-    // Admin Dashboard Card (reemplaza Create an Event)
+    // Admin Dashboard Card
     adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: "hidden" },
     adminGlass: {
       borderWidth: 1,
