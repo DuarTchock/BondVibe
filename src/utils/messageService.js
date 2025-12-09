@@ -166,6 +166,7 @@ export const sendLocationMessage = async (
 
 /**
  * Suscribirse a mensajes de una conversación (real-time)
+ * ✅ BUG #6 FIX: includeMetadataChanges captura cambios en 'read' y 'delivered'
  */
 export const subscribeToMessages = (conversationId, callback) => {
   const messagesRef = collection(
@@ -178,6 +179,7 @@ export const subscribeToMessages = (conversationId, callback) => {
 
   const unsubscribe = onSnapshot(
     q,
+    { includeMetadataChanges: true }, // ✅ Esto captura cambios en campos sin esperar nuevos docs
     (snapshot) => {
       const messages = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -305,6 +307,7 @@ export const markMessagesAsDelivered = async (
 
 /**
  * Marcar mensajes como leídos (solo cuando el usuario ESTÁ EN el chat)
+ * ✅ SIEMPRE limpia las notificaciones, incluso si no hay mensajes nuevos
  */
 export const markMessagesAsRead = async (conversationId, currentUserId) => {
   try {
@@ -324,23 +327,23 @@ export const markMessagesAsRead = async (conversationId, currentUserId) => {
 
     const snapshot = await getDocs(q);
 
-    if (snapshot.empty) {
-      return;
+    if (!snapshot.empty) {
+      const batch = writeBatch(db);
+
+      snapshot.docs.forEach((doc) => {
+        batch.update(doc.ref, {
+          read: true,
+          delivered: true,
+        });
+      });
+
+      await batch.commit();
+      console.log(`✅ Marked ${snapshot.size} messages as read`);
+    } else {
+      console.log("ℹ️ No unread messages to mark");
     }
 
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach((doc) => {
-      batch.update(doc.ref, {
-        read: true,
-        delivered: true, // También marcar como delivered si aún no lo está
-      });
-    });
-
-    await batch.commit();
-    console.log(`✅ Marked ${snapshot.size} messages as read`);
-
-    // Limpiar notificaciones de mensajes de este evento
+    // ✅ CRÍTICO: Limpiar notificaciones SIEMPRE
     await clearEventMessageNotifications(conversationId, currentUserId);
   } catch (error) {
     console.error("❌ Error marking as read:", error);
@@ -353,7 +356,7 @@ export const markMessagesAsRead = async (conversationId, currentUserId) => {
 
 /**
  * Crear/actualizar notificación agrupada por evento
- * ✅ CORREGIDO: Simplificada para un solo usuario
+ * ✅ CRÍTICO: Limpia el prefijo "event_" del eventId SIEMPRE
  */
 export const createOrUpdateEventNotification = async (
   eventId,
@@ -369,8 +372,17 @@ export const createOrUpdateEventNotification = async (
       return;
     }
 
-    const notificationId = `event_msg_${eventId}_${userId}`;
+    // ✅ CRÍTICO: Asegurar que eventId NO tenga el prefijo "event_"
+    const cleanEventId = eventId.replace("event_", "");
+
+    // Construir ID del documento usando el ID limpio
+    const notificationId = `event_msg_${cleanEventId}_${userId}`;
     const notificationRef = doc(db, "notifications", notificationId);
+
+    console.log("📝 Creating/updating notification:");
+    console.log("  - Original eventId:", eventId);
+    console.log("  - Clean eventId:", cleanEventId);
+    console.log("  - Notification ID:", notificationId);
 
     // Ver si ya existe
     const existingNotif = await getDoc(notificationRef);
@@ -385,12 +397,13 @@ export const createOrUpdateEventNotification = async (
         updatedAt: new Date().toISOString(),
         read: false,
       });
+      console.log("✅ Notification updated, new count:", currentCount + 1);
     } else {
       // Crear nueva notificación agrupada
       await setDoc(notificationRef, {
         userId,
         type: "event_messages",
-        eventId: `event_${eventId}`, // ✅ Agregar prefijo aquí
+        eventId: `event_${cleanEventId}`, // ✅ Guardar CON prefijo en el campo
         eventTitle,
         unreadCount: 1,
         lastMessage: messageText,
@@ -399,6 +412,7 @@ export const createOrUpdateEventNotification = async (
         updatedAt: new Date().toISOString(),
         read: false,
       });
+      console.log("✅ New notification created");
     }
 
     console.log("✅ Event notification created/updated for user:", userId);
@@ -409,27 +423,50 @@ export const createOrUpdateEventNotification = async (
 
 /**
  * Limpiar notificaciones de mensajes de un evento cuando se leen
+ * ✅ CRÍTICO: Limpia el prefijo "event_" SIEMPRE antes de construir el ID
  */
 export const clearEventMessageNotifications = async (
   conversationId,
   userId
 ) => {
   try {
-    // ✅ FIX: Extraer solo el eventId sin el prefijo "event_"
-    const eventId = conversationId.replace("event_", "");
-    const notificationId = `event_msg_${eventId}_${userId}`;
-    const notificationRef = doc(db, "notifications", notificationId);
+    console.log("🧹 Attempting to clear notifications...");
+    console.log("  - conversationId:", conversationId);
+    console.log("  - userId:", userId);
 
+    // ✅ CRÍTICO: Limpiar el prefijo "event_" del conversationId
+    const cleanEventId = conversationId.replace("event_", "");
+    const notificationId = `event_msg_${cleanEventId}_${userId}`;
+
+    console.log("  - Clean eventId:", cleanEventId);
+    console.log("  - Constructed notificationId:", notificationId);
+
+    const notificationRef = doc(db, "notifications", notificationId);
     const notifDoc = await getDoc(notificationRef);
+
+    console.log("  - Document exists:", notifDoc.exists());
+
     if (notifDoc.exists()) {
+      const currentData = notifDoc.data();
+      console.log("  - Current data:", {
+        read: currentData.read,
+        unreadCount: currentData.unreadCount,
+        eventTitle: currentData.eventTitle,
+      });
+
       await updateDoc(notificationRef, {
         read: true,
         unreadCount: 0,
       });
+
       console.log("✅ Cleared event message notifications");
+    } else {
+      console.log("⚠️ Notification document not found");
+      console.log("  Expected ID:", notificationId);
     }
   } catch (error) {
     console.error("❌ Error clearing notifications:", error);
+    console.error("  - Error details:", error.message);
   }
 };
 
