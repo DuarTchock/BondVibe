@@ -12,16 +12,27 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
+import {
+  filterUpcomingEvents,
+  filterPastEvents,
+  isEventPast,
+} from "../utils/eventFilters";
 
 export default function MyEventsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const [events, setEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]);
+  const [displayedEvents, setDisplayedEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("joined");
+  const [activeTab, setActiveTab] = useState("joined"); // joined | hosting
+  const [timeFilter, setTimeFilter] = useState("upcoming"); // upcoming | past
 
   useEffect(() => {
     loadMyEvents();
   }, [activeTab]);
+
+  useEffect(() => {
+    applyTimeFilter();
+  }, [timeFilter, allEvents]);
 
   const loadMyEvents = async () => {
     setLoading(true);
@@ -29,37 +40,48 @@ export default function MyEventsScreen({ navigation }) {
       let userEvents = [];
 
       if (activeTab === "hosting") {
-        // Eventos que creaste
         const hostingQuery = query(
           collection(db, "events"),
-          where("hostId", "==", auth.currentUser.uid)
+          where("creatorId", "==", auth.currentUser.uid)
         );
         const snapshot = await getDocs(hostingQuery);
         userEvents = snapshot.docs
           .map((doc) => ({ id: doc.id, ...doc.data() }))
           .filter((event) => event.status !== "cancelled");
         console.log("📅 Hosting events:", userEvents.length);
-        console.log(
-          "�� Events:",
-          userEvents.map((e) => e.title)
-        );
       } else {
-        // Eventos a los que te uniste
         const allEventsSnapshot = await getDocs(collection(db, "events"));
 
-        // Filtrar eventos donde el usuario está en attendees
         userEvents = allEventsSnapshot.docs
           .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .filter(
-            (event) =>
-              event.participants?.includes(auth.currentUser.uid) &&
-              event.status !== "cancelled"
-          );
+          .filter((event) => {
+            if (event.status === "cancelled") return false;
 
-        console.log("�� Joined events:", userEvents.length);
+            let isAttending = false;
+
+            if (Array.isArray(event.attendees)) {
+              isAttending = event.attendees.some((attendee) => {
+                if (
+                  typeof attendee === "object" &&
+                  attendee !== null &&
+                  attendee.userId
+                ) {
+                  return attendee.userId === auth.currentUser.uid;
+                }
+                if (typeof attendee === "string") {
+                  return attendee === auth.currentUser.uid;
+                }
+                return false;
+              });
+            }
+
+            return isAttending && event.creatorId !== auth.currentUser.uid;
+          });
+
+        console.log("🎉 Joined events:", userEvents.length);
       }
 
-      setEvents(userEvents);
+      setAllEvents(userEvents);
     } catch (error) {
       console.error("Error loading events:", error);
     } finally {
@@ -67,74 +89,103 @@ export default function MyEventsScreen({ navigation }) {
     }
   };
 
+  const applyTimeFilter = () => {
+    if (timeFilter === "upcoming") {
+      const upcoming = filterUpcomingEvents(allEvents);
+      console.log("📅 Upcoming:", upcoming.length);
+      setDisplayedEvents(upcoming);
+    } else {
+      const past = filterPastEvents(allEvents);
+      console.log("📦 Past:", past.length);
+      setDisplayedEvents(past);
+    }
+  };
+
   const styles = createStyles(colors);
 
-  const EventCard = ({ event }) => (
-    <TouchableOpacity
-      style={styles.eventCard}
-      onPress={() => navigation.navigate("EventDetail", { eventId: event.id })}
-      activeOpacity={0.8}
-    >
-      <View
-        style={[
-          styles.eventGlass,
-          {
-            backgroundColor: colors.surfaceGlass,
-            borderColor: colors.border,
-          },
-        ]}
+  const EventCard = ({ event }) => {
+    const isPast = isEventPast(event.date);
+
+    return (
+      <TouchableOpacity
+        style={styles.eventCard}
+        onPress={() =>
+          navigation.navigate("EventDetail", { eventId: event.id })
+        }
+        activeOpacity={0.8}
       >
-        <View style={styles.eventHeader}>
-          <View
-            style={[
-              styles.categoryBadge,
-              {
-                backgroundColor: `${colors.primary}26`,
-                borderColor: `${colors.primary}4D`,
-              },
-            ]}
-          >
-            <Text style={[styles.categoryText, { color: colors.primary }]}>
-              {event.category}
+        <View
+          style={[
+            styles.eventGlass,
+            {
+              backgroundColor: isPast
+                ? `${colors.surfaceGlass}CC`
+                : colors.surfaceGlass,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <View style={styles.eventHeader}>
+            <View
+              style={[
+                styles.categoryBadge,
+                {
+                  backgroundColor: `${colors.primary}26`,
+                  borderColor: `${colors.primary}4D`,
+                },
+              ]}
+            >
+              <Text style={[styles.categoryText, { color: colors.primary }]}>
+                {event.category}
+              </Text>
+            </View>
+            <Text style={[styles.eventDate, { color: colors.textSecondary }]}>
+              {formatISODate(event.date)} •{" "}
+              {formatEventTime(event.date, event.time)}
             </Text>
           </View>
-          <Text style={[styles.eventDate, { color: colors.textSecondary }]}>
-            {formatISODate(event.date)} •{" "}
-            {formatEventTime(event.date, event.time)}
-          </Text>
-        </View>
 
-        <Text
-          style={[styles.eventTitle, { color: colors.text }]}
-          numberOfLines={2}
-        >
-          {event.title}
-        </Text>
-
-        <View style={styles.eventMeta}>
-          <Text style={styles.metaIcon}>📍</Text>
           <Text
-            style={[styles.metaText, { color: colors.textSecondary }]}
-            numberOfLines={1}
+            style={[styles.eventTitle, { color: colors.text }]}
+            numberOfLines={2}
           >
-            {event.location}
+            {event.title}
           </Text>
-        </View>
 
-        <View style={styles.attendeesRow}>
-          <Text style={[styles.attendeesText, { color: colors.textSecondary }]}>
-            {event.participantCount || event.participants?.length || 0}/
-            {event.maxPeople} people
-          </Text>
-          {event.status === "published" && (
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Active</Text>
+          <View style={styles.eventMeta}>
+            <Text style={styles.metaIcon}>📍</Text>
+            <Text
+              style={[styles.metaText, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {event.location}
+            </Text>
+          </View>
+
+          <View style={styles.attendeesRow}>
+            <Text
+              style={[styles.attendeesText, { color: colors.textSecondary }]}
+            >
+              {Array.isArray(event.attendees) ? event.attendees.length : 0}/
+              {event.maxPeople} people
+            </Text>
+            <View style={styles.badgesRow}>
+              {event.status === "published" && !isPast && (
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusText}>Active</Text>
+                </View>
+              )}
+              {isPast && (
+                <View style={styles.endedBadge}>
+                  <Text style={styles.endedBadgeText}>Ended</Text>
+                </View>
+              )}
             </View>
-          )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -151,11 +202,14 @@ export default function MyEventsScreen({ navigation }) {
         <View style={{ width: 28 }} />
       </View>
 
-      {/* Tabs */}
+      {/* Main Tabs (Joined/Hosting) */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={styles.tab}
-          onPress={() => setActiveTab("joined")}
+          onPress={() => {
+            setActiveTab("joined");
+            setTimeFilter("upcoming"); // Reset to upcoming when switching tabs
+          }}
         >
           <View
             style={[
@@ -190,7 +244,10 @@ export default function MyEventsScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.tab}
-          onPress={() => setActiveTab("hosting")}
+          onPress={() => {
+            setActiveTab("hosting");
+            setTimeFilter("upcoming"); // Reset to upcoming when switching tabs
+          }}
         >
           <View
             style={[
@@ -224,48 +281,129 @@ export default function MyEventsScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      {/* ✅ NUEVO: Time Filter Tabs (Upcoming/Past) */}
+      <View style={styles.timeFiltersContainer}>
+        <TouchableOpacity
+          style={styles.timeFilterTab}
+          onPress={() => setTimeFilter("upcoming")}
+        >
+          <View
+            style={[
+              styles.timeFilterGlass,
+              {
+                backgroundColor:
+                  timeFilter === "upcoming"
+                    ? `${colors.primary}1A`
+                    : "transparent",
+                borderBottomWidth: 2,
+                borderBottomColor:
+                  timeFilter === "upcoming" ? colors.primary : "transparent",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.timeFilterText,
+                {
+                  color:
+                    timeFilter === "upcoming"
+                      ? colors.primary
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              Upcoming
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.timeFilterTab}
+          onPress={() => setTimeFilter("past")}
+        >
+          <View
+            style={[
+              styles.timeFilterGlass,
+              {
+                backgroundColor:
+                  timeFilter === "past" ? `${colors.primary}1A` : "transparent",
+                borderBottomWidth: 2,
+                borderBottomColor:
+                  timeFilter === "past" ? colors.primary : "transparent",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.timeFilterText,
+                {
+                  color:
+                    timeFilter === "past"
+                      ? colors.primary
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              Past
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {/* Content */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : events.length === 0 ? (
+      ) : displayedEvents.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>
-            {activeTab === "joined" ? "🎯" : "��"}
+            {timeFilter === "past"
+              ? "📦"
+              : activeTab === "joined"
+              ? "🎯"
+              : "🌟"}
           </Text>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {activeTab === "joined"
-              ? "No events joined yet"
-              : "No events created yet"}
+            {timeFilter === "past"
+              ? "No past events"
+              : activeTab === "joined"
+              ? "No upcoming events joined"
+              : "No upcoming events created"}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            {activeTab === "joined"
+            {timeFilter === "past"
+              ? "Events you've attended will appear here"
+              : activeTab === "joined"
               ? "Explore events and join your first experience"
               : "Create an event to bring people together"}
           </Text>
-          <TouchableOpacity
-            style={styles.emptyButton}
-            onPress={() =>
-              navigation.navigate(
-                activeTab === "joined" ? "SearchEvents" : "CreateEvent"
-              )
-            }
-          >
-            <View
-              style={[
-                styles.emptyButtonGlass,
-                {
-                  backgroundColor: `${colors.primary}33`,
-                  borderColor: `${colors.primary}66`,
-                },
-              ]}
+          {timeFilter === "upcoming" && (
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() =>
+                navigation.navigate(
+                  activeTab === "joined" ? "SearchEvents" : "CreateEvent"
+                )
+              }
             >
-              <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
-                {activeTab === "joined" ? "Explore Events" : "Create Event"}
-              </Text>
-            </View>
-          </TouchableOpacity>
+              <View
+                style={[
+                  styles.emptyButtonGlass,
+                  {
+                    backgroundColor: `${colors.primary}33`,
+                    borderColor: `${colors.primary}66`,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.emptyButtonText, { color: colors.primary }]}
+                >
+                  {activeTab === "joined" ? "Explore Events" : "Create Event"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <ScrollView
@@ -273,7 +411,7 @@ export default function MyEventsScreen({ navigation }) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {events.map((event) => (
+          {displayedEvents.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}
         </ScrollView>
@@ -298,12 +436,25 @@ function createStyles(colors) {
     tabsContainer: {
       flexDirection: "row",
       paddingHorizontal: 24,
-      marginBottom: 20,
+      marginBottom: 16,
       gap: 12,
     },
     tab: { flex: 1, borderRadius: 12, overflow: "hidden" },
     tabGlass: { borderWidth: 1, paddingVertical: 12, alignItems: "center" },
     tabText: { fontSize: 15, fontWeight: "600" },
+    // ✅ NUEVO: Time Filter Styles
+    timeFiltersContainer: {
+      flexDirection: "row",
+      paddingHorizontal: 24,
+      marginBottom: 20,
+      gap: 0,
+    },
+    timeFilterTab: { flex: 1 },
+    timeFilterGlass: {
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    timeFilterText: { fontSize: 14, fontWeight: "600" },
     loadingContainer: {
       flex: 1,
       justifyContent: "center",
@@ -342,6 +493,7 @@ function createStyles(colors) {
       alignItems: "center",
     },
     attendeesText: { fontSize: 13, fontWeight: "600" },
+    badgesRow: { flexDirection: "row", gap: 8 },
     statusBadge: {
       backgroundColor: "rgba(166, 255, 150, 0.15)",
       paddingVertical: 4,
@@ -351,6 +503,15 @@ function createStyles(colors) {
       borderColor: "rgba(166, 255, 150, 0.3)",
     },
     statusText: { fontSize: 11, fontWeight: "600", color: "#A6FF96" },
+    endedBadge: {
+      backgroundColor: "rgba(255, 159, 10, 0.15)",
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: "rgba(255, 159, 10, 0.3)",
+    },
+    endedBadgeText: { fontSize: 11, fontWeight: "600", color: "#FF9F0A" },
     emptyState: {
       flex: 1,
       justifyContent: "center",

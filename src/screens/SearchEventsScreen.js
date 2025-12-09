@@ -15,6 +15,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { generateMockEvents } from "../utils/mockEvents";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
 import { EVENT_CATEGORIES, normalizeCategory } from "../utils/eventCategories";
+import { filterUpcomingEvents, isEventPast } from "../utils/eventFilters";
 
 export default function SearchEventsScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
@@ -26,7 +27,8 @@ export default function SearchEventsScreen({ navigation, route }) {
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const categories = ["All", ...EVENT_CATEGORIES];
+  // Create categories array with "All" as an object to match the structure
+  const categories = [{ id: "all", label: "All" }, ...EVENT_CATEGORIES];
 
   useEffect(() => {
     loadEvents();
@@ -49,9 +51,18 @@ export default function SearchEventsScreen({ navigation, route }) {
       const mockEvents = generateMockEvents();
       const allEvents = [...realEvents, ...mockEvents];
 
-      console.log("📊 Loaded events:", allEvents.length);
-      setEvents(allEvents);
-      setFilteredEvents(allEvents);
+      // ✅ NUEVO: Filtrar solo eventos futuros o de hoy
+      const upcomingEvents = filterUpcomingEvents(allEvents);
+
+      console.log("📊 Total events:", allEvents.length);
+      console.log("📅 Upcoming events:", upcomingEvents.length);
+      console.log(
+        "📦 Past events filtered out:",
+        allEvents.length - upcomingEvents.length
+      );
+
+      setEvents(upcomingEvents);
+      setFilteredEvents(upcomingEvents);
     } catch (error) {
       console.error("Error loading events:", error);
     } finally {
@@ -64,9 +75,10 @@ export default function SearchEventsScreen({ navigation, route }) {
 
     if (selectedCategory !== "All") {
       filtered = filtered.filter((event) => {
-        // Normalize the event's category to standard format
+        // Normalize BOTH the event's category AND the selected category
         const normalizedEventCategory = normalizeCategory(event.category);
-        return normalizedEventCategory === selectedCategory;
+        const normalizedSelectedCategory = normalizeCategory(selectedCategory);
+        return normalizedEventCategory === normalizedSelectedCategory;
       });
     }
 
@@ -85,72 +97,88 @@ export default function SearchEventsScreen({ navigation, route }) {
 
   const styles = createStyles(colors);
 
-  const EventCard = ({ event }) => (
-    <TouchableOpacity
-      style={styles.eventCard}
-      onPress={() => navigation.navigate("EventDetail", { eventId: event.id })}
-      activeOpacity={0.8}
-    >
-      <View
-        style={[
-          styles.eventGlass,
-          {
-            backgroundColor: colors.surfaceGlass,
-            borderColor: colors.border,
-          },
-        ]}
+  const EventCard = ({ event }) => {
+    const isPast = isEventPast(event.date);
+
+    return (
+      <TouchableOpacity
+        style={styles.eventCard}
+        onPress={() =>
+          navigation.navigate("EventDetail", { eventId: event.id })
+        }
+        activeOpacity={0.8}
       >
-        <View style={styles.eventHeader}>
-          <View
-            style={[
-              styles.categoryBadge,
-              {
-                backgroundColor: `${colors.primary}26`,
-                borderColor: `${colors.primary}4D`,
-              },
-            ]}
-          >
-            <Text style={[styles.categoryText, { color: colors.primary }]}>
-              {event.category}
+        <View
+          style={[
+            styles.eventGlass,
+            {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <View style={styles.eventHeader}>
+            <View
+              style={[
+                styles.categoryBadge,
+                {
+                  backgroundColor: `${colors.primary}26`,
+                  borderColor: `${colors.primary}4D`,
+                },
+              ]}
+            >
+              <Text style={[styles.categoryText, { color: colors.primary }]}>
+                {event.category}
+              </Text>
+            </View>
+            <Text style={[styles.eventDate, { color: colors.textSecondary }]}>
+              {formatISODate(event.date)} •{" "}
+              {formatEventTime(event.date, event.time)}
             </Text>
           </View>
-          <Text style={[styles.eventDate, { color: colors.textSecondary }]}>
-            {formatISODate(event.date)} •{" "}
-            {formatEventTime(event.date, event.time)}
-          </Text>
-        </View>
 
-        <Text
-          style={[styles.eventTitle, { color: colors.text }]}
-          numberOfLines={2}
-        >
-          {event.title}
-        </Text>
-
-        <View style={styles.eventMeta}>
-          <Text style={styles.metaIcon}>📍</Text>
           <Text
-            style={[styles.metaText, { color: colors.textSecondary }]}
-            numberOfLines={1}
+            style={[styles.eventTitle, { color: colors.text }]}
+            numberOfLines={2}
           >
-            {event.location}
+            {event.title}
           </Text>
-        </View>
 
-        <View style={styles.attendeesRow}>
-          <Text style={[styles.attendeesText, { color: colors.textSecondary }]}>
-            {event.attendees?.length || 0}/
-            {event.maxAttendees || event.maxPeople || 0} people
-          </Text>
-          {event.price === 0 && (
-            <View style={styles.freeBadge}>
-              <Text style={styles.freeBadgeText}>FREE</Text>
+          <View style={styles.eventMeta}>
+            <Text style={styles.metaIcon}>📍</Text>
+            <Text
+              style={[styles.metaText, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
+              {event.location}
+            </Text>
+          </View>
+
+          <View style={styles.attendeesRow}>
+            <Text
+              style={[styles.attendeesText, { color: colors.textSecondary }]}
+            >
+              {event.attendees?.length || 0}/
+              {event.maxAttendees || event.maxPeople || 0} people
+            </Text>
+            <View style={styles.badgesRow}>
+              {event.price === 0 && (
+                <View style={styles.freeBadge}>
+                  <Text style={styles.freeBadgeText}>FREE</Text>
+                </View>
+              )}
+              {/* ✅ NUEVO: Badge para eventos pasados (por si acaso) */}
+              {isPast && (
+                <View style={styles.endedBadge}>
+                  <Text style={styles.endedBadgeText}>Ended</Text>
+                </View>
+              )}
             </View>
-          )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -204,20 +232,20 @@ export default function SearchEventsScreen({ navigation, route }) {
           >
             {categories.map((category) => (
               <TouchableOpacity
-                key={category}
+                key={category.id}
                 style={styles.categoryChip}
-                onPress={() => setSelectedCategory(category)}
+                onPress={() => setSelectedCategory(category.label)}
               >
                 <View
                   style={[
                     styles.categoryChipGlass,
                     {
                       backgroundColor:
-                        selectedCategory === category
+                        selectedCategory === category.label
                           ? `${colors.primary}33`
                           : colors.surfaceGlass,
                       borderColor:
-                        selectedCategory === category
+                        selectedCategory === category.label
                           ? `${colors.primary}66`
                           : colors.border,
                     },
@@ -228,13 +256,14 @@ export default function SearchEventsScreen({ navigation, route }) {
                       styles.categoryChipText,
                       {
                         color:
-                          selectedCategory === category
+                          selectedCategory === category.label
                             ? colors.primary
                             : colors.text,
                       },
                     ]}
                   >
-                    {category}
+                    {category.emoji ? `${category.emoji} ` : ""}
+                    {category.label}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -247,6 +276,11 @@ export default function SearchEventsScreen({ navigation, route }) {
           <Text style={[styles.resultsTitle, { color: colors.text }]}>
             {filteredEvents.length} Events Found
           </Text>
+          <Text
+            style={[styles.resultsSubtitle, { color: colors.textTertiary }]}
+          >
+            Upcoming events only
+          </Text>
         </View>
 
         {/* Events List */}
@@ -258,7 +292,7 @@ export default function SearchEventsScreen({ navigation, route }) {
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🔍</Text>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              No events found
+              No upcoming events found
             </Text>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               Try adjusting your filters or search terms
@@ -317,7 +351,17 @@ function createStyles(colors) {
     },
     categoryChipText: { fontSize: 14, fontWeight: "600" },
     resultsHeader: { marginBottom: 20 },
-    resultsTitle: { fontSize: 18, fontWeight: "700", letterSpacing: -0.3 },
+    resultsTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      letterSpacing: -0.3,
+      marginBottom: 4,
+    },
+    resultsSubtitle: {
+      fontSize: 12,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
     loadingContainer: { paddingVertical: 60, alignItems: "center" },
     eventCard: { marginBottom: 16, borderRadius: 16, overflow: "hidden" },
     eventGlass: { borderWidth: 1, padding: 16 },
@@ -350,6 +394,7 @@ function createStyles(colors) {
       alignItems: "center",
     },
     attendeesText: { fontSize: 13, fontWeight: "600" },
+    badgesRow: { flexDirection: "row", gap: 8 },
     freeBadge: {
       backgroundColor: "rgba(166, 255, 150, 0.15)",
       paddingVertical: 4,
@@ -359,6 +404,15 @@ function createStyles(colors) {
       borderColor: "rgba(166, 255, 150, 0.3)",
     },
     freeBadgeText: { fontSize: 11, fontWeight: "600", color: "#A6FF96" },
+    endedBadge: {
+      backgroundColor: "rgba(255, 159, 10, 0.15)",
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: "rgba(255, 159, 10, 0.3)",
+    },
+    endedBadgeText: { fontSize: 11, fontWeight: "600", color: "#FF9F0A" },
     emptyState: { paddingVertical: 60, alignItems: "center" },
     emptyEmoji: { fontSize: 64, marginBottom: 20 },
     emptyTitle: {
