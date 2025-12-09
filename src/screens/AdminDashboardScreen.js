@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -18,69 +19,68 @@ import {
   updateDoc,
   getDoc,
 } from "firebase/firestore";
-import { db } from "../services/firebase";
+import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { createNotification } from "../utils/notificationService";
 import AdminMessageModal from "../components/AdminMessageModal";
+import AdminConfirmModal from "../components/AdminConfirmModal";
 import { normalizeCategory } from "../utils/eventCategories";
+import {
+  getAllUsers,
+  getUserStats,
+  removeAdminRole,
+  removeHostRole,
+  suspendUser,
+  unsuspendUser,
+  canPerformAdminAction,
+} from "../utils/adminService";
 
 export default function AdminDashboardScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const [activeTab, setActiveTab] = useState("requests"); // requests | users
+
+  // Host Requests state
   const [pendingRequests, setPendingRequests] = useState([]);
-  const [stats, setStats] = useState({ pending: 0, events: 0, users: 0 });
-  const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(null);
+  const [hostRequestsProcessing, setHostRequestsProcessing] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [currentRequest, setCurrentRequest] = useState(null);
   const [modalType, setModalType] = useState("approve");
+
+  // User Management state
+  const [users, setUsers] = useState([]);
+  const [roleFilter, setRoleFilter] = useState("all"); // all | admin | host | user
+  const [searchQuery, setSearchQuery] = useState("");
+  const [stats, setStats] = useState({
+    pending: 0,
+    events: 0,
+    users: 0,
+    admins: 0,
+    hosts: 0,
+    regular: 0,
+    suspended: 0,
+  });
+
+  // Confirmation Modal state
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmUser, setConfirmUser] = useState(null);
+
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // Función para normalizar categorías
-  const normalizeAllCategories = async () => {
-    try {
-      console.log("🔄 Starting category normalization...");
-      setLoading(true);
-
-      const eventsSnapshot = await getDocs(collection(db, "events"));
-      let updatedCount = 0;
-
-      for (const eventDoc of eventsSnapshot.docs) {
-        const eventData = eventDoc.data();
-        const currentCategory = eventData.category;
-
-        if (currentCategory) {
-          const normalizedCategory = normalizeCategory(currentCategory);
-
-          if (normalizedCategory !== currentCategory) {
-            console.log(
-              `Updating "${eventData.title}": "${currentCategory}" → "${normalizedCategory}"`
-            );
-
-            await updateDoc(doc(db, "events", eventDoc.id), {
-              category: normalizedCategory,
-            });
-
-            updatedCount++;
-          }
-        }
-      }
-
-      console.log(`✅ Updated ${updatedCount} events`);
-      Alert.alert("Success", `✅ Normalized ${updatedCount} event categories!`);
-      await loadData();
-    } catch (error) {
-      console.error("Error normalizing categories:", error);
-      Alert.alert("Error", error.message);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (activeTab === "users") {
+      loadUsers(roleFilter);
     }
-  };
+  }, [activeTab, roleFilter]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
+      // Load host requests
       const requestsQuery = query(
         collection(db, "hostRequests"),
         where("status", "==", "pending")
@@ -99,13 +99,14 @@ export default function AdminDashboardScreen({ navigation }) {
       );
       setPendingRequests(requests);
 
+      // Load stats
       const eventsSnapshot = await getDocs(collection(db, "events"));
-      const usersSnapshot = await getDocs(collection(db, "users"));
+      const userStats = await getUserStats();
 
       setStats({
         pending: requests.length,
         events: eventsSnapshot.size,
-        users: usersSnapshot.size,
+        ...userStats,
       });
     } catch (error) {
       console.error("Error loading admin data:", error);
@@ -113,6 +114,22 @@ export default function AdminDashboardScreen({ navigation }) {
       setLoading(false);
     }
   };
+
+  const loadUsers = async (filter) => {
+    setLoading(true);
+    try {
+      const allUsers = await getAllUsers(filter);
+      setUsers(allUsers);
+    } catch (error) {
+      console.error("Error loading users:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
+  // HOST REQUESTS HANDLERS
+  // ==========================================
 
   const handleApproveClick = (request) => {
     setCurrentRequest(request);
@@ -129,7 +146,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const handleApproveSubmit = async (message) => {
     if (!currentRequest) return;
 
-    setProcessing(currentRequest.id);
+    setHostRequestsProcessing(currentRequest.id);
     try {
       await updateDoc(doc(db, "hostRequests", currentRequest.id), {
         status: "approved",
@@ -155,7 +172,7 @@ export default function AdminDashboardScreen({ navigation }) {
       console.error("Error approving request:", error);
       Alert.alert("Error", "Could not approve request. Please try again.");
     } finally {
-      setProcessing(null);
+      setHostRequestsProcessing(null);
       setCurrentRequest(null);
     }
   };
@@ -163,7 +180,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const handleRejectSubmit = async (message) => {
     if (!currentRequest) return;
 
-    setProcessing(currentRequest.id);
+    setHostRequestsProcessing(currentRequest.id);
     try {
       await updateDoc(doc(db, "hostRequests", currentRequest.id), {
         status: "rejected",
@@ -188,14 +205,317 @@ export default function AdminDashboardScreen({ navigation }) {
       console.error("Error rejecting request:", error);
       Alert.alert("Error", "Could not reject request. Please try again.");
     } finally {
-      setProcessing(null);
+      setHostRequestsProcessing(null);
       setCurrentRequest(null);
     }
   };
 
+  // ==========================================
+  // USER MANAGEMENT HANDLERS
+  // ==========================================
+
+  const handleRemoveHostRole = (user) => {
+    setConfirmUser(user);
+    setConfirmAction("remove_host");
+    setConfirmModalVisible(true);
+  };
+
+  const handleRemoveAdminRole = (user) => {
+    setConfirmUser(user);
+    setConfirmAction("remove_admin");
+    setConfirmModalVisible(true);
+  };
+
+  const handleSuspendUser = (user) => {
+    setConfirmUser(user);
+    setConfirmAction("suspend");
+    setConfirmModalVisible(true);
+  };
+
+  const handleUnsuspendUser = (user) => {
+    setConfirmUser(user);
+    setConfirmAction("unsuspend");
+    setConfirmModalVisible(true);
+  };
+
+  const handleConfirmAction = async (reason) => {
+    if (!confirmUser) return;
+
+    // Check permissions
+    const permission = await canPerformAdminAction(
+      auth.currentUser.uid,
+      confirmUser.id
+    );
+
+    if (!permission.allowed) {
+      Alert.alert("Error", permission.reason);
+      setConfirmModalVisible(false);
+      return;
+    }
+
+    setLoading(true);
+    setConfirmModalVisible(false);
+
+    try {
+      let result;
+
+      switch (confirmAction) {
+        case "remove_host":
+          result = await removeHostRole(confirmUser.id, reason);
+          if (result.success) {
+            Alert.alert(
+              "Success",
+              `Removed host role from ${confirmUser.fullName}. ${result.eventsCancelled} event(s) cancelled.`
+            );
+          }
+          break;
+
+        case "remove_admin":
+          result = await removeAdminRole(confirmUser.id);
+          if (result.success) {
+            Alert.alert(
+              "Success",
+              `Removed admin role from ${confirmUser.fullName}`
+            );
+          }
+          break;
+
+        case "suspend":
+          result = await suspendUser(
+            confirmUser.id,
+            reason,
+            auth.currentUser.uid
+          );
+          if (result.success) {
+            Alert.alert(
+              "Success",
+              `Suspended ${confirmUser.fullName}. ${result.eventsCancelled} event(s) cancelled.`
+            );
+          }
+          break;
+
+        case "unsuspend":
+          result = await unsuspendUser(confirmUser.id);
+          if (result.success) {
+            Alert.alert("Success", `Unsuspended ${confirmUser.fullName}`);
+          }
+          break;
+      }
+
+      if (!result.success) {
+        Alert.alert("Error", result.error || "Action failed");
+      }
+
+      await loadData();
+      await loadUsers(roleFilter);
+    } catch (error) {
+      console.error("Error performing admin action:", error);
+      Alert.alert("Error", "Could not complete action. Please try again.");
+    } finally {
+      setLoading(false);
+      setConfirmUser(null);
+      setConfirmAction(null);
+    }
+  };
+
+  // ==========================================
+  // FILTERS
+  // ==========================================
+
+  const filteredUsers = users.filter((user) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      user.fullName?.toLowerCase().includes(query) ||
+      user.email?.toLowerCase().includes(query)
+    );
+  });
+
+  // ==========================================
+  // RENDER COMPONENTS
+  // ==========================================
+
   const styles = createStyles(colors);
 
-  if (loading) {
+  const UserCard = ({ user }) => (
+    <View style={styles.userCard}>
+      <View
+        style={[
+          styles.userGlass,
+          {
+            backgroundColor: user.suspended
+              ? "rgba(255, 69, 58, 0.1)"
+              : colors.surfaceGlass,
+            borderColor: user.suspended
+              ? "rgba(255, 69, 58, 0.3)"
+              : colors.border,
+          },
+        ]}
+      >
+        {/* User Header */}
+        <View style={styles.userHeader}>
+          <View
+            style={[
+              styles.userAvatar,
+              {
+                backgroundColor: `${colors.primary}26`,
+                borderColor: `${colors.primary}4D`,
+              },
+            ]}
+          >
+            <Text style={styles.avatarText}>{user.avatar || "👤"}</Text>
+          </View>
+          <View style={styles.userInfo}>
+            <Text style={[styles.userName, { color: colors.text }]}>
+              {user.fullName || "Unknown"}
+            </Text>
+            <Text style={[styles.userEmail, { color: colors.textTertiary }]}>
+              {user.email}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.roleBadge,
+              {
+                backgroundColor: getRoleBadgeColor(user.role),
+                borderColor: getRoleBadgeColor(user.role, true),
+              },
+            ]}
+          >
+            <Text
+              style={[styles.roleText, { color: getRoleTextColor(user.role) }]}
+            >
+              {user.role?.toUpperCase() || "USER"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Suspended Badge */}
+        {user.suspended && (
+          <View style={styles.suspendedBanner}>
+            <Text style={styles.suspendedText}>
+              🚫 SUSPENDED{" "}
+              {user.suspensionReason ? `• ${user.suspensionReason}` : ""}
+            </Text>
+          </View>
+        )}
+
+        {/* Actions */}
+        <View style={styles.userActions}>
+          {user.suspended ? (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleUnsuspendUser(user)}
+            >
+              <View
+                style={[
+                  styles.actionGlass,
+                  {
+                    backgroundColor: "rgba(52, 199, 89, 0.1)",
+                    borderColor: "rgba(52, 199, 89, 0.3)",
+                  },
+                ]}
+              >
+                <Text style={[styles.actionText, { color: "#34C759" }]}>
+                  Unsuspend
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <>
+              {user.role === "host" && (
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleRemoveHostRole(user)}
+                >
+                  <View
+                    style={[
+                      styles.actionGlass,
+                      {
+                        backgroundColor: "rgba(255, 159, 10, 0.1)",
+                        borderColor: "rgba(255, 159, 10, 0.3)",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.actionText, { color: "#FF9F0A" }]}>
+                      Remove Host
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {user.role === "admin" && user.id !== auth.currentUser.uid && (
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleRemoveAdminRole(user)}
+                >
+                  <View
+                    style={[
+                      styles.actionGlass,
+                      {
+                        backgroundColor: "rgba(255, 159, 10, 0.1)",
+                        borderColor: "rgba(255, 159, 10, 0.3)",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.actionText, { color: "#FF9F0A" }]}>
+                      Remove Admin
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {user.id !== auth.currentUser.uid && (
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleSuspendUser(user)}
+                >
+                  <View
+                    style={[
+                      styles.actionGlass,
+                      {
+                        backgroundColor: "rgba(255, 69, 58, 0.1)",
+                        borderColor: "rgba(255, 69, 58, 0.3)",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.actionText, { color: "#FF453A" }]}>
+                      Suspend
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+
+  const getRoleBadgeColor = (role, isBorder = false) => {
+    const alpha = isBorder ? "4D" : "26";
+    switch (role) {
+      case "admin":
+        return `#FF453A${alpha}`;
+      case "host":
+        return `#FF9F0A${alpha}`;
+      default:
+        return `#007AFF${alpha}`;
+    }
+  };
+
+  const getRoleTextColor = (role) => {
+    switch (role) {
+      case "admin":
+        return "#FF453A";
+      case "host":
+        return "#FF9F0A";
+      default:
+        return "#007AFF";
+    }
+  };
+
+  if (loading && activeTab === "requests") {
     return (
       <View
         style={[
@@ -212,6 +532,7 @@ export default function AdminDashboardScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
@@ -222,19 +543,88 @@ export default function AdminDashboardScreen({ navigation }) {
         <View style={{ width: 28 }} />
       </View>
 
-      {/* Botón temporal para normalizar categorías */}
-      <TouchableOpacity
-        style={[styles.normalizeButton, { backgroundColor: colors.accent }]}
-        onPress={normalizeAllCategories}
-      >
-        <Text style={styles.normalizeText}>🔧 Normalize Categories</Text>
-      </TouchableOpacity>
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={styles.tab}
+          onPress={() => setActiveTab("requests")}
+        >
+          <View
+            style={[
+              styles.tabGlass,
+              {
+                backgroundColor:
+                  activeTab === "requests"
+                    ? `${colors.primary}33`
+                    : colors.surfaceGlass,
+                borderColor:
+                  activeTab === "requests"
+                    ? `${colors.primary}66`
+                    : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color:
+                    activeTab === "requests"
+                      ? colors.primary
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              Host Requests
+            </Text>
+            {stats.pending > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{stats.pending}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tab}
+          onPress={() => setActiveTab("users")}
+        >
+          <View
+            style={[
+              styles.tabGlass,
+              {
+                backgroundColor:
+                  activeTab === "users"
+                    ? `${colors.primary}33`
+                    : colors.surfaceGlass,
+                borderColor:
+                  activeTab === "users" ? `${colors.primary}66` : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color:
+                    activeTab === "users"
+                      ? colors.primary
+                      : colors.textSecondary,
+                },
+              ]}
+            >
+              Users
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Stats Row */}
         <View style={styles.statsRow}>
           <View
             style={[
@@ -245,12 +635,14 @@ export default function AdminDashboardScreen({ navigation }) {
               },
             ]}
           >
-            <Text style={styles.statIcon}>⏳</Text>
+            <Text style={styles.statIcon}>
+              {activeTab === "requests" ? "⏳" : "👥"}
+            </Text>
             <Text style={[styles.statValue, { color: colors.text }]}>
-              {stats.pending}
+              {activeTab === "requests" ? stats.pending : stats.users}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Pending
+              {activeTab === "requests" ? "Pending" : "Total Users"}
             </Text>
           </View>
 
@@ -263,12 +655,14 @@ export default function AdminDashboardScreen({ navigation }) {
               },
             ]}
           >
-            <Text style={styles.statIcon}>🎉</Text>
+            <Text style={styles.statIcon}>
+              {activeTab === "requests" ? "🎉" : "👑"}
+            </Text>
             <Text style={[styles.statValue, { color: colors.text }]}>
-              {stats.events}
+              {activeTab === "requests" ? stats.events : stats.admins}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Events
+              {activeTab === "requests" ? "Events" : "Admins"}
             </Text>
           </View>
 
@@ -281,173 +675,272 @@ export default function AdminDashboardScreen({ navigation }) {
               },
             ]}
           >
-            <Text style={styles.statIcon}>👥</Text>
+            <Text style={styles.statIcon}>
+              {activeTab === "requests" ? "👥" : "🎪"}
+            </Text>
             <Text style={[styles.statValue, { color: colors.text }]}>
-              {stats.users}
+              {activeTab === "requests" ? stats.users : stats.hosts}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Users
+              {activeTab === "requests" ? "Users" : "Hosts"}
             </Text>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Pending Host Requests
-          </Text>
+        {/* HOST REQUESTS TAB */}
+        {activeTab === "requests" && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Pending Host Requests
+            </Text>
 
-          {pendingRequests.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>✅</Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No pending requests
-              </Text>
-            </View>
-          ) : (
-            pendingRequests.map((request) => (
-              <View key={request.id} style={styles.requestCard}>
-                <View
-                  style={[
-                    styles.requestGlass,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                    },
-                  ]}
+            {pendingRequests.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>✅</Text>
+                <Text
+                  style={[styles.emptyText, { color: colors.textSecondary }]}
                 >
-                  <View style={styles.requestHeader}>
-                    <View
+                  No pending requests
+                </Text>
+              </View>
+            ) : (
+              pendingRequests.map((request) => (
+                <View key={request.id} style={styles.requestCard}>
+                  <View
+                    style={[
+                      styles.requestGlass,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.requestHeader}>
+                      <View
+                        style={[
+                          styles.userAvatar,
+                          {
+                            backgroundColor: `${colors.primary}26`,
+                            borderColor: `${colors.primary}4D`,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.avatarText}>👤</Text>
+                      </View>
+                      <View style={styles.requestInfo}>
+                        <Text
+                          style={[styles.requestName, { color: colors.text }]}
+                        >
+                          {request.userName}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.requestDate,
+                            { color: colors.textTertiary },
+                          ]}
+                        >
+                          {new Date(request.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.requestDetails}>
+                      <View style={styles.detailRow}>
+                        <Text
+                          style={[
+                            styles.detailLabel,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          WHY HOST?
+                        </Text>
+                        <Text
+                          style={[styles.detailValue, { color: colors.text }]}
+                        >
+                          {request.whyHost}
+                        </Text>
+                      </View>
+
+                      <View style={styles.detailRow}>
+                        <Text
+                          style={[
+                            styles.detailLabel,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          EXPERIENCE
+                        </Text>
+                        <Text
+                          style={[styles.detailValue, { color: colors.text }]}
+                        >
+                          {request.experience}
+                        </Text>
+                      </View>
+
+                      <View style={styles.detailRow}>
+                        <Text
+                          style={[
+                            styles.detailLabel,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          EVENT IDEAS
+                        </Text>
+                        <Text
+                          style={[styles.detailValue, { color: colors.text }]}
+                        >
+                          {request.eventIdeas}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.actionsRow}>
+                      <TouchableOpacity
+                        style={styles.rejectButton}
+                        onPress={() => handleRejectClick(request)}
+                        disabled={hostRequestsProcessing === request.id}
+                      >
+                        <View
+                          style={[
+                            styles.rejectGlass,
+                            {
+                              backgroundColor: "rgba(255, 69, 58, 0.1)",
+                              borderColor: "rgba(255, 69, 58, 0.3)",
+                              opacity:
+                                hostRequestsProcessing === request.id ? 0.5 : 1,
+                            },
+                          ]}
+                        >
+                          <Text style={styles.rejectText}>
+                            {hostRequestsProcessing === request.id
+                              ? "Processing..."
+                              : "Reject"}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.approveButton}
+                        onPress={() => handleApproveClick(request)}
+                        disabled={hostRequestsProcessing === request.id}
+                      >
+                        <View
+                          style={[
+                            styles.approveGlass,
+                            {
+                              backgroundColor: "rgba(52, 199, 89, 0.1)",
+                              borderColor: "rgba(52, 199, 89, 0.3)",
+                              opacity:
+                                hostRequestsProcessing === request.id ? 0.5 : 1,
+                            },
+                          ]}
+                        >
+                          <Text style={styles.approveText}>
+                            {hostRequestsProcessing === request.id
+                              ? "Processing..."
+                              : "✓ Approve"}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* USERS TAB */}
+        {activeTab === "users" && (
+          <View style={styles.section}>
+            {/* Search Bar */}
+            <View
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={styles.searchIcon}>🔍</Text>
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                placeholder="Search users..."
+                placeholderTextColor={colors.textTertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+
+            {/* Role Filters */}
+            <View style={styles.roleFilters}>
+              {["all", "admin", "host", "user"].map((filter) => (
+                <TouchableOpacity
+                  key={filter}
+                  style={styles.filterChip}
+                  onPress={() => setRoleFilter(filter)}
+                >
+                  <View
+                    style={[
+                      styles.filterGlass,
+                      {
+                        backgroundColor:
+                          roleFilter === filter
+                            ? `${colors.primary}33`
+                            : colors.surfaceGlass,
+                        borderColor:
+                          roleFilter === filter
+                            ? `${colors.primary}66`
+                            : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.userAvatar,
+                        styles.filterText,
                         {
-                          backgroundColor: `${colors.primary}26`,
-                          borderColor: `${colors.primary}4D`,
+                          color:
+                            roleFilter === filter
+                              ? colors.primary
+                              : colors.text,
                         },
                       ]}
                     >
-                      <Text style={styles.avatarText}>👤</Text>
-                    </View>
-                    <View style={styles.requestInfo}>
-                      <Text
-                        style={[styles.requestName, { color: colors.text }]}
-                      >
-                        {request.userName}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.requestDate,
-                          { color: colors.textTertiary },
-                        ]}
-                      >
-                        {new Date(request.createdAt).toLocaleDateString()}
-                      </Text>
-                    </View>
+                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    </Text>
                   </View>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-                  <View style={styles.requestDetails}>
-                    <View style={styles.detailRow}>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        WHY HOST?
-                      </Text>
-                      <Text
-                        style={[styles.detailValue, { color: colors.text }]}
-                      >
-                        {request.whyHost}
-                      </Text>
-                    </View>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {filteredUsers.length} User{filteredUsers.length !== 1 ? "s" : ""}
+            </Text>
 
-                    <View style={styles.detailRow}>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        EXPERIENCE
-                      </Text>
-                      <Text
-                        style={[styles.detailValue, { color: colors.text }]}
-                      >
-                        {request.experience}
-                      </Text>
-                    </View>
-
-                    <View style={styles.detailRow}>
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        EVENT IDEAS
-                      </Text>
-                      <Text
-                        style={[styles.detailValue, { color: colors.text }]}
-                      >
-                        {request.eventIdeas}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.actionsRow}>
-                    <TouchableOpacity
-                      style={styles.rejectButton}
-                      onPress={() => handleRejectClick(request)}
-                      disabled={processing === request.id}
-                    >
-                      <View
-                        style={[
-                          styles.rejectGlass,
-                          {
-                            backgroundColor: "rgba(255, 69, 58, 0.1)",
-                            borderColor: "rgba(255, 69, 58, 0.3)",
-                            opacity: processing === request.id ? 0.5 : 1,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.rejectText}>
-                          {processing === request.id
-                            ? "Processing..."
-                            : "Reject"}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.approveButton}
-                      onPress={() => handleApproveClick(request)}
-                      disabled={processing === request.id}
-                    >
-                      <View
-                        style={[
-                          styles.approveGlass,
-                          {
-                            backgroundColor: "rgba(52, 199, 89, 0.1)",
-                            borderColor: "rgba(52, 199, 89, 0.3)",
-                            opacity: processing === request.id ? 0.5 : 1,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.approveText}>
-                          {processing === request.id
-                            ? "Processing..."
-                            : "✓ Approve"}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
               </View>
-            ))
-          )}
-        </View>
+            ) : filteredUsers.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>👥</Text>
+                <Text
+                  style={[styles.emptyText, { color: colors.textSecondary }]}
+                >
+                  No users found
+                </Text>
+              </View>
+            ) : (
+              filteredUsers.map((user) => (
+                <UserCard key={user.id} user={user} />
+              ))
+            )}
+          </View>
+        )}
       </ScrollView>
 
+      {/* Host Request Modal */}
       <AdminMessageModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -457,6 +950,16 @@ export default function AdminDashboardScreen({ navigation }) {
         title={modalType === "approve" ? "Approve Request" : "Reject Request"}
         userName={currentRequest?.userName || ""}
         type={modalType}
+      />
+
+      {/* Confirmation Modal */}
+      <AdminConfirmModal
+        visible={confirmModalVisible}
+        onClose={() => setConfirmModalVisible(false)}
+        onConfirm={handleConfirmAction}
+        actionType={confirmAction}
+        userName={confirmUser?.fullName}
+        userRole={confirmUser?.role}
       />
     </View>
   );
@@ -469,6 +972,7 @@ function createStyles(colors) {
       flex: 1,
       justifyContent: "center",
       alignItems: "center",
+      paddingVertical: 60,
     },
     header: {
       flexDirection: "row",
@@ -480,16 +984,34 @@ function createStyles(colors) {
     },
     backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
-    normalizeButton: {
-      marginHorizontal: 24,
-      marginBottom: 16,
-      borderRadius: 12,
-      padding: 16,
-      alignItems: "center",
+    tabsContainer: {
+      flexDirection: "row",
+      paddingHorizontal: 24,
+      marginBottom: 20,
+      gap: 12,
     },
-    normalizeText: {
+    tab: { flex: 1, borderRadius: 12, overflow: "hidden" },
+    tabGlass: {
+      borderWidth: 1,
+      paddingVertical: 12,
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 8,
+    },
+    tabText: { fontSize: 15, fontWeight: "600" },
+    badge: {
+      backgroundColor: "#FF453A",
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 6,
+    },
+    badgeText: {
       color: "#FFFFFF",
-      fontSize: 16,
+      fontSize: 11,
       fontWeight: "700",
     },
     scrollView: { flex: 1 },
@@ -504,7 +1026,12 @@ function createStyles(colors) {
     },
     statIcon: { fontSize: 32, marginBottom: 8 },
     statValue: { fontSize: 28, fontWeight: "700", marginBottom: 4 },
-    statLabel: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
+    statLabel: {
+      fontSize: 12,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      textAlign: "center",
+    },
     section: { marginBottom: 28 },
     sectionTitle: {
       fontSize: 20,
@@ -512,6 +1039,36 @@ function createStyles(colors) {
       marginBottom: 16,
       letterSpacing: -0.3,
     },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 16,
+    },
+    searchIcon: { fontSize: 20, marginRight: 10 },
+    searchInput: { flex: 1, fontSize: 15 },
+    roleFilters: {
+      flexDirection: "row",
+      gap: 10,
+      marginBottom: 20,
+    },
+    filterChip: {
+      borderRadius: 12,
+      overflow: "hidden",
+    },
+    filterGlass: {
+      borderWidth: 1,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+    },
+    filterText: {
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    // Request Card Styles
     requestCard: { marginBottom: 16, borderRadius: 16, overflow: "hidden" },
     requestGlass: { borderWidth: 1, padding: 16 },
     requestHeader: {
@@ -549,6 +1106,59 @@ function createStyles(colors) {
     approveButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
     approveGlass: { borderWidth: 1, paddingVertical: 12, alignItems: "center" },
     approveText: { fontSize: 15, fontWeight: "600", color: "#34C759" },
+    // User Card Styles
+    userCard: { marginBottom: 16, borderRadius: 16, overflow: "hidden" },
+    userGlass: { borderWidth: 1, padding: 16 },
+    userHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    userInfo: { flex: 1 },
+    userName: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
+    userEmail: { fontSize: 13 },
+    roleBadge: {
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    roleText: {
+      fontSize: 11,
+      fontWeight: "600",
+    },
+    suspendedBanner: {
+      backgroundColor: "rgba(255, 69, 58, 0.15)",
+      padding: 8,
+      borderRadius: 8,
+      marginBottom: 12,
+    },
+    suspendedText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: "#FF453A",
+      textAlign: "center",
+    },
+    userActions: {
+      flexDirection: "row",
+      gap: 8,
+      flexWrap: "wrap",
+    },
+    actionButton: {
+      borderRadius: 10,
+      overflow: "hidden",
+      flex: 1,
+      minWidth: "45%",
+    },
+    actionGlass: {
+      borderWidth: 1,
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    actionText: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
     emptyState: { alignItems: "center", paddingVertical: 40 },
     emptyEmoji: { fontSize: 64, marginBottom: 12 },
     emptyText: { fontSize: 14 },

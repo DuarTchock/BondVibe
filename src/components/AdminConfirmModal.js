@@ -1,0 +1,414 @@
+import React, { useState } from "react";
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
+
+/**
+ * AdminConfirmModal - Confirmation dialog for dangerous admin actions
+ *
+ * Action types:
+ * - 'remove_host' - Remove host role and cancel events
+ * - 'remove_admin' - Remove admin role
+ * - 'suspend' - Suspend user account
+ * - 'unsuspend' - Unsuspend user account
+ */
+export default function AdminConfirmModal({
+  visible,
+  onClose,
+  onConfirm,
+  actionType,
+  userName,
+  userRole,
+}) {
+  const { colors } = useTheme();
+  const [reason, setReason] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+
+  const handleSubmit = () => {
+    if (!confirmed) {
+      alert("Please check the confirmation box");
+      return;
+    }
+
+    if (actionType === "suspend" && !reason.trim()) {
+      alert("Please provide a reason for suspension");
+      return;
+    }
+
+    onConfirm(reason.trim());
+    setReason("");
+    setConfirmed(false);
+  };
+
+  const handleClose = () => {
+    setReason("");
+    setConfirmed(false);
+    onClose();
+  };
+
+  const getActionConfig = () => {
+    switch (actionType) {
+      case "remove_host":
+        return {
+          title: "⚠️ Remove Host Role",
+          description: `Remove host privileges from ${userName}?`,
+          warning: "This will CANCEL all their active events!",
+          confirmText: "I understand this will cancel all their events",
+          buttonText: "Remove Host Role",
+          buttonColor: "#FF453A",
+          requiresReason: true,
+          reasonPlaceholder: "Reason for removing host role (optional)...",
+        };
+      case "remove_admin":
+        return {
+          title: "⚠️ Remove Admin Role",
+          description: `Demote ${userName} to regular user?`,
+          warning: "They will lose all admin privileges.",
+          confirmText: "I understand they will lose admin access",
+          buttonText: "Remove Admin Role",
+          buttonColor: "#FF9F0A",
+          requiresReason: false,
+        };
+      case "suspend":
+        return {
+          title: "🚫 Suspend User",
+          description: `Suspend ${userName}'s account?`,
+          warning: "This will CANCEL all their events and block their access!",
+          confirmText: "I understand this will cancel all their events",
+          buttonText: "Suspend User",
+          buttonColor: "#FF453A",
+          requiresReason: true,
+          reasonPlaceholder: "Reason for suspension (required)...",
+        };
+      case "unsuspend":
+        return {
+          title: "✅ Unsuspend User",
+          description: `Reactivate ${userName}'s account?`,
+          warning: "They will regain access to the platform.",
+          confirmText: "I confirm unsuspending this user",
+          buttonText: "Unsuspend User",
+          buttonColor: "#34C759",
+          requiresReason: false,
+        };
+      default:
+        return {
+          title: "⚠️ Confirm Action",
+          description: "Are you sure?",
+          warning: "This action cannot be undone.",
+          confirmText: "I understand",
+          buttonText: "Confirm",
+          buttonColor: "#FF453A",
+          requiresReason: false,
+        };
+    }
+  };
+
+  const config = getActionConfig();
+  const styles = createStyles(colors);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+        <View style={styles.modal}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            {/* Header */}
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {config.title}
+            </Text>
+
+            {/* User info */}
+            <View style={styles.userInfo}>
+              <Text style={[styles.userName, { color: colors.text }]}>
+                {userName}
+              </Text>
+              {userRole && (
+                <View
+                  style={[
+                    styles.roleBadge,
+                    {
+                      backgroundColor: `${colors.primary}26`,
+                      borderColor: `${colors.primary}4D`,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.roleText, { color: colors.primary }]}>
+                    {userRole}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Description */}
+            <Text style={[styles.description, { color: colors.textSecondary }]}>
+              {config.description}
+            </Text>
+
+            {/* Warning box */}
+            <View
+              style={[
+                styles.warningBox,
+                {
+                  backgroundColor: "rgba(255, 69, 58, 0.1)",
+                  borderColor: "rgba(255, 69, 58, 0.3)",
+                },
+              ]}
+            >
+              <Text style={styles.warningText}>⚠️ {config.warning}</Text>
+            </View>
+
+            {/* Reason input (if required) */}
+            {config.requiresReason && (
+              <TextInput
+                style={[
+                  styles.reasonInput,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder={config.reasonPlaceholder}
+                placeholderTextColor={colors.textTertiary}
+                value={reason}
+                onChangeText={setReason}
+                multiline
+                numberOfLines={3}
+              />
+            )}
+
+            {/* Confirmation checkbox */}
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setConfirmed(!confirmed)}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: confirmed ? colors.primary : "transparent",
+                  },
+                ]}
+              >
+                {confirmed && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={[styles.checkboxText, { color: colors.text }]}>
+                {config.confirmText}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Actions */}
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleClose}
+              >
+                <View
+                  style={[
+                    styles.cancelGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.cancelText, { color: colors.textSecondary }]}
+                  >
+                    Cancel
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.confirmButton, { opacity: confirmed ? 1 : 0.5 }]}
+                onPress={handleSubmit}
+                disabled={!confirmed}
+              >
+                <View
+                  style={[
+                    styles.confirmGlass,
+                    {
+                      backgroundColor: `${config.buttonColor}26`,
+                      borderColor: `${config.buttonColor}4D`,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.confirmText, { color: config.buttonColor }]}
+                  >
+                    {config.buttonText}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function createStyles(colors) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.6)",
+    },
+    modal: {
+      width: "90%",
+      maxWidth: 500,
+    },
+    modalContent: {
+      borderWidth: 1,
+      borderRadius: 24,
+      padding: 24,
+    },
+    modalTitle: {
+      fontSize: 24,
+      fontWeight: "700",
+      marginBottom: 16,
+      letterSpacing: -0.3,
+    },
+    userInfo: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 16,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+    },
+    userName: {
+      fontSize: 18,
+      fontWeight: "600",
+    },
+    roleBadge: {
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    roleText: {
+      fontSize: 12,
+      fontWeight: "600",
+      textTransform: "uppercase",
+    },
+    description: {
+      fontSize: 15,
+      lineHeight: 22,
+      marginBottom: 16,
+    },
+    warningBox: {
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+    },
+    warningText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#FF453A",
+      lineHeight: 20,
+    },
+    reasonInput: {
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 12,
+      fontSize: 14,
+      marginBottom: 16,
+      minHeight: 80,
+      textAlignVertical: "top",
+    },
+    checkboxRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      marginBottom: 20,
+      gap: 12,
+    },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderWidth: 2,
+      borderRadius: 6,
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: 2,
+    },
+    checkmark: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    checkboxText: {
+      flex: 1,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    actionsRow: {
+      flexDirection: "row",
+      gap: 12,
+    },
+    cancelButton: {
+      flex: 1,
+      borderRadius: 12,
+      overflow: "hidden",
+    },
+    cancelGlass: {
+      borderWidth: 1,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    cancelText: {
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    confirmButton: {
+      flex: 1,
+      borderRadius: 12,
+      overflow: "hidden",
+    },
+    confirmGlass: {
+      borderWidth: 1,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
+    confirmText: {
+      fontSize: 15,
+      fontWeight: "600",
+    },
+  });
+}
