@@ -1,0 +1,113 @@
+.
+├── App.js
+├── CONTRIBUTING.md
+├── DESIGN_SYSTEM.md
+├── GITHUB_SETUP.md
+├── LICENSE
+├── README.md
+├── VSCODE_SETUP.md
+├── add_cancel_event.sh
+├── app.json
+├── assets
+│   ├── adaptive-icon.png
+│   ├── favicon.png
+│   ├── icon.png
+│   ├── legal
+│   │   ├── privacy.md
+│   │   └── terms.md
+│   └── splash-icon.png
+├── babel.config.js
+├── diagnose_code.sh
+├── docs
+│   ├── FIRESTORE_STRUCTURE.md
+│   └── sprint-0
+│       ├── LEAN_CANVAS.md
+│       ├── MOSCOW_MVP1.md
+│       ├── PROJECT_CHARTER.md
+│       ├── SPRINT0_COMPLETE.md
+│       └── USER_STORIES_SPRINT1.md
+├── examine_eventdetail.sh
+├── fix_all_three_issues.sh
+├── fix_bondvibe_modal.sh
+├── fix_doc_import.sh
+├── fix_field_mismatch.sh
+├── fix_hosting_and_hostname.sh
+├── fix_precise.sh
+├── jest.config.js
+├── jest.setup.js
+├── package-lock.json
+├── package.json
+├── project_structure.txt
+├── scripts
+├── search_myevents.sh
+└── src
+    ├── __tests__
+    │   └── e2e
+    ├── components
+    │   ├── AdminMessageModal.js
+    │   ├── CancelEventModal.js
+    │   ├── EventCard.js
+    │   ├── EventCreatedModal.js
+    │   ├── LegalDocumentModal.js
+    │   ├── SuccessModal.js
+    │   └── modern
+    ├── constants
+    │   ├── Colors.js
+    │   ├── DesignSystem.js
+    │   └── Sizes.js
+    ├── contexts
+    │   └── ThemeContext.js
+    ├── data
+    │   └── mockEvents.js
+    ├── hooks
+    │   ├── useUnreadMessages.js
+    │   └── useUnreadNotifications.js
+    ├── navigation
+    │   └── AppNavigator.js
+    ├── screens
+    │   ├── AdminDashboardScreen.js
+    │   ├── ChatScreen.js
+    │   ├── ConversationsScreen.js
+    │   ├── CreateEventScreen.js
+    │   ├── CreateEventScreen.js.bak
+    │   ├── EditEventScreen.js
+    │   ├── EmailVerificationScreen.js
+    │   ├── EventChatScreen.js
+    │   ├── EventDetailScreen.js
+    │   ├── EventFeedScreen.js
+    │   ├── HomeScreen.js
+    │   ├── HomeScreen.js.backup
+    │   ├── LegalScreen.js
+    │   ├── LoginScreen.js
+    │   ├── MyEventsScreen.js
+    │   ├── NotificationsScreen.js
+    │   ├── PersonalityQuizScreen.js
+    │   ├── PersonalityResultsScreen.js
+    │   ├── PersonalityTestScreen.js
+    │   ├── ProfileScreen.js
+    │   ├── ProfileSetupScreen.js
+    │   ├── ReportScreen.js
+    │   ├── RequestHostScreen.js
+    │   ├── SafetyCenterScreen.js
+    │   ├── SearchEventsScreen.js
+    │   ├── SignupScreen.js
+    │   ├── WelcomeScreen.js
+    │   ├── __tests__
+    │   └── modern
+    ├── services
+    │   ├── firebase.js
+    │   └── notifications.js
+    └── utils
+        ├── __tests__
+        ├── clearAuth.js
+        ├── dateUtils.js
+        ├── eventCategories.js
+        ├── makeAdmin.js
+        ├── messageService.js
+        ├── mockEvents.js
+        ├── notificationService.js
+        ├── personalityQuiz.js
+        ├── personalityScoring.js
+        └── unreadService.js
+
+22 directories, 89 files

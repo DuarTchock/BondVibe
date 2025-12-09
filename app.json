@@ -1,26 +1,49 @@
 {
   "expo": {
-    "name": "temp-expo",
-    "slug": "temp-expo",
+    "name": "BondVibe",
+    "slug": "bondvibe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow BondVibe to access your location to share it with your group."
+        }
+      ]
+    ],
+    "extra": {
+      "firebaseApiKey": "AIzaSyCLaUcFpX5KcemGsCCMHSfCz49CauUKjGc",
+      "firebaseAuthDomain": "bondvibe-dev.firebaseapp.com",
+      "firebaseProjectId": "bondvibe-dev",
+      "firebaseStorageBucket": "bondvibe-dev.firebasestorage.app",
+      "firebaseMessagingSenderId": "762181340271",
+      "firebaseAppId": "1:762181340271:web:fd45de5ece4e2ea1b1e393"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bondvibe.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "BondVibe needs access to your location to let you share it with your group.",
+        "NSLocationAlwaysUsageDescription": "BondVibe needs access to your location to let you share it with your group."
+      }
     },
     "android": {
+      "edgeToEdgeEnabled": true,
+      "package": "com.bondvibe.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
