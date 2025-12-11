@@ -34,3 +34,5 @@ ios/
 # Backup and debug files
 App_Backup.js
 crash_log.txt
+functions/firebase-debug.log
+firebase-debug.log

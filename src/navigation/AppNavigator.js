@@ -29,6 +29,9 @@ import EventChatScreen from "../screens/EventChatScreen";
 import RequestHostScreen from "../screens/RequestHostScreen";
 import AdminDashboardScreen from "../screens/AdminDashboardScreen";
 
+// Payment Screens
+import CheckoutScreen from "../screens/payment/CheckoutScreen";
+
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
@@ -214,6 +217,8 @@ export default function AppNavigator() {
                 name="AdminDashboard"
                 component={AdminDashboardScreen}
               />
+              {/* Payment Screens */}
+              <Stack.Screen name="Checkout" component={CheckoutScreen} />
             </>
           )}
         </Stack.Navigator>

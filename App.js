@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { StripeProvider } from "@stripe/stripe-react-native";
 import { ThemeProvider } from "./src/contexts/ThemeContext";
+
+// Stripe Publishable Key
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 export default function App() {
   const [AppNavigator, setAppNavigator] = useState(null);
@@ -30,8 +34,10 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <AppNavigator />
-    </ThemeProvider>
+    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+      <ThemeProvider>
+        <AppNavigator />
+      </ThemeProvider>
+    </StripeProvider>
   );
 }
