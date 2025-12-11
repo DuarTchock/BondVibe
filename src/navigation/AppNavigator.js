@@ -3,11 +3,10 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../services/firebase";
 import { ActivityIndicator, View } from "react-native";
+
+// Components
 import SuccessModal from "../components/SuccessModal";
-import PersonalityQuizScreen from "../screens/PersonalityQuizScreen";
-import PersonalityResultsScreen from "../screens/PersonalityResultsScreen";
 
 // Auth Screens
 import LoginScreen from "../screens/LoginScreen";
@@ -23,6 +22,8 @@ import CreateEventScreen from "../screens/CreateEventScreen";
 import EditEventScreen from "../screens/EditEventScreen";
 import MyEventsScreen from "../screens/MyEventsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import PersonalityQuizScreen from "../screens/PersonalityQuizScreen";
+import PersonalityResultsScreen from "../screens/PersonalityResultsScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
 import EventChatScreen from "../screens/EventChatScreen";
 import RequestHostScreen from "../screens/RequestHostScreen";
@@ -35,8 +36,34 @@ export default function AppNavigator() {
   const [loading, setLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState("Login");
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [auth, setAuth] = useState(null);
+  const [db, setDb] = useState(null);
 
+  // Initialize Firebase dynamically (still needed to ensure proper timing)
   useEffect(() => {
+    console.log("🔥 Initializing Firebase...");
+
+    const initFirebase = async () => {
+      try {
+        const firebase = await import("../services/firebase");
+        setAuth(firebase.auth);
+        setDb(firebase.db);
+        console.log("✅ Firebase initialized successfully");
+      } catch (error) {
+        console.error("❌ Firebase initialization failed:", error);
+      }
+    };
+
+    initFirebase();
+  }, []);
+
+  // Set up auth listener once Firebase is ready
+  useEffect(() => {
+    if (!auth || !db) {
+      console.log("⏳ Waiting for Firebase...");
+      return;
+    }
+
     console.log("🔄 Setting up auth listener...");
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("🔐 Auth state changed:", user?.uid || "null");
@@ -45,43 +72,49 @@ export default function AppNavigator() {
         console.log("👤 User logged in:", user.uid);
         console.log("📧 Email verified:", user.emailVerified);
 
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        console.log("📄 User doc exists:", userDoc.exists());
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          console.log("📄 User doc exists:", userDoc.exists());
 
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          console.log("✅ User data:", userData);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log("✅ User data:", userData);
 
-          // 1. Verificar email
-          if (!user.emailVerified) {
-            console.log(
-              "❌ Email not verified - showing modal and signing out"
-            );
-            setShowVerificationModal(true);
+            // 1. Verify email
+            if (!user.emailVerified) {
+              console.log(
+                "❌ Email not verified - showing modal and signing out"
+              );
+              setShowVerificationModal(true);
+              setInitialRoute("Login");
+              setInitialUser(null);
+              await auth.signOut();
+            }
+            // 2. Verify legal terms accepted
+            else if (!userData.legalAccepted) {
+              console.log("⚖️ Legal not accepted - navigating to Legal");
+              setInitialRoute("Legal");
+              setInitialUser(user);
+            }
+            // 3. Verify profile completed
+            else if (!userData.profileCompleted) {
+              console.log("👤 Profile incomplete - navigating to ProfileSetup");
+              setInitialRoute("ProfileSetup");
+              setInitialUser(user);
+            }
+            // 4. All checks passed - go to Home
+            else {
+              console.log("✅ All checks passed - navigating to Home");
+              setInitialRoute("Home");
+              setInitialUser(user);
+            }
+          } else {
+            console.log("❌ User doc does not exist - staying on Login");
             setInitialRoute("Login");
             setInitialUser(null);
-            await auth.signOut();
           }
-          // 2. Verificar términos legales
-          else if (!userData.legalAccepted) {
-            console.log("⚖️ Legal not accepted - navigating to Legal");
-            setInitialRoute("Legal");
-            setInitialUser(user);
-          }
-          // 3. Verificar perfil completado
-          else if (!userData.profileCompleted) {
-            console.log("👤 Profile incomplete - navigating to ProfileSetup");
-            setInitialRoute("ProfileSetup");
-            setInitialUser(user);
-          }
-          // 4. Todo completo - ir a Home
-          else {
-            console.log("✅ All checks passed - navigating to Home");
-            setInitialRoute("Home");
-            setInitialUser(user);
-          }
-        } else {
-          console.log("❌ User doc does not exist - staying on Login");
+        } catch (error) {
+          console.error("❌ Error fetching user doc:", error);
           setInitialRoute("Login");
           setInitialUser(null);
         }
@@ -96,15 +129,15 @@ export default function AppNavigator() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth, db]);
 
   const handleVerificationModalClose = () => {
     console.log("✅ Verification modal closed");
     setShowVerificationModal(false);
   };
 
-  if (loading) {
-    console.log("⏳ Loading initial user state...");
+  if (loading || !auth || !db) {
+    console.log("⏳ Loading...");
     return (
       <View
         style={{
@@ -166,12 +199,10 @@ export default function AppNavigator() {
               <Stack.Screen
                 name="PersonalityQuiz"
                 component={PersonalityQuizScreen}
-                options={{ headerShown: false }}
               />
               <Stack.Screen
                 name="PersonalityResults"
                 component={PersonalityResultsScreen}
-                options={{ headerShown: false }}
               />
               <Stack.Screen
                 name="Notifications"
@@ -188,7 +219,7 @@ export default function AppNavigator() {
         </Stack.Navigator>
       </NavigationContainer>
 
-      {/* Modal de verificación de email */}
+      {/* Email verification modal */}
       <SuccessModal
         visible={showVerificationModal}
         onClose={handleVerificationModalClose}

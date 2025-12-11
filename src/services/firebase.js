@@ -1,50 +1,47 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeApp, getApps } from "firebase/app";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
-// ✅ Configuración desde variables de entorno
+console.log("[Firebase] 🔥 Starting Firebase initialization...");
+
 const firebaseConfig = {
-  apiKey:
-    Constants.expoConfig?.extra?.firebaseApiKey ||
-    process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain:
-    Constants.expoConfig?.extra?.firebaseAuthDomain ||
-    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId:
-    Constants.expoConfig?.extra?.firebaseProjectId ||
-    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket:
-    Constants.expoConfig?.extra?.firebaseStorageBucket ||
-    process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  apiKey: Constants.expoConfig.extra.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: Constants.expoConfig.extra.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: Constants.expoConfig.extra.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: Constants.expoConfig.extra.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId:
-    Constants.expoConfig?.extra?.firebaseMessagingSenderId ||
-    process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId:
-    Constants.expoConfig?.extra?.firebaseAppId ||
-    process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+    Constants.expoConfig.extra.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: Constants.expoConfig.extra.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Validate configuration
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error(
-    "❌ Firebase configuration is missing. Check your environment variables."
-  );
-  throw new Error("Firebase configuration is incomplete");
-}
+console.log(
+  "[Firebase] 📋 Config loaded, projectId:",
+  firebaseConfig.projectId
+);
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize app (singleton pattern)
+const app =
+  getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// ✅ Initialize Auth for React Native (sin especificar persistence)
-// React Native maneja la persistencia automáticamente usando AsyncStorage
-const auth = getAuth(app);
+console.log("[Firebase] ✅ Firebase app initialized");
 
-const db = getFirestore(app);
-const storage = getStorage(app);
+// Initialize Auth with AsyncStorage persistence
+// This properly handles React Native persistence
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
 
-console.log("✅ Firebase initialized successfully for React Native");
-console.log("🔐 Auth persistence: Automatic (AsyncStorage)");
+console.log("[Firebase] 🔐 Auth initialized with AsyncStorage persistence");
 
-export { auth, db, storage };
+// Initialize Firestore
+export const db = getFirestore(app);
+console.log("[Firebase] 📦 Firestore initialized");
+
+// Initialize Storage
+export const storage = getStorage(app);
+console.log("[Firebase] 📁 Storage initialized");
+
+console.log("[Firebase] 🎉 All Firebase services ready!");
