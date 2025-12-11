@@ -31,10 +31,6 @@ export default function NotificationsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ============================================
-  // VERSIÓN CON HISTORIAL (Real-time)
-  // ✅ Muestra TODAS las notificaciones de mensajes (leídas y no leídas)
-  // ============================================
   useEffect(() => {
     if (!auth.currentUser) return;
 
@@ -42,7 +38,6 @@ export default function NotificationsScreen({ navigation }) {
       "🔔 Setting up real-time notifications listener in NotificationsScreen"
     );
 
-    // Query para TODAS las notificaciones agrupadas de mensajes (leídas y no leídas)
     const groupedNotificationsQuery = query(
       collection(db, "notifications"),
       where("userId", "==", auth.currentUser.uid),
@@ -53,19 +48,15 @@ export default function NotificationsScreen({ navigation }) {
       groupedNotificationsQuery,
       async (snapshot) => {
         try {
-          // Cargar notificaciones regulares (otras notificaciones)
           const userNotifications = await getUserNotifications(
             auth.currentUser.uid
           );
 
-          // Procesar notificaciones agrupadas de mensajes
           const messageNotifications = [];
 
           for (const notifDoc of snapshot.docs) {
             const data = notifDoc.data();
 
-            // ✅ CAMBIO: Mostrar TODAS las notificaciones de mensajes, no solo las no leídas
-            // Crear notificación incluso si está leída (para historial)
             messageNotifications.push({
               id: notifDoc.id,
               type: "event_messages",
@@ -74,28 +65,28 @@ export default function NotificationsScreen({ navigation }) {
                   ? `${data.unreadCount} new message${
                       data.unreadCount > 1 ? "s" : ""
                     }`
-                  : "Messages", // Si está leída, solo dice "Messages"
-              message: `${data.lastSender}: ${data.lastMessage}`,
+                  : "Messages",
+              message: `${data.lastSender || "Someone"}: ${
+                data.lastMessage || ""
+              }`,
               time: getTimeAgo(data.updatedAt),
               read: data.read || false,
               icon: "💬",
               createdAt: data.updatedAt,
               unreadCount: data.unreadCount,
               metadata: {
-                eventId: data.eventId.replace("event_", ""),
-                eventTitle: data.eventTitle,
-                conversationId: data.eventId,
+                eventId: data.eventId ? data.eventId.replace("event_", "") : "",
+                eventTitle: String(data.eventTitle || "Event"),
+                conversationId: data.eventId || "",
               },
             });
           }
 
-          // Combinar y DEDUPLICAR por ID antes de ordenar
           const allNotifications = [
             ...userNotifications,
             ...messageNotifications,
           ];
 
-          // Deduplicar: Mantener solo la primera ocurrencia de cada ID
           const uniqueNotifications = Array.from(
             new Map(allNotifications.map((notif) => [notif.id, notif])).values()
           ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -169,9 +160,6 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handleNotificationAction = async (notification) => {
-    // ✅ IMPORTANTE: NO marcar como leída aquí
-    // Solo navegamos al chat, y el chat se encarga de marcar como leída cuando el usuario scrollea
-
     switch (notification.type) {
       case "event_joined":
         if (notification.metadata?.eventId) {
@@ -181,7 +169,6 @@ export default function NotificationsScreen({ navigation }) {
         }
         break;
       case "event_messages":
-        // Navegar al chat del evento
         if (
           notification.metadata?.eventId &&
           notification.metadata?.eventTitle
@@ -196,7 +183,6 @@ export default function NotificationsScreen({ navigation }) {
         navigation.navigate("AdminDashboard");
         break;
       default:
-        // Para otras notificaciones, marcar como leída al hacer clic
         if (!notification.isDemo && !notification.read && notification.id) {
           await markAsRead(notification.id);
         }
@@ -211,89 +197,138 @@ export default function NotificationsScreen({ navigation }) {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
+  // DEBUG - Mover aquí ANTES del return
+  console.log(
+    "🔍 DEBUG - About to render notifications:",
+    notifications.length
+  );
+  notifications.forEach((notif, index) => {
+    console.log(`🔍 Notification ${index}:`, {
+      id: notif.id,
+      title: notif.title,
+      titleType: typeof notif.title,
+      message: notif.message,
+      messageType: typeof notif.message,
+      eventTitle: notif.metadata?.eventTitle,
+      eventTitleType: typeof notif.metadata?.eventTitle,
+    });
+  });
+
   const styles = createStyles(colors);
 
-  const NotificationCard = ({ notification }) => (
-    <TouchableOpacity
-      style={styles.notificationCard}
-      onPress={() => handleNotificationAction(notification)}
-      activeOpacity={0.8}
-    >
-      <View
-        style={[
-          styles.notificationGlass,
-          {
-            backgroundColor: notification.read
-              ? colors.surfaceGlass
-              : `${colors.primary}0D`,
-            borderColor: notification.read
-              ? colors.border
-              : `${colors.primary}4D`,
-          },
-        ]}
-      >
-        <View
-          style={[
-            styles.notificationIcon,
-            {
-              backgroundColor: `${colors.primary}26`,
-            },
-          ]}
+  const NotificationCard = ({ notification }) => {
+    try {
+      console.log("🎨 Rendering card for:", notification.id);
+
+      // Sanitizar TODOS los valores antes de usarlos
+      const safeIcon = String(notification.icon || "📬");
+      const safeTitle = String(notification.title || "");
+      const safeMessage = String(notification.message || "").replace(
+        /\n/g,
+        " "
+      );
+      const safeTime = String(notification.time || "");
+      const safeEventTitle = notification.metadata?.eventTitle
+        ? String(notification.metadata.eventTitle)
+        : null;
+      const safeUnreadCount = notification.unreadCount || 0;
+
+      return (
+        <TouchableOpacity
+          style={styles.notificationCard}
+          onPress={() => handleNotificationAction(notification)}
+          activeOpacity={0.8}
         >
-          <Text style={styles.iconEmoji}>{notification.icon}</Text>
-          {/* Badge para contador de mensajes NO LEÍDOS */}
-          {notification.unreadCount && notification.unreadCount > 0 && (
+          <View
+            style={[
+              styles.notificationGlass,
+              {
+                backgroundColor: notification.read
+                  ? colors.surfaceGlass
+                  : `${colors.primary}0D`,
+                borderColor: notification.read
+                  ? colors.border
+                  : `${colors.primary}4D`,
+              },
+            ]}
+          >
             <View
-              style={[styles.unreadBadge, { backgroundColor: colors.accent }]}
+              style={[
+                styles.notificationIcon,
+                {
+                  backgroundColor: `${colors.primary}26`,
+                },
+              ]}
             >
-              <Text style={styles.unreadBadgeText}>
-                {notification.unreadCount}
+              <Text style={styles.iconEmoji}>{safeIcon}</Text>
+              {safeUnreadCount > 0 && (
+                <View
+                  style={[
+                    styles.unreadBadge,
+                    { backgroundColor: colors.accent },
+                  ]}
+                >
+                  <Text style={styles.unreadBadgeText}>{safeUnreadCount}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.notificationContent}>
+              <View style={styles.notificationHeader}>
+                <Text
+                  style={[styles.notificationTitle, { color: colors.text }]}
+                >
+                  {safeTitle}
+                </Text>
+                {!notification.read && (
+                  <View
+                    style={[
+                      styles.unreadDot,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  />
+                )}
+              </View>
+
+              {notification.type === "event_messages" && safeEventTitle && (
+                <Text
+                  style={[styles.eventTitle, { color: colors.primary }]}
+                  numberOfLines={1}
+                >
+                  {safeEventTitle}
+                </Text>
+              )}
+
+              <Text
+                style={[
+                  styles.notificationMessage,
+                  { color: colors.textSecondary },
+                ]}
+                numberOfLines={2}
+              >
+                {safeMessage}
+              </Text>
+              <Text
+                style={[
+                  styles.notificationTime,
+                  { color: colors.textTertiary },
+                ]}
+              >
+                {safeTime}
               </Text>
             </View>
-          )}
-        </View>
-
-        <View style={styles.notificationContent}>
-          <View style={styles.notificationHeader}>
-            <Text style={[styles.notificationTitle, { color: colors.text }]}>
-              {notification.title}
-            </Text>
-            {!notification.read && (
-              <View
-                style={[styles.unreadDot, { backgroundColor: colors.primary }]}
-              />
-            )}
           </View>
-
-          {/* Título del evento si es notificación de mensajes */}
-          {notification.type === "event_messages" &&
-            notification.metadata?.eventTitle && (
-              <Text
-                style={[styles.eventTitle, { color: colors.primary }]}
-                numberOfLines={1}
-              >
-                {notification.metadata.eventTitle}
-              </Text>
-            )}
-
-          <Text
-            style={[
-              styles.notificationMessage,
-              { color: colors.textSecondary },
-            ]}
-            numberOfLines={2}
-          >
-            {notification.message}
-          </Text>
-          <Text
-            style={[styles.notificationTime, { color: colors.textTertiary }]}
-          >
-            {notification.time}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+        </TouchableOpacity>
+      );
+    } catch (error) {
+      console.error(
+        "❌ Error rendering notification card:",
+        notification.id,
+        error
+      );
+      return null;
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
