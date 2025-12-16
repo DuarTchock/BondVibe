@@ -21,6 +21,7 @@ import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { generateMockEvents } from "../utils/mockEvents";
 import { createNotification } from "../utils/notificationService";
+import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
 
 export default function EventDetailScreen({ route, navigation }) {
@@ -62,7 +63,7 @@ export default function EventDetailScreen({ route, navigation }) {
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         const userData = userDoc.data();
         if (
-          eventData.hostId === auth.currentUser.uid ||
+          eventData.creatorId === auth.currentUser.uid ||
           userData?.role === "admin"
         ) {
           await loadAttendeesData(eventData.attendees || []);
@@ -122,52 +123,74 @@ export default function EventDetailScreen({ route, navigation }) {
       return;
     }
 
-    setJoining(true);
-    try {
-      const eventRef = doc(db, "events", eventId);
-
-      if (isJoined) {
+    // If leaving, handle normally
+    if (isJoined) {
+      setJoining(true);
+      try {
+        const eventRef = doc(db, "events", eventId);
         await updateDoc(eventRef, {
           attendees: arrayRemove(auth.currentUser.uid),
         });
         setIsJoined(false);
         Alert.alert("Left Event", "You have left this event");
-      } else {
-        // Check capacity using the correct field
-        const maxCapacity = event.maxAttendees || event.maxPeople || 0;
-        const currentCount = event.attendees?.length || 0;
+        await loadEvent();
+      } catch (error) {
+        console.error("Error leaving event:", error);
+        Alert.alert("Error", "Could not leave event");
+      } finally {
+        setJoining(false);
+      }
+      return;
+    }
 
-        if (currentCount >= maxCapacity) {
-          Alert.alert("Event Full", "This event has reached maximum capacity");
-          return;
-        }
+    // Check capacity
+    const maxCapacity = event.maxAttendees || event.maxPeople || 0;
+    const currentCount = event.attendees?.length || 0;
 
-        await updateDoc(eventRef, {
-          attendees: arrayUnion(auth.currentUser.uid),
+    if (currentCount >= maxCapacity) {
+      Alert.alert("Event Full", "This event has reached maximum capacity");
+      return;
+    }
+
+    // If event has price, navigate to Checkout
+    if (event.price && event.price > 0) {
+      const amountInCentavos = pesosTocentavos(event.price);
+      navigation.navigate("Checkout", {
+        eventId: event.id,
+        eventTitle: event.title,
+        amount: amountInCentavos,
+      });
+      return;
+    }
+
+    // Free event - join directly
+    setJoining(true);
+    try {
+      const eventRef = doc(db, "events", eventId);
+      await updateDoc(eventRef, {
+        attendees: arrayUnion(auth.currentUser.uid),
+      });
+      setIsJoined(true);
+
+      if (event.creatorId && event.creatorId !== auth.currentUser.uid) {
+        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+        const userName = userDoc.data()?.fullName || "Someone";
+
+        console.log("📬 Creating notification for:", event.creatorId);
+        await createNotification(event.creatorId, {
+          type: "event_joined",
+          title: "New attendee!",
+          message: `${userName} joined your "${event.title}" event`,
+          icon: "👋",
+          metadata: { eventId: event.id, eventTitle: event.title },
         });
-        setIsJoined(true);
-
-        if (event.hostId && event.hostId !== auth.currentUser.uid) {
-          const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-          const userName = userDoc.data()?.fullName || "Someone";
-
-          console.log("📬 Creating notification for:", event.hostId);
-          await createNotification(event.hostId, {
-            type: "event_joined",
-            title: "New attendee!",
-            message: `${userName} joined your "${event.title}" event`,
-            icon: "👋",
-            metadata: { eventId: event.id, eventTitle: event.title },
-          });
-        }
-
-        Alert.alert("Joined!", "You have joined this event");
       }
 
+      Alert.alert("Joined!", "You have joined this event");
       await loadEvent();
     } catch (error) {
-      console.error("Error joining/leaving event:", error);
-      Alert.alert("Error", "Could not update event");
+      console.error("Error joining event:", error);
+      Alert.alert("Error", "Could not join event");
     } finally {
       setJoining(false);
     }
@@ -278,7 +301,7 @@ export default function EventDetailScreen({ route, navigation }) {
     );
   }
 
-  const isCreator = event.hostId === auth.currentUser.uid;
+  const isCreator = event.creatorId === auth.currentUser.uid;
   const isAdmin = currentUser?.role === "admin";
   const canSeeAttendees = isCreator || isAdmin;
 
@@ -288,6 +311,15 @@ export default function EventDetailScreen({ route, navigation }) {
     event.attendees?.length || event.participants?.length || 0;
   const spotsLeft = maxCapacity - currentAttendees;
   const isFull = spotsLeft <= 0;
+
+  // Determine button text based on price
+  const getButtonText = () => {
+    if (joining) return "Loading...";
+    if (isJoined) return "Leave Event";
+    if (isFull) return "Event Full";
+    if (event.price && event.price > 0) return `Pay $${event.price} MXN`;
+    return "Join Event (Free)";
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -664,9 +696,13 @@ export default function EventDetailScreen({ route, navigation }) {
                   {
                     backgroundColor: isJoined
                       ? colors.surfaceGlass
+                      : event.price && event.price > 0
+                      ? colors.primary
                       : `${colors.primary}33`,
                     borderColor: isJoined
                       ? colors.border
+                      : event.price && event.price > 0
+                      ? colors.primary
                       : `${colors.primary}66`,
                   },
                 ]}
@@ -674,16 +710,17 @@ export default function EventDetailScreen({ route, navigation }) {
                 <Text
                   style={[
                     styles.actionButtonText,
-                    { color: isJoined ? colors.text : colors.primary },
+                    {
+                      color:
+                        event.price && event.price > 0 && !isJoined
+                          ? "#FFFFFF"
+                          : isJoined
+                          ? colors.text
+                          : colors.primary,
+                    },
                   ]}
                 >
-                  {joining
-                    ? "Loading..."
-                    : isJoined
-                    ? "Leave Event"
-                    : isFull
-                    ? "Event Full"
-                    : "Join Event"}
+                  {getButtonText()}
                 </Text>
               </View>
             </TouchableOpacity>

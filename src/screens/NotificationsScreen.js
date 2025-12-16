@@ -160,6 +160,11 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handleNotificationAction = async (notification) => {
+    // ✅ Marcar como leída ANTES de navegar (para todos los tipos)
+    if (!notification.isDemo && !notification.read && notification.id) {
+      await markAsRead(notification.id);
+    }
+
     switch (notification.type) {
       case "event_joined":
         if (notification.metadata?.eventId) {
@@ -183,9 +188,6 @@ export default function NotificationsScreen({ navigation }) {
         navigation.navigate("AdminDashboard");
         break;
       default:
-        if (!notification.isDemo && !notification.read && notification.id) {
-          await markAsRead(notification.id);
-        }
         if (notification.action) {
           notification.action();
         }

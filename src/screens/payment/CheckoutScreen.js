@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,133 +6,143 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  ScrollView,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useStripe, CardField } from '@stripe/stripe-react-native';
-import { useTheme } from '../../contexts/ThemeContext';
-import { auth } from '../../services/firebase';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
+import { doc, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
+import { auth, db } from "../../services/firebase";
+import { useTheme } from "../../contexts/ThemeContext";
 import {
   createEventPaymentIntent,
   formatMXN,
-  getPricingInfo,
-} from '../../services/stripeService';
+} from "../../services/stripeService";
+import { createNotification } from "../../utils/notificationService";
 
 export default function CheckoutScreen({ route, navigation }) {
-  const { eventId, eventTitle, amount } = route.params;
   const { colors, isDark } = useTheme();
-  const { confirmPayment } = useStripe();
-  
-  const [loading, setLoading] = useState(false);
+  const { confirmPayment, loading: confirmLoading } = useConfirmPayment();
+
+  const { eventId, eventTitle, amount } = route.params;
+
   const [cardComplete, setCardComplete] = useState(false);
-  const [pricingInfo, setPricingInfo] = useState(null);
-  const [loadingPricing, setLoadingPricing] = useState(true);
-
-  useEffect(() => {
-    loadPricingInfo();
-  }, []);
-
-  const loadPricingInfo = async () => {
-    try {
-      const info = await getPricingInfo(amount);
-      setPricingInfo(info.eventSplit);
-      setLoadingPricing(false);
-    } catch (error) {
-      console.error('Error loading pricing:', error);
-      Alert.alert('Error', 'Could not load pricing information');
-      setLoadingPricing(false);
-    }
-  };
+  const [processing, setProcessing] = useState(false);
 
   const handlePayment = async () => {
     if (!cardComplete) {
-      Alert.alert('Incomplete', 'Please enter complete card details');
+      Alert.alert("Incomplete Card", "Please enter complete card details");
       return;
     }
 
-    setLoading(true);
+    setProcessing(true);
+    console.log("💳 Starting payment process...");
 
     try {
-      // Create payment intent
-      const { clientSecret, paymentIntentId, split } = await createEventPaymentIntent(
-        eventId,
-        auth.currentUser.uid,
-        amount
-      );
+      // 1. Create Payment Intent
+      console.log("🔐 Creating payment intent...");
+      const { clientSecret, paymentIntentId, split } =
+        await createEventPaymentIntent(eventId, auth.currentUser.uid, amount);
 
-      console.log('Payment Intent created:', paymentIntentId);
+      console.log(`Payment Intent created: ${paymentIntentId}`);
 
-      // Confirm payment with Stripe
+      // 2. Confirm Payment with Stripe
+      console.log("💰 Confirming payment with Stripe...");
       const { paymentIntent, error } = await confirmPayment(clientSecret, {
-        paymentMethodType: 'Card',
+        paymentMethodType: "Card",
       });
 
       if (error) {
-        console.error('Payment failed:', error);
-        Alert.alert('Payment Failed', error.message);
-        setLoading(false);
+        console.error("❌ Payment failed:", error);
+        Alert.alert(
+          "Payment Failed",
+          error.message || "There was an error processing your payment"
+        );
+        setProcessing(false);
         return;
       }
 
-      if (paymentIntent.status === 'Succeeded') {
-        console.log('✅ Payment succeeded!');
-        Alert.alert(
-          'Payment Successful! 🎉',
-          `You've successfully joined "${eventTitle}"`,
-          [
-            {
-              text: 'View Event',
-              onPress: () => {
-                navigation.reset({
-                  index: 0,
-                  routes: [
-                    { name: 'Home' },
-                    { name: 'EventDetail', params: { eventId } },
-                  ],
-                });
-              },
-            },
-          ]
-        );
+      console.log("✅ Payment succeeded!");
+
+      // 3. Add user to event attendees
+      console.log("👥 Adding user to event attendees...");
+      const eventRef = doc(db, "events", eventId);
+      await updateDoc(eventRef, {
+        attendees: arrayUnion(auth.currentUser.uid),
+      });
+      console.log("✅ User added to attendees");
+
+      // 4. Get event data to find host and user data for notification
+      console.log("📄 Fetching event and user data...");
+      const eventDoc = await getDoc(eventRef);
+      const eventData = eventDoc.data();
+
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      const userData = userDoc.data();
+      const userName = userData?.fullName || userData?.name || "Someone";
+
+      // 5. Send notification to host
+      if (eventData.creatorId && eventData.creatorId !== auth.currentUser.uid) {
+        console.log("📬 Sending notification to host:", eventData.creatorId);
+        await createNotification(eventData.creatorId, {
+          type: "event_joined",
+          title: "New paid attendee! 💰",
+          message: `${userName} paid ${formatMXN(amount)} for "${eventTitle}"`,
+          icon: "💵",
+          metadata: {
+            eventId: eventId,
+            eventTitle: eventTitle,
+            userId: auth.currentUser.uid,
+            amount: amount,
+            paymentIntentId: paymentIntentId,
+          },
+        });
+        console.log("✅ Notification sent to host");
       }
+
+      // 6. Show success and navigate
+      Alert.alert(
+        "Payment Successful! 🎉",
+        `You've successfully joined "${eventTitle}"`,
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              navigation.navigate("EventDetail", { eventId });
+            },
+          },
+        ]
+      );
     } catch (error) {
-      console.error('Error processing payment:', error);
-      Alert.alert('Error', 'Payment processing failed. Please try again.');
+      console.error("❌ Payment error:", error);
+      Alert.alert(
+        "Payment Error",
+        "There was an error processing your payment. Please try again."
+      );
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
   const styles = createStyles(colors);
 
-  if (loadingPricing) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Checkout
         </Text>
-        <View style={{ width: 28 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.content}>
         {/* Event Info */}
         <View
           style={[
@@ -152,73 +162,74 @@ export default function CheckoutScreen({ route, navigation }) {
         </View>
 
         {/* Pricing Breakdown */}
-        {pricingInfo && (
-          <View
-            style={[
-              styles.breakdownCard,
-              {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Text style={[styles.breakdownTitle, { color: colors.text }]}>
-              Price Breakdown
+        <View
+          style={[
+            styles.breakdownCard,
+            {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.breakdownTitle, { color: colors.text }]}>
+            Pricing Breakdown
+          </Text>
+
+          <View style={styles.breakdownRow}>
+            <Text
+              style={[styles.breakdownLabel, { color: colors.textSecondary }]}
+            >
+              Ticket Price
             </Text>
-
-            <View style={styles.breakdownRow}>
-              <Text style={[styles.breakdownLabel, { color: colors.textSecondary }]}>
-                Ticket Price
-              </Text>
-              <Text style={[styles.breakdownValue, { color: colors.text }]}>
-                ${pricingInfo.eventPrice} MXN
-              </Text>
-            </View>
-
-            <View style={styles.breakdownRow}>
-              <Text style={[styles.breakdownLabel, { color: colors.textSecondary }]}>
-                Platform Fee (5%)
-              </Text>
-              <Text style={[styles.breakdownValue, { color: colors.text }]}>
-                ${pricingInfo.platformFee} MXN
-              </Text>
-            </View>
-
-            <View style={styles.breakdownRow}>
-              <Text style={[styles.breakdownLabel, { color: colors.textSecondary }]}>
-                Processing Fee
-              </Text>
-              <Text style={[styles.breakdownValue, { color: colors.text }]}>
-                ${pricingInfo.stripeFee} MXN
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.breakdownDivider,
-                { backgroundColor: colors.border },
-              ]}
-            />
-
-            <View style={styles.breakdownRow}>
-              <Text style={[styles.totalLabel, { color: colors.text }]}>
-                Total
-              </Text>
-              <Text style={[styles.totalValue, { color: colors.primary }]}>
-                {formatMXN(amount)}
-              </Text>
-            </View>
-
-            <Text style={[styles.hostReceivesText, { color: colors.textTertiary }]}>
-              Host receives: ${pricingInfo.hostReceives} MXN
+            <Text style={[styles.breakdownValue, { color: colors.text }]}>
+              {formatMXN(amount)}
             </Text>
           </View>
-        )}
+
+          <View style={styles.breakdownRow}>
+            <Text
+              style={[styles.breakdownLabel, { color: colors.textSecondary }]}
+            >
+              Platform Fee (5%)
+            </Text>
+            <Text style={[styles.breakdownValue, { color: colors.text }]}>
+              Included
+            </Text>
+          </View>
+
+          <View style={styles.breakdownRow}>
+            <Text
+              style={[styles.breakdownLabel, { color: colors.textSecondary }]}
+            >
+              Processing Fee
+            </Text>
+            <Text style={[styles.breakdownValue, { color: colors.text }]}>
+              Included
+            </Text>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <View style={styles.breakdownRow}>
+            <Text style={[styles.totalLabel, { color: colors.text }]}>
+              Total
+            </Text>
+            <Text style={[styles.totalValue, { color: colors.primary }]}>
+              {formatMXN(amount)}
+            </Text>
+          </View>
+
+          <Text
+            style={[styles.hostReceivesText, { color: colors.textTertiary }]}
+          >
+            Host receives: ~{formatMXN(Math.floor(amount * 0.9))} after fees
+          </Text>
+        </View>
 
         {/* Card Input */}
         <View
           style={[
-            styles.cardContainer,
+            styles.cardFieldContainer,
             {
               backgroundColor: colors.surfaceGlass,
               borderColor: colors.border,
@@ -230,21 +241,26 @@ export default function CheckoutScreen({ route, navigation }) {
           </Text>
           <CardField
             postalCodeEnabled={false}
-            onCardChange={(cardDetails) => {
-              setCardComplete(cardDetails.complete);
+            placeholders={{
+              number: "4242 4242 4242 4242",
             }}
-            style={styles.cardField}
             cardStyle={{
               backgroundColor: colors.surface,
               textColor: colors.text,
               placeholderColor: colors.textTertiary,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
+            }}
+            style={styles.cardField}
+            onCardChange={(cardDetails) => {
+              setCardComplete(cardDetails.complete);
             }}
           />
-          <Text style={[styles.secureText, { color: colors.textTertiary }]}>
-            🔒 Your payment is secure and encrypted
+        </View>
+
+        {/* Security Message */}
+        <View style={styles.securityRow}>
+          <Text style={styles.lockIcon}>🔒</Text>
+          <Text style={[styles.securityText, { color: colors.textSecondary }]}>
+            Your payment is secure and encrypted
           </Text>
         </View>
 
@@ -253,29 +269,26 @@ export default function CheckoutScreen({ route, navigation }) {
           style={[
             styles.payButton,
             {
-              backgroundColor: cardComplete && !loading ? colors.primary : colors.border,
+              backgroundColor: cardComplete ? colors.primary : colors.border,
+              opacity: processing || !cardComplete ? 0.5 : 1,
             },
           ]}
           onPress={handlePayment}
-          disabled={!cardComplete || loading}
-          activeOpacity={0.8}
+          disabled={!cardComplete || processing || confirmLoading}
         >
-          {loading ? (
+          {processing || confirmLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.payButtonText}>
-              Pay {formatMXN(amount)}
-            </Text>
+            <Text style={styles.payButtonText}>Pay {formatMXN(amount)}</Text>
           )}
         </TouchableOpacity>
 
         {/* Terms */}
         <Text style={[styles.termsText, { color: colors.textTertiary }]}>
-          By completing this purchase, you agree to BondVibe's{' '}
-          <Text style={{ color: colors.primary }}>Terms of Service</Text> and{' '}
-          <Text style={{ color: colors.primary }}>Privacy Policy</Text>
+          By completing this purchase you agree to our Terms of Service and
+          Privacy Policy
         </Text>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -286,60 +299,60 @@ function createStyles(colors) {
       flex: 1,
     },
     header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
       paddingTop: 60,
-      paddingBottom: 20,
+      paddingBottom: 16,
     },
     backButton: {
+      width: 40,
+      height: 40,
+      justifyContent: "center",
+    },
+    backIcon: {
       fontSize: 28,
     },
     headerTitle: {
       fontSize: 20,
-      fontWeight: '700',
+      fontWeight: "700",
       letterSpacing: -0.3,
     },
-    scrollView: {
+    content: {
       flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 24,
-      paddingBottom: 40,
+      padding: 20,
     },
     eventCard: {
-      padding: 20,
-      borderRadius: 16,
       borderWidth: 1,
+      borderRadius: 16,
+      padding: 20,
       marginBottom: 20,
     },
     eventTitle: {
       fontSize: 18,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 8,
-      letterSpacing: -0.3,
     },
     eventPrice: {
-      fontSize: 32,
-      fontWeight: '800',
-      letterSpacing: -0.5,
+      fontSize: 28,
+      fontWeight: "800",
     },
     breakdownCard: {
-      padding: 20,
-      borderRadius: 16,
       borderWidth: 1,
+      borderRadius: 16,
+      padding: 20,
       marginBottom: 20,
     },
     breakdownTitle: {
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: "700",
       marginBottom: 16,
-      letterSpacing: -0.2,
     },
     breakdownRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       marginBottom: 12,
     },
     breakdownLabel: {
@@ -347,61 +360,68 @@ function createStyles(colors) {
     },
     breakdownValue: {
       fontSize: 14,
-      fontWeight: '600',
+      fontWeight: "600",
     },
-    breakdownDivider: {
+    divider: {
       height: 1,
       marginVertical: 12,
     },
     totalLabel: {
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: "700",
     },
     totalValue: {
-      fontSize: 16,
-      fontWeight: '800',
+      fontSize: 20,
+      fontWeight: "800",
     },
     hostReceivesText: {
       fontSize: 12,
       marginTop: 8,
-      textAlign: 'right',
+      textAlign: "center",
     },
-    cardContainer: {
-      padding: 20,
-      borderRadius: 16,
+    cardFieldContainer: {
       borderWidth: 1,
-      marginBottom: 20,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
     },
     cardLabel: {
       fontSize: 16,
-      fontWeight: '700',
-      marginBottom: 16,
-      letterSpacing: -0.2,
-    },
-    cardField: {
-      height: 50,
+      fontWeight: "700",
       marginBottom: 12,
     },
-    secureText: {
-      fontSize: 12,
-      textAlign: 'center',
+    cardField: {
+      width: "100%",
+      height: 50,
+    },
+    securityRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 20,
+    },
+    lockIcon: {
+      fontSize: 16,
+      marginRight: 6,
+    },
+    securityText: {
+      fontSize: 13,
     },
     payButton: {
-      height: 56,
       borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
+      paddingVertical: 18,
+      alignItems: "center",
+      justifyContent: "center",
       marginBottom: 16,
     },
     payButtonText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '700',
-      letterSpacing: -0.2,
+      color: "#FFFFFF",
+      fontSize: 18,
+      fontWeight: "700",
     },
     termsText: {
       fontSize: 12,
-      textAlign: 'center',
+      textAlign: "center",
       lineHeight: 18,
     },
   });

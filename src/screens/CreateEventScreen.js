@@ -22,13 +22,12 @@ import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import EventCreatedModal from "../components/EventCreatedModal";
 import { EVENT_CATEGORIES } from "../utils/eventCategories";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 const categories = EVENT_CATEGORIES;
 
 export default function CreateEventScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const dateInputRef = useRef(null);
-  const timeInputRef = useRef(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -39,31 +38,44 @@ export default function CreateEventScreen({ navigation }) {
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(19, 0, 0, 0); // 7 PM
 
-  const [dateValue, setDateValue] = useState(
-    tomorrow.toISOString().split("T")[0]
-  ); // YYYY-MM-DD
-  const [timeValue, setTimeValue] = useState("19:00"); // HH:MM
+  const [eventDate, setEventDate] = useState(tomorrow);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const [location, setLocation] = useState("");
   const [maxPeople, setMaxPeople] = useState("");
-  const [isFree, setIsFree] = useState(true); // New: Free toggle
+  const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdEventTitle, setCreatedEventTitle] = useState("");
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
+  const formatDate = (date) => {
     const options = { month: "short", day: "numeric", year: "numeric" };
     return date.toLocaleDateString("en-US", options);
   };
 
-  const formatTime = (timeString) => {
-    const [hours, minutes] = timeString.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
+  const formatTime = (date) => {
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    const minutesStr = minutes.toString().padStart(2, "0");
+    return `${hour12}:${minutesStr} ${ampm}`;
+  };
+
+  const onDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setEventDate(selectedDate);
+    }
+  };
+
+  const onTimeChange = (event, selectedDate) => {
+    setShowTimePicker(false);
+    if (selectedDate) {
+      setEventDate(selectedDate);
+    }
   };
 
   const handleCreateEvent = async () => {
@@ -94,11 +106,8 @@ export default function CreateEventScreen({ navigation }) {
       return;
     }
 
-    // Combine date and time
-    const eventDateTime = new Date(`${dateValue}T${timeValue}:00`);
-
     // Validate datetime is in the future
-    if (eventDateTime <= new Date()) {
+    if (eventDate <= new Date()) {
       Alert.alert(
         "Invalid Date/Time",
         "Event must be scheduled for a future date and time."
@@ -123,20 +132,19 @@ export default function CreateEventScreen({ navigation }) {
         return;
       }
 
-      // ✅ CORREGIDO: Agregar creatorId y usar attendees en lugar de participants
       const eventData = {
         title: title.trim(),
         description: description.trim(),
         category: selectedCategory,
-        date: eventDateTime.toISOString(),
+        date: eventDate.toISOString(),
         location: location.trim(),
         maxPeople: parseInt(maxPeople),
         price: isFree ? 0 : parseFloat(price),
         currency: "MXN",
         hostName: userData?.name || userData?.displayName || "Anonymous",
-        creatorId: user.uid, // ✅ AGREGADO - Campo correcto para identificar al creator
-        attendees: [], // ✅ CORREGIDO - Cambiado de "participants" a "attendees", vacío al crear
-        participantCount: 0, // ✅ CORREGIDO - 0 porque el creator no es attendee
+        creatorId: user.uid,
+        attendees: [],
+        participantCount: 0,
         status: "active",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -158,9 +166,6 @@ export default function CreateEventScreen({ navigation }) {
   };
 
   const styles = createStyles(colors);
-
-  // Get minimum date (today) in YYYY-MM-DD format
-  const today = new Date().toISOString().split("T")[0];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -279,7 +284,7 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Date and Time - Web Native Inputs with Custom Icons */}
+        {/* Date and Time - Native Pickers */}
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>Date *</Text>
@@ -291,26 +296,12 @@ export default function CreateEventScreen({ navigation }) {
                   borderColor: colors.border,
                 },
               ]}
-              onPress={() => dateInputRef.current?.showPicker()}
+              onPress={() => setShowDatePicker(true)}
             >
               <Text style={[styles.pickerText, { color: colors.text }]}>
-                {formatDate(dateValue)}
+                {formatDate(eventDate)}
               </Text>
               <Text style={styles.pickerIcon}>📅</Text>
-              <input
-                ref={dateInputRef}
-                type="date"
-                value={dateValue}
-                min={today}
-                onChange={(e) => setDateValue(e.target.value)}
-                style={{
-                  position: "absolute",
-                  opacity: 0,
-                  width: 0,
-                  height: 0,
-                  pointerEvents: "none",
-                }}
-              />
             </TouchableOpacity>
           </View>
 
@@ -324,28 +315,35 @@ export default function CreateEventScreen({ navigation }) {
                   borderColor: colors.border,
                 },
               ]}
-              onPress={() => timeInputRef.current?.showPicker()}
+              onPress={() => setShowTimePicker(true)}
             >
               <Text style={[styles.pickerText, { color: colors.text }]}>
-                {formatTime(timeValue)}
+                {formatTime(eventDate)}
               </Text>
               <Text style={styles.pickerIcon}>🕐</Text>
-              <input
-                ref={timeInputRef}
-                type="time"
-                value={timeValue}
-                onChange={(e) => setTimeValue(e.target.value)}
-                style={{
-                  position: "absolute",
-                  opacity: 0,
-                  width: 0,
-                  height: 0,
-                  pointerEvents: "none",
-                }}
-              />
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* DateTimePicker Modals */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={eventDate}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+            minimumDate={new Date()}
+          />
+        )}
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={eventDate}
+            mode="time"
+            display="default"
+            onChange={onTimeChange}
+          />
+        )}
 
         {/* Location */}
         <View style={styles.field}>
@@ -629,8 +627,6 @@ function createStyles(colors) {
       borderRadius: 16,
       paddingHorizontal: 16,
       paddingVertical: 16,
-      position: "relative",
-      cursor: "pointer",
     },
     pickerText: { fontSize: 16, flex: 1 },
     pickerIcon: { fontSize: 20, marginLeft: 8 },

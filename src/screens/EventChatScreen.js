@@ -59,109 +59,130 @@ export default function EventChatScreen({ route, navigation }) {
   // EFECTO: Inicializar chat
   // ============================================
   useEffect(() => {
-    initChat();
-  }, [eventId]);
+    let unsubscribeMessages = null;
+    let unsubscribeTyping = null;
 
-  const initChat = async () => {
-    try {
-      const conversationId = `event_${eventId}`;
+    const initChat = async () => {
+      try {
+        const conversationId = `event_${eventId}`;
 
-      // Asegurar que la conversación existe
-      await ensureEventConversation(conversationId);
+        // Asegurar que la conversación existe
+        await ensureEventConversation(conversationId);
 
-      // Precargar TODOS los participantes del evento
-      const eventDoc = await getDoc(doc(db, "events", eventId));
-      if (eventDoc.exists()) {
-        const eventData = eventDoc.data();
-        const participantIds = new Set();
+        // Precargar TODOS los participantes del evento
+        const eventDoc = await getDoc(doc(db, "events", eventId));
+        if (eventDoc.exists()) {
+          const eventData = eventDoc.data();
+          const participantIds = new Set();
 
-        if (eventData.creatorId) {
-          participantIds.add(eventData.creatorId);
-        }
-
-        if (Array.isArray(eventData.attendees)) {
-          eventData.attendees.forEach((attendee) => {
-            if (typeof attendee === "object" && attendee?.userId) {
-              participantIds.add(attendee.userId);
-            } else if (typeof attendee === "string") {
-              participantIds.add(attendee);
-            }
-          });
-        }
-
-        const usersData = {};
-        for (const userId of participantIds) {
-          try {
-            const userDoc = await getDoc(doc(db, "users", userId));
-            if (userDoc.exists()) {
-              usersData[userId] = userDoc.data();
-            }
-          } catch (err) {
-            console.log("Could not load user:", userId);
-          }
-        }
-        setUsers(usersData);
-        console.log(`👥 Loaded ${participantIds.size} participants`);
-      }
-
-      // Suscribirse a mensajes
-      const unsubscribeMessages = subscribeToMessages(
-        conversationId,
-        async (newMessages) => {
-          setMessages(newMessages);
-
-          // ✅ Marcar como DELIVERED automáticamente
-          if (newMessages.length > 0) {
-            await markMessagesAsDelivered(conversationId, auth.currentUser.uid);
+          if (eventData.creatorId) {
+            participantIds.add(eventData.creatorId);
           }
 
-          // ❌ NO marcar como READ aquí - Solo delivered
+          if (Array.isArray(eventData.attendees)) {
+            eventData.attendees.forEach((attendee) => {
+              if (typeof attendee === "object" && attendee?.userId) {
+                participantIds.add(attendee.userId);
+              } else if (typeof attendee === "string") {
+                participantIds.add(attendee);
+              }
+            });
+          }
 
-          // Cargar info de usuarios que aún no tenemos
-          const userIds = [...new Set(newMessages.map((m) => m.senderId))];
           const usersData = {};
-          for (const userId of userIds) {
-            if (!users[userId]) {
+          for (const userId of participantIds) {
+            try {
               const userDoc = await getDoc(doc(db, "users", userId));
               if (userDoc.exists()) {
                 usersData[userId] = userDoc.data();
               }
+            } catch (err) {
+              console.log("Could not load user:", userId);
             }
           }
-          if (Object.keys(usersData).length > 0) {
-            setUsers((prev) => ({ ...prev, ...usersData }));
+          setUsers(usersData);
+          console.log(`👥 Loaded ${participantIds.size} participants`);
+        }
+
+        // Suscribirse a mensajes
+        unsubscribeMessages = subscribeToMessages(
+          conversationId,
+          async (newMessages) => {
+            setMessages(newMessages);
+
+            // ✅ Marcar como DELIVERED automáticamente
+            if (newMessages.length > 0) {
+              await markMessagesAsDelivered(
+                conversationId,
+                auth.currentUser.uid
+              );
+            }
+
+            // Cargar info de usuarios que aún no tenemos
+            const userIds = [...new Set(newMessages.map((m) => m.senderId))];
+            const usersData = {};
+            for (const userId of userIds) {
+              if (!users[userId]) {
+                const userDoc = await getDoc(doc(db, "users", userId));
+                if (userDoc.exists()) {
+                  usersData[userId] = userDoc.data();
+                }
+              }
+            }
+            if (Object.keys(usersData).length > 0) {
+              setUsers((prev) => ({ ...prev, ...usersData }));
+            }
+
+            setTimeout(
+              () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+              100
+            );
           }
+        );
 
-          setTimeout(
-            () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-            100
-          );
-        }
-      );
+        // Suscribirse a typing indicators
+        unsubscribeTyping = subscribeToTypingStatus(
+          conversationId,
+          (typers) => {
+            const otherTypers = typers.filter(
+              (userId) => userId !== auth.currentUser?.uid
+            );
+            setTypingUsers(otherTypers);
+          }
+        );
 
-      // Suscribirse a typing indicators
-      const unsubscribeTyping = subscribeToTypingStatus(
-        conversationId,
-        (typers) => {
-          const otherTypers = typers.filter(
-            (userId) => userId !== auth.currentUser.uid
-          );
-          setTypingUsers(otherTypers);
-        }
-      );
+        setLoading(false);
+      } catch (error) {
+        console.error("Error initializing chat:", error);
+        setLoading(false);
+      }
+    };
 
-      setLoading(false);
+    initChat();
 
-      return () => {
+    // ✅ CRÍTICO: Cleanup function
+    return () => {
+      console.log("🧹 Cleaning up chat subscriptions");
+
+      if (unsubscribeMessages) {
         unsubscribeMessages();
+      }
+
+      if (unsubscribeTyping) {
         unsubscribeTyping();
-        setTypingStatus(conversationId, auth.currentUser.uid, false);
-      };
-    } catch (error) {
-      console.error("Error initializing chat:", error);
-      setLoading(false);
-    }
-  };
+      }
+
+      // Limpiar typing status
+      if (auth.currentUser) {
+        const conversationId = `event_${eventId}`;
+        setTypingStatus(conversationId, auth.currentUser.uid, false).catch(
+          () => {
+            // Ignorar errores de permisos en cleanup
+          }
+        );
+      }
+    };
+  }, [eventId]);
 
   // ============================================
   // ✅ NUEVO: Marcar como READ solo cuando usuario SCROLLEA
