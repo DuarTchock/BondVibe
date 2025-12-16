@@ -8,9 +8,9 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#667eea"
     },
     "plugins": [
       [
@@ -33,6 +33,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "icon": "./assets/icon.png",
       "bundleIdentifier": "com.bondvibe.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "BondVibe needs access to your location to let you share it with your group.",
@@ -42,6 +43,7 @@
     },
     "android": {
       "edgeToEdgeEnabled": true,
+      "icon": "./assets/icon.png",
       "package": "com.bondvibe.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
