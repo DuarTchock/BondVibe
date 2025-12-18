@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Modal,
   View,
@@ -6,11 +6,44 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-} from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
+} from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
 
-export default function LegalDocumentModal({ visible, onClose, title, content }) {
+export default function LegalDocumentModal({
+  visible,
+  onClose,
+  title,
+  content,
+}) {
   const { colors } = useTheme();
+
+  // Split content into paragraphs for better rendering
+  const renderContent = () => {
+    if (!content) {
+      return (
+        <Text style={[styles.paragraph, { color: "#FF6B6B" }]}>
+          Error: No content available
+        </Text>
+      );
+    }
+
+    // Split by double newlines to get paragraphs
+    const paragraphs = content.split("\n\n").filter((p) => p.trim());
+
+    if (paragraphs.length === 0) {
+      return (
+        <Text style={[styles.paragraph, { color: "#FFA500" }]}>
+          No paragraphs found
+        </Text>
+      );
+    }
+
+    return paragraphs.map((paragraph, index) => (
+      <Text key={index} style={[styles.paragraph, { color: colors.text }]}>
+        {paragraph.trim()}
+      </Text>
+    ));
+  };
 
   return (
     <Modal
@@ -20,33 +53,42 @@ export default function LegalDocumentModal({ visible, onClose, title, content })
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+        <View
+          style={[styles.modalContainer, { backgroundColor: colors.surface }]}
+        >
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
+              <Text style={[styles.closeText, { color: colors.textSecondary }]}>
+                ✕
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Content */}
-          <ScrollView 
-            style={styles.scrollView}
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={true}
-          >
-            <Text style={[styles.content, { color: colors.textSecondary }]}>
-              {content}
-            </Text>
-          </ScrollView>
+          {/* Content - FIX: Altura explícita */}
+          <View style={styles.contentWrapper}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.contentContainer}
+              showsVerticalScrollIndicator={true}
+            >
+              {renderContent()}
+            </ScrollView>
+          </View>
 
           {/* Footer */}
           <View style={[styles.footer, { borderTopColor: colors.border }]}>
             <TouchableOpacity onPress={onClose} style={styles.button}>
-              <View style={[styles.buttonGlass, {
-                backgroundColor: `${colors.primary}33`,
-                borderColor: `${colors.primary}66`
-              }]}>
+              <View
+                style={[
+                  styles.buttonGlass,
+                  {
+                    backgroundColor: `${colors.primary}33`,
+                    borderColor: `${colors.primary}66`,
+                  },
+                ]}
+              >
                 <Text style={[styles.buttonText, { color: colors.primary }]}>
                   Close
                 </Text>
@@ -62,32 +104,32 @@ export default function LegalDocumentModal({ visible, onClose, title, content })
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContainer: {
-    width: '90%',
+    width: "90%",
     maxWidth: 600,
-    maxHeight: '80%',
+    height: "80%", // ← CAMBIO: De maxHeight a height fijo
     borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.3,
     shadowRadius: 30,
     elevation: 20,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 24,
     borderBottomWidth: 1,
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: -0.5,
   },
   closeButton: {
@@ -95,7 +137,10 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 28,
-    fontWeight: '300',
+    fontWeight: "300",
+  },
+  contentWrapper: {
+    flex: 1, // ← NUEVO: Wrapper con flex
   },
   scrollView: {
     flex: 1,
@@ -103,9 +148,10 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 24,
   },
-  content: {
+  paragraph: {
     fontSize: 15,
     lineHeight: 24,
+    marginBottom: 16,
   },
   footer: {
     padding: 24,
@@ -113,16 +159,16 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   buttonGlass: {
     borderWidth: 1,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: -0.2,
   },
 });

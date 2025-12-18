@@ -67,6 +67,12 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const [loading, setLoading] = useState(true);
 
+  // ✅ HELPER: Get user display name (handles both fullName and name fields)
+  const getUserDisplayName = (user) => {
+    if (!user) return "Unknown";
+    return user.fullName || user.name || "Unknown";
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -90,10 +96,12 @@ export default function AdminDashboardScreen({ navigation }) {
         requestsSnapshot.docs.map(async (docSnap) => {
           const requestData = docSnap.data();
           const userDoc = await getDoc(doc(db, "users", requestData.userId));
+          const userData = userDoc.data();
           return {
             id: docSnap.id,
             ...requestData,
-            userName: userDoc.data()?.fullName || "Unknown User",
+            // ✅ FIX: Use fullName OR name
+            userName: userData?.fullName || userData?.name || "Unknown User",
           };
         })
       );
@@ -256,6 +264,9 @@ export default function AdminDashboardScreen({ navigation }) {
     setLoading(true);
     setConfirmModalVisible(false);
 
+    // ✅ FIX: Use getUserDisplayName for alerts
+    const displayName = getUserDisplayName(confirmUser);
+
     try {
       let result;
 
@@ -265,7 +276,7 @@ export default function AdminDashboardScreen({ navigation }) {
           if (result.success) {
             Alert.alert(
               "Success",
-              `Removed host role from ${confirmUser.fullName}. ${result.eventsCancelled} event(s) cancelled.`
+              `Removed host role from ${displayName}. ${result.eventsCancelled} event(s) cancelled.`
             );
           }
           break;
@@ -273,10 +284,7 @@ export default function AdminDashboardScreen({ navigation }) {
         case "remove_admin":
           result = await removeAdminRole(confirmUser.id);
           if (result.success) {
-            Alert.alert(
-              "Success",
-              `Removed admin role from ${confirmUser.fullName}`
-            );
+            Alert.alert("Success", `Removed admin role from ${displayName}`);
           }
           break;
 
@@ -289,7 +297,7 @@ export default function AdminDashboardScreen({ navigation }) {
           if (result.success) {
             Alert.alert(
               "Success",
-              `Suspended ${confirmUser.fullName}. ${result.eventsCancelled} event(s) cancelled.`
+              `Suspended ${displayName}. ${result.eventsCancelled} event(s) cancelled.`
             );
           }
           break;
@@ -297,7 +305,7 @@ export default function AdminDashboardScreen({ navigation }) {
         case "unsuspend":
           result = await unsuspendUser(confirmUser.id);
           if (result.success) {
-            Alert.alert("Success", `Unsuspended ${confirmUser.fullName}`);
+            Alert.alert("Success", `Unsuspended ${displayName}`);
           }
           break;
       }
@@ -322,12 +330,13 @@ export default function AdminDashboardScreen({ navigation }) {
   // FILTERS
   // ==========================================
 
+  // ✅ FIX: Search uses both fullName and name
   const filteredUsers = users.filter((user) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
+    const displayName = getUserDisplayName(user).toLowerCase();
     return (
-      user.fullName?.toLowerCase().includes(query) ||
-      user.email?.toLowerCase().includes(query)
+      displayName.includes(query) || user.email?.toLowerCase().includes(query)
     );
   });
 
@@ -363,11 +372,14 @@ export default function AdminDashboardScreen({ navigation }) {
               },
             ]}
           >
-            <Text style={styles.avatarText}>{user.avatar || "👤"}</Text>
+            <Text style={styles.avatarText}>
+              {user.avatar || user.emoji || "👤"}
+            </Text>
           </View>
           <View style={styles.userInfo}>
+            {/* ✅ FIX: Use getUserDisplayName */}
             <Text style={[styles.userName, { color: colors.text }]}>
-              {user.fullName || "Unknown"}
+              {getUserDisplayName(user)}
             </Text>
             <Text style={[styles.userEmail, { color: colors.textTertiary }]}>
               {user.email}
@@ -639,10 +651,10 @@ export default function AdminDashboardScreen({ navigation }) {
               {activeTab === "requests" ? "⏳" : "👥"}
             </Text>
             <Text style={[styles.statValue, { color: colors.text }]}>
-              {activeTab === "requests" ? stats.pending : stats.users}
+              {activeTab === "requests" ? stats.pending : stats.regular}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              {activeTab === "requests" ? "Pending" : "Total Users"}
+              {activeTab === "requests" ? "Pending" : "Users"}
             </Text>
           </View>
 
@@ -679,7 +691,7 @@ export default function AdminDashboardScreen({ navigation }) {
               {activeTab === "requests" ? "👥" : "🎪"}
             </Text>
             <Text style={[styles.statValue, { color: colors.text }]}>
-              {activeTab === "requests" ? stats.users : stats.hosts}
+              {activeTab === "requests" ? stats.regular : stats.hosts}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
               {activeTab === "requests" ? "Users" : "Hosts"}
@@ -958,7 +970,7 @@ export default function AdminDashboardScreen({ navigation }) {
         onClose={() => setConfirmModalVisible(false)}
         onConfirm={handleConfirmAction}
         actionType={confirmAction}
-        userName={confirmUser?.fullName}
+        userName={confirmUser ? getUserDisplayName(confirmUser) : ""}
         userRole={confirmUser?.role}
       />
     </View>

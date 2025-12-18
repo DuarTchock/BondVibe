@@ -136,6 +136,18 @@ export default function HomeScreen({ navigation }) {
     return "Good evening";
   };
 
+  // ✅ Helper function for display name (fullName → name → "Friend")
+  const getUserDisplayName = () => {
+    if (!user) return "Friend";
+    return user.fullName || user.name || "Friend";
+  };
+
+  // ✅ Helper function for avatar (avatar → emoji → "😊")
+  const getUserAvatar = () => {
+    if (!user) return "😊";
+    return user.avatar || user.emoji || "😊";
+  };
+
   const isAdmin = user?.role === "admin";
   const isHost = user?.role === "host";
   const canCreateEvents = isAdmin || isHost;
@@ -152,7 +164,7 @@ export default function HomeScreen({ navigation }) {
             {getGreeting()}
           </Text>
           <Text style={[styles.name, { color: colors.text }]}>
-            {user?.fullName || "Friend"}
+            {getUserDisplayName()}
           </Text>
         </View>
         <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
@@ -165,7 +177,7 @@ export default function HomeScreen({ navigation }) {
               },
             ]}
           >
-            <Text style={styles.avatarEmoji}>{user?.avatar || "😊"}</Text>
+            <Text style={styles.avatarEmoji}>{getUserAvatar()}</Text>
           </View>
         </TouchableOpacity>
       </View>

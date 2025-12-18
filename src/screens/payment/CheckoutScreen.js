@@ -16,6 +16,7 @@ import {
   createEventPaymentIntent,
   formatMXN,
 } from "../../services/stripeService";
+import { savePaymentRecord } from "../../services/paymentService";
 import { createNotification } from "../../utils/notificationService";
 
 export default function CheckoutScreen({ route, navigation }) {
@@ -62,24 +63,43 @@ export default function CheckoutScreen({ route, navigation }) {
 
       console.log("✅ Payment succeeded!");
 
-      // 3. Add user to event attendees
-      console.log("👥 Adding user to event attendees...");
+      // 3. Get event data FIRST (before saving payment record)
+      console.log("📄 Fetching event data...");
       const eventRef = doc(db, "events", eventId);
+      const eventDoc = await getDoc(eventRef);
+
+      if (!eventDoc.exists()) {
+        throw new Error("Event not found");
+      }
+
+      const eventData = eventDoc.data();
+
+      // 4. Save payment record
+      console.log("💾 Saving payment record...");
+      await savePaymentRecord({
+        eventId: eventId,
+        paymentIntentId: paymentIntent.id,
+        amount: amount,
+        currency: "mxn",
+        eventTitle: eventTitle,
+        hostId: eventData.creatorId,
+      });
+      console.log("✅ Payment record saved");
+
+      // 5. Add user to event attendees
+      console.log("👥 Adding user to event attendees...");
       await updateDoc(eventRef, {
         attendees: arrayUnion(auth.currentUser.uid),
       });
       console.log("✅ User added to attendees");
 
-      // 4. Get event data to find host and user data for notification
-      console.log("📄 Fetching event and user data...");
-      const eventDoc = await getDoc(eventRef);
-      const eventData = eventDoc.data();
-
+      // 6. Get user data for notification
+      console.log("📄 Fetching user data...");
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
       const userData = userDoc.data();
       const userName = userData?.fullName || userData?.name || "Someone";
 
-      // 5. Send notification to host
+      // 7. Send notification to host
       if (eventData.creatorId && eventData.creatorId !== auth.currentUser.uid) {
         console.log("📬 Sending notification to host:", eventData.creatorId);
         await createNotification(eventData.creatorId, {
@@ -98,7 +118,7 @@ export default function CheckoutScreen({ route, navigation }) {
         console.log("✅ Notification sent to host");
       }
 
-      // 6. Show success and navigate
+      // 8. Show success and navigate
       Alert.alert(
         "Payment Successful! 🎉",
         `You've successfully joined "${eventTitle}"`,

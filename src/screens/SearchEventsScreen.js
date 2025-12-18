@@ -12,7 +12,6 @@ import { StatusBar } from "expo-status-bar";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
-import { generateMockEvents } from "../utils/mockEvents";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
 import { EVENT_CATEGORIES, normalizeCategory } from "../utils/eventCategories";
 import { filterUpcomingEvents, isEventPast } from "../utils/eventFilters";
@@ -48,10 +47,10 @@ export default function SearchEventsScreen({ navigation, route }) {
         }))
         .filter((event) => event.status !== "cancelled"); // Filter out cancelled events
 
-      const mockEvents = generateMockEvents();
-      const allEvents = [...realEvents, ...mockEvents];
+      // ✅ Only use real events from Firestore
+      const allEvents = [...realEvents];
 
-      // ✅ NUEVO: Filtrar solo eventos futuros o de hoy
+      // ✅ Filter only upcoming events or from today
       const upcomingEvents = filterUpcomingEvents(allEvents);
 
       console.log("📊 Total events:", allEvents.length);
@@ -167,7 +166,6 @@ export default function SearchEventsScreen({ navigation, route }) {
                   <Text style={styles.freeBadgeText}>FREE</Text>
                 </View>
               )}
-              {/* ✅ NUEVO: Badge para eventos pasados (por si acaso) */}
               {isPast && (
                 <View style={styles.endedBadge}>
                   <Text style={styles.endedBadgeText}>Ended</Text>

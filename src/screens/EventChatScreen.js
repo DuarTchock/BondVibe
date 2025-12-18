@@ -41,8 +41,9 @@ export default function EventChatScreen({ route, navigation }) {
   const [sendingLocation, setSendingLocation] = useState(false);
   const scrollViewRef = useRef();
   const typingTimeoutRef = useRef(null);
-  const hasMarkedAsReadRef = useRef(false); // ✅ Nuevo: Tracker para evitar marcar READ múltiples veces
-  // ✅ NUEVO: Marcar como READ automáticamente después de cargar
+  const hasMarkedAsReadRef = useRef(false);
+
+  // ✅ Marcar como READ automáticamente después de cargar
   useEffect(() => {
     if (messages.length > 0 && !hasMarkedAsReadRef.current && !loading) {
       const timer = setTimeout(() => {
@@ -55,6 +56,7 @@ export default function EventChatScreen({ route, navigation }) {
       return () => clearTimeout(timer);
     }
   }, [messages.length, loading]);
+
   // ============================================
   // EFECTO: Inicializar chat
   // ============================================
@@ -185,9 +187,8 @@ export default function EventChatScreen({ route, navigation }) {
   }, [eventId]);
 
   // ============================================
-  // ✅ NUEVO: Marcar como READ solo cuando usuario SCROLLEA
+  // ✅ Marcar como READ cuando usuario SCROLLEA al final
   // ============================================
-  // ✅ MEJORADO: Solo marcar cuando llega al final del chat
   const handleScroll = (event) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
 
@@ -204,8 +205,7 @@ export default function EventChatScreen({ route, navigation }) {
   };
 
   // ============================================
-  // ✅ NUEVO: También marcar como READ cuando usuario envía mensaje
-  // (significa que está leyendo activamente)
+  // ✅ Enviar mensaje
   // ============================================
   const handleSend = async () => {
     if (!inputText.trim() || sending) return;
@@ -337,6 +337,12 @@ export default function EventChatScreen({ route, navigation }) {
     }
   };
 
+  // ✅ HELPER: Get user display name (handles both fullName and name fields)
+  const getUserDisplayName = (user) => {
+    if (!user) return "User";
+    return user.fullName || user.name || "User";
+  };
+
   const styles = createStyles(colors);
 
   const MessageBubble = ({ message }) => {
@@ -367,12 +373,14 @@ export default function EventChatScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <Text style={styles.senderEmoji}>{user?.avatar || "😊"}</Text>
+                <Text style={styles.senderEmoji}>
+                  {user?.avatar || user?.emoji || "😊"}
+                </Text>
               </View>
               <Text
                 style={[styles.senderName, { color: colors.textSecondary }]}
               >
-                {user?.fullName || "User"}
+                {getUserDisplayName(user)}
               </Text>
             </View>
           )}
@@ -432,10 +440,13 @@ export default function EventChatScreen({ route, navigation }) {
                 },
               ]}
             >
-              <Text style={styles.senderEmoji}>{user?.avatar || "😊"}</Text>
+              <Text style={styles.senderEmoji}>
+                {user?.avatar || user?.emoji || "😊"}
+              </Text>
             </View>
+            {/* ✅ FIX: Use fullName OR name field */}
             <Text style={[styles.senderName, { color: colors.textSecondary }]}>
-              {user?.fullName || "User"}
+              {getUserDisplayName(user)}
             </Text>
           </View>
         )}
@@ -468,11 +479,17 @@ export default function EventChatScreen({ route, navigation }) {
     );
   };
 
+  // ✅ FIX: Typing indicator also uses getUserDisplayName
   const TypingIndicator = () => {
     if (typingUsers.length === 0) return null;
 
     const typingUserNames = typingUsers
-      .map((userId) => users[userId]?.fullName?.split(" ")[0] || "Someone")
+      .map((userId) => {
+        const user = users[userId];
+        const displayName = getUserDisplayName(user);
+        // Get first name only
+        return displayName.split(" ")[0];
+      })
       .slice(0, 2);
 
     let typingText = "";
@@ -547,7 +564,6 @@ export default function EventChatScreen({ route, navigation }) {
         <View style={{ width: 28 }} />
       </View>
 
-      {/* ✅ CAMBIO: Agregar onScroll para marcar como READ */}
       <ScrollView
         ref={scrollViewRef}
         style={styles.messagesContainer}
@@ -603,7 +619,7 @@ export default function EventChatScreen({ route, navigation }) {
             onPress={handleShareLocation}
             disabled={sendingLocation}
           >
-            <Text style={styles.locationIcon}>
+            <Text style={styles.locationButtonIcon}>
               {sendingLocation ? "⏳" : "📍"}
             </Text>
           </TouchableOpacity>
@@ -721,6 +737,7 @@ function createStyles(colors) {
       paddingVertical: 8,
     },
     locationButton: { padding: 4, marginRight: 4 },
+    locationButtonIcon: { fontSize: 20 },
     input: {
       flex: 1,
       fontSize: 15,

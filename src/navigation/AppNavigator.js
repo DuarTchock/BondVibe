@@ -2,8 +2,11 @@ import React, { useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { ActivityIndicator, View } from "react-native";
+
+// Contexts
+import { useAuthContext } from "../contexts/AuthContext";
 
 // Components
 import SuccessModal from "../components/SuccessModal";
@@ -35,14 +38,16 @@ import CheckoutScreen from "../screens/payment/CheckoutScreen";
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
+  const { signupInProgress } = useAuthContext();
   const [initialUser, setInitialUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState("Login");
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showUserNotFoundModal, setShowUserNotFoundModal] = useState(false);
   const [auth, setAuth] = useState(null);
   const [db, setDb] = useState(null);
 
-  // Initialize Firebase dynamically (still needed to ensure proper timing)
+  // Initialize Firebase dynamically
   useEffect(() => {
     console.log("🔥 Initializing Firebase...");
 
@@ -68,75 +73,116 @@ export default function AppNavigator() {
     }
 
     console.log("🔄 Setting up auth listener...");
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+
+    let unsubscribeFirestore = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      // Ignorar auth state changes durante signup
+      if (signupInProgress) {
+        console.log("⏭️ Signup in progress - ignoring auth state change");
+        return;
+      }
+
       console.log("🔐 Auth state changed:", user?.uid || "null");
+
+      // Cleanup previous Firestore listener
+      if (unsubscribeFirestore) {
+        console.log("🧹 Cleaning up previous Firestore listener");
+        unsubscribeFirestore();
+        unsubscribeFirestore = null;
+      }
 
       if (user) {
         console.log("👤 User logged in:", user.uid);
         console.log("📧 Email verified:", user.emailVerified);
 
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          console.log("📄 User doc exists:", userDoc.exists());
+        // Set up real-time Firestore listener for this user
+        console.log("🔄 Setting up Firestore listener for user:", user.uid);
 
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            console.log("✅ User data:", userData);
+        unsubscribeFirestore = onSnapshot(
+          doc(db, "users", user.uid),
+          (docSnapshot) => {
+            console.log("📄 Firestore document updated");
 
-            // 1. Verify email
-            if (!user.emailVerified) {
+            if (docSnapshot.exists()) {
+              const userData = docSnapshot.data();
+              console.log("✅ User data:", userData);
+
+              // 1. Verify email
+              if (!user.emailVerified) {
+                console.log(
+                  "❌ Email not verified - showing modal and signing out"
+                );
+                setShowVerificationModal(true);
+                setInitialRoute("Login");
+                setInitialUser(null);
+                auth.signOut();
+              }
+              // 2. Verify legal terms accepted
+              else if (!userData.legalAccepted) {
+                console.log("⚖️ Legal not accepted - navigating to Legal");
+                setInitialRoute("Legal");
+                setInitialUser(user);
+              }
+              // 3. Verify profile completed
+              else if (!userData.profileCompleted) {
+                console.log(
+                  "👤 Profile incomplete - navigating to ProfileSetup"
+                );
+                setInitialRoute("ProfileSetup");
+                setInitialUser(user);
+              }
+              // 4. All checks passed - go to Home
+              else {
+                console.log("✅ All checks passed - navigating to Home");
+                setInitialRoute("Home");
+                setInitialUser(user);
+              }
+            } else {
               console.log(
-                "❌ Email not verified - showing modal and signing out"
+                "❌ User doc does not exist - showing modal and signing out"
               );
-              setShowVerificationModal(true);
+              setShowUserNotFoundModal(true);
               setInitialRoute("Login");
               setInitialUser(null);
-              await auth.signOut();
+              auth.signOut();
             }
-            // 2. Verify legal terms accepted
-            else if (!userData.legalAccepted) {
-              console.log("⚖️ Legal not accepted - navigating to Legal");
-              setInitialRoute("Legal");
-              setInitialUser(user);
-            }
-            // 3. Verify profile completed
-            else if (!userData.profileCompleted) {
-              console.log("👤 Profile incomplete - navigating to ProfileSetup");
-              setInitialRoute("ProfileSetup");
-              setInitialUser(user);
-            }
-            // 4. All checks passed - go to Home
-            else {
-              console.log("✅ All checks passed - navigating to Home");
-              setInitialRoute("Home");
-              setInitialUser(user);
-            }
-          } else {
-            console.log("❌ User doc does not exist - staying on Login");
+
+            console.log("✅ Initialization complete");
+            setLoading(false);
+          },
+          (error) => {
+            console.error("❌ Error listening to user doc:", error);
             setInitialRoute("Login");
             setInitialUser(null);
+            setLoading(false);
           }
-        } catch (error) {
-          console.error("❌ Error fetching user doc:", error);
-          setInitialRoute("Login");
-          setInitialUser(null);
-        }
+        );
       } else {
         console.log("🚪 No user, showing login");
         setInitialRoute("Login");
         setInitialUser(null);
+        setLoading(false);
       }
-
-      console.log("✅ Initialization complete");
-      setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [auth, db]);
+    return () => {
+      console.log("🧹 Cleaning up listeners");
+      unsubscribeAuth();
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
+      }
+    };
+  }, [auth, db, signupInProgress]);
 
   const handleVerificationModalClose = () => {
     console.log("✅ Verification modal closed");
     setShowVerificationModal(false);
+  };
+
+  const handleUserNotFoundModalClose = () => {
+    console.log("✅ User not found modal closed");
+    setShowUserNotFoundModal(false);
   };
 
   if (loading || !auth || !db) {
@@ -231,6 +277,15 @@ export default function AppNavigator() {
         title="Verify Your Email"
         message="Please verify your email address before logging in. Check your inbox (and spam folder) and click the verification link we sent you."
         emoji="📧"
+      />
+
+      {/* User doc not found modal */}
+      <SuccessModal
+        visible={showUserNotFoundModal}
+        onClose={handleUserNotFoundModalClose}
+        title="Account Issue"
+        message="Your account was created but user data is missing. This sometimes happens if signup was interrupted. Please try signing up again or contact support."
+        emoji="⚠️"
       />
     </>
   );

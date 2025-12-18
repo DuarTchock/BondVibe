@@ -18,22 +18,8 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../services/firebase";
-import { generateMockEvents } from "../utils/mockEvents";
 import { useTheme } from "../contexts/ThemeContext";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
-
-// TEST - Remove after debugging
-console.log("🧪 Testing dateUtils import:");
-console.log("formatISODate:", formatISODate);
-console.log("formatEventTime:", formatEventTime);
-console.log(
-  'Test formatISODate("2025-11-29T03:00:00.000Z"):',
-  formatISODate("2025-11-29T03:00:00.000Z")
-);
-console.log(
-  'Test formatEventTime("2025-11-29T03:00:00.000Z"):',
-  formatEventTime("2025-11-29T03:00:00.000Z")
-);
 
 export default function EventFeedScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -72,16 +58,14 @@ export default function EventFeedScreen({ navigation }) {
         }))
         .filter((event) => event.status !== "cancelled");
 
-      const mockEvents = generateMockEvents();
-      const allEvents = [...realEvents, ...mockEvents];
+      // ✅ Only use real events from Firestore
+      const allEvents = [...realEvents];
 
       console.log("📊 Loaded events:", allEvents.length);
       setEvents(allEvents);
     } catch (error) {
       console.error("Error loading events:", error);
-      const mockEvents = generateMockEvents();
-      console.log("📊 Using mock events:", mockEvents.length);
-      setEvents(mockEvents);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -350,7 +334,7 @@ export default function EventFeedScreen({ navigation }) {
                 No events found
               </Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Try adjusting your filters
+                Try adjusting your filters or create an event
               </Text>
             </View>
           ) : (

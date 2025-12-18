@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,14 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { doc, updateDoc } from "firebase/firestore";
-import { signOut } from "firebase/auth";
-import { auth, db } from "../services/firebase";
-import { useTheme } from "../contexts/ThemeContext";
-import LegalDocumentModal from "../components/LegalDocumentModal";
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
+import { useTheme } from '../contexts/ThemeContext';
+import LegalDocumentModal from '../components/LegalDocumentModal';
 
-// Contenido de los documentos legales
+// Contenido de los documentos legales  
 const TERMS_OF_SERVICE = `Terms of Service
 
 Last Updated: November 2024
@@ -183,59 +182,45 @@ export default function LegalScreen({ navigation }) {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
-  const handleGoBack = async () => {
-    console.log("← Back button clicked - signing out");
-    try {
-      await signOut(auth);
-      console.log("✅ Signed out - AppNavigator will redirect to Login");
-    } catch (error) {
-      console.error("❌ Error signing out:", error);
-    }
-  };
-
   const handleContinue = async () => {
-    console.log("🔘 Continue clicked");
-    console.log("📋 Terms accepted:", termsAccepted);
-    console.log("🔒 Privacy accepted:", privacyAccepted);
+    console.log('🔘 Continue clicked');
+    console.log('📋 Terms accepted:', termsAccepted);
+    console.log('🔒 Privacy accepted:', privacyAccepted);
 
     if (!termsAccepted || !privacyAccepted) {
-      console.log("❌ Not all terms accepted");
-      Alert.alert(
-        "Please Accept Terms",
-        "You must accept both Terms of Service and Privacy Policy to continue."
-      );
+      console.log('❌ Not all terms accepted');
+      Alert.alert('Please Accept Terms', 'You must accept both Terms of Service and Privacy Policy to continue.');
       return;
     }
 
     setLoading(true);
-    console.log("⏳ Starting legal acceptance update...");
+    console.log('⏳ Starting legal acceptance update...');
 
     try {
       const user = auth.currentUser;
       if (!user) {
-        console.log("❌ No user found");
-        Alert.alert("Error", "No user found. Please log in again.");
+        console.log('❌ No user found');
+        Alert.alert('Error', 'No user found. Please log in again.');
         setLoading(false);
         return;
       }
 
-      console.log("👤 Updating legal acceptance for user:", user.uid);
-
-      await updateDoc(doc(db, "users", user.uid), {
+      console.log('👤 Updating legal acceptance for user:', user.uid);
+      
+      await updateDoc(doc(db, 'users', user.uid), {
         legalAccepted: true,
         legalAcceptedAt: new Date().toISOString(),
       });
-
-      console.log("✅ Legal acceptance updated successfully");
-      console.log(
-        "🔄 AppNavigator will automatically navigate to ProfileSetup"
-      );
-
-      setLoading(false);
-      // No navigation.replace() - AppNavigator handles it automatically
+      
+      console.log('✅ Legal acceptance updated successfully');
+      console.log('🔄 Forcing page reload to trigger navigation...');
+      
+      // Force full page reload - this will trigger AppNavigator's useEffect
+      window.location.reload();
+      
     } catch (error) {
-      console.error("❌ Error updating legal acceptance:", error);
-      Alert.alert("Error", "Failed to save your consent. Please try again.");
+      console.error('❌ Error updating legal acceptance:', error);
+      Alert.alert('Error', 'Failed to save your consent. Please try again.');
       setLoading(false);
     }
   };
@@ -245,24 +230,15 @@ export default function LegalScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
-
-      {/* Header con botón de regreso */}
-      <View style={styles.topHeader}>
-        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.text }]}>←</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
+      
+      <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <Text style={styles.icon}>📋</Text>
-          <Text style={[styles.title, { color: colors.text }]}>
-            Legal Stuff
-          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>Legal Stuff</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             We need your consent to continue
           </Text>
@@ -271,32 +247,22 @@ export default function LegalScreen({ navigation }) {
         <View style={styles.agreements}>
           {/* Terms of Service */}
           <TouchableOpacity
-            style={[
-              styles.agreementCard,
-              {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: termsAccepted ? colors.primary : colors.border,
-                borderWidth: termsAccepted ? 2 : 1,
-              },
-            ]}
+            style={[styles.agreementCard, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: termsAccepted ? colors.primary : colors.border,
+              borderWidth: termsAccepted ? 2 : 1,
+            }]}
             onPress={() => {
-              console.log("📝 Terms checkbox clicked");
+              console.log('📝 Terms checkbox clicked');
               setTermsAccepted(!termsAccepted);
             }}
             activeOpacity={0.7}
           >
             <View style={styles.checkbox}>
-              <View
-                style={[
-                  styles.checkboxInner,
-                  {
-                    backgroundColor: termsAccepted
-                      ? colors.primary
-                      : "transparent",
-                    borderColor: termsAccepted ? colors.primary : colors.border,
-                  },
-                ]}
-              >
+              <View style={[styles.checkboxInner, {
+                backgroundColor: termsAccepted ? colors.primary : 'transparent',
+                borderColor: termsAccepted ? colors.primary : colors.border,
+              }]}>
                 {termsAccepted && <Text style={styles.checkmark}>✓</Text>}
               </View>
             </View>
@@ -304,18 +270,13 @@ export default function LegalScreen({ navigation }) {
               <Text style={[styles.agreementTitle, { color: colors.text }]}>
                 Terms of Service
               </Text>
-              <Text
-                style={[
-                  styles.agreementSubtitle,
-                  { color: colors.textSecondary },
-                ]}
-              >
+              <Text style={[styles.agreementSubtitle, { color: colors.textSecondary }]}>
                 I agree to BondVibe's Terms of Service
               </Text>
-              <TouchableOpacity
+              <TouchableOpacity 
                 onPress={(e) => {
                   e.stopPropagation();
-                  console.log("📖 Opening Terms modal");
+                  console.log('📖 Opening Terms modal');
                   setShowTermsModal(true);
                 }}
                 style={styles.readLink}
@@ -329,34 +290,22 @@ export default function LegalScreen({ navigation }) {
 
           {/* Privacy Policy */}
           <TouchableOpacity
-            style={[
-              styles.agreementCard,
-              {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: privacyAccepted ? colors.primary : colors.border,
-                borderWidth: privacyAccepted ? 2 : 1,
-              },
-            ]}
+            style={[styles.agreementCard, {
+              backgroundColor: colors.surfaceGlass,
+              borderColor: privacyAccepted ? colors.primary : colors.border,
+              borderWidth: privacyAccepted ? 2 : 1,
+            }]}
             onPress={() => {
-              console.log("🔒 Privacy checkbox clicked");
+              console.log('🔒 Privacy checkbox clicked');
               setPrivacyAccepted(!privacyAccepted);
             }}
             activeOpacity={0.7}
           >
             <View style={styles.checkbox}>
-              <View
-                style={[
-                  styles.checkboxInner,
-                  {
-                    backgroundColor: privacyAccepted
-                      ? colors.primary
-                      : "transparent",
-                    borderColor: privacyAccepted
-                      ? colors.primary
-                      : colors.border,
-                  },
-                ]}
-              >
+              <View style={[styles.checkboxInner, {
+                backgroundColor: privacyAccepted ? colors.primary : 'transparent',
+                borderColor: privacyAccepted ? colors.primary : colors.border,
+              }]}>
                 {privacyAccepted && <Text style={styles.checkmark}>✓</Text>}
               </View>
             </View>
@@ -364,18 +313,13 @@ export default function LegalScreen({ navigation }) {
               <Text style={[styles.agreementTitle, { color: colors.text }]}>
                 Privacy Policy
               </Text>
-              <Text
-                style={[
-                  styles.agreementSubtitle,
-                  { color: colors.textSecondary },
-                ]}
-              >
+              <Text style={[styles.agreementSubtitle, { color: colors.textSecondary }]}>
                 I agree to BondVibe's Privacy Policy
               </Text>
-              <TouchableOpacity
+              <TouchableOpacity 
                 onPress={(e) => {
                   e.stopPropagation();
-                  console.log("📖 Opening Privacy modal");
+                  console.log('📖 Opening Privacy modal');
                   setShowPrivacyModal(true);
                 }}
                 style={styles.readLink}
@@ -389,24 +333,16 @@ export default function LegalScreen({ navigation }) {
         </View>
 
         <TouchableOpacity
-          style={[
-            styles.continueButton,
-            {
-              opacity: termsAccepted && privacyAccepted ? 1 : 0.5,
-            },
-          ]}
+          style={[styles.continueButton, {
+            opacity: (termsAccepted && privacyAccepted) ? 1 : 0.5,
+          }]}
           onPress={handleContinue}
           disabled={!termsAccepted || !privacyAccepted || loading}
         >
-          <View
-            style={[
-              styles.continueGlass,
-              {
-                backgroundColor: `${colors.primary}33`,
-                borderColor: `${colors.primary}66`,
-              },
-            ]}
-          >
+          <View style={[styles.continueGlass, {
+            backgroundColor: `${colors.primary}33`,
+            borderColor: `${colors.primary}66`,
+          }]}>
             {loading ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
@@ -422,7 +358,7 @@ export default function LegalScreen({ navigation }) {
       <LegalDocumentModal
         visible={showTermsModal}
         onClose={() => {
-          console.log("📖 Closing Terms modal");
+          console.log('📖 Closing Terms modal');
           setShowTermsModal(false);
         }}
         title="Terms of Service"
@@ -432,7 +368,7 @@ export default function LegalScreen({ navigation }) {
       <LegalDocumentModal
         visible={showPrivacyModal}
         onClose={() => {
-          console.log("📖 Closing Privacy modal");
+          console.log('📖 Closing Privacy modal');
           setShowPrivacyModal(false);
         }}
         title="Privacy Policy"
@@ -445,35 +381,18 @@ export default function LegalScreen({ navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    topHeader: {
-      paddingHorizontal: 24,
-      paddingTop: 60,
-      paddingBottom: 20,
-    },
-    backButton: {
-      width: 44,
-      height: 44,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    backButtonText: { fontSize: 28 },
     scrollView: { flex: 1 },
-    content: { padding: 24, paddingTop: 20 },
-    header: { alignItems: "center", marginBottom: 48 },
+    content: { padding: 24, paddingTop: 60 },
+    header: { alignItems: 'center', marginBottom: 48 },
     icon: { fontSize: 72, marginBottom: 16 },
-    title: {
-      fontSize: 32,
-      fontWeight: "700",
-      marginBottom: 8,
-      letterSpacing: -0.5,
-    },
-    subtitle: { fontSize: 15, textAlign: "center" },
+    title: { fontSize: 32, fontWeight: '700', marginBottom: 8, letterSpacing: -0.5 },
+    subtitle: { fontSize: 15, textAlign: 'center' },
     agreements: { gap: 16, marginBottom: 32 },
     agreementCard: {
       borderRadius: 20,
       padding: 20,
-      flexDirection: "row",
-      alignItems: "flex-start",
+      flexDirection: 'row',
+      alignItems: 'flex-start',
     },
     checkbox: { marginRight: 16, marginTop: 2 },
     checkboxInner: {
@@ -481,21 +400,17 @@ function createStyles(colors) {
       height: 28,
       borderRadius: 8,
       borderWidth: 2,
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    checkmark: { color: "#FFF", fontSize: 16, fontWeight: "700" },
+    checkmark: { color: '#FFF', fontSize: 16, fontWeight: '700' },
     agreementText: { flex: 1 },
-    agreementTitle: { fontSize: 18, fontWeight: "700", marginBottom: 4 },
+    agreementTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
     agreementSubtitle: { fontSize: 14, marginBottom: 8 },
     readLink: { paddingVertical: 4 },
-    readLinkText: { fontSize: 14, fontWeight: "600" },
-    continueButton: { borderRadius: 16, overflow: "hidden", marginTop: 16 },
-    continueGlass: {
-      borderWidth: 1,
-      paddingVertical: 18,
-      alignItems: "center",
-    },
-    continueText: { fontSize: 18, fontWeight: "700", letterSpacing: -0.2 },
+    readLinkText: { fontSize: 14, fontWeight: '600' },
+    continueButton: { borderRadius: 16, overflow: 'hidden', marginTop: 16 },
+    continueGlass: { borderWidth: 1, paddingVertical: 18, alignItems: 'center' },
+    continueText: { fontSize: 18, fontWeight: '700', letterSpacing: -0.2 },
   });
 }

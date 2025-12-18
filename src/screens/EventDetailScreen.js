@@ -7,7 +7,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Platform,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -19,10 +18,10 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
-import { generateMockEvents } from "../utils/mockEvents";
 import { createNotification } from "../utils/notificationService";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export default function EventDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
@@ -34,6 +33,19 @@ export default function EventDetailScreen({ route, navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [attendeesData, setAttendeesData] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  const calculateDaysUntilEvent = (eventDate) => {
+    const now = new Date();
+    const eventDateTime = new Date(eventDate);
+    const hoursUntil = (eventDateTime - now) / (1000 * 60 * 60);
+    return hoursUntil / 24;
+  };
+
+  const getRefundPercentage = (daysUntil) => {
+    if (daysUntil >= 7) return 100;
+    if (daysUntil >= 3) return 50;
+    return 0;
+  };
 
   useEffect(() => {
     loadCurrentUser();
@@ -59,7 +71,7 @@ export default function EventDetailScreen({ route, navigation }) {
         setEvent(eventData);
         setIsJoined(eventData.attendees?.includes(auth.currentUser.uid));
 
-        // Cargar datos de attendees si es creador o admin
+        // Load attendees data if creator or admin
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         const userData = userDoc.data();
         if (
@@ -69,15 +81,13 @@ export default function EventDetailScreen({ route, navigation }) {
           await loadAttendeesData(eventData.attendees || []);
         }
       } else {
-        const mockEvents = generateMockEvents();
-        const mockEvent = mockEvents.find((e) => e.id === eventId);
-        if (mockEvent) {
-          setEvent(mockEvent);
-          setIsJoined(false);
-        }
+        // ✅ Event not found - no mock fallback
+        console.log("❌ Event not found:", eventId);
+        setEvent(null);
       }
     } catch (error) {
       console.error("Error loading event:", error);
+      setEvent(null);
     } finally {
       setLoading(false);
     }
@@ -85,7 +95,6 @@ export default function EventDetailScreen({ route, navigation }) {
 
   const loadAttendeesData = async (attendeeIds) => {
     try {
-      // Filter out invalid IDs (non-strings, empty strings, objects)
       const validIds = (attendeeIds || []).filter(
         (id) => typeof id === "string" && id.trim().length > 0
       );
@@ -114,14 +123,6 @@ export default function EventDetailScreen({ route, navigation }) {
 
   const handleJoinLeave = async () => {
     if (!event) return;
-
-    if (event.id.startsWith("mock")) {
-      Alert.alert(
-        "Demo Event",
-        "This is a demo event. Create a real event to join!"
-      );
-      return;
-    }
 
     // If leaving, handle normally
     if (isJoined) {
@@ -200,12 +201,79 @@ export default function EventDetailScreen({ route, navigation }) {
     setShowCancelModal(true);
   };
 
+  const handleCancelAttendance = async () => {
+    if (!event || !isJoined) return;
+
+    const daysUntil = calculateDaysUntilEvent(event.date);
+    const refundPercentage = getRefundPercentage(daysUntil);
+
+    let refundText = "";
+    if (event.price && event.price > 0) {
+      if (refundPercentage === 100) {
+        refundText = `You will receive a 100% refund ($${event.price} MXN)`;
+      } else if (refundPercentage === 50) {
+        refundText = `You will receive a 50% refund ($${
+          event.price * 0.5
+        } MXN)`;
+      } else {
+        refundText = "No refund available (less than 3 days until event)";
+      }
+    } else {
+      refundText = "You will be removed from this free event";
+    }
+
+    Alert.alert(
+      "Cancel Your Attendance?",
+      `${refundText}\n\nAre you sure you want to cancel?`,
+      [
+        { text: "Keep My Spot", style: "cancel" },
+        {
+          text: "Cancel Attendance",
+          style: "destructive",
+          onPress: async () => {
+            setJoining(true);
+            try {
+              const functions = getFunctions();
+              const cancelAttendance = httpsCallable(
+                functions,
+                "cancelEventAttendance"
+              );
+
+              const result = await cancelAttendance({ eventId: event.id });
+
+              if (result.data.success) {
+                setIsJoined(false);
+                Alert.alert(
+                  "Attendance Cancelled",
+                  result.data.message || "You have been removed from the event"
+                );
+                await loadEvent();
+              } else {
+                Alert.alert(
+                  "Error",
+                  result.data.message || "Could not cancel attendance"
+                );
+              }
+            } catch (error) {
+              console.error("Error cancelling attendance:", error);
+              Alert.alert(
+                "Error",
+                "Failed to cancel attendance. Please try again."
+              );
+            } finally {
+              setJoining(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const performCancellation = async (cancellationReason) => {
     try {
       setShowCancelModal(false);
       setLoading(true);
 
-      // Update event status to cancelled
       const eventRef = doc(db, "events", eventId);
       await updateDoc(eventRef, {
         status: "cancelled",
@@ -213,14 +281,10 @@ export default function EventDetailScreen({ route, navigation }) {
         cancellationReason: cancellationReason,
       });
 
-      // Get ALL participants (not just participants array)
-      // Check both 'participants' and 'attendees' fields
       const allParticipants = [
         ...(event.participants || []),
         ...(event.attendees || []),
       ];
-
-      // Remove duplicates
       const uniqueParticipants = [...new Set(allParticipants)];
 
       console.log(
@@ -234,7 +298,6 @@ export default function EventDetailScreen({ route, navigation }) {
           ? `Reason: ${cancellationReason}`
           : "No reason provided.";
 
-      // Send notifications to all participants
       for (const participantId of uniqueParticipants) {
         if (participantId !== auth.currentUser.uid) {
           try {
@@ -261,11 +324,7 @@ export default function EventDetailScreen({ route, navigation }) {
       }
 
       console.log("✅ Event cancelled successfully");
-
-      // Reset loading and navigate to Home immediately
       setLoading(false);
-
-      // Navigate to Home (not just back)
       navigation.navigate("Home");
     } catch (error) {
       console.error("Error cancelling event:", error);
@@ -294,9 +353,31 @@ export default function EventDetailScreen({ route, navigation }) {
       <View
         style={[styles.errorContainer, { backgroundColor: colors.background }]}
       >
-        <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-          Event not found
+        <Text style={styles.errorEmoji}>😕</Text>
+        <Text style={[styles.errorTitle, { color: colors.text }]}>
+          Event Not Found
         </Text>
+        <Text style={[styles.errorText, { color: colors.textSecondary }]}>
+          This event may have been deleted or cancelled
+        </Text>
+        <TouchableOpacity
+          style={styles.errorButton}
+          onPress={() => navigation.goBack()}
+        >
+          <View
+            style={[
+              styles.errorButtonGlass,
+              {
+                backgroundColor: `${colors.primary}33`,
+                borderColor: `${colors.primary}66`,
+              },
+            ]}
+          >
+            <Text style={[styles.errorButtonText, { color: colors.primary }]}>
+              Go Back
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -305,14 +386,12 @@ export default function EventDetailScreen({ route, navigation }) {
   const isAdmin = currentUser?.role === "admin";
   const canSeeAttendees = isCreator || isAdmin;
 
-  // Handle both maxAttendees and maxPeople field names
   const maxCapacity = event.maxAttendees || event.maxPeople || 0;
   const currentAttendees =
     event.attendees?.length || event.participants?.length || 0;
   const spotsLeft = maxCapacity - currentAttendees;
   const isFull = spotsLeft <= 0;
 
-  // Determine button text based on price
   const getButtonText = () => {
     if (joining) return "Loading...";
     if (isJoined) return "Leave Event";
@@ -343,7 +422,7 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         </TouchableOpacity>
         <View style={styles.headerActions}>
-          {(isJoined || isCreator) && !event.id.startsWith("mock") && (
+          {(isJoined || isCreator) && (
             <TouchableOpacity
               onPress={() =>
                 navigation.navigate("EventChat", {
@@ -365,7 +444,7 @@ export default function EventDetailScreen({ route, navigation }) {
               </View>
             </TouchableOpacity>
           )}
-          {isCreator && !event.id.startsWith("mock") && (
+          {isCreator && (
             <TouchableOpacity
               onPress={() => navigation.navigate("EditEvent", { eventId })}
             >
@@ -382,27 +461,25 @@ export default function EventDetailScreen({ route, navigation }) {
               </View>
             </TouchableOpacity>
           )}
-          {(isCreator || isAdmin) &&
-            !event.id.startsWith("mock") &&
-            event.status !== "cancelled" && (
-              <TouchableOpacity onPress={handleCancelEvent}>
-                <View
-                  style={[
-                    styles.headerButton,
-                    {
-                      backgroundColor: `${colors.error}20`,
-                      borderColor: colors.error,
-                    },
-                  ]}
+          {(isCreator || isAdmin) && event.status !== "cancelled" && (
+            <TouchableOpacity onPress={handleCancelEvent}>
+              <View
+                style={[
+                  styles.headerButton,
+                  {
+                    backgroundColor: `${colors.error}20`,
+                    borderColor: colors.error,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.headerButtonText, { color: colors.error }]}
                 >
-                  <Text
-                    style={[styles.headerButtonText, { color: colors.error }]}
-                  >
-                    🚫
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                  🚫
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -562,8 +639,8 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Group Chat Button (if joined) */}
-        {(isJoined || isCreator) && !event.id.startsWith("mock") && (
+        {/* Group Chat Button */}
+        {(isJoined || isCreator) && (
           <View style={styles.chatSection}>
             <TouchableOpacity
               style={styles.chatButton}
@@ -628,7 +705,72 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Attendees List (Solo para creador y admin) */}
+        {/* Cancellation Policy */}
+        {event.price && event.price > 0 && (
+          <View style={styles.policySection}>
+            <View
+              style={[
+                styles.policyGlass,
+                {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                📋 Cancellation Policy
+              </Text>
+              <View style={styles.policyItem}>
+                <Text style={[styles.policyDot, { color: colors.primary }]}>
+                  •
+                </Text>
+                <Text
+                  style={[styles.policyText, { color: colors.textSecondary }]}
+                >
+                  7+ days before: 100% refund
+                </Text>
+              </View>
+              <View style={styles.policyItem}>
+                <Text style={[styles.policyDot, { color: colors.primary }]}>
+                  •
+                </Text>
+                <Text
+                  style={[styles.policyText, { color: colors.textSecondary }]}
+                >
+                  3-7 days before: 50% refund
+                </Text>
+              </View>
+              <View style={styles.policyItem}>
+                <Text style={[styles.policyDot, { color: colors.primary }]}>
+                  •
+                </Text>
+                <Text
+                  style={[styles.policyText, { color: colors.textSecondary }]}
+                >
+                  Less than 3 days: No refund
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.policyDivider,
+                  { backgroundColor: colors.border },
+                ]}
+              />
+              <View style={styles.policyItem}>
+                <Text style={[styles.policyDot, { color: colors.secondary }]}>
+                  •
+                </Text>
+                <Text
+                  style={[styles.policyText, { color: colors.textSecondary }]}
+                >
+                  If host cancels: Always 100% refund
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Attendees List */}
         {canSeeAttendees && attendeesData.length > 0 && (
           <View style={styles.attendeesSection}>
             <View
@@ -659,7 +801,7 @@ export default function EventDetailScreen({ route, navigation }) {
                     </Text>
                   </View>
                   <Text style={[styles.attendeeName, { color: colors.text }]}>
-                    {attendee.fullName}
+                    {attendee.fullName || attendee.name || "Anonymous"}
                   </Text>
                 </View>
               ))}
@@ -747,8 +889,39 @@ function createStyles(colors) {
       justifyContent: "center",
       alignItems: "center",
     },
-    errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-    errorText: { fontSize: 16 },
+    errorContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: 48,
+    },
+    errorEmoji: { fontSize: 80, marginBottom: 24 },
+    errorTitle: {
+      fontSize: 24,
+      fontWeight: "700",
+      marginBottom: 12,
+      letterSpacing: -0.3,
+    },
+    errorText: {
+      fontSize: 15,
+      textAlign: "center",
+      marginBottom: 32,
+    },
+    errorButton: {
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    errorButtonGlass: {
+      borderWidth: 1,
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      alignItems: "center",
+    },
+    errorButtonText: {
+      fontSize: 16,
+      fontWeight: "700",
+      letterSpacing: -0.2,
+    },
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -811,6 +984,19 @@ function createStyles(colors) {
       lineHeight: 36,
       letterSpacing: -0.5,
     },
+    cancelledBadge: {
+      marginTop: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignSelf: "flex-start",
+    },
+    cancelledText: {
+      fontSize: 14,
+      fontWeight: "700",
+      letterSpacing: 0.5,
+    },
     infoSection: { gap: 12, marginBottom: 24 },
     infoCard: { borderRadius: 16, overflow: "hidden" },
     infoGlass: {
@@ -854,6 +1040,20 @@ function createStyles(colors) {
       letterSpacing: -0.2,
     },
     descriptionText: { fontSize: 15, lineHeight: 24 },
+    policySection: {
+      marginBottom: 24,
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    policyGlass: { borderWidth: 1, padding: 20 },
+    policyItem: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      marginBottom: 10,
+    },
+    policyDot: { fontSize: 16, marginRight: 8, marginTop: 2 },
+    policyText: { fontSize: 14, lineHeight: 20, flex: 1 },
+    policyDivider: { height: 1, marginVertical: 14 },
     attendeesSection: {
       marginBottom: 24,
       borderRadius: 16,
@@ -894,18 +1094,5 @@ function createStyles(colors) {
       alignItems: "center",
     },
     actionButtonText: { fontSize: 17, fontWeight: "700", letterSpacing: -0.2 },
-    cancelledBadge: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 12,
-      borderWidth: 1,
-      alignSelf: "flex-start",
-    },
-    cancelledText: {
-      fontSize: 14,
-      fontWeight: "700",
-      letterSpacing: 0.5,
-    },
   });
 }

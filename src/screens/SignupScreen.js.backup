@@ -12,7 +12,6 @@ import { StatusBar } from "expo-status-bar";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  signOut,
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
@@ -48,7 +47,7 @@ export default function SignupScreen({ navigation }) {
     }
 
     setLoading(true);
-    setSignupInProgress(true);
+    setSignupInProgress(true); // ← NUEVO: Señalar que signup está en progreso
 
     try {
       // 1. Crear cuenta de Firebase Auth
@@ -61,7 +60,7 @@ export default function SignupScreen({ navigation }) {
       const user = userCredential.user;
       console.log("✅ User account created:", user.uid);
 
-      // 2. Crear documento en Firestore
+      // 2. Crear documento en Firestore (AÚN autenticado)
       console.log("📄 Creating Firestore document...");
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
@@ -73,7 +72,7 @@ export default function SignupScreen({ navigation }) {
       });
       console.log("✅ Firestore document created");
 
-      // 3. Enviar email de verificación
+      // 3. Enviar email de verificación (AÚN autenticado)
       console.log("📧 Sending verification email...");
       try {
         console.log(
@@ -81,28 +80,26 @@ export default function SignupScreen({ navigation }) {
           user.uid,
           user.email
         );
-        await sendEmailVerification(user);
+        const result = await sendEmailVerification(user);
+        console.log("✅ sendEmailVerification COMPLETED - result:", result);
         console.log("✅ Verification email sent to:", user.email);
       } catch (emailError) {
         console.error("❌ sendEmailVerification FAILED:");
         console.error("Error code:", emailError.code);
         console.error("Error message:", emailError.message);
+        console.error("Full error:", emailError);
+        // NO throw - continuar con signup
       }
 
-      // 4. SignOut para forzar re-autenticación después de verificar email
-      console.log("🚪 Signing out user...");
-      await signOut(auth);
-      console.log("✅ User signed out");
-
-      // 5. Mostrar success modal
+      // 4. Mostrar success modal
       setLoading(false);
-      setSignupInProgress(false);
+      setSignupInProgress(false); // ← NUEVO: Signup completo
       setShowSuccess(true);
       console.log("🎉 Signup complete - user must verify email");
     } catch (error) {
       console.error("❌ Signup error:", error.code, error.message);
       setLoading(false);
-      setSignupInProgress(false);
+      setSignupInProgress(false); // ← NUEVO: Limpiar flag en error
 
       if (error.code === "auth/email-already-in-use") {
         Alert.alert(
@@ -125,10 +122,7 @@ export default function SignupScreen({ navigation }) {
   const handleModalClose = () => {
     console.log("👋 Closing modal and navigating to Login");
     setShowSuccess(false);
-    // Delay navigation to avoid modal conflict
-    setTimeout(() => {
-      navigation.replace("Login");
-    }, 300);
+    navigation.replace("Login");
   };
 
   const styles = createStyles(colors);

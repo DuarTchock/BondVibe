@@ -8,7 +8,14 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
@@ -25,14 +32,34 @@ export default function MyEventsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("joined"); // joined | hosting
   const [timeFilter, setTimeFilter] = useState("upcoming"); // upcoming | past
+  const [currentUser, setCurrentUser] = useState(null); // ✅ NUEVO: User data con role
+
+  // ✅ NUEVO: Load current user data
+  useEffect(() => {
+    loadCurrentUser();
+  }, []);
 
   useEffect(() => {
-    loadMyEvents();
-  }, [activeTab]);
+    if (currentUser) {
+      loadMyEvents();
+    }
+  }, [activeTab, currentUser]);
 
   useEffect(() => {
     applyTimeFilter();
   }, [timeFilter, allEvents]);
+
+  // ✅ NUEVO: Load user data
+  const loadCurrentUser = async () => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setCurrentUser(userDoc.data());
+      }
+    } catch (error) {
+      console.error("Error loading current user:", error);
+    }
+  };
 
   const loadMyEvents = async () => {
     setLoading(true);
@@ -100,6 +127,9 @@ export default function MyEventsScreen({ navigation }) {
       setDisplayedEvents(past);
     }
   };
+
+  // ✅ NUEVO: Check if user can host
+  const canHost = currentUser?.role === "host" || currentUser?.role === "admin";
 
   const styles = createStyles(colors);
 
@@ -202,13 +232,13 @@ export default function MyEventsScreen({ navigation }) {
         <View style={{ width: 28 }} />
       </View>
 
-      {/* Main Tabs (Joined/Hosting) */}
+      {/* Main Tabs (Joined/Hosting) - ✅ Conditionally render Hosting */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
-          style={styles.tab}
+          style={[styles.tab, !canHost && styles.tabFullWidth]}
           onPress={() => {
             setActiveTab("joined");
-            setTimeFilter("upcoming"); // Reset to upcoming when switching tabs
+            setTimeFilter("upcoming");
           }}
         >
           <View
@@ -242,46 +272,49 @@ export default function MyEventsScreen({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => {
-            setActiveTab("hosting");
-            setTimeFilter("upcoming"); // Reset to upcoming when switching tabs
-          }}
-        >
-          <View
-            style={[
-              styles.tabGlass,
-              {
-                backgroundColor:
-                  activeTab === "hosting"
-                    ? `${colors.primary}33`
-                    : colors.surfaceGlass,
-                borderColor:
-                  activeTab === "hosting"
-                    ? `${colors.primary}66`
-                    : colors.border,
-              },
-            ]}
+        {/* ✅ NUEVO: Only show Hosting tab if user can host */}
+        {canHost && (
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => {
+              setActiveTab("hosting");
+              setTimeFilter("upcoming");
+            }}
           >
-            <Text
+            <View
               style={[
-                styles.tabText,
+                styles.tabGlass,
                 {
-                  color:
+                  backgroundColor:
                     activeTab === "hosting"
-                      ? colors.primary
-                      : colors.textSecondary,
+                      ? `${colors.primary}33`
+                      : colors.surfaceGlass,
+                  borderColor:
+                    activeTab === "hosting"
+                      ? `${colors.primary}66`
+                      : colors.border,
                 },
               ]}
             >
-              Hosting
-            </Text>
-          </View>
-        </TouchableOpacity>
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color:
+                      activeTab === "hosting"
+                        ? colors.primary
+                        : colors.textSecondary,
+                  },
+                ]}
+              >
+                Hosting
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* ✅ NUEVO: Time Filter Tabs (Upcoming/Past) */}
+      {/* Time Filter Tabs (Upcoming/Past) */}
       <View style={styles.timeFiltersContainer}>
         <TouchableOpacity
           style={styles.timeFilterTab}
@@ -381,11 +414,14 @@ export default function MyEventsScreen({ navigation }) {
           {timeFilter === "upcoming" && (
             <TouchableOpacity
               style={styles.emptyButton}
-              onPress={() =>
-                navigation.navigate(
-                  activeTab === "joined" ? "SearchEvents" : "CreateEvent"
-                )
-              }
+              onPress={() => {
+                if (activeTab === "joined") {
+                  navigation.navigate("SearchEvents");
+                } else {
+                  // ✅ NUEVO: Navigate based on role
+                  navigation.navigate(canHost ? "CreateEvent" : "RequestHost");
+                }
+              }}
             >
               <View
                 style={[
@@ -399,7 +435,11 @@ export default function MyEventsScreen({ navigation }) {
                 <Text
                   style={[styles.emptyButtonText, { color: colors.primary }]}
                 >
-                  {activeTab === "joined" ? "Explore Events" : "Create Event"}
+                  {activeTab === "joined"
+                    ? "Explore Events"
+                    : canHost
+                    ? "Create Event"
+                    : "Request Host"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -440,9 +480,9 @@ function createStyles(colors) {
       gap: 12,
     },
     tab: { flex: 1, borderRadius: 12, overflow: "hidden" },
+    tabFullWidth: { flex: 1 }, // ✅ NUEVO: Full width when only one tab
     tabGlass: { borderWidth: 1, paddingVertical: 12, alignItems: "center" },
     tabText: { fontSize: 15, fontWeight: "600" },
-    // ✅ NUEVO: Time Filter Styles
     timeFiltersContainer: {
       flexDirection: "row",
       paddingHorizontal: 24,
