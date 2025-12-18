@@ -71,7 +71,6 @@ export default function EventDetailScreen({ route, navigation }) {
         setEvent(eventData);
         setIsJoined(eventData.attendees?.includes(auth.currentUser.uid));
 
-        // Load attendees data if creator or admin
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         const userData = userDoc.data();
         if (
@@ -81,7 +80,6 @@ export default function EventDetailScreen({ route, navigation }) {
           await loadAttendeesData(eventData.attendees || []);
         }
       } else {
-        // ✅ Event not found - no mock fallback
         console.log("❌ Event not found:", eventId);
         setEvent(null);
       }
@@ -121,11 +119,19 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
+  // ✅ FIXED: Now routes to refund flow for paid events
   const handleJoinLeave = async () => {
     if (!event) return;
 
-    // If leaving, handle normally
+    // If leaving, check if it's a paid event
     if (isJoined) {
+      // For paid events, use the refund flow
+      if (event.price && event.price > 0) {
+        handleCancelAttendance();
+        return;
+      }
+
+      // For free events, just remove from attendees
       setJoining(true);
       try {
         const eventRef = doc(db, "events", eventId);
@@ -201,6 +207,7 @@ export default function EventDetailScreen({ route, navigation }) {
     setShowCancelModal(true);
   };
 
+  // ✅ User cancels their attendance - with refund calculation
   const handleCancelAttendance = async () => {
     if (!event || !isJoined) return;
 
@@ -233,6 +240,7 @@ export default function EventDetailScreen({ route, navigation }) {
           onPress: async () => {
             setJoining(true);
             try {
+              console.log("🔄 Calling cancelEventAttendance Cloud Function...");
               const functions = getFunctions();
               const cancelAttendance = httpsCallable(
                 functions,
@@ -240,6 +248,7 @@ export default function EventDetailScreen({ route, navigation }) {
               );
 
               const result = await cancelAttendance({ eventId: event.id });
+              console.log("✅ Cloud Function result:", result.data);
 
               if (result.data.success) {
                 setIsJoined(false);
@@ -255,7 +264,7 @@ export default function EventDetailScreen({ route, navigation }) {
                 );
               }
             } catch (error) {
-              console.error("Error cancelling attendance:", error);
+              console.error("❌ Error cancelling attendance:", error);
               Alert.alert(
                 "Error",
                 "Failed to cancel attendance. Please try again."
@@ -269,11 +278,45 @@ export default function EventDetailScreen({ route, navigation }) {
     );
   };
 
+  // ✅ Host cancels the event - refund all attendees
   const performCancellation = async (cancellationReason) => {
     try {
       setShowCancelModal(false);
       setLoading(true);
 
+      // For paid events with attendees, use Cloud Function to handle refunds
+      if (
+        event.price &&
+        event.price > 0 &&
+        (event.attendees?.length > 0 || event.participants?.length > 0)
+      ) {
+        console.log("🔄 Using hostCancelEvent Cloud Function for refunds...");
+
+        const functions = getFunctions();
+        const hostCancel = httpsCallable(functions, "hostCancelEvent");
+
+        const result = await hostCancel({
+          eventId: event.id,
+          reason: cancellationReason,
+        });
+
+        console.log("✅ Host cancel result:", result.data);
+
+        if (result.data.success) {
+          Alert.alert(
+            "Event Cancelled",
+            result.data.message || "All attendees have been refunded."
+          );
+          navigation.navigate("Home");
+        } else {
+          throw new Error(result.data.message || "Failed to cancel event");
+        }
+
+        setLoading(false);
+        return;
+      }
+
+      // For free events or events with no attendees, just update status
       const eventRef = doc(db, "events", eventId);
       await updateDoc(eventRef, {
         status: "cancelled",
@@ -797,7 +840,7 @@ export default function EventDetailScreen({ route, navigation }) {
                     ]}
                   >
                     <Text style={styles.attendeeEmoji}>
-                      {attendee.avatar || "😊"}
+                      {attendee.avatar || attendee.emoji || "😊"}
                     </Text>
                   </View>
                   <Text style={[styles.attendeeName, { color: colors.text }]}>
@@ -811,7 +854,7 @@ export default function EventDetailScreen({ route, navigation }) {
       </ScrollView>
 
       {/* Bottom Action */}
-      {!isCreator && (
+      {!isCreator && event.status !== "cancelled" && (
         <View style={styles.bottomAction}>
           <View
             style={[
@@ -902,26 +945,15 @@ function createStyles(colors) {
       marginBottom: 12,
       letterSpacing: -0.3,
     },
-    errorText: {
-      fontSize: 15,
-      textAlign: "center",
-      marginBottom: 32,
-    },
-    errorButton: {
-      borderRadius: 16,
-      overflow: "hidden",
-    },
+    errorText: { fontSize: 15, textAlign: "center", marginBottom: 32 },
+    errorButton: { borderRadius: 16, overflow: "hidden" },
     errorButtonGlass: {
       borderWidth: 1,
       paddingVertical: 14,
       paddingHorizontal: 32,
       alignItems: "center",
     },
-    errorButtonText: {
-      fontSize: 16,
-      fontWeight: "700",
-      letterSpacing: -0.2,
-    },
+    errorButtonText: { fontSize: 16, fontWeight: "700", letterSpacing: -0.2 },
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -992,11 +1024,7 @@ function createStyles(colors) {
       borderWidth: 1,
       alignSelf: "flex-start",
     },
-    cancelledText: {
-      fontSize: 14,
-      fontWeight: "700",
-      letterSpacing: 0.5,
-    },
+    cancelledText: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
     infoSection: { gap: 12, marginBottom: 24 },
     infoCard: { borderRadius: 16, overflow: "hidden" },
     infoGlass: {
@@ -1040,11 +1068,7 @@ function createStyles(colors) {
       letterSpacing: -0.2,
     },
     descriptionText: { fontSize: 15, lineHeight: 24 },
-    policySection: {
-      marginBottom: 24,
-      borderRadius: 16,
-      overflow: "hidden",
-    },
+    policySection: { marginBottom: 24, borderRadius: 16, overflow: "hidden" },
     policyGlass: { borderWidth: 1, padding: 20 },
     policyItem: {
       flexDirection: "row",
