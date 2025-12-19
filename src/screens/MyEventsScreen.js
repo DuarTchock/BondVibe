@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import {
   filterPastEvents,
   isEventPast,
 } from "../utils/eventFilters";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function MyEventsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -32,24 +33,27 @@ export default function MyEventsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("joined"); // joined | hosting
   const [timeFilter, setTimeFilter] = useState("upcoming"); // upcoming | past
-  const [currentUser, setCurrentUser] = useState(null); // ✅ NUEVO: User data con role
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // ✅ NUEVO: Load current user data
+  // Load current user data once on mount
   useEffect(() => {
     loadCurrentUser();
   }, []);
 
-  useEffect(() => {
-    if (currentUser) {
-      loadMyEvents();
-    }
-  }, [activeTab, currentUser]);
+  // ✅ Reload events every time screen comes into focus (after editing, etc.)
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUser) {
+        console.log("📱 MyEventsScreen focused - reloading events...");
+        loadMyEvents();
+      }
+    }, [activeTab, currentUser])
+  );
 
   useEffect(() => {
     applyTimeFilter();
   }, [timeFilter, allEvents]);
 
-  // ✅ NUEVO: Load user data
   const loadCurrentUser = async () => {
     try {
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
@@ -128,7 +132,6 @@ export default function MyEventsScreen({ navigation }) {
     }
   };
 
-  // ✅ NUEVO: Check if user can host
   const canHost = currentUser?.role === "host" || currentUser?.role === "admin";
 
   const styles = createStyles(colors);
@@ -232,7 +235,7 @@ export default function MyEventsScreen({ navigation }) {
         <View style={{ width: 28 }} />
       </View>
 
-      {/* Main Tabs (Joined/Hosting) - ✅ Conditionally render Hosting */}
+      {/* Main Tabs (Joined/Hosting) */}
       <View style={styles.tabsContainer}>
         <TouchableOpacity
           style={[styles.tab, !canHost && styles.tabFullWidth]}
@@ -272,7 +275,6 @@ export default function MyEventsScreen({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        {/* ✅ NUEVO: Only show Hosting tab if user can host */}
         {canHost && (
           <TouchableOpacity
             style={styles.tab}
@@ -418,7 +420,6 @@ export default function MyEventsScreen({ navigation }) {
                 if (activeTab === "joined") {
                   navigation.navigate("SearchEvents");
                 } else {
-                  // ✅ NUEVO: Navigate based on role
                   navigation.navigate(canHost ? "CreateEvent" : "RequestHost");
                 }
               }}
@@ -480,7 +481,7 @@ function createStyles(colors) {
       gap: 12,
     },
     tab: { flex: 1, borderRadius: 12, overflow: "hidden" },
-    tabFullWidth: { flex: 1 }, // ✅ NUEVO: Full width when only one tab
+    tabFullWidth: { flex: 1 },
     tabGlass: { borderWidth: 1, paddingVertical: 12, alignItems: "center" },
     tabText: { fontSize: 15, fontWeight: "600" },
     timeFiltersContainer: {

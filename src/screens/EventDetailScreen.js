@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { createNotification } from "../utils/notificationService";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function EventDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
@@ -47,10 +48,18 @@ export default function EventDetailScreen({ route, navigation }) {
     return 0;
   };
 
+  // Load current user only once on mount
   useEffect(() => {
     loadCurrentUser();
-    loadEvent();
   }, []);
+
+  // ✅ Reload event data every time screen comes into focus (after editing, etc.)
+  useFocusEffect(
+    useCallback(() => {
+      console.log("📱 EventDetailScreen focused - reloading event data...");
+      loadEvent();
+    }, [eventId])
+  );
 
   const loadCurrentUser = async () => {
     try {

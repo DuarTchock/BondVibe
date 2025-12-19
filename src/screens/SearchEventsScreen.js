@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
 import { EVENT_CATEGORIES, normalizeCategory } from "../utils/eventCategories";
 import { filterUpcomingEvents, isEventPast } from "../utils/eventFilters";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function SearchEventsScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
@@ -29,15 +30,20 @@ export default function SearchEventsScreen({ navigation, route }) {
   // Create categories array with "All" as an object to match the structure
   const categories = [{ id: "all", label: "All" }, ...EVENT_CATEGORIES];
 
-  useEffect(() => {
-    loadEvents();
-  }, []);
+  // ✅ Reload events every time screen comes into focus (after editing, etc.)
+  useFocusEffect(
+    useCallback(() => {
+      console.log("📱 SearchEventsScreen focused - reloading events...");
+      loadEvents();
+    }, [])
+  );
 
   useEffect(() => {
     filterEvents();
   }, [searchQuery, selectedCategory, events]);
 
   const loadEvents = async () => {
+    setLoading(true);
     try {
       const eventsSnapshot = await getDocs(collection(db, "events"));
       const realEvents = eventsSnapshot.docs

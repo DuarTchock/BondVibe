@@ -17,21 +17,22 @@ const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 
 const REFUND_POLICY = {
   USER_CANCELLATION: {
-    DAYS_7_PLUS: 1.0, // 100% refund
-    DAYS_3_TO_7: 0.5, // 50% refund
-    DAYS_LESS_3: 0.0, // Sin refund
+    DAYS_7_PLUS: 1.0,
+    DAYS_3_TO_7: 0.5,
+    DAYS_LESS_3: 0.0,
   },
-  HOST_CANCELLATION: 1.0, // Siempre 100%
-  MIN_REFUND_HOURS: 2, // Tiempo mínimo para procesar
+  HOST_CANCELLATION: 1.0,
+  MIN_REFUND_HOURS: 2,
 };
 
 // ============================================
 // CALCULATE REFUND PERCENTAGE
 // ============================================
+
 /**
  * Calculate refund percentage based on cancellation timing
  * @param {string} eventDate - ISO date string of the event
- * @param {string} cancelledBy - 'user' or 'host'
+ * @param {string} cancelledBy - Who cancelled: 'user' or 'host'
  * @return {number} Refund percentage (0.0 to 1.0)
  */
 function calculateRefundPercentage(eventDate, cancelledBy) {
@@ -40,12 +41,10 @@ function calculateRefundPercentage(eventDate, cancelledBy) {
   const hoursUntilEvent = (eventDateTime - now) / (1000 * 60 * 60);
   const daysUntilEvent = hoursUntilEvent / 24;
 
-  // Si el host cancela → siempre 100%
   if (cancelledBy === "host") {
     return REFUND_POLICY.HOST_CANCELLATION;
   }
 
-  // Usuario cancela
   if (daysUntilEvent >= 7) {
     return REFUND_POLICY.USER_CANCELLATION.DAYS_7_PLUS;
   } else if (daysUntilEvent >= 3) {
@@ -58,6 +57,7 @@ function calculateRefundPercentage(eventDate, cancelledBy) {
 // ============================================
 // PROCESS REFUND
 // ============================================
+
 /**
  * Process a Stripe refund
  * @param {object} stripe - Stripe instance
@@ -74,9 +74,9 @@ async function processRefund(
 ) {
   try {
     console.log("💰 Processing refund:", {
-      paymentIntentId,
-      refundPercentage,
-      reason,
+      paymentIntentId: paymentIntentId,
+      refundPercentage: refundPercentage,
+      reason: reason,
     });
 
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
@@ -85,26 +85,44 @@ async function processRefund(
       throw new Error("Payment Intent not found");
     }
 
-    if (
-      paymentIntent.status === "canceled" ||
-      paymentIntent.amount_refunded > 0
-    ) {
+    console.log("📋 Payment Intent status:", paymentIntent.status);
+    console.log("📋 Amount already refunded:", paymentIntent.amount_refunded);
+
+    if (paymentIntent.status === "canceled") {
       return {
         success: false,
-        error: "Payment already refunded",
+        error: "Payment was canceled",
+      };
+    }
+
+    if (paymentIntent.amount_refunded >= paymentIntent.amount) {
+      return {
+        success: false,
+        error: "Payment already fully refunded",
       };
     }
 
     const originalAmount = paymentIntent.amount;
-    const refundAmount = Math.floor(originalAmount * refundPercentage);
+    const alreadyRefunded = paymentIntent.amount_refunded || 0;
+    const maxRefundable = originalAmount - alreadyRefunded;
+    const desiredRefund = Math.floor(originalAmount * refundPercentage);
+    const refundAmount = Math.min(desiredRefund, maxRefundable);
 
     if (refundAmount === 0) {
       return {
         success: false,
-        error: "No refund available based on cancellation policy",
+        error: "No refund available",
         refundPercentage: 0,
       };
     }
+
+    console.log("💵 Refund calculation:", {
+      originalAmount: originalAmount,
+      alreadyRefunded: alreadyRefunded,
+      maxRefundable: maxRefundable,
+      desiredRefund: desiredRefund,
+      refundAmount: refundAmount,
+    });
 
     const refund = await stripe.refunds.create({
       payment_intent: paymentIntentId,
@@ -145,7 +163,6 @@ async function processRefund(
 exports.cancelEventAttendance = functions.https.onCall(
   {secrets: [stripeSecretKey]},
   async (request) => {
-    // Verificar autenticación
     if (!request.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
@@ -156,10 +173,12 @@ exports.cancelEventAttendance = functions.https.onCall(
     const {eventId} = request.data;
     const userId = request.auth.uid;
 
-    console.log("🚫 User cancelling attendance:", {eventId, userId});
+    console.log("🚫 User cancelling attendance:", {
+      eventId: eventId,
+      userId: userId,
+    });
 
     try {
-      // Initialize Stripe
       const stripe = require("stripe")(stripeSecretKey.value());
 
       const eventRef = db.collection("events").doc(eventId);
@@ -171,7 +190,18 @@ exports.cancelEventAttendance = functions.https.onCall(
 
       const eventData = eventDoc.data();
       const attendees = eventData.attendees || [];
-      const attendeeIndex = attendees.indexOf(userId);
+      let attendeeIndex = -1;
+
+      for (let i = 0; i < attendees.length; i++) {
+        const attendee = attendees[i];
+        if (typeof attendee === "string" && attendee === userId) {
+          attendeeIndex = i;
+          break;
+        } else if (attendee && attendee.userId === userId) {
+          attendeeIndex = i;
+          break;
+        }
+      }
 
       if (attendeeIndex === -1) {
         throw new functions.https.HttpsError(
@@ -180,7 +210,6 @@ exports.cancelEventAttendance = functions.https.onCall(
         );
       }
 
-      // Buscar pago del usuario
       const paymentsSnapshot = await db
         .collection("payments")
         .where("eventId", "==", eventId)
@@ -190,9 +219,8 @@ exports.cancelEventAttendance = functions.https.onCall(
         .get();
 
       if (paymentsSnapshot.empty) {
-        // Evento gratuito - solo remover
         attendees.splice(attendeeIndex, 1);
-        await eventRef.update({attendees});
+        await eventRef.update({attendees: attendees});
 
         console.log("✅ Removed from free event");
         return {
@@ -206,14 +234,12 @@ exports.cancelEventAttendance = functions.https.onCall(
       const paymentData = paymentDoc.data();
       const paymentIntentId = paymentData.paymentIntentId;
 
-      // Calcular refund
       const refundPercentage = calculateRefundPercentage(
         eventData.date,
         "user",
       );
       console.log("📊 Refund percentage:", refundPercentage * 100 + "%");
 
-      // Procesar refund
       const refundResult = await processRefund(
         stripe,
         paymentIntentId,
@@ -221,38 +247,37 @@ exports.cancelEventAttendance = functions.https.onCall(
         "requested_by_customer",
       );
 
-      // Remover del evento
       attendees.splice(attendeeIndex, 1);
-      await eventRef.update({attendees});
+      await eventRef.update({attendees: attendees});
 
-      // Actualizar pago
       await paymentDoc.ref.update({
         status: refundResult.success ? "refunded" : "succeeded",
-        refundAmount: refundResult.refund?.amount || 0,
+        refundAmount: refundResult.refund ? refundResult.refund.amount : 0,
         refundPercentage: refundPercentage * 100,
         refundedAt: refundResult.success ? new Date().toISOString() : null,
       });
 
-      // Notificar al host
       if (eventData.creatorId) {
         const userDoc = await db.collection("users").doc(userId).get();
-        const userName = userDoc.data()?.fullName || "Someone";
+        const userData = userDoc.data() || {};
+        const userName = userData.name || userData.fullName || "Someone";
 
-        const refundMessage =
+        const refundMsg =
           refundPercentage > 0 ?
-            `Refund: ${refundPercentage * 100}%` :
+            "Refund: " + refundPercentage * 100 + "%" :
             "No refund";
 
         await db.collection("notifications").add({
           userId: eventData.creatorId,
           type: "attendee_cancelled",
           title: "Attendee Cancelled",
-          message: `${userName} cancelled for "${eventData.title}". ${refundMessage}`,
+          message:
+            userName + " cancelled for \"" + eventData.title + "\". " + refundMsg,
           icon: "🚫",
           read: false,
           createdAt: new Date().toISOString(),
           metadata: {
-            eventId,
+            eventId: eventId,
             eventTitle: eventData.title,
             refundPercentage: refundPercentage * 100,
           },
@@ -263,7 +288,7 @@ exports.cancelEventAttendance = functions.https.onCall(
 
       const resultMessage =
         refundPercentage > 0 ?
-          `Refund of ${refundPercentage * 100}% processed` :
+          "Refund of " + refundPercentage * 100 + "% processed" :
           "No refund available (less than 3 days)";
 
       return {
@@ -286,7 +311,6 @@ exports.cancelEventAttendance = functions.https.onCall(
 exports.hostCancelEvent = functions.https.onCall(
   {secrets: [stripeSecretKey]},
   async (request) => {
-    // Verificar autenticación
     if (!request.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
@@ -298,13 +322,12 @@ exports.hostCancelEvent = functions.https.onCall(
     const userId = request.auth.uid;
 
     console.log("🏠 Host cancelling event:", {
-      eventId,
-      userId,
+      eventId: eventId,
+      userId: userId,
       reason: cancellationReason,
     });
 
     try {
-      // Initialize Stripe
       const stripe = require("stripe")(stripeSecretKey.value());
 
       const eventRef = db.collection("events").doc(eventId);
@@ -316,12 +339,18 @@ exports.hostCancelEvent = functions.https.onCall(
 
       const eventData = eventDoc.data();
 
+      console.log("📋 Event data:", {
+        title: eventData.title,
+        creatorId: eventData.creatorId,
+        attendeesCount: eventData.attendees ? eventData.attendees.length : 0,
+      });
+
       // Verificar permisos
       if (eventData.creatorId !== userId) {
         const userDoc = await db.collection("users").doc(userId).get();
         const userData = userDoc.data();
 
-        if (userData?.role !== "admin") {
+        if (!userData || userData.role !== "admin") {
           throw new functions.https.HttpsError(
             "permission-denied",
             "Only host or admin can cancel",
@@ -329,24 +358,55 @@ exports.hostCancelEvent = functions.https.onCall(
         }
       }
 
-      // Obtener todos los pagos
+      // DEBUG: Query ALL payments for this event
+      console.log("🔍 DEBUG - Searching payments for eventId:", eventId);
+
+      const allPaymentsSnapshot = await db
+        .collection("payments")
+        .where("eventId", "==", eventId)
+        .get();
+
+      console.log("🔍 Total payments found:", allPaymentsSnapshot.size);
+
+      allPaymentsSnapshot.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log("🔍 Payment " + (index + 1) + ":", {
+          id: doc.id,
+          odl: data.userId,
+          status: data.status,
+          amount: data.amount,
+          paymentIntentId: data.paymentIntentId,
+        });
+      });
+
+      // Get payments with status 'succeeded'
       const paymentsSnapshot = await db
         .collection("payments")
         .where("eventId", "==", eventId)
         .where("status", "==", "succeeded")
         .get();
 
-      const refundResults = [];
+      console.log("💳 Payments with succeeded status:", paymentsSnapshot.size);
 
-      // Procesar refunds (100%)
+      const refundResults = [];
+      const failedRefunds = [];
+
+      // Process refunds (100%)
       for (const paymentDoc of paymentsSnapshot.docs) {
         const paymentData = paymentDoc.data();
+
+        console.log("💵 Processing refund for:", {
+          paymentId: paymentDoc.id,
+          odl: paymentData.userId,
+          paymentIntentId: paymentData.paymentIntentId,
+          amount: paymentData.amount,
+        });
 
         const refundResult = await processRefund(
           stripe,
           paymentData.paymentIntentId,
           1.0,
-          "requested_by_host",
+          "requested_by_customer",
         );
 
         if (refundResult.success) {
@@ -359,30 +419,44 @@ exports.hostCancelEvent = functions.https.onCall(
           });
 
           refundResults.push({
-            userId: paymentData.userId,
+            paymentId: paymentDoc.id,
+            odl: paymentData.userId,
             amount: refundResult.refund.amount,
           });
 
-          // Notificar usuario
+          // Notify user
           await db.collection("notifications").add({
             userId: paymentData.userId,
             type: "event_cancelled_refund",
             title: "Event Cancelled - Full Refund",
-            message: `"${eventData.title}" was cancelled. Full refund processed.`,
+            message:
+              "\"" + eventData.title + "\" was cancelled. Full refund processed.",
             icon: "💰",
             read: false,
             createdAt: new Date().toISOString(),
             metadata: {
-              eventId,
+              eventId: eventId,
               eventTitle: eventData.title,
               refundAmount: refundResult.refund.amount,
-              reason: cancellationReason,
+              reason: cancellationReason || "No reason provided",
             },
+          });
+
+          console.log("✅ Refund successful for user:", paymentData.userId);
+        } else {
+          console.log(
+            "❌ Refund failed:",
+            paymentData.userId,
+            refundResult.error,
+          );
+          failedRefunds.push({
+            odl: paymentData.userId,
+            error: refundResult.error,
           });
         }
       }
 
-      // Actualizar evento
+      // Update event status
       await eventRef.update({
         status: "cancelled",
         cancelledAt: new Date().toISOString(),
@@ -390,15 +464,21 @@ exports.hostCancelEvent = functions.https.onCall(
         cancelledBy: userId,
       });
 
-      console.log(
-        `✅ Event cancelled, ${refundResults.length} refunds processed`,
-      );
+      const logMsg =
+        "✅ Event cancelled, " +
+        refundResults.length +
+        " refunds processed, " +
+        failedRefunds.length +
+        " failed";
+      console.log(logMsg);
 
       return {
         success: true,
         refundsProcessed: refundResults.length,
         refunds: refundResults,
-        message: `Event cancelled. ${refundResults.length} refunds processed.`,
+        failedRefunds: failedRefunds,
+        message:
+          "Event cancelled. " + refundResults.length + " refunds processed.",
       };
     } catch (error) {
       console.error("❌ Error cancelling event:", error);
