@@ -12,7 +12,17 @@ import {
   Modal,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -42,6 +52,11 @@ export default function EditEventScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Recurrence state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceGroupId, setRecurrenceGroupId] = useState(null);
+  const [futureEventsCount, setFutureEventsCount] = useState(0);
+
   // Date/Time picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -60,7 +75,6 @@ export default function EditEventScreen({ route, navigation }) {
         // Parse the date string into a Date object
         let eventDate = new Date();
         if (data.date) {
-          // Try parsing ISO format first
           const parsedDate = new Date(data.date);
           if (!isNaN(parsedDate.getTime())) {
             eventDate = parsedDate;
@@ -74,10 +88,42 @@ export default function EditEventScreen({ route, navigation }) {
           date: eventDate,
           time: data.time || "",
           location: data.location || "",
-          maxAttendees: data.maxAttendees?.toString() || "",
+          maxAttendees:
+            data.maxAttendees?.toString() || data.maxPeople?.toString() || "",
           price: data.price?.toString() || "",
         });
         setTempDate(eventDate);
+
+        // Check if this is a recurring event
+        if (data.isRecurring && data.recurrenceGroupId) {
+          setIsRecurring(true);
+          setRecurrenceGroupId(data.recurrenceGroupId);
+
+          // Count future events in the series
+          const futureQuery = query(
+            collection(db, "events"),
+            where("recurrenceGroupId", "==", data.recurrenceGroupId),
+            where("status", "==", "active")
+          );
+          const futureSnapshot = await getDocs(futureQuery);
+
+          // Get this event's date at midnight for comparison (events from this date onwards)
+          const thisEventDate = new Date(eventDate);
+          thisEventDate.setHours(0, 0, 0, 0);
+          const thisEventTimestamp = thisEventDate.getTime();
+
+          const futureEvents = futureSnapshot.docs.filter((d) => {
+            const eData = d.data();
+            const eventDateObj = new Date(eData.date);
+            eventDateObj.setHours(0, 0, 0, 0);
+            const eventTimestamp = eventDateObj.getTime();
+            return eventTimestamp >= thisEventTimestamp;
+          });
+          setFutureEventsCount(futureEvents.length);
+          console.log(
+            `🔄 Recurring event: ${futureEvents.length} events from this date onwards`
+          );
+        }
       }
     } catch (error) {
       console.error("Error loading event:", error);
@@ -112,14 +158,12 @@ export default function EditEventScreen({ route, navigation }) {
     if (Platform.OS === "android") {
       setShowDatePicker(false);
       if (event.type === "set" && selectedDate) {
-        // Preserve the time from the current date
         const newDate = new Date(selectedDate);
         newDate.setHours(form.date.getHours());
         newDate.setMinutes(form.date.getMinutes());
         setForm({ ...form, date: newDate });
       }
     } else {
-      // iOS - update temp date, will confirm on "Done"
       if (selectedDate) {
         setTempDate(selectedDate);
       }
@@ -131,7 +175,6 @@ export default function EditEventScreen({ route, navigation }) {
     if (Platform.OS === "android") {
       setShowTimePicker(false);
       if (event.type === "set" && selectedTime) {
-        // Preserve the date, only change time
         const newDate = new Date(form.date);
         newDate.setHours(selectedTime.getHours());
         newDate.setMinutes(selectedTime.getMinutes());
@@ -142,7 +185,6 @@ export default function EditEventScreen({ route, navigation }) {
         });
       }
     } else {
-      // iOS - update temp date for time
       if (selectedTime) {
         setTempDate(selectedTime);
       }
@@ -171,6 +213,7 @@ export default function EditEventScreen({ route, navigation }) {
     setShowTimePicker(false);
   };
 
+  // Handle save - check for recurring event
   const handleSave = async () => {
     if (
       !form.title.trim() ||
@@ -181,23 +224,91 @@ export default function EditEventScreen({ route, navigation }) {
       return;
     }
 
+    // If recurring event with multiple events from this date onwards, ask user
+    if (isRecurring && futureEventsCount > 1) {
+      Alert.alert(
+        "Edit Recurring Event",
+        "Do you want to edit only this event or this and all following events?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Only This Event",
+            onPress: () => saveEvent(false),
+          },
+          {
+            text: `This & Following (${futureEventsCount})`,
+            onPress: () => saveEvent(true),
+          },
+        ]
+      );
+    } else {
+      saveEvent(false);
+    }
+  };
+
+  // Save event(s)
+  const saveEvent = async (updateAllFuture) => {
     setSaving(true);
     try {
-      await updateDoc(doc(db, "events", eventId), {
+      const updateData = {
         title: form.title.trim(),
         description: form.description.trim(),
         category: form.category,
-        date: form.date.toISOString(),
-        time: form.time || formatTimeDisplay(form.date),
         location: form.location.trim(),
         maxAttendees: parseInt(form.maxAttendees) || 10,
+        maxPeople: parseInt(form.maxAttendees) || 10,
         price: parseFloat(form.price) || 0,
         updatedAt: new Date().toISOString(),
-      });
+      };
 
-      Alert.alert("Success", "Event updated!", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      if (updateAllFuture && recurrenceGroupId) {
+        // Update all events from this date onwards in the series
+        const futureQuery = query(
+          collection(db, "events"),
+          where("recurrenceGroupId", "==", recurrenceGroupId),
+          where("status", "==", "active")
+        );
+        const futureSnapshot = await getDocs(futureQuery);
+
+        // Get this event's date at midnight for comparison
+        const thisEventDate = new Date(form.date);
+        thisEventDate.setHours(0, 0, 0, 0);
+        const thisEventTimestamp = thisEventDate.getTime();
+
+        const batch = writeBatch(db);
+        let updatedCount = 0;
+
+        futureSnapshot.docs.forEach((docSnap) => {
+          const eventData = docSnap.data();
+          const eventDateObj = new Date(eventData.date);
+          eventDateObj.setHours(0, 0, 0, 0);
+          const eventTimestamp = eventDateObj.getTime();
+          if (eventTimestamp >= thisEventTimestamp) {
+            batch.update(docSnap.ref, updateData);
+            updatedCount++;
+          }
+        });
+
+        await batch.commit();
+        console.log(`✅ Updated ${updatedCount} future events`);
+
+        Alert.alert(
+          "Success",
+          `Updated ${updatedCount} events in the series!`,
+          [{ text: "OK", onPress: () => navigation.goBack() }]
+        );
+      } else {
+        // Update only this event (including date/time)
+        await updateDoc(doc(db, "events", eventId), {
+          ...updateData,
+          date: form.date.toISOString(),
+          time: form.time || formatTimeDisplay(form.date),
+        });
+
+        Alert.alert("Success", "Event updated!", [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch (error) {
       console.error("Error updating event:", error);
       Alert.alert("Error", "Failed to update event");
@@ -206,25 +317,86 @@ export default function EditEventScreen({ route, navigation }) {
     }
   };
 
+  // Handle delete - check for recurring event
   const handleDelete = () => {
-    Alert.alert("Delete Event", "Are you sure? This cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteDoc(doc(db, "events", eventId));
-            Alert.alert("Deleted", "Event deleted successfully", [
-              { text: "OK", onPress: () => navigation.navigate("Home") },
-            ]);
-          } catch (error) {
-            console.error("Error deleting event:", error);
-            Alert.alert("Error", "Failed to delete event");
-          }
+    if (isRecurring && futureEventsCount > 1) {
+      Alert.alert(
+        "Delete Recurring Event",
+        "Do you want to delete only this event or this and all following events?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Only This Event",
+            style: "destructive",
+            onPress: () => deleteEvent(false),
+          },
+          {
+            text: `This & Following (${futureEventsCount})`,
+            style: "destructive",
+            onPress: () => deleteEvent(true),
+          },
+        ]
+      );
+    } else {
+      Alert.alert("Delete Event", "Are you sure? This cannot be undone.", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteEvent(false),
         },
-      },
-    ]);
+      ]);
+    }
+  };
+
+  // Delete event(s)
+  const deleteEvent = async (deleteAllFuture) => {
+    try {
+      if (deleteAllFuture && recurrenceGroupId) {
+        // Delete all events from this date onwards in the series
+        const futureQuery = query(
+          collection(db, "events"),
+          where("recurrenceGroupId", "==", recurrenceGroupId),
+          where("status", "==", "active")
+        );
+        const futureSnapshot = await getDocs(futureQuery);
+
+        // Get this event's date at midnight for comparison
+        const thisEventDate = new Date(form.date);
+        thisEventDate.setHours(0, 0, 0, 0);
+        const thisEventTimestamp = thisEventDate.getTime();
+
+        const batch = writeBatch(db);
+        let deletedCount = 0;
+
+        futureSnapshot.docs.forEach((docSnap) => {
+          const eventData = docSnap.data();
+          const eventDateObj = new Date(eventData.date);
+          eventDateObj.setHours(0, 0, 0, 0);
+          const eventTimestamp = eventDateObj.getTime();
+          if (eventTimestamp >= thisEventTimestamp) {
+            batch.delete(docSnap.ref);
+            deletedCount++;
+          }
+        });
+
+        await batch.commit();
+        console.log(`🗑️ Deleted ${deletedCount} events from this date onwards`);
+
+        Alert.alert("Deleted", `${deletedCount} events deleted successfully`, [
+          { text: "OK", onPress: () => navigation.navigate("Home") },
+        ]);
+      } else {
+        // Delete only this event
+        await deleteDoc(doc(db, "events", eventId));
+        Alert.alert("Deleted", "Event deleted successfully", [
+          { text: "OK", onPress: () => navigation.navigate("Home") },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      Alert.alert("Error", "Failed to delete event");
+    }
   };
 
   const styles = createStyles(colors);
@@ -344,9 +516,25 @@ export default function EditEventScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Edit Event
-        </Text>
+        <View style={styles.headerCenter}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Edit Event
+          </Text>
+          {isRecurring && (
+            <View
+              style={[
+                styles.recurringBadge,
+                { backgroundColor: `${colors.primary}22` },
+              ]}
+            >
+              <Text
+                style={[styles.recurringBadgeText, { color: colors.primary }]}
+              >
+                🔄 Recurring
+              </Text>
+            </View>
+          )}
+        </View>
         <TouchableOpacity onPress={handleDelete}>
           <Text style={styles.deleteButton}>🗑️</Text>
         </TouchableOpacity>
@@ -357,6 +545,34 @@ export default function EditEventScreen({ route, navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Recurring Event Banner */}
+        {isRecurring && (
+          <View
+            style={[
+              styles.recurringBanner,
+              {
+                backgroundColor: `${colors.primary}11`,
+                borderColor: `${colors.primary}33`,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.recurringBannerText, { color: colors.primary }]}
+            >
+              🔄 This is part of a recurring series ({futureEventsCount} future
+              events)
+            </Text>
+            <Text
+              style={[
+                styles.recurringBannerSubtext,
+                { color: colors.textSecondary },
+              ]}
+            >
+              You can edit just this event or all future events at once.
+            </Text>
+          </View>
+        )}
+
         {/* Event Title */}
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.text }]}>
@@ -521,6 +737,13 @@ export default function EditEventScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Note for recurring events about date/time */}
+        {isRecurring && (
+          <Text style={[styles.dateNote, { color: colors.textTertiary }]}>
+            Note: Date/time changes only apply to this specific event.
+          </Text>
+        )}
+
         {/* Location */}
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.text }]}>Location *</Text>
@@ -576,7 +799,7 @@ export default function EditEventScreen({ route, navigation }) {
 
           <View style={[styles.section, { flex: 1, marginLeft: 12 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
-              Price ($)
+              Price (MXN)
             </Text>
             <View style={styles.inputWrapper}>
               <TextInput
@@ -666,6 +889,9 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
+    headerCenter: {
+      alignItems: "center",
+    },
     backButton: {
       fontSize: 28,
     },
@@ -673,6 +899,16 @@ function createStyles(colors) {
       fontSize: 20,
       fontWeight: "700",
       letterSpacing: -0.3,
+    },
+    recurringBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+      marginTop: 6,
+    },
+    recurringBadgeText: {
+      fontSize: 12,
+      fontWeight: "600",
     },
     deleteButton: {
       fontSize: 22,
@@ -683,6 +919,20 @@ function createStyles(colors) {
     scrollContent: {
       paddingHorizontal: 24,
       paddingBottom: 40,
+    },
+    recurringBanner: {
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 20,
+    },
+    recurringBannerText: {
+      fontSize: 14,
+      fontWeight: "600",
+      marginBottom: 4,
+    },
+    recurringBannerSubtext: {
+      fontSize: 13,
     },
     section: {
       marginBottom: 20,
@@ -746,8 +996,6 @@ function createStyles(colors) {
       fontSize: 14,
       fontWeight: "600",
     },
-
-    // Date/Time picker styles
     dateTimeButton: {
       flex: 1,
       flexDirection: "row",
@@ -766,8 +1014,12 @@ function createStyles(colors) {
       fontWeight: "500",
       flex: 1,
     },
-
-    // Modal styles for iOS picker
+    dateNote: {
+      fontSize: 12,
+      fontStyle: "italic",
+      marginTop: -12,
+      marginBottom: 16,
+    },
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -801,7 +1053,6 @@ function createStyles(colors) {
     iosPicker: {
       height: 200,
     },
-
     saveButton: {
       borderRadius: 16,
       overflow: "hidden",

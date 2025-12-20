@@ -65,6 +65,15 @@ export default function MyEventsScreen({ navigation }) {
     }
   };
 
+  // ✅ Sort events by date
+  const sortEventsByDate = (eventsArray, ascending = true) => {
+    return [...eventsArray].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return ascending ? dateA - dateB : dateB - dateA;
+    });
+  };
+
   const loadMyEvents = async () => {
     setLoading(true);
     try {
@@ -123,12 +132,16 @@ export default function MyEventsScreen({ navigation }) {
   const applyTimeFilter = () => {
     if (timeFilter === "upcoming") {
       const upcoming = filterUpcomingEvents(allEvents);
-      console.log("📅 Upcoming:", upcoming.length);
-      setDisplayedEvents(upcoming);
+      // ✅ Sort upcoming events: soonest first (ascending)
+      const sorted = sortEventsByDate(upcoming, true);
+      console.log("📅 Upcoming:", sorted.length);
+      setDisplayedEvents(sorted);
     } else {
       const past = filterPastEvents(allEvents);
-      console.log("📦 Past:", past.length);
-      setDisplayedEvents(past);
+      // ✅ Sort past events: most recent first (descending)
+      const sorted = sortEventsByDate(past, false);
+      console.log("📦 Past:", sorted.length);
+      setDisplayedEvents(sorted);
     }
   };
 
@@ -159,18 +172,34 @@ export default function MyEventsScreen({ navigation }) {
           ]}
         >
           <View style={styles.eventHeader}>
-            <View
-              style={[
-                styles.categoryBadge,
-                {
-                  backgroundColor: `${colors.primary}26`,
-                  borderColor: `${colors.primary}4D`,
-                },
-              ]}
-            >
-              <Text style={[styles.categoryText, { color: colors.primary }]}>
-                {event.category}
-              </Text>
+            <View style={styles.badgesLeft}>
+              <View
+                style={[
+                  styles.categoryBadge,
+                  {
+                    backgroundColor: `${colors.primary}26`,
+                    borderColor: `${colors.primary}4D`,
+                  },
+                ]}
+              >
+                <Text style={[styles.categoryText, { color: colors.primary }]}>
+                  {event.category}
+                </Text>
+              </View>
+              {event.isRecurring && (
+                <View
+                  style={[
+                    styles.recurringBadge,
+                    { backgroundColor: `${colors.primary}22` },
+                  ]}
+                >
+                  <Text
+                    style={[styles.recurringText, { color: colors.primary }]}
+                  >
+                    🔄
+                  </Text>
+                </View>
+              )}
             </View>
             <Text style={[styles.eventDate, { color: colors.textSecondary }]}>
               {formatISODate(event.date)} •{" "}
@@ -200,12 +229,17 @@ export default function MyEventsScreen({ navigation }) {
               style={[styles.attendeesText, { color: colors.textSecondary }]}
             >
               {Array.isArray(event.attendees) ? event.attendees.length : 0}/
-              {event.maxPeople} people
+              {event.maxPeople || event.maxAttendees || 0} people
             </Text>
             <View style={styles.badgesRow}>
               {event.status === "published" && !isPast && (
                 <View style={styles.statusBadge}>
                   <Text style={styles.statusText}>Active</Text>
+                </View>
+              )}
+              {event.price > 0 && (
+                <View style={styles.priceBadge}>
+                  <Text style={styles.priceBadgeText}>${event.price}</Text>
                 </View>
               )}
               {isPast && (
@@ -511,6 +545,11 @@ function createStyles(colors) {
       alignItems: "center",
       marginBottom: 12,
     },
+    badgesLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
     categoryBadge: {
       paddingVertical: 4,
       paddingHorizontal: 12,
@@ -518,6 +557,12 @@ function createStyles(colors) {
       borderWidth: 1,
     },
     categoryText: { fontSize: 11, fontWeight: "600" },
+    recurringBadge: {
+      paddingVertical: 4,
+      paddingHorizontal: 6,
+      borderRadius: 6,
+    },
+    recurringText: { fontSize: 10 },
     eventDate: { fontSize: 13, fontWeight: "600" },
     eventTitle: {
       fontSize: 17,
@@ -544,6 +589,15 @@ function createStyles(colors) {
       borderColor: "rgba(166, 255, 150, 0.3)",
     },
     statusText: { fontSize: 11, fontWeight: "600", color: "#A6FF96" },
+    priceBadge: {
+      backgroundColor: "rgba(255, 204, 0, 0.15)",
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: "rgba(255, 204, 0, 0.3)",
+    },
+    priceBadgeText: { fontSize: 11, fontWeight: "700", color: "#FFCC00" },
     endedBadge: {
       backgroundColor: "rgba(255, 159, 10, 0.15)",
       paddingVertical: 4,

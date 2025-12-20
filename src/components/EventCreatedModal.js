@@ -1,16 +1,23 @@
-import React from 'react';
+import React from "react";
 import {
+  Modal,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Modal,
-} from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
+  Animated,
+} from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
 
-export default function EventCreatedModal({ visible, onClose, eventTitle }) {
-  const { colors } = useTheme();
-  const styles = createStyles(colors);
+export default function EventCreatedModal({
+  visible,
+  onClose,
+  eventTitle,
+  eventsCount = 1,
+}) {
+  const { colors, isDark } = useTheme();
+
+  const isRecurring = eventsCount > 1;
 
   return (
     <Modal
@@ -20,38 +27,71 @@ export default function EventCreatedModal({ visible, onClose, eventTitle }) {
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.surface }]}>
+        <View
+          style={[
+            styles.modalContainer,
+            {
+              backgroundColor: isDark ? "#1a1a2e" : "#ffffff",
+              borderColor: colors.border,
+            },
+          ]}
+        >
           {/* Success Icon */}
-          <View style={[styles.iconContainer, {
-            backgroundColor: `${colors.primary}22`,
-          }]}>
-            <Text style={styles.successIcon}>✨</Text>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: `${colors.primary}22` },
+            ]}
+          >
+            <Text style={styles.icon}>{isRecurring ? "🔄" : "🎉"}</Text>
           </View>
 
           {/* Title */}
           <Text style={[styles.title, { color: colors.text }]}>
-            Event Created!
+            {isRecurring ? "Events Created!" : "Event Created!"}
           </Text>
 
           {/* Message */}
           <Text style={[styles.message, { color: colors.textSecondary }]}>
-            Your event "{eventTitle}" has been created successfully and is now live for others to discover.
+            {isRecurring
+              ? `Your recurring event "${eventTitle}" has been created successfully!`
+              : `Your event "${eventTitle}" is now live!`}
           </Text>
 
-          {/* Button */}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={onClose}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.buttonGlass, {
-              backgroundColor: `${colors.primary}33`,
-              borderColor: `${colors.primary}66`,
-            }]}>
-              <Text style={[styles.buttonText, { color: colors.primary }]}>
-                Got it!
+          {/* Events Count Badge (for recurring) */}
+          {isRecurring && (
+            <View
+              style={[
+                styles.countBadge,
+                { backgroundColor: `${colors.primary}15` },
+              ]}
+            >
+              <Text style={[styles.countNumber, { color: colors.primary }]}>
+                {eventsCount}
+              </Text>
+              <Text
+                style={[styles.countLabel, { color: colors.textSecondary }]}
+              >
+                events scheduled
               </Text>
             </View>
+          )}
+
+          {/* Info Text */}
+          <Text style={[styles.infoText, { color: colors.textTertiary }]}>
+            {isRecurring
+              ? "Each event is independent - attendees join individually per date."
+              : "People can now discover and join your event."}
+          </Text>
+
+          {/* Action Button */}
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={onClose}
+          >
+            <Text style={styles.buttonText}>
+              {isRecurring ? "View My Events" : "Got it!"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -59,65 +99,85 @@ export default function EventCreatedModal({ visible, onClose, eventTitle }) {
   );
 }
 
-function createStyles(colors) {
-  return StyleSheet.create({
-    overlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 24,
-    },
-    container: {
-      borderRadius: 24,
-      padding: 32,
-      width: '100%',
-      maxWidth: 400,
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.3,
-      shadowRadius: 20,
-      elevation: 10,
-    },
-    iconContainer: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 24,
-    },
-    successIcon: {
-      fontSize: 48,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: '700',
-      marginBottom: 16,
-      textAlign: 'center',
-      letterSpacing: -0.5,
-    },
-    message: {
-      fontSize: 16,
-      textAlign: 'center',
-      lineHeight: 24,
-      marginBottom: 32,
-    },
-    button: {
-      width: '100%',
-      borderRadius: 16,
-      overflow: 'hidden',
-    },
-    buttonGlass: {
-      borderWidth: 1,
-      paddingVertical: 18,
-      alignItems: 'center',
-    },
-    buttonText: {
-      fontSize: 18,
-      fontWeight: '700',
-      letterSpacing: -0.2,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContainer: {
+    width: "100%",
+    maxWidth: 340,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: "center",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  icon: {
+    fontSize: 40,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 12,
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  message: {
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  countBadge: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    gap: 8,
+  },
+  countNumber: {
+    fontSize: 32,
+    fontWeight: "800",
+  },
+  countLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  infoText: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+    fontStyle: "italic",
+  },
+  button: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+});

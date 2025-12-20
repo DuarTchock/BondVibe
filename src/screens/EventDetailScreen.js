@@ -15,6 +15,11 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  collection,
+  query,
+  where,
+  getDocs,
+  writeBatch,
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -34,6 +39,11 @@ export default function EventDetailScreen({ route, navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [attendeesData, setAttendeesData] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  // Recurrence state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceGroupId, setRecurrenceGroupId] = useState(null);
+  const [futureEventsCount, setFutureEventsCount] = useState(0);
 
   const calculateDaysUntilEvent = (eventDate) => {
     const now = new Date();
@@ -79,6 +89,52 @@ export default function EventDetailScreen({ route, navigation }) {
         const eventData = { id: eventDoc.id, ...eventDoc.data() };
         setEvent(eventData);
         setIsJoined(eventData.attendees?.includes(auth.currentUser.uid));
+
+        // Check if this is a recurring event
+        if (eventData.isRecurring && eventData.recurrenceGroupId) {
+          setIsRecurring(true);
+          setRecurrenceGroupId(eventData.recurrenceGroupId);
+
+          // Count future events in the series (from this event's date onwards, not from today)
+          const futureQuery = query(
+            collection(db, "events"),
+            where("recurrenceGroupId", "==", eventData.recurrenceGroupId),
+            where("status", "==", "active")
+          );
+          const futureSnapshot = await getDocs(futureQuery);
+
+          // Get this event's date at midnight for comparison
+          const thisEventDate = new Date(eventData.date);
+          thisEventDate.setHours(0, 0, 0, 0);
+          const thisEventTimestamp = thisEventDate.getTime();
+
+          console.log(`📅 This event's date: ${thisEventDate.toISOString()}`);
+          console.log(
+            `📊 Total events in series: ${futureSnapshot.docs.length}`
+          );
+
+          const futureEvents = futureSnapshot.docs.filter((d) => {
+            const eData = d.data();
+            const eventDateObj = new Date(eData.date);
+            eventDateObj.setHours(0, 0, 0, 0);
+            const eventTimestamp = eventDateObj.getTime();
+            // Include events from this event's date onwards
+            const isFromThisDateOnwards = eventTimestamp >= thisEventTimestamp;
+            console.log(
+              `  Event ${d.id}: ${eData.date} | From this date onwards: ${isFromThisDateOnwards}`
+            );
+            return isFromThisDateOnwards;
+          });
+
+          setFutureEventsCount(futureEvents.length);
+          console.log(
+            `🔄 Recurring event: ${futureEvents.length} events from this date onwards`
+          );
+        } else {
+          setIsRecurring(false);
+          setRecurrenceGroupId(null);
+          setFutureEventsCount(0);
+        }
 
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         const userData = userDoc.data();
@@ -212,8 +268,132 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
+  // Show cancel/delete options
   const handleCancelEvent = () => {
-    setShowCancelModal(true);
+    // If recurring event with multiple future events, show options
+    if (isRecurring && futureEventsCount > 1) {
+      Alert.alert(
+        "Delete Recurring Event",
+        "Do you want to delete only this event or this and all following events in this series?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Only This Event",
+            style: "destructive",
+            onPress: () => setShowCancelModal(true),
+          },
+          {
+            text: `This & Following (${futureEventsCount})`,
+            style: "destructive",
+            onPress: () => cancelAllFutureEvents(),
+          },
+        ]
+      );
+    } else {
+      setShowCancelModal(true);
+    }
+  };
+
+  // Cancel all future events in the series (from this event's date onwards)
+  const cancelAllFutureEvents = async () => {
+    try {
+      setLoading(true);
+
+      const futureQuery = query(
+        collection(db, "events"),
+        where("recurrenceGroupId", "==", recurrenceGroupId),
+        where("status", "==", "active")
+      );
+      const futureSnapshot = await getDocs(futureQuery);
+
+      // Get this event's date at midnight for comparison
+      const thisEventDate = new Date(event.date);
+      thisEventDate.setHours(0, 0, 0, 0);
+      const thisEventTimestamp = thisEventDate.getTime();
+
+      console.log(
+        `🗑️ Cancelling events from ${thisEventDate.toISOString()} onwards`
+      );
+      console.log(`📊 Total events in series: ${futureSnapshot.docs.length}`);
+
+      // For paid events, we need to process refunds for each event
+      const functions = getFunctions();
+      const hostCancel = httpsCallable(functions, "hostCancelEvent");
+
+      let cancelledCount = 0;
+      let skippedCount = 0;
+      let totalRefunds = 0;
+
+      for (const docSnap of futureSnapshot.docs) {
+        const eventData = docSnap.data();
+        const eventDateObj = new Date(eventData.date);
+        eventDateObj.setHours(0, 0, 0, 0);
+        const eventTimestamp = eventDateObj.getTime();
+
+        // Include events from this event's date onwards
+        const isFromThisDateOnwards = eventTimestamp >= thisEventTimestamp;
+        console.log(
+          `  Event ${docSnap.id}: ${eventData.date} | Cancel: ${isFromThisDateOnwards}`
+        );
+
+        if (isFromThisDateOnwards) {
+          // Check if event has attendees and is paid
+          if (
+            eventData.price &&
+            eventData.price > 0 &&
+            eventData.attendees?.length > 0
+          ) {
+            // Use Cloud Function to handle refunds
+            try {
+              const result = await hostCancel({
+                eventId: docSnap.id,
+                reason: "Recurring series cancelled by host",
+              });
+              if (result.data.success) {
+                totalRefunds += result.data.refundsProcessed || 0;
+              }
+            } catch (refundError) {
+              console.error(
+                `Error refunding event ${docSnap.id}:`,
+                refundError
+              );
+            }
+          } else {
+            // Free event or no attendees - just update status
+            await updateDoc(docSnap.ref, {
+              status: "cancelled",
+              cancelledAt: new Date().toISOString(),
+              cancellationReason: "Recurring series cancelled by host",
+            });
+          }
+          cancelledCount++;
+        } else {
+          skippedCount++;
+        }
+      }
+
+      setLoading(false);
+
+      console.log(
+        `✅ Cancelled: ${cancelledCount}, Preserved (earlier): ${skippedCount}`
+      );
+
+      let message = `${cancelledCount} events cancelled successfully.`;
+      if (skippedCount > 0) {
+        message += ` ${skippedCount} earlier events were preserved.`;
+      }
+      if (totalRefunds > 0) {
+        message += ` ${totalRefunds} refunds processed.`;
+      }
+
+      Alert.alert("Events Cancelled", message, [
+        { text: "OK", onPress: () => navigation.navigate("Home") },
+      ]);
+    } catch (error) {
+      console.error("Error cancelling future events:", error);
+      setLoading(false);
+      Alert.alert("Error", "Failed to cancel events. Please try again.");
+    }
   };
 
   // ✅ User cancels their attendance - with refund calculation
@@ -527,7 +707,7 @@ export default function EventDetailScreen({ route, navigation }) {
                 <Text
                   style={[styles.headerButtonText, { color: colors.error }]}
                 >
-                  🚫
+                  🗑️
                 </Text>
               </View>
             </TouchableOpacity>
@@ -572,6 +752,22 @@ export default function EventDetailScreen({ route, navigation }) {
               >
                 <Text style={[styles.priceText, { color: colors.secondary }]}>
                   ${event.price}
+                </Text>
+              </View>
+            )}
+            {isRecurring && (
+              <View
+                style={[
+                  styles.recurringBadge,
+                  {
+                    backgroundColor: `${colors.primary}22`,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.recurringBadgeText, { color: colors.primary }]}
+                >
+                  🔄 Recurring
                 </Text>
               </View>
             )}
@@ -990,6 +1186,7 @@ function createStyles(colors) {
       alignItems: "center",
       gap: 10,
       marginBottom: 16,
+      flexWrap: "wrap",
     },
     categoryBadge: {
       paddingVertical: 6,
@@ -1019,6 +1216,15 @@ function createStyles(colors) {
       borderWidth: 1,
     },
     priceText: { fontSize: 14, fontWeight: "700" },
+    recurringBadge: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+    },
+    recurringBadgeText: {
+      fontSize: 12,
+      fontWeight: "600",
+    },
     title: {
       fontSize: 28,
       fontWeight: "700",
