@@ -41,21 +41,7 @@ export default function EventChatScreen({ route, navigation }) {
   const [sendingLocation, setSendingLocation] = useState(false);
   const scrollViewRef = useRef();
   const typingTimeoutRef = useRef(null);
-  const hasMarkedAsReadRef = useRef(false);
-
-  // ✅ Marcar como READ automáticamente después de cargar
-  useEffect(() => {
-    if (messages.length > 0 && !hasMarkedAsReadRef.current && !loading) {
-      const timer = setTimeout(() => {
-        const conversationId = `event_${eventId}`;
-        markMessagesAsRead(conversationId, auth.currentUser.uid);
-        hasMarkedAsReadRef.current = true;
-        console.log("📖 Messages marked as READ (auto-mark after load)");
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [messages.length, loading]);
+  const previousMessageCountRef = useRef(0);
 
   // ============================================
   // EFECTO: Inicializar chat
@@ -110,15 +96,30 @@ export default function EventChatScreen({ route, navigation }) {
         unsubscribeMessages = subscribeToMessages(
           conversationId,
           async (newMessages) => {
+            const previousCount = previousMessageCountRef.current;
+            const currentCount = newMessages.length;
+
             setMessages(newMessages);
 
-            // ✅ Marcar como DELIVERED automáticamente
             if (newMessages.length > 0) {
+              // ✅ Marcar como DELIVERED automáticamente
               await markMessagesAsDelivered(
                 conversationId,
                 auth.currentUser.uid
               );
+
+              // ✅ FIX: Marcar como READ cuando llegan nuevos mensajes
+              // mientras el usuario tiene el chat abierto
+              if (currentCount > previousCount || previousCount === 0) {
+                await markMessagesAsRead(conversationId, auth.currentUser.uid);
+                console.log(
+                  "📖 Messages marked as READ (new messages arrived while chat open)"
+                );
+              }
             }
+
+            // Actualizar contador de mensajes previos
+            previousMessageCountRef.current = currentCount;
 
             // Cargar info de usuarios que aún no tenemos
             const userIds = [...new Set(newMessages.map((m) => m.senderId))];
@@ -165,6 +166,7 @@ export default function EventChatScreen({ route, navigation }) {
     // ✅ CRÍTICO: Cleanup function
     return () => {
       console.log("🧹 Cleaning up chat subscriptions");
+      previousMessageCountRef.current = 0;
 
       if (unsubscribeMessages) {
         unsubscribeMessages();
@@ -196,11 +198,9 @@ export default function EventChatScreen({ route, navigation }) {
     const isNearBottom =
       contentSize.height - (contentOffset.y + layoutMeasurement.height) < 50;
 
-    if (isNearBottom && !hasMarkedAsReadRef.current && messages.length > 0) {
+    if (isNearBottom && messages.length > 0) {
       const conversationId = `event_${eventId}`;
       markMessagesAsRead(conversationId, auth.currentUser.uid);
-      hasMarkedAsReadRef.current = true;
-      console.log("📖 Messages marked as READ (user scrolled to bottom)");
     }
   };
 
@@ -213,14 +213,6 @@ export default function EventChatScreen({ route, navigation }) {
     const text = inputText.trim();
     setInputText("");
     setSending(true);
-
-    // Marcar mensajes como leídos cuando usuario envía
-    if (!hasMarkedAsReadRef.current && messages.length > 0) {
-      const conversationId = `event_${eventId}`;
-      markMessagesAsRead(conversationId, auth.currentUser.uid);
-      hasMarkedAsReadRef.current = true;
-      console.log("📖 Messages marked as READ (user sent message)");
-    }
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -444,7 +436,6 @@ export default function EventChatScreen({ route, navigation }) {
                 {user?.avatar || user?.emoji || "😊"}
               </Text>
             </View>
-            {/* ✅ FIX: Use fullName OR name field */}
             <Text style={[styles.senderName, { color: colors.textSecondary }]}>
               {getUserDisplayName(user)}
             </Text>
@@ -479,7 +470,6 @@ export default function EventChatScreen({ route, navigation }) {
     );
   };
 
-  // ✅ FIX: Typing indicator also uses getUserDisplayName
   const TypingIndicator = () => {
     if (typingUsers.length === 0) return null;
 
@@ -487,7 +477,6 @@ export default function EventChatScreen({ route, navigation }) {
       .map((userId) => {
         const user = users[userId];
         const displayName = getUserDisplayName(user);
-        // Get first name only
         return displayName.split(" ")[0];
       })
       .slice(0, 2);

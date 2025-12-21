@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Platform,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -66,12 +67,14 @@ export default function LegalDocumentModal({
             </TouchableOpacity>
           </View>
 
-          {/* Content - FIX: Altura explícita */}
+          {/* Content - FIX: nestedScrollEnabled for Android */}
           <View style={styles.contentWrapper}>
             <ScrollView
               style={styles.scrollView}
               contentContainerStyle={styles.contentContainer}
               showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              bounces={Platform.OS === "ios"}
             >
               {renderContent()}
             </ScrollView>
@@ -111,7 +114,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: "90%",
     maxWidth: 600,
-    height: "80%", // ← CAMBIO: De maxHeight a height fijo
+    height: "80%",
     borderRadius: 24,
     overflow: "hidden",
     shadowColor: "#000",
@@ -140,13 +143,14 @@ const styles = StyleSheet.create({
     fontWeight: "300",
   },
   contentWrapper: {
-    flex: 1, // ← NUEVO: Wrapper con flex
+    flex: 1,
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
     padding: 24,
+    paddingBottom: 40,
   },
   paragraph: {
     fontSize: 15,
