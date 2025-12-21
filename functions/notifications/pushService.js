@@ -1,12 +1,9 @@
 /**
  * Expo Push Notification Service
- * Sends real push notifications via Expo's push service
+ * Sends push notifications via Expo Push Notification API
  */
 
-const {Expo} = require("expo-server-sdk");
-
-// Create a new Expo SDK client
-const expo = new Expo();
+const fetch = require("node-fetch");
 
 /**
  * Send push notification to a single user
@@ -14,8 +11,8 @@ const expo = new Expo();
  * @param {object} notification - { title, body, data }
  */
 const sendPushNotification = async (pushToken, notification) => {
-  // Check that the push token is valid
-  if (!Expo.isExpoPushToken(pushToken)) {
+  // Validate Expo push token format
+  if (!pushToken || !pushToken.startsWith("ExponentPushToken[")) {
     console.error(`❌ Invalid Expo push token: ${pushToken}`);
     return {success: false, error: "Invalid push token"};
   }
@@ -26,15 +23,23 @@ const sendPushNotification = async (pushToken, notification) => {
     title: notification.title,
     body: notification.body,
     data: notification.data || {},
-    badge: notification.badge || 1,
     priority: "high",
     channelId: "default",
   };
 
   try {
-    const ticket = await expo.sendPushNotificationsAsync([message]);
-    console.log("✅ Push notification sent:", ticket);
-    return {success: true, ticket: ticket[0]};
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(message),
+    });
+
+    const result = await response.json();
+    console.log("✅ Push notification sent:", result);
+    return {success: true, result: result};
   } catch (error) {
     console.error("❌ Error sending push notification:", error);
     return {success: false, error: error.message};
@@ -43,13 +48,14 @@ const sendPushNotification = async (pushToken, notification) => {
 
 /**
  * Send push notifications to multiple users
- * @param {Array} notifications - Array of { pushToken, title, body, data }
+ * @param {Array} notifications - Array of {pushToken, title, body, data}
  */
 const sendBatchPushNotifications = async (notifications) => {
   const messages = [];
 
   for (const notif of notifications) {
-    if (!Expo.isExpoPushToken(notif.pushToken)) {
+    // Validate Expo push token format
+    if (!notif.pushToken || !notif.pushToken.startsWith("ExponentPushToken[")) {
       console.error(`❌ Invalid token skipped: ${notif.pushToken}`);
       continue;
     }
@@ -60,7 +66,6 @@ const sendBatchPushNotifications = async (notifications) => {
       title: notif.title,
       body: notif.body,
       data: notif.data || {},
-      badge: notif.badge || 1,
       priority: "high",
       channelId: "default",
     });
@@ -71,25 +76,28 @@ const sendBatchPushNotifications = async (notifications) => {
     return [];
   }
 
-  // Expo recommends sending in chunks of 100
-  const chunks = expo.chunkPushNotifications(messages);
-  const tickets = [];
+  console.log(`📤 Attempting to send ${messages.length} notifications...`);
 
-  for (const chunk of chunks) {
-    try {
-      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-      console.log(`✅ Sent ${ticketChunk.length} push notifications`);
-      tickets.push(...ticketChunk);
-    } catch (error) {
-      console.error("❌ Error sending chunk:", error);
-    }
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(messages),
+    });
+
+    const result = await response.json();
+    console.log(`✅ Sent ${messages.length} push notifications:`, result);
+    return result.data || [];
+  } catch (error) {
+    console.error("❌ Error sending batch:", error);
+    return [];
   }
-
-  return tickets;
 };
 
 module.exports = {
   sendPushNotification,
   sendBatchPushNotifications,
-  expo,
 };
