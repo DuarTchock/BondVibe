@@ -18,7 +18,6 @@ dist/
 .env.local
 .env.*
 firebase-config.json
-google-services.json
 GoogleService-Info.plist
 
 # IDE
