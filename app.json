@@ -18,6 +18,12 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow BondVibe to access your location to share it with your group."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#FF6B9D"
+        }
       ]
     ],
     "extra": {
@@ -53,7 +59,9 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
       ]
     },
     "web": {
