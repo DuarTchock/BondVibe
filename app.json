@@ -48,6 +48,7 @@
       }
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "icon": "./assets/icon.png",
       "package": "com.bondvibe.app",

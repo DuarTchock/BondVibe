@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "629419649601",
+    "project_id": "bondvibe-dev",
+    "storage_bucket": "bondvibe-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:629419649601:android:069cfea5d85b7a2a18b4c0",
+        "android_client_info": {
+          "package_name": "com.bondvibe.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "629419649601-qkgnj1g9gu2fssobs2d1p2bbmqn3imqc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6Da2VCEj-e-LBWJPctQ-Pwck9yahrIEQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "629419649601-qkgnj1g9gu2fssobs2d1p2bbmqn3imqc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
