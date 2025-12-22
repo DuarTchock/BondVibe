@@ -459,3 +459,11 @@ exports.createConnectAccount = createConnectAccount;
 exports.createAccountLink = createAccountLink;
 exports.getAccountStatus = getAccountStatus;
 exports.stripeConnectWebhook = stripeConnectWebhook;
+
+// Import Event Notifications
+const {
+  onEventAttendeesChanged,
+} = require("./notifications/eventNotifications");
+
+// Export Event Notifications
+exports.onEventAttendeesChanged = onEventAttendeesChanged;
