@@ -361,3 +361,17 @@ exports.getPricingInfo = onRequest({cors: true}, (req, res) => {
 
 exports.cancelEventAttendance = cancelEventAttendance;
 exports.hostCancelEvent = hostCancelEvent;
+
+// Import Stripe Connect functions
+const {
+  createConnectAccount,
+  createAccountLink,
+  getAccountStatus,
+  stripeConnectWebhook,
+} = require("./stripe/stripeConnect");
+
+// Export Stripe Connect functions
+exports.createConnectAccount = createConnectAccount;
+exports.createAccountLink = createAccountLink;
+exports.getAccountStatus = getAccountStatus;
+exports.stripeConnectWebhook = stripeConnectWebhook;
