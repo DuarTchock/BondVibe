@@ -35,6 +35,10 @@ import AdminDashboardScreen from "../screens/AdminDashboardScreen";
 // Payment Screens
 import CheckoutScreen from "../screens/payment/CheckoutScreen";
 
+// Stripe Connect Screens
+import HostTypeSelectionScreen from "../screens/HostTypeSelectionScreen";
+import StripeConnectScreen from "../screens/StripeConnectScreen";
+
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
@@ -132,7 +136,15 @@ export default function AppNavigator() {
                 setInitialRoute("ProfileSetup");
                 setInitialUser(user);
               }
-              // 4. All checks passed - go to Home
+              // 4. Check if host needs to select type
+              else if (userData.role === "host" && !userData.hostConfig) {
+                console.log(
+                  "🎪 Host needs to select type - navigating to HostTypeSelection"
+                );
+                setInitialRoute("HostTypeSelection");
+                setInitialUser(user);
+              }
+              // 5. All checks passed - go to Home
               else {
                 console.log("✅ All checks passed - navigating to Home");
                 setInitialRoute("Home");
@@ -232,6 +244,18 @@ export default function AppNavigator() {
                 component={ProfileSetupScreen}
               />
             </>
+          ) : initialRoute === "HostTypeSelection" ? (
+            // Host Type Selection Stack
+            <>
+              <Stack.Screen
+                name="HostTypeSelection"
+                component={HostTypeSelectionScreen}
+                initialParams={{
+                  userEmail: initialUser?.email,
+                  fullName: "Host",
+                }}
+              />
+            </>
           ) : (
             // Main App Stack
             <>
@@ -265,6 +289,15 @@ export default function AppNavigator() {
               />
               {/* Payment Screens */}
               <Stack.Screen name="Checkout" component={CheckoutScreen} />
+              {/* Stripe Connect Screens */}
+              <Stack.Screen
+                name="HostTypeSelection"
+                component={HostTypeSelectionScreen}
+              />
+              <Stack.Screen
+                name="StripeConnect"
+                component={StripeConnectScreen}
+              />
             </>
           )}
         </Stack.Navigator>

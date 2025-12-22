@@ -26,6 +26,7 @@
     "expo-location": "~19.0.8",
     "expo-notifications": "~0.32.14",
     "expo-status-bar": "~3.0.9",
+    "expo-web-browser": "~15.0.10",
     "firebase": "^10.7.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",

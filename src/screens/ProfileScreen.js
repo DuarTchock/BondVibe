@@ -154,6 +154,9 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  // Check if user can manage Stripe (host or admin)
+  const canManageStripe = profile.role === "host" || profile.role === "admin";
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
@@ -540,10 +543,20 @@ export default function ProfileScreen({ navigation }) {
                   </View>
                 </View>
               )}
-              {profile.role === "verified_host" && (
+              {profile.role === "host" && (
                 <View style={styles.roleBadge}>
-                  <View style={styles.roleBadgeGlass}>
-                    <Text style={styles.roleBadgeText}>✓ Verified Host</Text>
+                  <View
+                    style={[
+                      styles.roleBadgeGlass,
+                      {
+                        backgroundColor: "rgba(52, 199, 89, 0.15)",
+                        borderColor: "rgba(52, 199, 89, 0.3)",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.roleBadgeText, { color: "#34C759" }]}>
+                      ✓ Verified Host
+                    </Text>
                   </View>
                 </View>
               )}
@@ -621,9 +634,56 @@ export default function ProfileScreen({ navigation }) {
                   </View>
                 </View>
               </View>
+
+              {/* Host Type Section - For hosts AND admins */}
+              {canManageStripe && (
+                <View style={styles.infoCard}>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("StripeConnect")}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.infoGlass,
+                        {
+                          backgroundColor: colors.surfaceGlass,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.infoIcon}>
+                        {profile.hostConfig?.type === "paid"
+                          ? "💰"
+                          : profile.hostConfig?.type === "free"
+                          ? "🆓"
+                          : "🎪"}
+                      </Text>
+                      <View style={styles.infoContent}>
+                        <Text
+                          style={[
+                            styles.infoLabel,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Host Type
+                        </Text>
+                        <Text
+                          style={[styles.infoValue, { color: colors.text }]}
+                        >
+                          {profile.hostConfig?.type === "paid"
+                            ? "Paid Host"
+                            : profile.hostConfig?.type === "free"
+                            ? "Free Host"
+                            : "Not configured"}
+                          {profile.stripeConnect?.status === "active" && " ✓"}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
-            {/* 👇 AGREGA ESTA SECCIÓN COMPLETA AQUÍ */}
             {/* PERSONALITY QUIZ SECTION */}
             {!profile.personality ||
             Object.keys(profile.personality).length === 0 ? (
@@ -805,17 +865,13 @@ export default function ProfileScreen({ navigation }) {
 
 function createStyles(colors) {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
+    container: { flex: 1 },
     loadingContainer: {
       flex: 1,
       justifyContent: "center",
       alignItems: "center",
     },
-    loadingText: {
-      fontSize: 15,
-    },
+    loadingText: { fontSize: 15 },
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -824,31 +880,14 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    backButton: {
-      fontSize: 28,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: "700",
-      letterSpacing: -0.3,
-    },
-    editButton: {
-      fontSize: 15,
-      fontWeight: "600",
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 24,
-      paddingBottom: 40,
-    },
+    backButton: { fontSize: 28 },
+    headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
+    editButton: { fontSize: 15, fontWeight: "600" },
+    scrollView: { flex: 1 },
+    scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
 
     // View Mode
-    profileHeader: {
-      alignItems: "center",
-      marginBottom: 24,
-    },
+    profileHeader: { alignItems: "center", marginBottom: 24 },
     avatarViewGlass: {
       width: 100,
       height: 100,
@@ -858,23 +897,15 @@ function createStyles(colors) {
       alignItems: "center",
       marginBottom: 16,
     },
-    avatarViewEmoji: {
-      fontSize: 50,
-    },
+    avatarViewEmoji: { fontSize: 50 },
     profileName: {
       fontSize: 24,
       fontWeight: "700",
       marginBottom: 6,
       letterSpacing: -0.5,
     },
-    profileEmail: {
-      fontSize: 13,
-      marginBottom: 12,
-    },
-    roleBadge: {
-      borderRadius: 10,
-      overflow: "hidden",
-    },
+    profileEmail: { fontSize: 13, marginBottom: 12 },
+    roleBadge: { borderRadius: 10, overflow: "hidden" },
     roleBadgeGlass: {
       backgroundColor: "rgba(255, 215, 0, 0.15)",
       borderWidth: 1,
@@ -888,131 +919,65 @@ function createStyles(colors) {
       color: "#FFD700",
       letterSpacing: 0.3,
     },
-    bioCard: {
-      marginBottom: 20,
-      borderRadius: 16,
-      overflow: "hidden",
-    },
-    bioGlass: {
-      borderWidth: 1,
-      padding: 18,
-    },
-    bioText: {
-      fontSize: 14,
-      lineHeight: 22,
-      textAlign: "center",
-    },
-    infoSection: {
-      gap: 12,
-      marginBottom: 20,
-    },
-    infoCard: {
-      borderRadius: 16,
-      overflow: "hidden",
-    },
+    bioCard: { marginBottom: 20, borderRadius: 16, overflow: "hidden" },
+    bioGlass: { borderWidth: 1, padding: 18 },
+    bioText: { fontSize: 14, lineHeight: 22, textAlign: "center" },
+    infoSection: { gap: 12, marginBottom: 20 },
+    infoCard: { borderRadius: 16, overflow: "hidden" },
     infoGlass: {
       borderWidth: 1,
       padding: 16,
       flexDirection: "row",
       alignItems: "center",
     },
-    infoIcon: {
-      fontSize: 28,
-      marginRight: 14,
-    },
-    infoContent: {
-      flex: 1,
-    },
-    infoLabel: {
-      fontSize: 12,
-      marginBottom: 4,
-    },
-    infoValue: {
-      fontSize: 16,
-      fontWeight: "600",
-      letterSpacing: -0.2,
-    },
+    infoIcon: { fontSize: 28, marginRight: 14 },
+    infoContent: { flex: 1 },
+    infoLabel: { fontSize: 12, marginBottom: 4 },
+    infoValue: { fontSize: 16, fontWeight: "600", letterSpacing: -0.2 },
 
     // Theme Section
-    themeSection: {
-      marginBottom: 20,
-    },
-    themeCard: {
-      borderRadius: 16,
-      borderWidth: 1,
-      overflow: "hidden",
-    },
-    themeContent: {
-      padding: 18,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    themeIcon: {
-      fontSize: 28,
-      marginRight: 14,
-    },
-    themeInfo: {
-      flex: 1,
-    },
+    themeSection: { marginBottom: 20 },
+    themeCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+    themeContent: { padding: 18, flexDirection: "row", alignItems: "center" },
+    themeIcon: { fontSize: 28, marginRight: 14 },
+    themeInfo: { flex: 1 },
     themeTitle: {
       fontSize: 16,
       fontWeight: "600",
       marginBottom: 4,
       letterSpacing: -0.2,
     },
-    themeSubtitle: {
-      fontSize: 13,
-    },
+    themeSubtitle: { fontSize: 13 },
 
     personalitySection: {
       marginBottom: 20,
       borderRadius: 16,
       overflow: "hidden",
     },
-    personalityGlass: {
-      borderWidth: 1,
-      padding: 18,
-    },
+    personalityGlass: { borderWidth: 1, padding: 18 },
     sectionTitle: {
       fontSize: 16,
       fontWeight: "700",
       marginBottom: 16,
       letterSpacing: -0.2,
     },
-    traitRow: {
-      marginBottom: 14,
-    },
+    traitRow: { marginBottom: 14 },
     traitName: {
       fontSize: 13,
       fontWeight: "600",
       marginBottom: 8,
       letterSpacing: -0.1,
     },
-    traitBarContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-    },
-    traitBar: {
-      flex: 1,
-      height: 8,
-      borderRadius: 4,
-      overflow: "hidden",
-    },
-    traitFill: {
-      height: "100%",
-      borderRadius: 4,
-    },
+    traitBarContainer: { flexDirection: "row", alignItems: "center", gap: 10 },
+    traitBar: { flex: 1, height: 8, borderRadius: 4, overflow: "hidden" },
+    traitFill: { height: "100%", borderRadius: 4 },
     traitScore: {
       fontSize: 13,
       fontWeight: "600",
       width: 40,
       textAlign: "right",
     },
-    logoutButton: {
-      borderRadius: 16,
-      overflow: "hidden",
-    },
+    logoutButton: { borderRadius: 16, overflow: "hidden" },
     logoutGlass: {
       backgroundColor: "rgba(239, 68, 68, 0.15)",
       borderWidth: 1,
@@ -1028,10 +993,7 @@ function createStyles(colors) {
     },
 
     // Edit Mode
-    avatarEditContainer: {
-      alignItems: "center",
-      marginBottom: 28,
-    },
+    avatarEditContainer: { alignItems: "center", marginBottom: 28 },
     avatarEditGlass: {
       width: 100,
       height: 100,
@@ -1041,29 +1003,12 @@ function createStyles(colors) {
       alignItems: "center",
       marginBottom: 12,
     },
-    avatarEditEmoji: {
-      fontSize: 50,
-    },
-    avatarEditText: {
-      fontSize: 13,
-      fontWeight: "600",
-    },
-    formSection: {
-      gap: 16,
-      marginBottom: 24,
-    },
-    inputGroup: {
-      gap: 8,
-    },
-    inputLabel: {
-      fontSize: 13,
-      fontWeight: "600",
-      letterSpacing: -0.1,
-    },
-    inputWrapper: {
-      borderRadius: 12,
-      overflow: "hidden",
-    },
+    avatarEditEmoji: { fontSize: 50 },
+    avatarEditText: { fontSize: 13, fontWeight: "600" },
+    formSection: { gap: 16, marginBottom: 24 },
+    inputGroup: { gap: 8 },
+    inputLabel: { fontSize: 13, fontWeight: "600", letterSpacing: -0.1 },
+    inputWrapper: { borderRadius: 12, overflow: "hidden" },
     input: {
       borderWidth: 1,
       paddingHorizontal: 16,
@@ -1071,49 +1016,16 @@ function createStyles(colors) {
       fontSize: 15,
     },
     textAreaWrapper: {},
-    textArea: {
-      minHeight: 100,
-      textAlignVertical: "top",
-    },
-    charCount: {
-      fontSize: 11,
-      textAlign: "right",
-    },
-    inputRow: {
-      flexDirection: "row",
-    },
-    formActions: {
-      flexDirection: "row",
-      gap: 12,
-    },
-    cancelButton: {
-      flex: 1,
-      borderRadius: 12,
-      overflow: "hidden",
-    },
-    cancelGlass: {
-      borderWidth: 1,
-      paddingVertical: 14,
-      alignItems: "center",
-    },
-    cancelButtonText: {
-      fontSize: 15,
-      fontWeight: "600",
-    },
-    saveButton: {
-      flex: 1,
-      borderRadius: 12,
-      overflow: "hidden",
-    },
-    saveGlass: {
-      borderWidth: 1,
-      paddingVertical: 14,
-      alignItems: "center",
-    },
-    saveButtonText: {
-      fontSize: 15,
-      fontWeight: "600",
-    },
+    textArea: { minHeight: 100, textAlignVertical: "top" },
+    charCount: { fontSize: 11, textAlign: "right" },
+    inputRow: { flexDirection: "row" },
+    formActions: { flexDirection: "row", gap: 12 },
+    cancelButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
+    cancelGlass: { borderWidth: 1, paddingVertical: 14, alignItems: "center" },
+    cancelButtonText: { fontSize: 15, fontWeight: "600" },
+    saveButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
+    saveGlass: { borderWidth: 1, paddingVertical: 14, alignItems: "center" },
+    saveButtonText: { fontSize: 15, fontWeight: "600" },
 
     // Modals
     modalOverlay: {
@@ -1129,50 +1041,24 @@ function createStyles(colors) {
       borderRadius: 20,
       overflow: "hidden",
     },
-    modalGlass: {
-      borderWidth: 1,
-      padding: 28,
-      alignItems: "center",
-    },
-    modalEmoji: {
-      fontSize: 56,
-      marginBottom: 16,
-    },
+    modalGlass: { borderWidth: 1, padding: 28, alignItems: "center" },
+    modalEmoji: { fontSize: 56, marginBottom: 16 },
     modalTitle: {
       fontSize: 20,
       fontWeight: "700",
       marginBottom: 8,
       letterSpacing: -0.3,
     },
-    modalText: {
-      fontSize: 14,
-      textAlign: "center",
-      marginBottom: 24,
-    },
-    modalButtons: {
-      flexDirection: "row",
-      gap: 12,
-      width: "100%",
-    },
-    modalCancelButton: {
-      flex: 1,
-      borderRadius: 12,
-      overflow: "hidden",
-    },
+    modalText: { fontSize: 14, textAlign: "center", marginBottom: 24 },
+    modalButtons: { flexDirection: "row", gap: 12, width: "100%" },
+    modalCancelButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
     modalCancelGlass: {
       borderWidth: 1,
       paddingVertical: 12,
       alignItems: "center",
     },
-    modalCancelText: {
-      fontSize: 15,
-      fontWeight: "600",
-    },
-    modalLogoutButton: {
-      flex: 1,
-      borderRadius: 12,
-      overflow: "hidden",
-    },
+    modalCancelText: { fontSize: 15, fontWeight: "600" },
+    modalLogoutButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
     modalLogoutGlass: {
       backgroundColor: "rgba(239, 68, 68, 0.2)",
       borderWidth: 1,
@@ -1180,11 +1066,7 @@ function createStyles(colors) {
       paddingVertical: 12,
       alignItems: "center",
     },
-    modalLogoutText: {
-      fontSize: 15,
-      fontWeight: "600",
-      color: "#EF4444",
-    },
+    modalLogoutText: { fontSize: 15, fontWeight: "600", color: "#EF4444" },
 
     // Avatar Picker
     avatarPickerModal: {
@@ -1194,10 +1076,7 @@ function createStyles(colors) {
       borderRadius: 20,
       overflow: "hidden",
     },
-    avatarPickerGlass: {
-      borderWidth: 1,
-      padding: 24,
-    },
+    avatarPickerGlass: { borderWidth: 1, padding: 24 },
     avatarPickerTitle: {
       fontSize: 18,
       fontWeight: "700",
@@ -1220,65 +1099,36 @@ function createStyles(colors) {
       justifyContent: "center",
       alignItems: "center",
     },
-    avatarOptionEmoji: {
-      fontSize: 28,
-    },
-    avatarPickerClose: {
-      borderRadius: 12,
-      overflow: "hidden",
-    },
+    avatarOptionEmoji: { fontSize: 28 },
+    avatarPickerClose: { borderRadius: 12, overflow: "hidden" },
     avatarPickerCloseGlass: {
       borderWidth: 1,
       paddingVertical: 14,
       alignItems: "center",
     },
-    avatarPickerCloseText: {
-      fontSize: 15,
-      fontWeight: "600",
-    },
+    avatarPickerCloseText: { fontSize: 15, fontWeight: "600" },
+
     // Personality Quiz Prompt
-    quizPromptSection: {
-      marginBottom: 20,
-    },
-    quizPromptCard: {
-      borderRadius: 16,
-      overflow: "hidden",
-    },
+    quizPromptSection: { marginBottom: 20 },
+    quizPromptCard: { borderRadius: 16, overflow: "hidden" },
     quizPromptGlass: {
       borderWidth: 1,
       padding: 20,
       flexDirection: "row",
       alignItems: "center",
     },
-    quizPromptEmoji: {
-      fontSize: 36,
-      marginRight: 14,
-    },
-    quizPromptContent: {
-      flex: 1,
-    },
+    quizPromptEmoji: { fontSize: 36, marginRight: 14 },
+    quizPromptContent: { flex: 1 },
     quizPromptTitle: {
       fontSize: 16,
       fontWeight: "700",
       marginBottom: 4,
       letterSpacing: -0.2,
     },
-    quizPromptText: {
-      fontSize: 13,
-      lineHeight: 19,
-    },
-    quizPromptArrow: {
-      fontSize: 24,
-      marginLeft: 8,
-      fontWeight: "600",
-    },
-    quizRetakeSection: {
-      marginBottom: 20,
-    },
-    quizRetakeButton: {
-      borderRadius: 16,
-      overflow: "hidden",
-    },
+    quizPromptText: { fontSize: 13, lineHeight: 19 },
+    quizPromptArrow: { fontSize: 24, marginLeft: 8, fontWeight: "600" },
+    quizRetakeSection: { marginBottom: 20 },
+    quizRetakeButton: { borderRadius: 16, overflow: "hidden" },
     quizRetakeGlass: {
       borderWidth: 1,
       padding: 16,
@@ -1286,14 +1136,7 @@ function createStyles(colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    quizRetakeIcon: {
-      fontSize: 20,
-      marginRight: 8,
-    },
-    quizRetakeText: {
-      fontSize: 15,
-      fontWeight: "600",
-      letterSpacing: -0.1,
-    },
+    quizRetakeIcon: { fontSize: 20, marginRight: 8 },
+    quizRetakeText: { fontSize: 15, fontWeight: "600", letterSpacing: -0.1 },
   });
 }

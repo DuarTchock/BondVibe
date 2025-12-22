@@ -1,24 +1,22 @@
 /**
- * Stripe Connect Cloud Functions
- * Handles host onboarding and account management
+ * STRIPE CONNECT FUNCTIONS
+ * Handles Stripe Connect account creation, onboarding, and status checks
+ * Updated: Auto-updates canCreatePaidEvents flag when account is active
  */
 
 const {onRequest} = require("firebase-functions/v2/https");
-const admin = require("firebase-admin");
 const {defineSecret} = require("firebase-functions/params");
+const admin = require("firebase-admin");
 
-// Define secrets
+// Define Stripe secret
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
-// const stripeConnectClientId = defineSecret("STRIPE_CONNECT_CLIENT_ID");
 
-// Initialize Stripe (will be done inside functions)
+// Initialize Stripe (done per-function)
 let stripe;
 
-const db = admin.firestore();
-
 /**
- * Create a Stripe Connect Standard Account for a host
- * Called when host selects "Paid Events" option
+ * CREATE STRIPE CONNECT ACCOUNT
+ * Creates an Express Connect account for hosts
  */
 exports.createConnectAccount = onRequest(
   {cors: true, secrets: [stripeSecretKey]},
@@ -33,85 +31,61 @@ exports.createConnectAccount = onRequest(
         stripe = require("stripe")(stripeSecretKey.value());
       }
 
-      const {userId, email, fullName} = req.body;
+      const {userId, email} = req.body;
 
       if (!userId || !email) {
         return res.status(400).json({error: "Missing required fields"});
       }
 
-      // Check if user exists and is a host
-      const userDoc = await db.collection("users").doc(userId).get();
-      if (!userDoc.exists) {
-        return res.status(404).json({error: "User not found"});
-      }
+      console.log("📤 Creating Stripe Connect account for:", userId);
 
-      const userData = userDoc.data();
-      if (userData.role !== "host") {
-        return res.status(403).json({error: "User is not a host"});
-      }
-
-      // Check if already has account
-      if (userData.stripeConnect?.accountId) {
-        return res.status(400).json({
-          error: "User already has a Stripe Connect account",
-          accountId: userData.stripeConnect.accountId,
-        });
-      }
-
-      console.log(`Creating Stripe Connect account for user: ${userId}`);
-
-      // Create Stripe Connect Account (Standard)
+      // Create Express account
       const account = await stripe.accounts.create({
-        type: "standard",
+        type: "express",
+        country: "MX",
         email: email,
-        metadata: {
-          userId: userId,
-          platform: "bondvibe",
-          fullName: fullName || "",
+        capabilities: {
+          card_payments: {requested: true},
+          transfers: {requested: true},
+        },
+        business_type: "individual",
+        business_profile: {
+          product_description: "Event hosting and experiences",
         },
       });
 
-      console.log(`✅ Created Stripe account: ${account.id}`);
+      console.log("✅ Stripe account created:", account.id);
 
-      // Save to Firestore
-      await db
-        .collection("users")
-        .doc(userId)
-        .update({
-          "hostConfig.type": "paid",
-          "hostConfig.canCreatePaidEvents": false,
-          "hostConfig.updatedAt": new Date().toISOString(),
-          "stripeConnect": {
-            accountId: account.id,
-            status: "pending",
-            onboardingCompleted: false,
-            chargesEnabled: false,
-            payoutsEnabled: false,
-            detailsSubmitted: false,
-            lastUpdated: new Date().toISOString(),
-          },
-        });
-
-      console.log(`✅ Saved to Firestore for user: ${userId}`);
+      // Update Firestore
+      await admin.firestore().collection("users").doc(userId).update({
+        "stripeConnect.accountId": account.id,
+        "stripeConnect.status": "pending",
+        "stripeConnect.chargesEnabled": account.charges_enabled,
+        "stripeConnect.payoutsEnabled": account.payouts_enabled,
+        "stripeConnect.detailsSubmitted": account.details_submitted,
+        "stripeConnect.onboardingCompleted": false,
+        "stripeConnect.lastUpdated":
+          admin.firestore.FieldValue.serverTimestamp(),
+        "hostConfig.type": "paid", // Upgrade to paid when creating Stripe
+        "hostConfig.updatedAt": admin.firestore.FieldValue.serverTimestamp(),
+      });
 
       res.json({
         success: true,
         accountId: account.id,
-        message: "Stripe Connect account created successfully",
       });
     } catch (error) {
-      console.error("❌ Error creating Stripe Connect account:", error);
+      console.error("❌ Error creating Connect account:", error);
       res.status(500).json({
-        error: error.message,
-        details: "Failed to create Stripe Connect account",
+        error: error.message || "Failed to create Connect account",
       });
     }
   },
 );
 
 /**
- * Generate Stripe onboarding URL for host
- * Returns a URL that expires in 5 minutes
+ * CREATE ACCOUNT LINK (Onboarding)
+ * Generates onboarding link for Stripe Connect
  */
 exports.createAccountLink = onRequest(
   {cors: true, secrets: [stripeSecretKey]},
@@ -121,6 +95,7 @@ exports.createAccountLink = onRequest(
     }
 
     try {
+      // Initialize Stripe
       if (!stripe) {
         stripe = require("stripe")(stripeSecretKey.value());
       }
@@ -131,57 +106,57 @@ exports.createAccountLink = onRequest(
         return res.status(400).json({error: "Missing userId"});
       }
 
-      // Get user's Stripe account
-      const userDoc = await db.collection("users").doc(userId).get();
-      if (!userDoc.exists) {
-        return res.status(404).json({error: "User not found"});
-      }
+      console.log("📤 Getting account link for:", userId);
 
-      const userData = userDoc.data();
-      const accountId = userData.stripeConnect?.accountId;
+      // Get user's Stripe account ID
+      const userDoc = await admin
+        .firestore()
+        .collection("users")
+        .doc(userId)
+        .get();
+
+      const accountId = userDoc.data()?.stripeConnect?.accountId;
 
       if (!accountId) {
-        return res.status(400).json({
+        return res.status(404).json({
           error: "No Stripe account found. Create account first.",
         });
       }
 
-      console.log(`Creating account link for account: ${accountId}`);
-
       // Create account link
       const accountLink = await stripe.accountLinks.create({
         account: accountId,
-        refresh_url: "http://localhost:19006/stripe/connect/refresh",
-        return_url: "http://localhost:19006/stripe/connect/return",
+        refresh_url: "https://bondvibe-dev.firebaseapp.com/stripe/refresh",
+        return_url: "https://bondvibe-dev.firebaseapp.com/stripe/return",
         type: "account_onboarding",
       });
 
-      console.log(`✅ Account link created: ${accountLink.url}`);
+      console.log("✅ Account link created");
 
-      // Save URL to Firestore (expires in 5 minutes)
-      await db.collection("users").doc(userId).update({
+      // Update onboarding URL in Firestore
+      await admin.firestore().collection("users").doc(userId).update({
         "stripeConnect.onboardingUrl": accountLink.url,
-        "stripeConnect.lastUpdated": new Date().toISOString(),
+        "stripeConnect.lastUpdated":
+          admin.firestore.FieldValue.serverTimestamp(),
       });
 
       res.json({
         success: true,
         url: accountLink.url,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
       });
     } catch (error) {
-      console.error("❌ Error creating account link:", error);
+      console.error("❌ Error getting account link:", error);
       res.status(500).json({
-        error: error.message,
-        details: "Failed to create account link",
+        error: error.message || "Failed to get account link",
       });
     }
   },
 );
 
 /**
- * Check Stripe account status and update Firestore
- * Returns current status of the connected account
+ * GET ACCOUNT STATUS (UPDATED)
+ * Checks Stripe account status and updates Firestore
+ * NOW INCLUDES: Auto-update of canCreatePaidEvents flag
  */
 exports.getAccountStatus = onRequest(
   {cors: true, secrets: [stripeSecretKey]},
@@ -191,6 +166,7 @@ exports.getAccountStatus = onRequest(
     }
 
     try {
+      // Initialize Stripe
       if (!stripe) {
         stripe = require("stripe")(stripeSecretKey.value());
       }
@@ -201,73 +177,102 @@ exports.getAccountStatus = onRequest(
         return res.status(400).json({error: "Missing userId"});
       }
 
-      const userDoc = await db.collection("users").doc(userId).get();
-      if (!userDoc.exists) {
-        return res.status(404).json({error: "User not found"});
-      }
+      console.log("📤 Checking account status for:", userId);
 
-      const userData = userDoc.data();
-      const accountId = userData.stripeConnect?.accountId;
+      // Get user's Stripe account ID
+      const userDoc = await admin
+        .firestore()
+        .collection("users")
+        .doc(userId)
+        .get();
+
+      const accountId = userDoc.data()?.stripeConnect?.accountId;
 
       if (!accountId) {
-        return res.status(404).json({error: "No Stripe account found"});
+        return res.status(404).json({
+          error: "No Stripe account found",
+        });
       }
-
-      console.log(`Checking status for account: ${accountId}`);
 
       // Retrieve account from Stripe
       const account = await stripe.accounts.retrieve(accountId);
 
-      console.log(
-        `Account status - charges: ${account.charges_enabled}, payouts: ${account.payouts_enabled}`,
-      );
-
-      // Determine if host can create paid events
-      const canCreatePaidEvents =
-        account.charges_enabled &&
-        account.payouts_enabled &&
-        account.details_submitted;
-
-      // Update Firestore
-      await db
-        .collection("users")
-        .doc(userId)
-        .update({
-          "hostConfig.canCreatePaidEvents": canCreatePaidEvents,
-          "stripeConnect.status": account.charges_enabled ?
-            "active" :
-            "pending",
-          "stripeConnect.chargesEnabled": account.charges_enabled,
-          "stripeConnect.payoutsEnabled": account.payouts_enabled,
-          "stripeConnect.detailsSubmitted": account.details_submitted,
-          "stripeConnect.onboardingCompleted": account.details_submitted,
-          "stripeConnect.lastUpdated": new Date().toISOString(),
-        });
-
-      console.log(`✅ Updated status for user: ${userId}`);
-
-      res.json({
-        success: true,
-        accountId: accountId,
-        status: account.charges_enabled ? "active" : "pending",
+      console.log("✅ Account status retrieved:", {
         chargesEnabled: account.charges_enabled,
         payoutsEnabled: account.payouts_enabled,
         detailsSubmitted: account.details_submitted,
-        canCreatePaidEvents: canCreatePaidEvents,
+      });
+
+      // ✅ NEW: Determine if account is fully active
+      const isFullyActive =
+        account.charges_enabled && account.details_submitted;
+
+      // ✅ NEW: Determine status
+      let status = "pending";
+      if (isFullyActive) {
+        status = "active";
+      } else if (account.details_submitted && !account.charges_enabled) {
+        status = "restricted";
+      }
+
+      // ✅ UPDATED: Build update object with canCreatePaidEvents
+      const updateData = {
+        "stripeConnect.status": status,
+        "stripeConnect.chargesEnabled": account.charges_enabled,
+        "stripeConnect.payoutsEnabled": account.payouts_enabled,
+        "stripeConnect.detailsSubmitted": account.details_submitted,
+        "stripeConnect.onboardingCompleted": account.details_submitted,
+        "stripeConnect.lastUpdated":
+          admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      // ✅ NEW: Auto-update canCreatePaidEvents when account is active
+      if (isFullyActive) {
+        updateData["hostConfig.canCreatePaidEvents"] = true;
+        updateData["hostConfig.type"] = "paid";
+        updateData["hostConfig.updatedAt"] =
+          admin.firestore.FieldValue.serverTimestamp();
+        console.log(
+          "✅ Setting canCreatePaidEvents = true (account fully active)",
+        );
+      } else {
+        // Account not ready - ensure flag is false
+        updateData["hostConfig.canCreatePaidEvents"] = false;
+        console.log(
+          "⏳ Setting canCreatePaidEvents = false (account not ready)",
+        );
+      }
+
+      // Update Firestore
+      await admin
+        .firestore()
+        .collection("users")
+        .doc(userId)
+        .update(updateData);
+
+      console.log(`✅ Account status: ${status}`);
+
+      res.json({
+        success: true,
+        status: status,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        detailsSubmitted: account.details_submitted,
+        canCreatePaidEvents: isFullyActive, // ✅ NEW: Return flag status
       });
     } catch (error) {
-      console.error("❌ Error getting account status:", error);
+      console.error("❌ Error checking account status:", error);
       res.status(500).json({
-        error: error.message,
-        details: "Failed to get account status",
+        error: error.message || "Failed to check account status",
       });
     }
   },
 );
 
 /**
- * Stripe webhook handler
- * Listens for account.updated events to keep Firestore in sync
+ * STRIPE CONNECT WEBHOOK (OPTIONAL)
+ * Handles automatic updates when Stripe sends account.updated events
+ * Uncomment to enable instant updates without manual refresh
  */
 exports.stripeConnectWebhook = onRequest(
   {cors: true, secrets: [stripeSecretKey]},
@@ -277,59 +282,73 @@ exports.stripeConnectWebhook = onRequest(
     }
 
     try {
+      // Initialize Stripe
       if (!stripe) {
         stripe = require("stripe")(stripeSecretKey.value());
       }
 
-      const event = req.body;
+      const sig = req.headers["stripe-signature"];
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-      console.log(`📨 Received webhook event: ${event.type}`);
+      if (!webhookSecret) {
+        console.log("⚠️ Webhook secret not configured");
+        return res.status(400).json({error: "Webhook not configured"});
+      }
+
+      // Verify webhook signature
+      let event;
+      try {
+        event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+      } catch (err) {
+        console.error("❌ Webhook signature verification failed:", err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+      }
+
+      console.log("📨 Webhook received:", event.type);
 
       // Handle account.updated event
       if (event.type === "account.updated") {
         const account = event.data.object;
 
-        console.log(`Webhook - Account updated: ${account.id}`);
-
-        // Find user with this account
-        const usersSnapshot = await db
-          .collection("users")
+        // Find user with this Stripe account
+        const usersRef = admin.firestore().collection("users");
+        const snapshot = await usersRef
           .where("stripeConnect.accountId", "==", account.id)
+          .limit(1)
           .get();
 
-        if (usersSnapshot.empty) {
-          console.log(`⚠️ No user found for account: ${account.id}`);
-          return res.status(404).json({error: "User not found"});
+        if (!snapshot.empty) {
+          const userId = snapshot.docs[0].id;
+          const isFullyActive =
+            account.charges_enabled && account.details_submitted;
+
+          const updateData = {
+            "stripeConnect.status": isFullyActive ? "active" : "pending",
+            "stripeConnect.chargesEnabled": account.charges_enabled,
+            "stripeConnect.payoutsEnabled": account.payouts_enabled,
+            "stripeConnect.detailsSubmitted": account.details_submitted,
+            "stripeConnect.onboardingCompleted": account.details_submitted,
+            "stripeConnect.lastUpdated":
+              admin.firestore.FieldValue.serverTimestamp(),
+            "hostConfig.canCreatePaidEvents": isFullyActive,
+            "hostConfig.type": "paid",
+            "hostConfig.updatedAt":
+              admin.firestore.FieldValue.serverTimestamp(),
+          };
+
+          await usersRef.doc(userId).update(updateData);
+          console.log(
+            `✅ Auto-updated account ${account.id} for user ${userId}`,
+          );
+        } else {
+          console.log(`⚠️ No user found for account ${account.id}`);
         }
-
-        const userDoc = usersSnapshot.docs[0];
-        const canCreatePaidEvents =
-          account.charges_enabled &&
-          account.payouts_enabled &&
-          account.details_submitted;
-
-        await userDoc.ref.update({
-          "hostConfig.canCreatePaidEvents": canCreatePaidEvents,
-          "stripeConnect.status": account.charges_enabled ?
-            "active" :
-            "pending",
-          "stripeConnect.chargesEnabled": account.charges_enabled,
-          "stripeConnect.payoutsEnabled": account.payouts_enabled,
-          "stripeConnect.detailsSubmitted": account.details_submitted,
-          "stripeConnect.onboardingCompleted": account.details_submitted,
-          "stripeConnect.lastUpdated": new Date().toISOString(),
-        });
-
-        console.log(`✅ Webhook - Updated user: ${userDoc.id}`);
       }
 
       res.json({received: true});
     } catch (error) {
-      console.error("❌ Error processing webhook:", error);
-      res.status(500).json({
-        error: error.message,
-        details: "Webhook processing failed",
-      });
+      console.error("❌ Webhook error:", error);
+      res.status(500).json({error: error.message});
     }
   },
 );
