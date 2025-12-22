@@ -12,6 +12,26 @@ const db = admin.firestore();
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 
 // ============================================
+// STRIPE FEE CONFIGURATION
+// ============================================
+
+const STRIPE_FEES = {
+  PERCENT: 0.029, // 2.9%
+  FIXED_MXN: 300, // $3.00 MXN in centavos
+};
+
+/**
+ * Calculate Stripe processing fee
+ * @param {number} amountCentavos - Amount in centavos
+ * @return {number} Stripe fee in centavos
+ */
+function calculateStripeFee(amountCentavos) {
+  const percentFee = Math.floor(amountCentavos * STRIPE_FEES.PERCENT);
+  const totalFee = percentFee + STRIPE_FEES.FIXED_MXN;
+  return totalFee;
+}
+
+// ============================================
 // REFUND POLICY CONFIGURATION
 // ============================================
 
@@ -23,6 +43,8 @@ const REFUND_POLICY = {
   },
   HOST_CANCELLATION: 1.0,
   MIN_REFUND_HOURS: 2,
+  // ✅ NEW: Stripe fees are NON-REFUNDABLE
+  STRIPE_FEES_REFUNDABLE: false,
 };
 
 // ============================================
@@ -55,11 +77,11 @@ function calculateRefundPercentage(eventDate, cancelledBy) {
 }
 
 // ============================================
-// PROCESS REFUND
+// PROCESS REFUND (UPDATED)
 // ============================================
 
 /**
- * Process a Stripe refund
+ * Process a Stripe refund (deducting non-refundable Stripe fees)
  * @param {object} stripe - Stripe instance
  * @param {string} paymentIntentId - Stripe Payment Intent ID
  * @param {number} refundPercentage - Refund percentage (0.0 to 1.0)
@@ -104,20 +126,38 @@ async function processRefund(
 
     const originalAmount = paymentIntent.amount;
     const alreadyRefunded = paymentIntent.amount_refunded || 0;
-    const maxRefundable = originalAmount - alreadyRefunded;
-    const desiredRefund = Math.floor(originalAmount * refundPercentage);
+
+    // ✅ NEW: Calculate Stripe fee (non-refundable)
+    const stripeFee = calculateStripeFee(originalAmount);
+
+    // ✅ NEW: Refundable amount = original amount - Stripe fee
+    const refundableAmount = originalAmount - stripeFee;
+
+    console.log("💵 Fee breakdown:", {
+      originalAmount: originalAmount,
+      stripeFee: stripeFee,
+      refundableAmount: refundableAmount,
+      stripeFeesRefundable: REFUND_POLICY.STRIPE_FEES_REFUNDABLE,
+    });
+
+    // Calculate refund based on refundable amount
+    const maxRefundable = refundableAmount - alreadyRefunded;
+    const desiredRefund = Math.floor(refundableAmount * refundPercentage);
     const refundAmount = Math.min(desiredRefund, maxRefundable);
 
-    if (refundAmount === 0) {
+    if (refundAmount <= 0) {
       return {
         success: false,
         error: "No refund available",
         refundPercentage: 0,
+        stripeFeeRetained: stripeFee,
       };
     }
 
     console.log("💵 Refund calculation:", {
       originalAmount: originalAmount,
+      stripeFee: stripeFee,
+      refundableAmount: refundableAmount,
       alreadyRefunded: alreadyRefunded,
       maxRefundable: maxRefundable,
       desiredRefund: desiredRefund,
@@ -132,6 +172,8 @@ async function processRefund(
         refund_percentage: refundPercentage * 100,
         original_amount: originalAmount,
         refunded_amount: refundAmount,
+        stripe_fee_retained: stripeFee,
+        refundable_amount: refundableAmount,
       },
     });
 
@@ -144,6 +186,8 @@ async function processRefund(
         amount: refundAmount,
         percentage: refundPercentage * 100,
         originalAmount: originalAmount,
+        stripeFeeRetained: stripeFee,
+        refundableAmount: refundableAmount,
         status: refund.status,
       },
     };
@@ -250,11 +294,18 @@ exports.cancelEventAttendance = functions.https.onCall(
       attendees.splice(attendeeIndex, 1);
       await eventRef.update({attendees: attendees});
 
+      // ✅ UPDATED: Save stripeFeeRetained in payment record
       await paymentDoc.ref.update({
         status: refundResult.success ? "refunded" : "succeeded",
         refundAmount: refundResult.refund ? refundResult.refund.amount : 0,
         refundPercentage: refundPercentage * 100,
         refundedAt: refundResult.success ? new Date().toISOString() : null,
+        stripeFeeRetained: refundResult.refund ?
+          refundResult.refund.stripeFeeRetained :
+          0,
+        refundableAmount: refundResult.refund ?
+          refundResult.refund.refundableAmount :
+          0,
       });
 
       if (eventData.creatorId) {
@@ -286,10 +337,19 @@ exports.cancelEventAttendance = functions.https.onCall(
 
       console.log("✅ Cancellation complete");
 
-      const resultMessage =
-        refundPercentage > 0 ?
-          "Refund of " + refundPercentage * 100 + "% processed" :
-          "No refund available (less than 3 days)";
+      // ✅ UPDATED: Include Stripe fee in message
+      let resultMessage;
+      if (refundPercentage > 0 && refundResult.refund) {
+        const refundPesos = (refundResult.refund.amount / 100).toFixed(2);
+        const stripFeePesos = (
+          refundResult.refund.stripeFeeRetained / 100
+        ).toFixed(2);
+        resultMessage =
+          `Refund of $${refundPesos} MXN processed ` +
+          `(Stripe processing fee of $${stripFeePesos} MXN is non-refundable)`;
+      } else {
+        resultMessage = "No refund available (less than 3 days until event)";
+      }
 
       return {
         success: true,
@@ -358,27 +418,6 @@ exports.hostCancelEvent = functions.https.onCall(
         }
       }
 
-      // DEBUG: Query ALL payments for this event
-      console.log("🔍 DEBUG - Searching payments for eventId:", eventId);
-
-      const allPaymentsSnapshot = await db
-        .collection("payments")
-        .where("eventId", "==", eventId)
-        .get();
-
-      console.log("🔍 Total payments found:", allPaymentsSnapshot.size);
-
-      allPaymentsSnapshot.docs.forEach((doc, index) => {
-        const data = doc.data();
-        console.log("🔍 Payment " + (index + 1) + ":", {
-          id: doc.id,
-          odl: data.userId,
-          status: data.status,
-          amount: data.amount,
-          paymentIntentId: data.paymentIntentId,
-        });
-      });
-
       // Get payments with status 'succeeded'
       const paymentsSnapshot = await db
         .collection("payments")
@@ -391,13 +430,13 @@ exports.hostCancelEvent = functions.https.onCall(
       const refundResults = [];
       const failedRefunds = [];
 
-      // Process refunds (100%)
+      // Process refunds (100% - but minus Stripe fees)
       for (const paymentDoc of paymentsSnapshot.docs) {
         const paymentData = paymentDoc.data();
 
         console.log("💵 Processing refund for:", {
           paymentId: paymentDoc.id,
-          odl: paymentData.userId,
+          userId: paymentData.userId,
           paymentIntentId: paymentData.paymentIntentId,
           amount: paymentData.amount,
         });
@@ -416,21 +455,37 @@ exports.hostCancelEvent = functions.https.onCall(
             refundPercentage: 100,
             refundedAt: new Date().toISOString(),
             refundReason: "event_cancelled_by_host",
+            stripeFeeRetained: refundResult.refund.stripeFeeRetained,
+            refundableAmount: refundResult.refund.refundableAmount,
           });
 
           refundResults.push({
             paymentId: paymentDoc.id,
-            odl: paymentData.userId,
+            userId: paymentData.userId,
             amount: refundResult.refund.amount,
+            stripeFeeRetained: refundResult.refund.stripeFeeRetained,
           });
 
-          // Notify user
+          // Notify user (with Stripe fee info)
+          const refundPesos = (refundResult.refund.amount / 100).toFixed(2);
+          const stripeFeePesos = (
+            refundResult.refund.stripeFeeRetained / 100
+          ).toFixed(2);
+
           await db.collection("notifications").add({
             userId: paymentData.userId,
             type: "event_cancelled_refund",
-            title: "Event Cancelled - Full Refund",
+            title: "Event Cancelled - Refund Processed",
             message:
-              "\"" + eventData.title + "\" was cancelled. Full refund processed.",
+              "\"" +
+              eventData.title +
+              "\" was cancelled. " +
+              "Refund of $" +
+              refundPesos +
+              " MXN processed " +
+              "(Stripe fee $" +
+              stripeFeePesos +
+              " MXN non-refundable).",
             icon: "💰",
             read: false,
             createdAt: new Date().toISOString(),
@@ -438,6 +493,7 @@ exports.hostCancelEvent = functions.https.onCall(
               eventId: eventId,
               eventTitle: eventData.title,
               refundAmount: refundResult.refund.amount,
+              stripeFeeRetained: refundResult.refund.stripeFeeRetained,
               reason: cancellationReason || "No reason provided",
             },
           });
@@ -450,7 +506,7 @@ exports.hostCancelEvent = functions.https.onCall(
             refundResult.error,
           );
           failedRefunds.push({
-            odl: paymentData.userId,
+            userId: paymentData.userId,
             error: refundResult.error,
           });
         }
@@ -478,7 +534,9 @@ exports.hostCancelEvent = functions.https.onCall(
         refunds: refundResults,
         failedRefunds: failedRefunds,
         message:
-          "Event cancelled. " + refundResults.length + " refunds processed.",
+          "Event cancelled. " +
+          refundResults.length +
+          " refunds processed (Stripe fees retained).",
       };
     } catch (error) {
       console.error("❌ Error cancelling event:", error);
@@ -489,3 +547,4 @@ exports.hostCancelEvent = functions.https.onCall(
 
 exports.REFUND_POLICY = REFUND_POLICY;
 exports.calculateRefundPercentage = calculateRefundPercentage;
+exports.calculateStripeFee = calculateStripeFee;

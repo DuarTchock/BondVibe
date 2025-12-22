@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -70,6 +70,25 @@ export default function CreateEventScreen({ navigation }) {
   const [createdEventTitle, setCreatedEventTitle] = useState("");
   const [createdEventsCount, setCreatedEventsCount] = useState(1);
 
+  // NEW: User profile state for Stripe validation
+  const [userProfile, setUserProfile] = useState(null);
+
+  // NEW: Load user profile on mount
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (userDoc.exists()) {
+          setUserProfile(userDoc.data());
+        }
+      } catch (error) {
+        console.error("Error loading user profile:", error);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
+
   const formatDate = (date) => {
     const options = { month: "short", day: "numeric", year: "numeric" };
     return date.toLocaleDateString("en-US", options);
@@ -103,6 +122,38 @@ export default function CreateEventScreen({ navigation }) {
     if (selectedDate) {
       setRecurrenceEndDate(selectedDate);
     }
+  };
+
+  // NEW: Handle price change with Stripe validation
+  const handlePriceChange = (priceText) => {
+    const priceNumber = parseInt(priceText) || 0;
+
+    // If the price is greater than 0, validate that the host can create paid events
+    if (priceNumber > 0) {
+      const canCreatePaid = userProfile?.hostConfig?.canCreatePaidEvents;
+
+      if (!canCreatePaid) {
+        Alert.alert(
+          "Stripe Account Required",
+          "To create paid events, you need to connect your Stripe account first. This allows you to receive payments directly.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Connect Stripe",
+              onPress: () => navigation.navigate("StripeConnect"),
+            },
+          ]
+        );
+        // Don't update the price
+        return;
+      }
+    }
+
+    // If validation passes (or price is 0), update
+    setPrice(priceText);
   };
 
   // Generate recurring event dates
@@ -160,6 +211,30 @@ export default function CreateEventScreen({ navigation }) {
         "Please enter a valid price greater than 0, or mark the event as free."
       );
       return;
+    }
+
+    // NEW: Validate paid events require Stripe
+    const eventPrice = parseInt(price) || 0;
+    if (eventPrice > 0) {
+      const canCreatePaid = userProfile?.hostConfig?.canCreatePaidEvents;
+
+      if (!canCreatePaid) {
+        Alert.alert(
+          "Cannot Create Paid Event",
+          "You need to connect and verify your Stripe account before creating paid events.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Go to Stripe Settings",
+              onPress: () => navigation.navigate("StripeConnect"),
+            },
+          ]
+        );
+        return;
+      }
     }
 
     // Validate datetime is in the future
@@ -234,6 +309,7 @@ export default function CreateEventScreen({ navigation }) {
         currency: "MXN",
         hostName: userData?.name || userData?.displayName || "Anonymous",
         creatorId: user.uid,
+        createdBy: user.uid, // NEW: Added for Stripe Connect compatibility
         attendees: [],
         participantCount: 0,
         status: "active",
@@ -707,13 +783,28 @@ export default function CreateEventScreen({ navigation }) {
                 placeholder={isFree ? "0" : "100"}
                 placeholderTextColor={colors.textTertiary}
                 value={isFree ? "0" : price}
-                onChangeText={setPrice}
+                onChangeText={handlePriceChange} // NEW: Updated to use validation handler
                 keyboardType="numeric"
                 editable={!isFree}
               />
             </View>
           </View>
         </View>
+
+        {/* NEW: Payment info badge for paid events */}
+        {!isFree && price && parseInt(price) > 0 && (
+          <View
+            style={[
+              styles.infoBadge,
+              { backgroundColor: `${colors.primary}15` },
+            ]}
+          >
+            <Text style={[styles.infoText, { color: colors.primary }]}>
+              💰 You'll receive 95% of each ticket sale. BondVibe takes 5%
+              platform fee.
+            </Text>
+          </View>
+        )}
 
         {/* Tips */}
         <View
@@ -883,6 +974,17 @@ function createStyles(colors) {
       fontSize: 13,
       marginTop: 8,
       fontStyle: "italic",
+    },
+    // NEW: Info badge styles
+    infoBadge: {
+      padding: 12,
+      borderRadius: 10,
+      marginTop: -12, // Reduce spacing after price field
+      marginBottom: 24,
+    },
+    infoText: {
+      fontSize: 13,
+      lineHeight: 19,
     },
     tipsCard: {
       borderWidth: 1,

@@ -174,7 +174,14 @@ export default function AdminDashboardScreen({ navigation }) {
       });
 
       console.log("✅ Host request approved");
-      Alert.alert("Success", `${currentRequest.userName} is now a host!`);
+
+      // NEW: Show success and explain next steps
+      Alert.alert(
+        "Success",
+        `${currentRequest.userName} is now a host! They will need to choose their host type (Free or Paid) on their next login.`,
+        [{ text: "OK" }]
+      );
+
       await loadData();
     } catch (error) {
       console.error("Error approving request:", error);
