@@ -20,6 +20,7 @@ import {
   where,
   getDocs,
   writeBatch,
+  onSnapshot,
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -70,6 +71,79 @@ export default function EventDetailScreen({ route, navigation }) {
       loadEvent();
     }, [eventId])
   );
+
+  // ⭐ NEW: Detectar flag shouldReload
+  useEffect(() => {
+    if (route.params?.shouldReload) {
+      console.log("🔄 shouldReload flag detected - reloading event...");
+      loadEvent();
+
+      // Limpiar el flag para evitar recargas múltiples
+      navigation.setParams({ shouldReload: false });
+    }
+  }, [route.params?.shouldReload]);
+
+  // ⭐ FIXED: Real-time listener con manejo correcto de timestamps
+  useEffect(() => {
+    if (!eventId) return;
+
+    console.log("🔄 Setting up real-time listener for event:", eventId);
+    const eventRef = doc(db, "events", eventId);
+
+    const unsubscribe = onSnapshot(eventRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        console.log("🔄 Event data updated in real-time");
+
+        // Handle date - support both Firestore Timestamp and ISO string
+        let eventDate = null;
+        if (data.date) {
+          if (data.date.toDate) {
+            // It's a Firestore Timestamp
+            eventDate = data.date.toDate();
+          } else if (typeof data.date === "string") {
+            // It's an ISO string
+            eventDate = new Date(data.date);
+          } else if (data.date instanceof Date) {
+            // It's already a Date object
+            eventDate = data.date;
+          }
+        }
+
+        // Handle createdAt similarly
+        let createdAtDate = null;
+        if (data.createdAt) {
+          if (data.createdAt.toDate) {
+            createdAtDate = data.createdAt.toDate();
+          } else if (typeof data.createdAt === "string") {
+            createdAtDate = new Date(data.createdAt);
+          } else if (data.createdAt instanceof Date) {
+            createdAtDate = data.createdAt;
+          }
+        }
+
+        const updatedEvent = {
+          id: snapshot.id,
+          ...data,
+          date: eventDate,
+          createdAt: createdAtDate,
+        };
+
+        setEvent(updatedEvent);
+        setIsJoined(data.attendees?.includes(auth.currentUser.uid));
+
+        // Recargar attendees si cambió el array
+        if (data.attendees && data.attendees.length > 0) {
+          loadAttendeesData(data.attendees);
+        }
+      }
+    });
+
+    return () => {
+      console.log("🧹 Cleaning up real-time listener");
+      unsubscribe();
+    };
+  }, [eventId]);
 
   const loadCurrentUser = async () => {
     try {

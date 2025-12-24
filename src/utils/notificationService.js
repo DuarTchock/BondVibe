@@ -51,6 +51,18 @@ export const getUserNotifications = async (userId) => {
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
 
+      // Handle createdAt - support both Firestore Timestamp and ISO string
+      let createdAtValue = new Date().toISOString();
+      if (data.createdAt) {
+        if (data.createdAt.toDate) {
+          // It's a Firestore Timestamp
+          createdAtValue = data.createdAt.toDate().toISOString();
+        } else if (typeof data.createdAt === "string") {
+          // It's already an ISO string
+          createdAtValue = data.createdAt;
+        }
+      }
+
       return {
         id: docSnap.id,
         type: String(data.type || ""),
@@ -58,7 +70,7 @@ export const getUserNotifications = async (userId) => {
         message: String(data.message || ""),
         icon: String(data.icon || "🔔"),
         read: Boolean(data.read),
-        createdAt: String(data.createdAt || new Date().toISOString()),
+        createdAt: createdAtValue,
         readAt: data.readAt ? String(data.readAt) : undefined,
         metadata:
           data.metadata && typeof data.metadata === "object"

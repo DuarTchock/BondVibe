@@ -7,6 +7,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -38,6 +43,9 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
+    // Dismiss keyboard
+    Keyboard.dismiss();
+
     setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(
@@ -47,10 +55,10 @@ export default function LoginScreen({ navigation }) {
       );
       let user = userCredential.user;
 
-      // ← NUEVO: Reload user to get fresh emailVerified status
+      // Reload user to get fresh emailVerified status
       console.log("🔄 Reloading user to get fresh emailVerified status...");
       await user.reload();
-      user = auth.currentUser; // Get the refreshed user object
+      user = auth.currentUser;
 
       console.log("✅ Login successful:", user.uid);
       console.log(
@@ -66,7 +74,6 @@ export default function LoginScreen({ navigation }) {
         if (userDoc.exists()) {
           const userData = userDoc.data();
 
-          // If emailVerified status in Firestore doesn't match Firebase Auth, update it
           if (userData.emailVerified !== user.emailVerified) {
             console.log(
               "🔄 Syncing emailVerified to Firestore:",
@@ -83,10 +90,8 @@ export default function LoginScreen({ navigation }) {
           "⚠️ Error syncing emailVerified to Firestore:",
           syncError
         );
-        // Don't block login if sync fails
       }
 
-      // AppNavigator will handle navigation based on user state
       setLoading(false);
     } catch (error) {
       console.log("Login error:", error);
@@ -94,7 +99,6 @@ export default function LoginScreen({ navigation }) {
 
       setLoading(false);
 
-      // Mensajes de error amigables con modal
       if (
         error.code === "auth/user-not-found" ||
         error.code === "auth/invalid-credential" ||
@@ -152,216 +156,252 @@ export default function LoginScreen({ navigation }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar style={isDark ? "light" : "dark"} />
 
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.logo}>🎪</Text>
-          <Text style={[styles.title, { color: colors.text }]}>BondVibe</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Connect through shared experiences
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <View
-            style={[
-              styles.inputWrapper,
-              {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
-              },
-            ]}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.inputIcon}>📧</Text>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Email"
-              placeholderTextColor={colors.textTertiary}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
-
-          <View
-            style={[
-              styles.inputWrapper,
-              {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Text style={styles.inputIcon}>🔒</Text>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Password"
-              placeholderTextColor={colors.textTertiary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            <View
-              style={[
-                styles.loginGlass,
-                {
-                  backgroundColor: `${colors.primary}33`,
-                  borderColor: `${colors.primary}66`,
-                },
-              ]}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={[styles.loginText, { color: colors.primary }]}>
-                  Log In
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View
-              style={[styles.dividerLine, { backgroundColor: colors.border }]}
-            />
-            <Text style={[styles.dividerText, { color: colors.textTertiary }]}>
-              or
-            </Text>
-            <View
-              style={[styles.dividerLine, { backgroundColor: colors.border }]}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={styles.signupButton}
-            onPress={() => navigation.navigate("Signup")}
-          >
-            <View
-              style={[
-                styles.signupGlass,
-                {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text style={[styles.signupText, { color: colors.text }]}>
-                Don't have an account?{" "}
-                <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  Sign Up
-                </Text>
+            <View style={styles.header}>
+              <Text style={styles.logo}>🎪</Text>
+              <Text style={[styles.title, { color: colors.text }]}>
+                BondVibe
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                Connect through shared experiences
               </Text>
             </View>
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      {/* Modal con dos botones para "Account Not Found" */}
-      {errorModal.showSignup && (
-        <Modal
-          visible={errorModal.visible}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={handleCancel}
-        >
-          <View style={styles.modalOverlay}>
-            <TouchableOpacity
-              style={styles.modalBackdrop}
-              activeOpacity={1}
-              onPress={handleCancel}
-            />
-            <View
-              style={[styles.modalContent, { backgroundColor: colors.surface }]}
-            >
-              <Text style={styles.modalEmoji}>❌</Text>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {errorModal.title}
-              </Text>
-              <Text
-                style={[styles.modalMessage, { color: colors.textSecondary }]}
+            <View style={styles.form}>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border,
+                  },
+                ]}
               >
-                {errorModal.message}
-              </Text>
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={handleCancel}
-                  activeOpacity={0.7}
+                <Text style={styles.inputIcon}>📧</Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Email"
+                  placeholderTextColor={colors.textTertiary}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={styles.inputIcon}>🔒</Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Password"
+                  placeholderTextColor={colors.textTertiary}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                <View
+                  style={[
+                    styles.loginGlass,
+                    {
+                      backgroundColor: `${colors.primary}33`,
+                      borderColor: `${colors.primary}66`,
+                    },
+                  ]}
                 >
-                  <View
-                    style={[
-                      styles.modalButtonGlass,
-                      {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.modalButtonText, { color: colors.text }]}
-                    >
-                      Cancel
+                  {loading ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={[styles.loginText, { color: colors.primary }]}>
+                      Log In
                     </Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={handleSignupClick}
-                  activeOpacity={0.7}
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.divider}>
+                <View
+                  style={[
+                    styles.dividerLine,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+                <Text
+                  style={[styles.dividerText, { color: colors.textTertiary }]}
                 >
-                  <View
-                    style={[
-                      styles.modalButtonGlass,
-                      {
-                        backgroundColor: `${colors.primary}33`,
-                        borderColor: `${colors.primary}66`,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.modalButtonText,
-                        { color: colors.primary },
-                      ]}
-                    >
+                  or
+                </Text>
+                <View
+                  style={[
+                    styles.dividerLine,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.signupButton}
+                onPress={() => navigation.navigate("Signup")}
+              >
+                <View
+                  style={[
+                    styles.signupGlass,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.signupText, { color: colors.text }]}>
+                    Don't have an account?{" "}
+                    <Text style={{ color: colors.primary, fontWeight: "700" }}>
                       Sign Up
                     </Text>
-                  </View>
-                </TouchableOpacity>
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Extra padding for keyboard */}
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        </TouchableWithoutFeedback>
+
+        {/* Modal con dos botones para "Account Not Found" */}
+        {errorModal.showSignup && (
+          <Modal
+            visible={errorModal.visible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={handleCancel}
+          >
+            <View style={styles.modalOverlay}>
+              <TouchableOpacity
+                style={styles.modalBackdrop}
+                activeOpacity={1}
+                onPress={handleCancel}
+              />
+              <View
+                style={[
+                  styles.modalContent,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <Text style={styles.modalEmoji}>❌</Text>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {errorModal.title}
+                </Text>
+                <Text
+                  style={[styles.modalMessage, { color: colors.textSecondary }]}
+                >
+                  {errorModal.message}
+                </Text>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={handleCancel}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.modalButtonGlass,
+                        {
+                          backgroundColor: colors.surfaceGlass,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.modalButtonText, { color: colors.text }]}
+                      >
+                        Cancel
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={handleSignupClick}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.modalButtonGlass,
+                        {
+                          backgroundColor: `${colors.primary}33`,
+                          borderColor: `${colors.primary}66`,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.modalButtonText,
+                          { color: colors.primary },
+                        ]}
+                      >
+                        Sign Up
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
-      )}
+          </Modal>
+        )}
 
-      {/* Modal simple para otros errores */}
-      {!errorModal.showSignup && (
-        <SuccessModal
-          visible={errorModal.visible}
-          onClose={handleSimpleModalClose}
-          title={errorModal.title}
-          message={errorModal.message}
-          emoji="❌"
-        />
-      )}
-    </View>
+        {/* Modal simple para otros errores */}
+        {!errorModal.showSignup && (
+          <SuccessModal
+            visible={errorModal.visible}
+            onClose={handleSimpleModalClose}
+            title={errorModal.title}
+            message={errorModal.message}
+            emoji="❌"
+          />
+        )}
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    content: { flex: 1, justifyContent: "center", paddingHorizontal: 24 },
+    // ⭐ FIX: Removido justifyContent center, agregado paddingTop
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 120,
+      paddingBottom: 40,
+    },
     header: { alignItems: "center", marginBottom: 48 },
     logo: { fontSize: 72, marginBottom: 16 },
     title: {
@@ -392,7 +432,7 @@ function createStyles(colors) {
     signupGlass: { borderWidth: 1, paddingVertical: 16, alignItems: "center" },
     signupText: { fontSize: 15 },
 
-    // Modal personalizado
+    // Modal
     modalOverlay: {
       flex: 1,
       justifyContent: "center",

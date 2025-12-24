@@ -38,10 +38,10 @@ export default function NotificationsScreen({ navigation }) {
       "🔔 Setting up real-time notifications listener in NotificationsScreen"
     );
 
+    // ⭐ FIXED: Removido filtro de type para cargar TODAS las notificaciones
     const groupedNotificationsQuery = query(
       collection(db, "notifications"),
-      where("userId", "==", auth.currentUser.uid),
-      where("type", "==", "event_messages")
+      where("userId", "==", auth.currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(
@@ -57,29 +57,34 @@ export default function NotificationsScreen({ navigation }) {
           for (const notifDoc of snapshot.docs) {
             const data = notifDoc.data();
 
-            messageNotifications.push({
-              id: notifDoc.id,
-              type: "event_messages",
-              title:
-                data.unreadCount > 0
-                  ? `${data.unreadCount} new message${
-                      data.unreadCount > 1 ? "s" : ""
-                    }`
-                  : "Messages",
-              message: `${data.lastSender || "Someone"}: ${
-                data.lastMessage || ""
-              }`,
-              time: getTimeAgo(data.updatedAt),
-              read: data.read || false,
-              icon: "💬",
-              createdAt: data.updatedAt,
-              unreadCount: data.unreadCount,
-              metadata: {
-                eventId: data.eventId ? data.eventId.replace("event_", "") : "",
-                eventTitle: String(data.eventTitle || "Event"),
-                conversationId: data.eventId || "",
-              },
-            });
+            // Solo procesar notificaciones de mensajes agrupados
+            if (data.type === "event_messages") {
+              messageNotifications.push({
+                id: notifDoc.id,
+                type: "event_messages",
+                title:
+                  data.unreadCount > 0
+                    ? `${data.unreadCount} new message${
+                        data.unreadCount > 1 ? "s" : ""
+                      }`
+                    : "Messages",
+                message: `${data.lastSender || "Someone"}: ${
+                  data.lastMessage || ""
+                }`,
+                time: getTimeAgo(data.updatedAt),
+                read: data.read || false,
+                icon: "💬",
+                createdAt: data.updatedAt,
+                unreadCount: data.unreadCount,
+                metadata: {
+                  eventId: data.eventId
+                    ? data.eventId.replace("event_", "")
+                    : "",
+                  eventTitle: String(data.eventTitle || "Event"),
+                  conversationId: data.eventId || "",
+                },
+              });
+            }
           }
 
           const allNotifications = [
@@ -146,9 +151,24 @@ export default function NotificationsScreen({ navigation }) {
     setTimeout(() => setRefreshing(false), 500);
   };
 
-  const getTimeAgo = (isoDate) => {
-    if (!isoDate) return "";
-    const date = new Date(isoDate);
+  const getTimeAgo = (timestamp) => {
+    if (!timestamp) return "";
+
+    // Handle Firestore Timestamp objects
+    let date;
+    if (timestamp?.toDate) {
+      // It's a Firestore Timestamp
+      date = timestamp.toDate();
+    } else if (typeof timestamp === "string") {
+      // It's an ISO string
+      date = new Date(timestamp);
+    } else if (timestamp instanceof Date) {
+      // It's already a Date object
+      date = timestamp;
+    } else {
+      return "";
+    }
+
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
 
@@ -167,6 +187,7 @@ export default function NotificationsScreen({ navigation }) {
 
     switch (notification.type) {
       case "event_joined":
+      case "event_paid_attendee": // ⭐ Agregado
         if (notification.metadata?.eventId) {
           navigation.navigate("EventDetail", {
             eventId: notification.metadata.eventId,
