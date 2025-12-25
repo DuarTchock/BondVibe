@@ -6,6 +6,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
@@ -33,6 +38,9 @@ export default function CheckoutScreen({ route, navigation }) {
       Alert.alert("Incomplete Card", "Please enter complete card details");
       return;
     }
+
+    // Dismiss keyboard before processing
+    Keyboard.dismiss();
 
     setProcessing(true);
     console.log("💳 Starting payment process...");
@@ -63,70 +71,28 @@ export default function CheckoutScreen({ route, navigation }) {
 
       console.log("✅ Payment succeeded!");
 
-      // 3. Get event data FIRST (before saving payment record)
-      console.log("📄 Fetching event data...");
-      const eventRef = doc(db, "events", eventId);
-      const eventDoc = await getDoc(eventRef);
+      // NOTE: Webhook will handle:
+      // - Saving payment record
+      // - Adding user to attendees
+      // - Sending push notification to host
 
-      if (!eventDoc.exists()) {
-        throw new Error("Event not found");
-      }
+      // ⭐ Wait 2 seconds for webhook to process
+      console.log("⏳ Waiting for webhook to process...");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      const eventData = eventDoc.data();
-
-      // 4. Save payment record
-      console.log("💾 Saving payment record...");
-      await savePaymentRecord({
-        eventId: eventId,
-        paymentIntentId: paymentIntent.id,
-        amount: amount,
-        currency: "mxn",
-        eventTitle: eventTitle,
-        hostId: eventData.creatorId,
-      });
-      console.log("✅ Payment record saved");
-
-      // 5. Add user to event attendees
-      console.log("👥 Adding user to event attendees...");
-      await updateDoc(eventRef, {
-        attendees: arrayUnion(auth.currentUser.uid),
-      });
-      console.log("✅ User added to attendees");
-
-      // 6. Get user data for notification
-      console.log("📄 Fetching user data...");
-      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-      const userData = userDoc.data();
-      const userName = userData?.fullName || userData?.name || "Someone";
-
-      // 7. Send notification to host
-      if (eventData.creatorId && eventData.creatorId !== auth.currentUser.uid) {
-        console.log("📬 Sending notification to host:", eventData.creatorId);
-        await createNotification(eventData.creatorId, {
-          type: "event_joined",
-          title: "New paid attendee! 💰",
-          message: `${userName} paid ${formatMXN(amount)} for "${eventTitle}"`,
-          icon: "💵",
-          metadata: {
-            eventId: eventId,
-            eventTitle: eventTitle,
-            userId: auth.currentUser.uid,
-            amount: amount,
-            paymentIntentId: paymentIntentId,
-          },
-        });
-        console.log("✅ Notification sent to host");
-      }
-
-      // 8. Show success and navigate
+      // Show success and navigate with reload flag
       Alert.alert(
         "Payment Successful! 🎉",
-        `You've successfully joined "${eventTitle}"`,
+        `You've successfully joined "${eventTitle}". The host will be notified.`,
         [
           {
             text: "OK",
             onPress: () => {
-              navigation.navigate("EventDetail", { eventId });
+              // ⭐ Navigate with shouldReload flag
+              navigation.replace("EventDetail", {
+                eventId,
+                shouldReload: true,
+              });
             },
           },
         ]
@@ -145,171 +111,208 @@ export default function CheckoutScreen({ route, navigation }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={0}
+    >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Checkout
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <View style={styles.content}>
-        {/* Event Info */}
-        <View
-          style={[
-            styles.eventCard,
-            {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.eventTitle, { color: colors.text }]}>
-            {eventTitle}
-          </Text>
-          <Text style={[styles.eventPrice, { color: colors.primary }]}>
-            {formatMXN(amount)}
-          </Text>
-        </View>
-
-        {/* Pricing Breakdown */}
-        <View
-          style={[
-            styles.breakdownCard,
-            {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.breakdownTitle, { color: colors.text }]}>
-            Pricing Breakdown
-          </Text>
-
-          <View style={styles.breakdownRow}>
-            <Text
-              style={[styles.breakdownLabel, { color: colors.textSecondary }]}
-            >
-              Ticket Price
-            </Text>
-            <Text style={[styles.breakdownValue, { color: colors.text }]}>
-              {formatMXN(amount)}
-            </Text>
-          </View>
-
-          <View style={styles.breakdownRow}>
-            <Text
-              style={[styles.breakdownLabel, { color: colors.textSecondary }]}
-            >
-              Platform Fee (5%)
-            </Text>
-            <Text style={[styles.breakdownValue, { color: colors.text }]}>
-              Included
-            </Text>
-          </View>
-
-          <View style={styles.breakdownRow}>
-            <Text
-              style={[styles.breakdownLabel, { color: colors.textSecondary }]}
-            >
-              Processing Fee
-            </Text>
-            <Text style={[styles.breakdownValue, { color: colors.text }]}>
-              Included
-            </Text>
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          <View style={styles.breakdownRow}>
-            <Text style={[styles.totalLabel, { color: colors.text }]}>
-              Total
-            </Text>
-            <Text style={[styles.totalValue, { color: colors.primary }]}>
-              {formatMXN(amount)}
-            </Text>
-          </View>
-
-          <Text
-            style={[styles.hostReceivesText, { color: colors.textTertiary }]}
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
           >
-            Host receives: ~{formatMXN(Math.floor(amount * 0.9))} after fees
+            <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Checkout
           </Text>
+          <View style={{ width: 40 }} />
         </View>
 
-        {/* Card Input */}
-        <View
-          style={[
-            styles.cardFieldContainer,
-            {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.cardLabel, { color: colors.text }]}>
-            Card Details
-          </Text>
-          <CardField
-            postalCodeEnabled={false}
-            placeholders={{
-              number: "4242 4242 4242 4242",
-            }}
-            cardStyle={{
-              backgroundColor: colors.surface,
-              textColor: colors.text,
-              placeholderColor: colors.textTertiary,
-            }}
-            style={styles.cardField}
-            onCardChange={(cardDetails) => {
-              setCardComplete(cardDetails.complete);
-            }}
-          />
-        </View>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            {/* Event Info */}
+            <View
+              style={[
+                styles.eventCard,
+                {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.eventTitle, { color: colors.text }]}>
+                {eventTitle}
+              </Text>
+              <Text style={[styles.eventPrice, { color: colors.primary }]}>
+                {formatMXN(amount)}
+              </Text>
+            </View>
 
-        {/* Security Message */}
-        <View style={styles.securityRow}>
-          <Text style={styles.lockIcon}>🔒</Text>
-          <Text style={[styles.securityText, { color: colors.textSecondary }]}>
-            Your payment is secure and encrypted
-          </Text>
-        </View>
+            {/* Pricing Breakdown */}
+            <View
+              style={[
+                styles.breakdownCard,
+                {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.breakdownTitle, { color: colors.text }]}>
+                Pricing Breakdown
+              </Text>
 
-        {/* Pay Button */}
-        <TouchableOpacity
-          style={[
-            styles.payButton,
-            {
-              backgroundColor: cardComplete ? colors.primary : colors.border,
-              opacity: processing || !cardComplete ? 0.5 : 1,
-            },
-          ]}
-          onPress={handlePayment}
-          disabled={!cardComplete || processing || confirmLoading}
-        >
-          {processing || confirmLoading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.payButtonText}>Pay {formatMXN(amount)}</Text>
-          )}
-        </TouchableOpacity>
+              <View style={styles.breakdownRow}>
+                <Text
+                  style={[
+                    styles.breakdownLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Ticket Price
+                </Text>
+                <Text style={[styles.breakdownValue, { color: colors.text }]}>
+                  {formatMXN(amount)}
+                </Text>
+              </View>
 
-        {/* Terms */}
-        <Text style={[styles.termsText, { color: colors.textTertiary }]}>
-          By completing this purchase you agree to our Terms of Service and
-          Privacy Policy
-        </Text>
+              <View style={styles.breakdownRow}>
+                <Text
+                  style={[
+                    styles.breakdownLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Platform Fee (5%)
+                </Text>
+                <Text style={[styles.breakdownValue, { color: colors.text }]}>
+                  Included
+                </Text>
+              </View>
+
+              <View style={styles.breakdownRow}>
+                <Text
+                  style={[
+                    styles.breakdownLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Processing Fee
+                </Text>
+                <Text style={[styles.breakdownValue, { color: colors.text }]}>
+                  Included
+                </Text>
+              </View>
+
+              <View
+                style={[styles.divider, { backgroundColor: colors.border }]}
+              />
+
+              <View style={styles.breakdownRow}>
+                <Text style={[styles.totalLabel, { color: colors.text }]}>
+                  Total
+                </Text>
+                <Text style={[styles.totalValue, { color: colors.primary }]}>
+                  {formatMXN(amount)}
+                </Text>
+              </View>
+
+              <Text
+                style={[
+                  styles.hostReceivesText,
+                  { color: colors.textTertiary },
+                ]}
+              >
+                Host receives: ~{formatMXN(Math.floor(amount * 0.9))} after fees
+              </Text>
+            </View>
+
+            {/* Card Input */}
+            <View
+              style={[
+                styles.cardFieldContainer,
+                {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.cardLabel, { color: colors.text }]}>
+                Card Details
+              </Text>
+              <CardField
+                postalCodeEnabled={false}
+                placeholders={{
+                  number: "4242 4242 4242 4242",
+                }}
+                cardStyle={{
+                  backgroundColor: colors.surface,
+                  textColor: colors.text,
+                  placeholderColor: colors.textTertiary,
+                }}
+                style={styles.cardField}
+                onCardChange={(cardDetails) => {
+                  setCardComplete(cardDetails.complete);
+                }}
+              />
+            </View>
+
+            {/* Security Message */}
+            <View style={styles.securityRow}>
+              <Text style={styles.lockIcon}>🔒</Text>
+              <Text
+                style={[styles.securityText, { color: colors.textSecondary }]}
+              >
+                Your payment is secure and encrypted
+              </Text>
+            </View>
+
+            {/* Pay Button */}
+            <TouchableOpacity
+              style={[
+                styles.payButton,
+                {
+                  backgroundColor: cardComplete
+                    ? colors.primary
+                    : colors.border,
+                  opacity: processing || !cardComplete ? 0.5 : 1,
+                },
+              ]}
+              onPress={handlePayment}
+              disabled={!cardComplete || processing || confirmLoading}
+            >
+              {processing || confirmLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.payButtonText}>
+                  Pay {formatMXN(amount)}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Terms */}
+            <Text style={[styles.termsText, { color: colors.textTertiary }]}>
+              By completing this purchase you agree to our Terms of Service and
+              Privacy Policy
+            </Text>
+
+            {/* Extra padding for keyboard */}
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -339,8 +342,10 @@ function createStyles(colors) {
       fontWeight: "700",
       letterSpacing: -0.3,
     },
-    content: {
+    scrollView: {
       flex: 1,
+    },
+    scrollContent: {
       padding: 20,
     },
     eventCard: {
