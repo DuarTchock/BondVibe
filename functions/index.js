@@ -467,3 +467,9 @@ const {
 
 // Export Event Notifications
 exports.onEventAttendeesChanged = onEventAttendeesChanged;
+
+// Import Stripe Payment Webhook
+const {stripePaymentWebhook} = require("./stripe/paymentWebhook");
+
+// Export Stripe Payment Webhook
+exports.stripePaymentWebhook = stripePaymentWebhook;

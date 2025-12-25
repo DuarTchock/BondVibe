@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Check if user is the owner
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Check if user is admin
+    function isAdmin() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isSignedIn();
+      
+      // Only owner can create their profile
+      allow create: if isSignedIn() && isOwner(userId);
+      
+      // Only owner or admin can update/delete
+      allow update, delete: if isOwner(userId) || isAdmin();
+      
+      // Stripe Connect data (sensitive)
+      match /stripeConnect/{document=**} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+    
+    // ============================================
+    // EVENTS COLLECTION
+    // ============================================
+    match /events/{eventId} {
+      // Anyone authenticated can read events
+      allow read: if isSignedIn();
+      
+      // Only authenticated users can create events with their own creatorId
+      allow create: if isSignedIn() && 
+                       request.resource.data.creatorId == request.auth.uid;
+      
+      // Only creator or admin can update
+      allow update: if isSignedIn() && 
+                       (resource.data.creatorId == request.auth.uid || isAdmin());
+      
+      // Only creator or admin can delete
+      allow delete: if isSignedIn() && 
+                       (resource.data.creatorId == request.auth.uid || isAdmin());
+    }
+    
+    // ============================================
+    // PAYMENTS COLLECTION - VERY RESTRICTED
+    // ============================================
+    match /payments/{paymentId} {
+      // Only user who made payment, host, or admin can read
+      allow read: if isSignedIn() && 
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.hostId == request.auth.uid || 
+                      isAdmin());
+      
+      // ONLY Cloud Functions can write (no client writes allowed)
+      allow create, update, delete: if false;
+    }
+    
+    // ============================================
+    // NOTIFICATIONS COLLECTION
+    // ============================================
+    match /notifications/{notificationId} {
+      // Only owner can read their notifications
+      allow read: if isSignedIn() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // Users can update read status only
+      allow update: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      
+      // ONLY Cloud Functions can create/delete
+      allow create, delete: if false;
+    }
+    
+    // ============================================
+    // CONVERSATIONS COLLECTION
+    // ============================================
+    match /conversations/{conversationId} {
+      // Anyone authenticated can read conversations
+      allow read: if isSignedIn();
+      
+      // Authenticated users can create conversations
+      allow create: if isSignedIn();
+      
+      // No updates/deletes from clients
+      allow update, delete: if false;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Anyone authenticated can read messages
+        allow read: if isSignedIn();
+        
+        // Authenticated users can create messages with their own senderId
+        allow create: if isSignedIn() && 
+                         request.resource.data.senderId == request.auth.uid;
+        
+        // Messages are immutable (no updates/deletes)
+        allow update, delete: if false;
+      }
+    }
+    
+    // ============================================
+    // HOST REQUESTS COLLECTION
+    // ============================================
+    match /hostRequests/{requestId} {
+      // Admin can read all requests, users can read their own
+      allow read: if isAdmin() || 
+                     (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      // Authenticated users can create requests with their own userId
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Only admin can update/delete (approve/reject)
+      allow update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // DEFAULT DENY ALL
+    // ============================================
+    // Any collection not explicitly defined above is denied
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
