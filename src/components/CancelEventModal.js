@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -20,6 +22,7 @@ export default function CancelEventModal({
   const [loading, setLoading] = useState(false);
 
   const handleConfirm = async () => {
+    Keyboard.dismiss(); // Dismiss keyboard before confirming
     setLoading(true);
     await onConfirm(reason.trim() || "No reason provided");
     setLoading(false);
@@ -27,6 +30,7 @@ export default function CancelEventModal({
   };
 
   const handleClose = () => {
+    Keyboard.dismiss(); // Dismiss keyboard before closing
     setReason("");
     onClose();
   };
@@ -38,100 +42,109 @@ export default function CancelEventModal({
       animationType="fade"
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: colors.surface }]}>
-          {/* Icon */}
-          <View
-            style={[
-              styles.iconContainer,
-              { backgroundColor: `${colors.error}20` },
-            ]}
-          >
-            <Text style={styles.icon}>🚫</Text>
-          </View>
-
-          {/* Title */}
-          <Text style={[styles.title, { color: colors.text }]}>
-            Cancel Event?
-          </Text>
-
-          {/* Message */}
-          <Text style={[styles.message, { color: colors.textSecondary }]}>
-            Are you sure you want to cancel "{eventTitle}"? This action cannot
-            be undone.
-          </Text>
-
-          {/* Reason Input */}
-          <View style={styles.inputSection}>
-            <Text style={[styles.inputLabel, { color: colors.text }]}>
-              Reason (optional)
-            </Text>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.overlay}>
+          <TouchableWithoutFeedback onPress={() => {}}>
             <View
-              style={[
-                styles.inputWrapper,
-                {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                },
-              ]}
+              style={[styles.container, { backgroundColor: colors.surface }]}
             >
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Let participants know why..."
-                placeholderTextColor={colors.textTertiary}
-                value={reason}
-                onChangeText={setReason}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
+              {/* Icon */}
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: `${colors.error}20` },
+                ]}
+              >
+                <Text style={styles.icon}>🚫</Text>
+              </View>
+
+              {/* Title */}
+              <Text style={[styles.title, { color: colors.text }]}>
+                Cancel Event?
+              </Text>
+
+              {/* Message */}
+              <Text style={[styles.message, { color: colors.textSecondary }]}>
+                Are you sure you want to cancel "{eventTitle}"? This action
+                cannot be undone.
+              </Text>
+
+              {/* Reason Input */}
+              <View style={styles.inputSection}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  Reason (optional)
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: colors.surfaceGlass,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    placeholder="Let participants know why..."
+                    placeholderTextColor={colors.textTertiary}
+                    value={reason}
+                    onChangeText={setReason}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                    returnKeyType="done"
+                    blurOnSubmit={true}
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                </View>
+              </View>
+
+              {/* Buttons */}
+              <View style={styles.buttons}>
+                <TouchableOpacity
+                  style={[styles.button, styles.cancelButton]}
+                  onPress={handleClose}
+                  disabled={loading}
+                >
+                  <View
+                    style={[
+                      styles.buttonGlass,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.buttonText, { color: colors.text }]}>
+                      Keep Event
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.button, styles.confirmButton]}
+                  onPress={handleConfirm}
+                  disabled={loading}
+                >
+                  <View
+                    style={[
+                      styles.buttonGlass,
+                      {
+                        backgroundColor: `${colors.error}20`,
+                        borderColor: colors.error,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.buttonText, { color: colors.error }]}>
+                      {loading ? "Cancelling..." : "Cancel Event"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-
-          {/* Buttons */}
-          <View style={styles.buttons}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={handleClose}
-              disabled={loading}
-            >
-              <View
-                style={[
-                  styles.buttonGlass,
-                  {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text style={[styles.buttonText, { color: colors.text }]}>
-                  Keep Event
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.button, styles.confirmButton]}
-              onPress={handleConfirm}
-              disabled={loading}
-            >
-              <View
-                style={[
-                  styles.buttonGlass,
-                  {
-                    backgroundColor: `${colors.error}20`,
-                    borderColor: colors.error,
-                  },
-                ]}
-              >
-                <Text style={[styles.buttonText, { color: colors.error }]}>
-                  {loading ? "Cancelling..." : "Cancel Event"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }
