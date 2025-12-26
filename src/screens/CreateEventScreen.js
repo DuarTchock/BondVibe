@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Modal,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -51,6 +52,7 @@ export default function CreateEventScreen({ navigation }) {
   const [eventDate, setEventDate] = useState(tomorrow);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState(tomorrow);
 
   // Recurrence state
   const [recurrenceType, setRecurrenceType] = useState("none");
@@ -60,6 +62,11 @@ export default function CreateEventScreen({ navigation }) {
     return endDate;
   });
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [tempEndDate, setTempEndDate] = useState(() => {
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + 3);
+    return endDate;
+  });
 
   const [location, setLocation] = useState("");
   const [maxPeople, setMaxPeople] = useState("");
@@ -70,10 +77,10 @@ export default function CreateEventScreen({ navigation }) {
   const [createdEventTitle, setCreatedEventTitle] = useState("");
   const [createdEventsCount, setCreatedEventsCount] = useState(1);
 
-  // NEW: User profile state for Stripe validation
+  // User profile state for Stripe validation
   const [userProfile, setUserProfile] = useState(null);
 
-  // NEW: Load user profile on mount
+  // Load user profile on mount
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
@@ -103,32 +110,73 @@ export default function CreateEventScreen({ navigation }) {
     return `${hour12}:${minutesStr} ${ampm}`;
   };
 
+  // Date picker handlers
   const onDateChange = (event, selectedDate) => {
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+      if (event.type === "set" && selectedDate) {
+        setEventDate(selectedDate);
+      }
+    } else {
+      if (selectedDate) {
+        setTempDate(selectedDate);
+      }
+    }
+  };
+
+  const confirmDateSelection = () => {
+    setEventDate(tempDate);
     setShowDatePicker(false);
-    if (selectedDate) {
-      setEventDate(selectedDate);
+  };
+
+  // Time picker handlers
+  const onTimeChange = (event, selectedTime) => {
+    if (Platform.OS === "android") {
+      setShowTimePicker(false);
+      if (event.type === "set" && selectedTime) {
+        const newDate = new Date(eventDate);
+        newDate.setHours(selectedTime.getHours());
+        newDate.setMinutes(selectedTime.getMinutes());
+        setEventDate(newDate);
+      }
+    } else {
+      if (selectedTime) {
+        setTempDate(selectedTime);
+      }
     }
   };
 
-  const onTimeChange = (event, selectedDate) => {
+  const confirmTimeSelection = () => {
+    const newDate = new Date(eventDate);
+    newDate.setHours(tempDate.getHours());
+    newDate.setMinutes(tempDate.getMinutes());
+    setEventDate(newDate);
     setShowTimePicker(false);
-    if (selectedDate) {
-      setEventDate(selectedDate);
-    }
   };
 
+  // End date picker handlers
   const onEndDateChange = (event, selectedDate) => {
-    setShowEndDatePicker(false);
-    if (selectedDate) {
-      setRecurrenceEndDate(selectedDate);
+    if (Platform.OS === "android") {
+      setShowEndDatePicker(false);
+      if (event.type === "set" && selectedDate) {
+        setRecurrenceEndDate(selectedDate);
+      }
+    } else {
+      if (selectedDate) {
+        setTempEndDate(selectedDate);
+      }
     }
   };
 
-  // NEW: Handle price change with Stripe validation
+  const confirmEndDateSelection = () => {
+    setRecurrenceEndDate(tempEndDate);
+    setShowEndDatePicker(false);
+  };
+
+  // Handle price change with Stripe validation
   const handlePriceChange = (priceText) => {
     const priceNumber = parseInt(priceText) || 0;
 
-    // If the price is greater than 0, validate that the host can create paid events
     if (priceNumber > 0) {
       const canCreatePaid = userProfile?.hostConfig?.canCreatePaidEvents;
 
@@ -147,12 +195,10 @@ export default function CreateEventScreen({ navigation }) {
             },
           ]
         );
-        // Don't update the price
         return;
       }
     }
 
-    // If validation passes (or price is 0), update
     setPrice(priceText);
   };
 
@@ -213,7 +259,7 @@ export default function CreateEventScreen({ navigation }) {
       return;
     }
 
-    // NEW: Validate paid events require Stripe
+    // Validate paid events require Stripe
     const eventPrice = parseInt(price) || 0;
     if (eventPrice > 0) {
       const canCreatePaid = userProfile?.hostConfig?.canCreatePaidEvents;
@@ -309,7 +355,7 @@ export default function CreateEventScreen({ navigation }) {
         currency: "MXN",
         hostName: userData?.name || userData?.displayName || "Anonymous",
         creatorId: user.uid,
-        createdBy: user.uid, // NEW: Added for Stripe Connect compatibility
+        createdBy: user.uid,
         attendees: [],
         participantCount: 0,
         status: "active",
@@ -348,7 +394,7 @@ export default function CreateEventScreen({ navigation }) {
             const eventData = {
               ...baseEventData,
               date: date.toISOString(),
-              eventIndex: i + index + 1, // 1-based index for display
+              eventIndex: i + index + 1,
               totalInSeries: eventDates.length,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -377,6 +423,146 @@ export default function CreateEventScreen({ navigation }) {
       setLoading(false);
     }
   };
+
+  // iOS Date Picker Modal
+  const renderIOSDatePicker = () => (
+    <Modal
+      visible={showDatePicker}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowDatePicker(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.pickerModal,
+            { backgroundColor: isDark ? "#1a1a2e" : "#ffffff" },
+          ]}
+        >
+          <View style={styles.pickerHeader}>
+            <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+              <Text
+                style={[styles.pickerCancel, { color: colors.textSecondary }]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.pickerTitle, { color: colors.text }]}>
+              Select Date
+            </Text>
+            <TouchableOpacity onPress={confirmDateSelection}>
+              <Text style={[styles.pickerDone, { color: colors.primary }]}>
+                Done
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <DateTimePicker
+            value={tempDate}
+            mode="date"
+            display="spinner"
+            onChange={onDateChange}
+            minimumDate={new Date()}
+            textColor={colors.text}
+            themeVariant={isDark ? "dark" : "light"}
+            style={styles.iosPicker}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // iOS Time Picker Modal
+  const renderIOSTimePicker = () => (
+    <Modal
+      visible={showTimePicker}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowTimePicker(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.pickerModal,
+            { backgroundColor: isDark ? "#1a1a2e" : "#ffffff" },
+          ]}
+        >
+          <View style={styles.pickerHeader}>
+            <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+              <Text
+                style={[styles.pickerCancel, { color: colors.textSecondary }]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.pickerTitle, { color: colors.text }]}>
+              Select Time
+            </Text>
+            <TouchableOpacity onPress={confirmTimeSelection}>
+              <Text style={[styles.pickerDone, { color: colors.primary }]}>
+                Done
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <DateTimePicker
+            value={tempDate}
+            mode="time"
+            display="spinner"
+            onChange={onTimeChange}
+            textColor={colors.text}
+            themeVariant={isDark ? "dark" : "light"}
+            style={styles.iosPicker}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // iOS End Date Picker Modal
+  const renderIOSEndDatePicker = () => (
+    <Modal
+      visible={showEndDatePicker}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowEndDatePicker(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.pickerModal,
+            { backgroundColor: isDark ? "#1a1a2e" : "#ffffff" },
+          ]}
+        >
+          <View style={styles.pickerHeader}>
+            <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
+              <Text
+                style={[styles.pickerCancel, { color: colors.textSecondary }]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.pickerTitle, { color: colors.text }]}>
+              Select End Date
+            </Text>
+            <TouchableOpacity onPress={confirmEndDateSelection}>
+              <Text style={[styles.pickerDone, { color: colors.primary }]}>
+                Done
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <DateTimePicker
+            value={tempEndDate}
+            mode="date"
+            display="spinner"
+            onChange={onEndDateChange}
+            minimumDate={eventDate}
+            textColor={colors.text}
+            themeVariant={isDark ? "dark" : "light"}
+            style={styles.iosPicker}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
 
   const styles = createStyles(colors);
 
@@ -545,7 +731,7 @@ export default function CreateEventScreen({ navigation }) {
           </ScrollView>
         </View>
 
-        {/* Date and Time - Native Pickers */}
+        {/* Date and Time */}
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
@@ -559,7 +745,10 @@ export default function CreateEventScreen({ navigation }) {
                   borderColor: colors.border,
                 },
               ]}
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => {
+                setTempDate(eventDate);
+                setShowDatePicker(true);
+              }}
             >
               <Text style={[styles.pickerText, { color: colors.text }]}>
                 {formatDate(eventDate)}
@@ -578,7 +767,10 @@ export default function CreateEventScreen({ navigation }) {
                   borderColor: colors.border,
                 },
               ]}
-              onPress={() => setShowTimePicker(true)}
+              onPress={() => {
+                setTempDate(eventDate);
+                setShowTimePicker(true);
+              }}
             >
               <Text style={[styles.pickerText, { color: colors.text }]}>
                 {formatTime(eventDate)}
@@ -588,7 +780,7 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Recurrence End Date - Only show if recurring */}
+        {/* Recurrence End Date */}
         {recurrenceType !== "none" && (
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.text }]}>
@@ -602,7 +794,10 @@ export default function CreateEventScreen({ navigation }) {
                   borderColor: colors.border,
                 },
               ]}
-              onPress={() => setShowEndDatePicker(true)}
+              onPress={() => {
+                setTempEndDate(recurrenceEndDate);
+                setShowEndDatePicker(true);
+              }}
             >
               <Text style={[styles.pickerText, { color: colors.text }]}>
                 {formatDate(recurrenceEndDate)}
@@ -619,36 +814,6 @@ export default function CreateEventScreen({ navigation }) {
                 "Events will be created every month"}
             </Text>
           </View>
-        )}
-
-        {/* DateTimePicker Modals */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={eventDate}
-            mode="date"
-            display="default"
-            onChange={onDateChange}
-            minimumDate={new Date()}
-          />
-        )}
-
-        {showTimePicker && (
-          <DateTimePicker
-            value={eventDate}
-            mode="time"
-            display="default"
-            onChange={onTimeChange}
-          />
-        )}
-
-        {showEndDatePicker && (
-          <DateTimePicker
-            value={recurrenceEndDate}
-            mode="date"
-            display="default"
-            onChange={onEndDateChange}
-            minimumDate={eventDate}
-          />
         )}
 
         {/* Location */}
@@ -783,7 +948,7 @@ export default function CreateEventScreen({ navigation }) {
                 placeholder={isFree ? "0" : "100"}
                 placeholderTextColor={colors.textTertiary}
                 value={isFree ? "0" : price}
-                onChangeText={handlePriceChange} // NEW: Updated to use validation handler
+                onChangeText={handlePriceChange}
                 keyboardType="numeric"
                 editable={!isFree}
               />
@@ -791,7 +956,7 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
-        {/* NEW: Payment info badge for paid events */}
+        {/* Payment info badge */}
         {!isFree && price && parseInt(price) > 0 && (
           <View
             style={[
@@ -873,6 +1038,39 @@ export default function CreateEventScreen({ navigation }) {
         eventTitle={createdEventTitle}
         eventsCount={createdEventsCount}
       />
+
+      {/* iOS Pickers */}
+      {Platform.OS === "ios" && renderIOSDatePicker()}
+      {Platform.OS === "ios" && renderIOSTimePicker()}
+      {Platform.OS === "ios" && renderIOSEndDatePicker()}
+
+      {/* Android Pickers */}
+      {Platform.OS === "android" && showDatePicker && (
+        <DateTimePicker
+          value={eventDate}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+          minimumDate={new Date()}
+        />
+      )}
+      {Platform.OS === "android" && showTimePicker && (
+        <DateTimePicker
+          value={eventDate}
+          mode="time"
+          display="default"
+          onChange={onTimeChange}
+        />
+      )}
+      {Platform.OS === "android" && showEndDatePicker && (
+        <DateTimePicker
+          value={recurrenceEndDate}
+          mode="date"
+          display="default"
+          onChange={onEndDateChange}
+          minimumDate={eventDate}
+        />
+      )}
     </View>
   );
 }
@@ -975,11 +1173,10 @@ function createStyles(colors) {
       marginTop: 8,
       fontStyle: "italic",
     },
-    // NEW: Info badge styles
     infoBadge: {
       padding: 12,
       borderRadius: 10,
-      marginTop: -12, // Reduce spacing after price field
+      marginTop: -12,
       marginBottom: 24,
     },
     infoText: {
@@ -1004,5 +1201,39 @@ function createStyles(colors) {
     },
     createIcon: { fontSize: 20, marginRight: 8 },
     createText: { fontSize: 18, fontWeight: "700", letterSpacing: -0.2 },
+    // Modal styles
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      justifyContent: "flex-end",
+    },
+    pickerModal: {
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingBottom: 34,
+    },
+    pickerHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: "rgba(255,255,255,0.1)",
+    },
+    pickerTitle: {
+      fontSize: 17,
+      fontWeight: "600",
+    },
+    pickerCancel: {
+      fontSize: 16,
+    },
+    pickerDone: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    iosPicker: {
+      height: 200,
+    },
   });
 }

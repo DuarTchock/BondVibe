@@ -137,18 +137,17 @@ service cloud.firestore {
     
     // ============================================
     // NOTIFICATIONS COLLECTION - PRODUCTION SECURITY
-    // ✅ FIXED: Added unreadCount to allowed update fields
     // ============================================
     match /notifications/{notificationId} {
       // Only owner can read their notifications
       allow read: if isSignedIn() && 
                      resource.data.userId == request.auth.uid;
       
-      // ✅ FIXED: Users can update read status, timestamps, AND unreadCount
+      // Users can ONLY update read status and timestamps
       // Cannot change: userId, type, title, message, icon, metadata
       allow update: if isSignedIn() && 
                        resource.data.userId == request.auth.uid &&
-                       onlyUpdating(['read', 'readAt', 'updatedAt', 'unreadCount']);
+                       onlyUpdating(['read', 'readAt', 'updatedAt']);
       
       // ONLY Cloud Functions can create/delete
       allow create, delete: if false;
@@ -206,3 +205,4 @@ service cloud.firestore {
     }
   }
 }
+

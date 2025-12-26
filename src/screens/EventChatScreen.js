@@ -205,10 +205,17 @@ export default function EventChatScreen({ route, navigation }) {
   };
 
   // ============================================
-  // ✅ Enviar mensaje
+  // ✅ Enviar mensaje - CON LOGGING DE DIAGNÓSTICO
   // ============================================
   const handleSend = async () => {
     if (!inputText.trim() || sending) return;
+
+    // 🔍 DIAGNÓSTICO - VERIFICAR AUTH
+    console.log("🔐 ========== AUTH DIAGNOSTIC ==========");
+    console.log("🔐 auth.currentUser:", auth.currentUser ? "EXISTS" : "NULL");
+    console.log("🔐 auth.currentUser.uid:", auth.currentUser?.uid);
+    console.log("🔐 auth.currentUser.email:", auth.currentUser?.email);
+    console.log("🔐 ======================================");
 
     const text = inputText.trim();
     setInputText("");
@@ -219,13 +226,19 @@ export default function EventChatScreen({ route, navigation }) {
     }
 
     const conversationId = `event_${eventId}`;
+    console.log("📤 Sending message to:", conversationId);
+    console.log("📤 With senderId:", auth.currentUser?.uid);
+
     setTypingStatus(conversationId, auth.currentUser.uid, false);
 
     try {
       await sendMessage(conversationId, auth.currentUser.uid, text);
+      console.log("✅ Message sent successfully!");
     } catch (error) {
-      console.error("Error sending message:", error);
-      setInputText(text);
+      console.error("❌ Error sending message:", error);
+      console.error("❌ Error code:", error.code);
+      console.error("❌ Error message:", error.message);
+      setInputText(text); // Restaurar texto si falla
     } finally {
       setSending(false);
     }

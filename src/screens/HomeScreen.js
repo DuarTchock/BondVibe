@@ -32,15 +32,15 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   // ============================================
-  // VERSIÓN CON onSnapshot (Real-time) - FIXED
-  // ✅ Ahora cuenta mensajes individuales correctamente
+  // ✅ FIXED: Real-time notifications listener
+  // Escucha la colección raíz: notifications
+  // (La Cloud Function actualizada guarda aquí)
   // ============================================
   useEffect(() => {
     if (!auth.currentUser) return;
 
     console.log("🔔 Setting up real-time notifications listener");
 
-    // Query para notificaciones no leídas
     const notifQuery = query(
       collection(db, "notifications"),
       where("userId", "==", auth.currentUser.uid),
@@ -52,12 +52,10 @@ export default function HomeScreen({ navigation }) {
       (snapshot) => {
         let totalCount = 0;
 
-        // ✅ LOG DETALLADO: Ver cada documento
-        console.log("📊 Notification documents:");
-        snapshot.docs.forEach((doc) => {
-          const data = doc.data();
+        console.log("📊 Notification documents:", snapshot.docs.length);
 
-          // ✅ NUEVO: Imprimir detalle de cada documento
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
           console.log(
             `  - Type: ${data.type}, unreadCount: ${
               data.unreadCount || 1
@@ -136,13 +134,11 @@ export default function HomeScreen({ navigation }) {
     return "Good evening";
   };
 
-  // ✅ Helper function for display name (fullName → name → "Friend")
   const getUserDisplayName = () => {
     if (!user) return "Friend";
     return user.fullName || user.name || "Friend";
   };
 
-  // ✅ Helper function for avatar (avatar → emoji → "😊")
   const getUserAvatar = () => {
     if (!user) return "😊";
     return user.avatar || user.emoji || "😊";

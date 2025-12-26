@@ -25,18 +25,15 @@ import Constants from "expo-constants";
  */
 export const ensureEventConversation = async (conversationId) => {
   try {
-    const conversationRef = doc(db, "conversations", conversationId);
-    const conversationDoc = await getDoc(conversationRef);
+    const eventId = conversationId.replace("event_", "");
+    const eventRef = doc(db, "events", eventId);
+    const eventDoc = await getDoc(eventRef);
 
-    if (!conversationDoc.exists()) {
-      await setDoc(conversationRef, {
-        type: "event",
-        eventId: conversationId,
-        createdAt: new Date().toISOString(),
-        lastMessageAt: new Date().toISOString(),
-      });
-      console.log("✅ Conversation created:", conversationId);
+    if (!eventDoc.exists()) {
+      throw new Error(`Event ${eventId} does not exist`);
     }
+
+    console.log("✅ Event conversation ready:", eventId);
   } catch (error) {
     console.error("❌ Error ensuring conversation:", error);
     throw error;
@@ -49,16 +46,17 @@ export const ensureEventConversation = async (conversationId) => {
 
 /**
  * Enviar mensaje de texto
- * ✅ Push notifications are now handled by Cloud Function
  */
 export const sendMessage = async (conversationId, senderId, text) => {
   try {
-    const messagesRef = collection(
-      db,
-      "conversations",
-      conversationId,
-      "messages"
-    );
+    console.log("📤 Attempting to send message...");
+    console.log("👤 Sender ID:", senderId);
+    console.log("💬 Conversation ID:", conversationId);
+
+    const eventId = conversationId.replace("event_", "");
+    console.log("📍 Event ID:", eventId);
+
+    const messagesRef = collection(db, "events", eventId, "messages");
 
     const messageData = {
       senderId,
@@ -69,31 +67,21 @@ export const sendMessage = async (conversationId, senderId, text) => {
       read: false,
     };
 
+    console.log("📝 Message data:", JSON.stringify(messageData));
+
     const docRef = await addDoc(messagesRef, messageData);
-
-    // Actualizar lastMessageAt en la conversación
-    const conversationRef = doc(db, "conversations", conversationId);
-    await updateDoc(conversationRef, {
-      lastMessageAt: new Date().toISOString(),
-      lastMessage: text,
-      lastSenderId: senderId,
-    });
-
-    console.log("✅ Message sent:", docRef.id);
-
-    // ✅ Push notifications are now triggered automatically by Cloud Function
-    // when the message is created in Firestore
-
+    console.log("✅ Message sent successfully! Doc ID:", docRef.id);
     return docRef.id;
   } catch (error) {
     console.error("❌ Error sending message:", error);
+    console.error("❌ Error code:", error.code);
+    console.error("❌ Error message:", error.message);
     throw error;
   }
 };
 
 /**
  * Enviar mensaje de ubicación
- * ✅ Push notifications are now handled by Cloud Function
  */
 export const sendLocationMessage = async (
   conversationId,
@@ -103,12 +91,8 @@ export const sendLocationMessage = async (
   address = null
 ) => {
   try {
-    const messagesRef = collection(
-      db,
-      "conversations",
-      conversationId,
-      "messages"
-    );
+    const eventId = conversationId.replace("event_", "");
+    const messagesRef = collection(db, "events", eventId, "messages");
 
     const messageData = {
       senderId,
@@ -124,19 +108,7 @@ export const sendLocationMessage = async (
     };
 
     const docRef = await addDoc(messagesRef, messageData);
-
-    // Actualizar lastMessageAt
-    const conversationRef = doc(db, "conversations", conversationId);
-    await updateDoc(conversationRef, {
-      lastMessageAt: new Date().toISOString(),
-      lastMessage: "📍 Location",
-      lastSenderId: senderId,
-    });
-
     console.log("✅ Location message sent:", docRef.id);
-
-    // ✅ Push notifications are now triggered automatically by Cloud Function
-
     return docRef.id;
   } catch (error) {
     console.error("❌ Error sending location:", error);
@@ -152,12 +124,8 @@ export const sendLocationMessage = async (
  * Suscribirse a mensajes de una conversación (real-time)
  */
 export const subscribeToMessages = (conversationId, callback) => {
-  const messagesRef = collection(
-    db,
-    "conversations",
-    conversationId,
-    "messages"
-  );
+  const eventId = conversationId.replace("event_", "");
+  const messagesRef = collection(db, "events", eventId, "messages");
   const q = query(messagesRef, orderBy("createdAt", "asc"));
 
   const unsubscribe = onSnapshot(
@@ -182,33 +150,27 @@ export const subscribeToMessages = (conversationId, callback) => {
  * Suscribirse a indicadores de "escribiendo" (real-time)
  */
 export const subscribeToTypingStatus = (conversationId, callback) => {
-  const typingRef = doc(
-    db,
-    "conversations",
-    conversationId,
-    "metadata",
-    "typing"
-  );
+  const eventId = conversationId.replace("event_", "");
+  const typingRef = collection(db, "events", eventId, "typing");
 
   const unsubscribe = onSnapshot(
     typingRef,
     (snapshot) => {
-      if (snapshot.exists()) {
-        const typingData = snapshot.data();
-        const now = Date.now();
+      const now = Date.now();
+      const activeTypers = [];
 
-        const activeTypers = Object.entries(typingData)
-          .filter(([userId, timestamp]) => {
-            if (!timestamp) return false;
-            const timeSince = now - timestamp;
-            return timeSince < 10000;
-          })
-          .map(([userId]) => userId);
+      snapshot.docs.forEach((doc) => {
+        const userId = doc.id;
+        const data = doc.data();
+        const timestamp = data.timestamp || 0;
 
-        callback(activeTypers);
-      } else {
-        callback([]);
-      }
+        const timeSince = now - timestamp;
+        if (timeSince < 10000) {
+          activeTypers.push(userId);
+        }
+      });
+
+      callback(activeTypers);
     },
     (error) => {
       console.error("❌ Error in typing subscription:", error);
@@ -227,45 +189,37 @@ export const subscribeToTypingStatus = (conversationId, callback) => {
  */
 export const setTypingStatus = async (conversationId, userId, isTyping) => {
   try {
-    const typingRef = doc(
-      db,
-      "conversations",
-      conversationId,
-      "metadata",
-      "typing"
-    );
+    const eventId = conversationId.replace("event_", "");
+    const typingRef = doc(db, "events", eventId, "typing", userId);
 
-    await setDoc(
-      typingRef,
-      { [userId]: isTyping ? Date.now() : null },
-      { merge: true }
-    );
+    if (isTyping) {
+      await setDoc(typingRef, {
+        timestamp: Date.now(),
+        userId: userId,
+      });
+    } else {
+      await setDoc(typingRef, {
+        timestamp: 0,
+        userId: userId,
+      });
+    }
   } catch (error) {
     console.error("❌ Error setting typing status:", error);
   }
 };
 
 /**
- * Marcar mensajes como entregados
+ * ✅ FIXED: Marcar mensajes como entregados
  */
 export const markMessagesAsDelivered = async (
   conversationId,
   currentUserId
 ) => {
   try {
-    const messagesRef = collection(
-      db,
-      "conversations",
-      conversationId,
-      "messages"
-    );
+    const eventId = conversationId.replace("event_", "");
+    const messagesRef = collection(db, "events", eventId, "messages");
 
-    const q = query(
-      messagesRef,
-      where("senderId", "!=", currentUserId),
-      where("delivered", "==", false)
-    );
-
+    const q = query(messagesRef, where("delivered", "==", false));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -273,56 +227,85 @@ export const markMessagesAsDelivered = async (
     }
 
     const batch = writeBatch(db);
+    let count = 0;
 
-    snapshot.docs.forEach((doc) => {
-      batch.update(doc.ref, { delivered: true });
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.senderId !== currentUserId) {
+        batch.update(docSnap.ref, { delivered: true });
+        count++;
+      }
     });
 
-    await batch.commit();
-    console.log(`✅ Marked ${snapshot.size} messages as delivered`);
+    if (count > 0) {
+      await batch.commit();
+      console.log(`✅ Marked ${count} messages as delivered`);
+    }
   } catch (error) {
     console.error("❌ Error marking as delivered:", error);
   }
 };
 
 /**
- * Marcar mensajes como leídos
+ * ✅ IMPROVED: Marcar mensajes como leídos con mejor logging y manejo de errores
  */
 export const markMessagesAsRead = async (conversationId, currentUserId) => {
   try {
-    const messagesRef = collection(
-      db,
-      "conversations",
-      conversationId,
-      "messages"
-    );
+    console.log("📖 markMessagesAsRead called");
+    console.log("  - conversationId:", conversationId);
+    console.log("  - currentUserId:", currentUserId);
 
-    const q = query(
-      messagesRef,
-      where("senderId", "!=", currentUserId),
-      where("read", "==", false)
-    );
+    const eventId = conversationId.replace("event_", "");
+    const messagesRef = collection(db, "events", eventId, "messages");
 
+    // Query for unread messages
+    const q = query(messagesRef, where("read", "==", false));
     const snapshot = await getDocs(q);
 
-    if (!snapshot.empty) {
-      const batch = writeBatch(db);
+    console.log(`  - Found ${snapshot.size} unread messages total`);
 
-      snapshot.docs.forEach((doc) => {
-        batch.update(doc.ref, {
+    if (snapshot.empty) {
+      console.log("📭 No unread messages to mark");
+      // Still try to clear notifications even if no messages
+      await clearEventMessageNotifications(conversationId, currentUserId);
+      return;
+    }
+
+    const batch = writeBatch(db);
+    let count = 0;
+
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      // Only mark messages from OTHER users as read
+      if (data.senderId !== currentUserId) {
+        batch.update(docSnap.ref, {
           read: true,
           delivered: true,
         });
-      });
+        count++;
+      }
+    });
 
+    console.log(`  - Marking ${count} messages as read (from other users)`);
+
+    if (count > 0) {
       await batch.commit();
-      console.log(`✅ Marked ${snapshot.size} messages as read`);
+      console.log(`✅ Successfully marked ${count} messages as read`);
     }
 
-    // Limpiar notificaciones
+    // ✅ ALWAYS clear notifications regardless of message count
     await clearEventMessageNotifications(conversationId, currentUserId);
   } catch (error) {
     console.error("❌ Error marking as read:", error);
+    console.error("  - Error code:", error.code);
+    console.error("  - Error message:", error.message);
+
+    // ✅ Still try to clear notifications even if marking messages failed
+    try {
+      await clearEventMessageNotifications(conversationId, currentUserId);
+    } catch (notifError) {
+      console.error("❌ Error clearing notifications:", notifError);
+    }
   }
 };
 
@@ -331,7 +314,8 @@ export const markMessagesAsRead = async (conversationId, currentUserId) => {
 // ============================================
 
 /**
- * Limpiar notificaciones de mensajes de un evento cuando se leen
+ * ✅ IMPROVED: Limpiar notificaciones de mensajes de un evento
+ * con mejor logging y manejo de errores
  */
 export const clearEventMessageNotifications = async (
   conversationId,
@@ -340,18 +324,32 @@ export const clearEventMessageNotifications = async (
   try {
     const cleanEventId = conversationId.replace("event_", "");
     const notificationId = `event_msg_${cleanEventId}_${userId}`;
+
+    console.log("🧹 Clearing notification:", notificationId);
+
     const notificationRef = doc(db, "notifications", notificationId);
     const notifDoc = await getDoc(notificationRef);
 
     if (notifDoc.exists()) {
+      const currentData = notifDoc.data();
+      console.log("  - Current unreadCount:", currentData.unreadCount);
+      console.log("  - Current read status:", currentData.read);
+
       await updateDoc(notificationRef, {
         read: true,
         unreadCount: 0,
+        readAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
-      console.log("✅ Cleared event message notifications");
+
+      console.log("✅ Notification cleared successfully:", notificationId);
+    } else {
+      console.log("📭 No notification document found for:", notificationId);
     }
   } catch (error) {
     console.error("❌ Error clearing notifications:", error);
+    console.error("  - Error code:", error.code);
+    console.error("  - Error message:", error.message);
   }
 };
 
@@ -378,7 +376,6 @@ export const registerPushToken = async (userId) => {
       return null;
     }
 
-    // Get the project ID from app.json
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
     if (!projectId) {
@@ -386,7 +383,6 @@ export const registerPushToken = async (userId) => {
       return null;
     }
 
-    // Get the Expo push token
     const tokenData = await Notifications.getExpoPushTokenAsync({
       projectId: projectId,
     });
@@ -394,7 +390,6 @@ export const registerPushToken = async (userId) => {
     const token = tokenData.data;
     console.log("🔔 Expo Push Token:", token);
 
-    // Guardar token en el documento del usuario
     const userRef = doc(db, "users", userId);
     await updateDoc(userRef, {
       pushToken: token,
@@ -445,23 +440,20 @@ export const getUnreadMessagesCount = async (userId) => {
 
       if (!isParticipant) continue;
 
-      const conversationId = `event_${eventDoc.id}`;
+      const eventId = eventDoc.id;
 
       try {
-        const messagesRef = collection(
-          db,
-          "conversations",
-          conversationId,
-          "messages"
-        );
-        const unreadQuery = query(
-          messagesRef,
-          where("senderId", "!=", userId),
-          where("read", "==", false)
-        );
+        const messagesRef = collection(db, "events", eventId, "messages");
+        const unreadQuery = query(messagesRef, where("read", "==", false));
 
         const unreadSnapshot = await getDocs(unreadQuery);
-        totalUnread += unreadSnapshot.size;
+
+        unreadSnapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.senderId !== userId) {
+            totalUnread++;
+          }
+        });
       } catch (err) {
         continue;
       }

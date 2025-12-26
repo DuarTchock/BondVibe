@@ -21,8 +21,7 @@ import {
   query,
   where,
   onSnapshot,
-  doc,
-  getDoc,
+  orderBy,
 } from "firebase/firestore";
 
 export default function NotificationsScreen({ navigation }) {
@@ -38,28 +37,43 @@ export default function NotificationsScreen({ navigation }) {
       "🔔 Setting up real-time notifications listener in NotificationsScreen"
     );
 
-    // ⭐ FIXED: Removido filtro de type para cargar TODAS las notificaciones
-    const groupedNotificationsQuery = query(
+    // Query ALL notifications for this user
+    const notificationsQuery = query(
       collection(db, "notifications"),
       where("userId", "==", auth.currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(
-      groupedNotificationsQuery,
+      notificationsQuery,
       async (snapshot) => {
         try {
-          const userNotifications = await getUserNotifications(
-            auth.currentUser.uid
-          );
-
-          const messageNotifications = [];
+          const allNotifications = [];
 
           for (const notifDoc of snapshot.docs) {
             const data = notifDoc.data();
 
-            // Solo procesar notificaciones de mensajes agrupados
+            // ✅ Parse timestamp correctly
+            let createdAtValue;
+            let createdAtDate;
+
+            // For event_messages, use updatedAt; for others, use createdAt
+            const timestampField =
+              data.type === "event_messages" ? data.updatedAt : data.createdAt;
+
+            if (timestampField?.toDate) {
+              createdAtDate = timestampField.toDate();
+              createdAtValue = createdAtDate.toISOString();
+            } else if (typeof timestampField === "string") {
+              createdAtDate = new Date(timestampField);
+              createdAtValue = timestampField;
+            } else {
+              createdAtDate = new Date();
+              createdAtValue = createdAtDate.toISOString();
+            }
+
             if (data.type === "event_messages") {
-              messageNotifications.push({
+              // Message notification (grouped)
+              allNotifications.push({
                 id: notifDoc.id,
                 type: "event_messages",
                 title:
@@ -71,11 +85,11 @@ export default function NotificationsScreen({ navigation }) {
                 message: `${data.lastSender || "Someone"}: ${
                   data.lastMessage || ""
                 }`,
-                time: getTimeAgo(data.updatedAt),
                 read: data.read || false,
                 icon: "💬",
-                createdAt: data.updatedAt,
-                unreadCount: data.unreadCount,
+                createdAt: createdAtValue,
+                createdAtDate: createdAtDate, // ✅ Keep Date object for sorting
+                unreadCount: data.unreadCount || 0,
                 metadata: {
                   eventId: data.eventId
                     ? data.eventId.replace("event_", "")
@@ -84,27 +98,41 @@ export default function NotificationsScreen({ navigation }) {
                   conversationId: data.eventId || "",
                 },
               });
+            } else {
+              // Other notification types
+              allNotifications.push({
+                id: notifDoc.id,
+                type: String(data.type || ""),
+                title: String(data.title || "Notification"),
+                message: String(data.message || ""),
+                icon: String(data.icon || "🔔"),
+                read: Boolean(data.read),
+                createdAt: createdAtValue,
+                createdAtDate: createdAtDate, // ✅ Keep Date object for sorting
+                unreadCount: 0,
+                metadata:
+                  data.metadata && typeof data.metadata === "object"
+                    ? {
+                        eventTitle: data.metadata.eventTitle
+                          ? String(data.metadata.eventTitle)
+                          : undefined,
+                        eventId: data.metadata.eventId
+                          ? String(data.metadata.eventId)
+                          : undefined,
+                      }
+                    : {},
+              });
             }
           }
 
-          const allNotifications = [
-            ...userNotifications,
-            ...messageNotifications,
-          ];
-
-          const uniqueNotifications = Array.from(
-            new Map(allNotifications.map((notif) => [notif.id, notif])).values()
-          ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          // ✅ FIXED: Sort by createdAtDate (most recent first)
+          allNotifications.sort((a, b) => b.createdAtDate - a.createdAtDate);
 
           console.log(
-            `📬 Loaded ${
-              uniqueNotifications.length
-            } unique notifications (removed ${
-              allNotifications.length - uniqueNotifications.length
-            } duplicates)`
+            `📬 Loaded ${allNotifications.length} notifications, sorted by date`
           );
 
-          if (uniqueNotifications.length === 0) {
+          if (allNotifications.length === 0) {
             const demoNotifications = [
               {
                 id: "demo1",
@@ -120,9 +148,10 @@ export default function NotificationsScreen({ navigation }) {
             ];
             setNotifications(demoNotifications);
           } else {
-            const mappedNotifications = uniqueNotifications.map((notif) => ({
+            // Add time string and action to each notification
+            const mappedNotifications = allNotifications.map((notif) => ({
               ...notif,
-              time: notif.time || getTimeAgo(notif.createdAt),
+              time: getTimeAgo(notif.createdAtDate),
               action: () => handleNotificationAction(notif),
             }));
             setNotifications(mappedNotifications);
@@ -151,23 +180,8 @@ export default function NotificationsScreen({ navigation }) {
     setTimeout(() => setRefreshing(false), 500);
   };
 
-  const getTimeAgo = (timestamp) => {
-    if (!timestamp) return "";
-
-    // Handle Firestore Timestamp objects
-    let date;
-    if (timestamp?.toDate) {
-      // It's a Firestore Timestamp
-      date = timestamp.toDate();
-    } else if (typeof timestamp === "string") {
-      // It's an ISO string
-      date = new Date(timestamp);
-    } else if (timestamp instanceof Date) {
-      // It's already a Date object
-      date = timestamp;
-    } else {
-      return "";
-    }
+  const getTimeAgo = (date) => {
+    if (!date || !(date instanceof Date)) return "";
 
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
@@ -180,20 +194,22 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handleNotificationAction = async (notification) => {
-    // ✅ Marcar como leída ANTES de navegar (para todos los tipos)
+    // ✅ Mark as read BEFORE navigating
     if (!notification.isDemo && !notification.read && notification.id) {
       await markAsRead(notification.id);
     }
 
     switch (notification.type) {
       case "event_joined":
-      case "event_paid_attendee": // ⭐ Agregado
+      case "event_paid_attendee":
+      case "attendee_cancelled":
         if (notification.metadata?.eventId) {
           navigation.navigate("EventDetail", {
             eventId: notification.metadata.eventId,
           });
         }
         break;
+
       case "event_messages":
         if (
           notification.metadata?.eventId &&
@@ -205,9 +221,16 @@ export default function NotificationsScreen({ navigation }) {
           });
         }
         break;
+
+      case "host_approved":
+      case "host_rejected":
+        navigation.navigate("Profile");
+        break;
+
       case "host_request":
         navigation.navigate("AdminDashboard");
         break;
+
       default:
         if (notification.action) {
           notification.action();
@@ -220,30 +243,11 @@ export default function NotificationsScreen({ navigation }) {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
-  // DEBUG - Mover aquí ANTES del return
-  console.log(
-    "🔍 DEBUG - About to render notifications:",
-    notifications.length
-  );
-  notifications.forEach((notif, index) => {
-    console.log(`🔍 Notification ${index}:`, {
-      id: notif.id,
-      title: notif.title,
-      titleType: typeof notif.title,
-      message: notif.message,
-      messageType: typeof notif.message,
-      eventTitle: notif.metadata?.eventTitle,
-      eventTitleType: typeof notif.metadata?.eventTitle,
-    });
-  });
-
   const styles = createStyles(colors);
 
   const NotificationCard = ({ notification }) => {
     try {
-      console.log("🎨 Rendering card for:", notification.id);
-
-      // Sanitizar TODOS los valores antes de usarlos
+      // Sanitize ALL values before using
       const safeIcon = String(notification.icon || "📬");
       const safeTitle = String(notification.title || "");
       const safeMessage = String(notification.message || "").replace(

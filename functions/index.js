@@ -36,11 +36,12 @@ const {sendBatchPushNotifications} = require("./notifications/pushService");
 // ============================================
 
 /**
- * Trigger: When a new message is created in a conversation
- * Sends push notifications to all participants except the sender
+ * ✅ FIXED: Trigger when a new message is created in an EVENT chat
+ * Path: events/{eventId}/messages/{messageId}
+ * (NOT conversations - that collection doesn't exist)
  */
 exports.onNewMessage = onDocumentCreated(
-  "conversations/{conversationId}/messages/{messageId}",
+  "events/{eventId}/messages/{messageId}",
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -49,10 +50,11 @@ exports.onNewMessage = onDocumentCreated(
     }
 
     const messageData = snapshot.data();
-    const {conversationId} = event.params;
+    const {eventId, messageId} = event.params;
 
     console.log("📨 New message detected:", {
-      conversationId,
+      eventId,
+      messageId,
       senderId: messageData.senderId,
       type: messageData.type,
     });
@@ -64,9 +66,6 @@ exports.onNewMessage = onDocumentCreated(
     }
 
     try {
-      // Extract eventId from conversationId (format: "event_{eventId}")
-      const eventId = conversationId.replace("event_", "");
-
       // Get event data
       const eventDoc = await db.collection("events").doc(eventId).get();
       if (!eventDoc.exists) {
@@ -96,7 +95,7 @@ exports.onNewMessage = onDocumentCreated(
         participantIds.add(eventData.creatorId);
       }
 
-      // Add attendees
+      // Add attendees (handle both formats)
       if (Array.isArray(eventData.attendees)) {
         eventData.attendees.forEach((attendee) => {
           if (typeof attendee === "object" && attendee?.userId) {
@@ -147,7 +146,7 @@ exports.onNewMessage = onDocumentCreated(
                 data: {
                   type: "event_message",
                   eventId: eventId,
-                  conversationId: conversationId,
+                  conversationId: `event_${eventId}`,
                   eventTitle: eventTitle,
                 },
               });
@@ -172,38 +171,43 @@ exports.onNewMessage = onDocumentCreated(
         console.log("⚠️ No valid push tokens found");
       }
 
-      // Update in-app notification (existing logic)
+      // ============================================
+      // ✅ UPDATE IN-APP NOTIFICATIONS (for badge)
+      // ============================================
       for (const userId of participantIds) {
         try {
-          const cleanEventId = eventId;
-          const notificationId = `event_msg_${cleanEventId}_${userId}`;
+          const notificationId = `event_msg_${eventId}_${userId}`;
           const notificationRef = db
             .collection("notifications")
             .doc(notificationId);
           const existingNotif = await notificationRef.get();
 
           if (existingNotif.exists) {
+            // Update existing notification
             const currentCount = existingNotif.data().unreadCount ?? 0;
             await notificationRef.update({
               unreadCount: currentCount + 1,
               lastMessage: messageBody,
               lastSender: senderName,
-              updatedAt: new Date().toISOString(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
               read: false,
             });
+            console.log(`📝 Updated notification for ${userId} (${currentCount + 1} messages)`);
           } else {
+            // Create new notification
             await notificationRef.set({
               userId,
               type: "event_messages",
-              eventId: `event_${cleanEventId}`,
+              eventId: `event_${eventId}`,
               eventTitle,
               unreadCount: 1,
               lastMessage: messageBody,
               lastSender: senderName,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
               read: false,
             });
+            console.log(`📝 Created notification for ${userId}`);
           }
         } catch (notifError) {
           console.error(

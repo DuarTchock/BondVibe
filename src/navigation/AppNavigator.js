@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, forwardRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged } from "firebase/auth";
@@ -41,7 +41,8 @@ import StripeConnectScreen from "../screens/StripeConnectScreen";
 
 const Stack = createNativeStackNavigator();
 
-export default function AppNavigator() {
+// ✅ UPDATED: Use forwardRef to expose navigation ref to App.js
+const AppNavigator = forwardRef((props, ref) => {
   const { signupInProgress } = useAuthContext();
   const [initialUser, setInitialUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -220,7 +221,8 @@ export default function AppNavigator() {
 
   return (
     <>
-      <NavigationContainer>
+      {/* ✅ UPDATED: Pass ref to NavigationContainer */}
+      <NavigationContainer ref={ref}>
         <Stack.Navigator
           initialRouteName={initialRoute}
           screenOptions={{ headerShown: false }}
@@ -322,4 +324,6 @@ export default function AppNavigator() {
       />
     </>
   );
-}
+});
+
+export default AppNavigator;
