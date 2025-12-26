@@ -22,6 +22,18 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    // Check if user is event participant (attendee or host)
+    function isEventParticipant(eventId) {
+      let eventData = get(/databases/$(database)/documents/events/$(eventId)).data;
+      return request.auth.uid == eventData.creatorId || 
+             request.auth.uid in eventData.attendees;
+    }
+    
+    // Check if only allowed fields are being modified
+    function onlyUpdating(allowedFields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+    }
+    
     // ============================================
     // USERS COLLECTION
     // ============================================
@@ -39,6 +51,21 @@ service cloud.firestore {
       match /stripeConnect/{document=**} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId) || isAdmin();
+      }
+      
+      // User notifications subcollection
+      match /notifications/{notificationId} {
+        // Only owner can read their notifications
+        allow read: if isSignedIn() && isOwner(userId);
+        
+        // Users can update their own notifications (mark as read)
+        allow update: if isSignedIn() && isOwner(userId);
+        
+        // Users can delete their own notifications
+        allow delete: if isSignedIn() && isOwner(userId);
+        
+        // Cloud Functions can create
+        allow create: if false;
       }
     }
     
@@ -60,6 +87,38 @@ service cloud.firestore {
       // Only creator or admin can delete
       allow delete: if isSignedIn() && 
                        (resource.data.creatorId == request.auth.uid || isAdmin());
+      
+      // ============================================
+      // EVENT MESSAGES SUBCOLLECTION
+      // ============================================
+      match /messages/{messageId} {
+        // Event participants can read messages
+        allow read: if isSignedIn() && isEventParticipant(eventId);
+        
+        // Event participants can create messages with their own senderId
+        allow create: if isSignedIn() && 
+                         isEventParticipant(eventId) &&
+                         request.resource.data.senderId == request.auth.uid;
+        
+        // Participants can update their own messages (mark as delivered/read)
+        allow update: if isSignedIn() && isEventParticipant(eventId);
+        
+        // No deletes (messages are immutable)
+        allow delete: if false;
+      }
+      
+      // ============================================
+      // TYPING STATUS SUBCOLLECTION
+      // ============================================
+      match /typing/{userId} {
+        // Event participants can read typing status
+        allow read: if isSignedIn() && isEventParticipant(eventId);
+        
+        // Users can write their own typing status
+        allow write: if isSignedIn() && 
+                        isEventParticipant(eventId) &&
+                        userId == request.auth.uid;
+      }
     }
     
     // ============================================
@@ -77,17 +136,18 @@ service cloud.firestore {
     }
     
     // ============================================
-    // NOTIFICATIONS COLLECTION
+    // NOTIFICATIONS COLLECTION - PRODUCTION SECURITY
     // ============================================
     match /notifications/{notificationId} {
       // Only owner can read their notifications
       allow read: if isSignedIn() && 
                      resource.data.userId == request.auth.uid;
       
-      // Users can update read status only
+      // Users can ONLY update read status and timestamps
+      // Cannot change: userId, type, title, message, icon, metadata
       allow update: if isSignedIn() && 
                        resource.data.userId == request.auth.uid &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+                       onlyUpdating(['read', 'readAt', 'updatedAt']);
       
       // ONLY Cloud Functions can create/delete
       allow create, delete: if false;
@@ -145,3 +205,4 @@ service cloud.firestore {
     }
   }
 }
+
