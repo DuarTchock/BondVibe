@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#667eea"
+      "backgroundColor": "#4A00E0"
     },
     "plugins": [
       [
@@ -22,7 +22,8 @@
       [
         "expo-notifications",
         {
-          "color": "#FF6B9D"
+          "icon": "./assets/notification-icon.png",
+          "color": "#4A00E0"
         }
       ],
       "expo-web-browser"
@@ -58,7 +59,11 @@
       "package": "com.bondvibe.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#4A00E0"
+      },
+      "notification": {
+        "icon": "./assets/notification-icon.png",
+        "color": "#4A00E0"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",

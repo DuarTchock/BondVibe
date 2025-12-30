@@ -19,6 +19,7 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import SuccessModal from "../components/SuccessModal";
+import BondVibeLogo from "../components/BondVibeLogo";
 
 export default function LoginScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -170,7 +171,10 @@ export default function LoginScreen({ navigation }) {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.header}>
-              <Text style={styles.logo}>🎪</Text>
+              {/* New Echo Logo - adapts to theme */}
+              <View style={styles.logoContainer}>
+                <BondVibeLogo size={80} variant="adaptive" isDark={isDark} />
+              </View>
               <Text style={[styles.title, { color: colors.text }]}>
                 BondVibe
               </Text>
@@ -395,7 +399,6 @@ export default function LoginScreen({ navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    // ⭐ FIX: Removido justifyContent center, agregado paddingTop
     scrollContent: {
       flexGrow: 1,
       paddingHorizontal: 24,
@@ -403,7 +406,9 @@ function createStyles(colors) {
       paddingBottom: 40,
     },
     header: { alignItems: "center", marginBottom: 48 },
-    logo: { fontSize: 72, marginBottom: 16 },
+    logoContainer: {
+      marginBottom: 16,
+    },
     title: {
       fontSize: 32,
       fontWeight: "700",
