@@ -24,6 +24,7 @@ import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuthContext } from "../contexts/AuthContext";
 import SuccessModal from "../components/SuccessModal";
+import BondVibeLogo from "../components/BondVibeLogo";
 
 export default function SignupScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -161,7 +162,10 @@ export default function SignupScreen({ navigation }) {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.titleSection}>
-              <Text style={styles.logo}>🎪</Text>
+              {/* New Echo Logo - adapts to theme */}
+              <View style={styles.logoContainer}>
+                <BondVibeLogo size={72} variant="adaptive" isDark={isDark} />
+              </View>
               <Text style={[styles.title, { color: colors.text }]}>
                 Create Account
               </Text>
@@ -320,7 +324,9 @@ function createStyles(colors) {
       paddingBottom: 40,
     },
     titleSection: { alignItems: "center", marginBottom: 48 },
-    logo: { fontSize: 72, marginBottom: 16 },
+    logoContainer: {
+      marginBottom: 16,
+    },
     title: {
       fontSize: 28,
       fontWeight: "700",
