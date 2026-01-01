@@ -20,6 +20,16 @@ import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { EVENT_CATEGORIES } from "../utils/eventCategories";
+import Icon, { getCategoryIcon } from "../components/Icon";
+import {
+  Bell,
+  Search,
+  Calendar,
+  Sparkles,
+  Crown,
+  ChevronRight,
+  Tent,
+} from "lucide-react-native";
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -31,11 +41,7 @@ export default function HomeScreen({ navigation }) {
     loadUser();
   }, []);
 
-  // ============================================
-  // ✅ FIXED: Real-time notifications listener
-  // Escucha la colección raíz: notifications
-  // (La Cloud Function actualizada guarda aquí)
-  // ============================================
+  // Real-time notifications listener
   useEffect(() => {
     if (!auth.currentUser) return;
 
@@ -52,21 +58,11 @@ export default function HomeScreen({ navigation }) {
       (snapshot) => {
         let totalCount = 0;
 
-        console.log("📊 Notification documents:", snapshot.docs.length);
-
         snapshot.docs.forEach((docSnap) => {
           const data = docSnap.data();
-          console.log(
-            `  - Type: ${data.type}, unreadCount: ${
-              data.unreadCount || 1
-            }, eventTitle: ${data.eventTitle || "N/A"}`
-          );
-
-          // Si es notificación agrupada de mensajes, sumar el unreadCount
           if (data.type === "event_messages" && data.unreadCount) {
             totalCount += data.unreadCount;
           } else {
-            // Otras notificaciones cuentan como 1
             totalCount += 1;
           }
         });
@@ -79,14 +75,12 @@ export default function HomeScreen({ navigation }) {
       }
     );
 
-    // Cleanup: Desuscribir cuando el componente se desmonte
     return () => {
       console.log("🔕 Cleaning up notifications listener");
       unsubscribe();
     };
   }, [auth.currentUser?.uid]);
 
-  // TAMBIÉN mantener useFocusEffect para refrescar cuando navegas
   useFocusEffect(
     useCallback(() => {
       console.log("🔄 HomeScreen focused");
@@ -150,6 +144,47 @@ export default function HomeScreen({ navigation }) {
 
   const styles = createStyles(colors);
 
+  // Quick action items configuration
+  // Order: Explore, My Events, Notifications, Create/Be Host
+  const quickActions = [
+    {
+      id: "explore",
+      label: "Explore",
+      icon: Search,
+      screen: "SearchEvents",
+      badge: 0,
+    },
+    {
+      id: "myevents",
+      label: "My Events",
+      icon: Calendar,
+      screen: "MyEvents",
+      badge: 0,
+    },
+    {
+      id: "notifications",
+      label: "Notifications",
+      icon: Bell,
+      screen: "Notifications",
+      badge: unreadNotifications,
+    },
+    canCreateEvents
+      ? {
+          id: "create",
+          label: "Create",
+          icon: Sparkles,
+          screen: "CreateEvent",
+          badge: 0,
+        }
+      : {
+          id: "behost",
+          label: "Be a Host",
+          icon: Tent,
+          screen: "RequestHost",
+          badge: 0,
+        },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
@@ -189,124 +224,58 @@ export default function HomeScreen({ navigation }) {
             Quick Actions
           </Text>
           <View style={styles.quickActionsGrid}>
-            {/* Notifications - CON BADGE EN TIEMPO REAL CORREGIDO */}
-            <TouchableOpacity
-              style={styles.quickAction}
-              onPress={() => navigation.navigate("Notifications")}
-            >
-              <View
-                style={[
-                  styles.quickActionGlass,
-                  {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <View style={styles.quickActionIconContainer}>
-                  <Text style={styles.quickActionIcon}>🔔</Text>
-                  {unreadNotifications > 0 && (
-                    <View
-                      style={[styles.badge, { backgroundColor: colors.accent }]}
-                    >
-                      <Text style={styles.badgeText}>
-                        {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                      </Text>
+            {quickActions.map((action) => {
+              const ActionIcon = action.icon;
+              return (
+                <TouchableOpacity
+                  key={action.id}
+                  style={styles.quickAction}
+                  onPress={() => navigation.navigate(action.screen)}
+                >
+                  <View
+                    style={[
+                      styles.quickActionGlass,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.quickActionIconContainer}>
+                      <View
+                        style={[
+                          styles.iconCircle,
+                          { backgroundColor: `${colors.primary}15` },
+                        ]}
+                      >
+                        <ActionIcon
+                          size={28}
+                          color={colors.primary}
+                          strokeWidth={1.8}
+                        />
+                      </View>
+                      {action.badge > 0 && (
+                        <View
+                          style={[
+                            styles.badge,
+                            { backgroundColor: colors.accent },
+                          ]}
+                        >
+                          <Text style={styles.badgeText}>
+                            {action.badge > 99 ? "99+" : action.badge}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
-                <Text style={[styles.quickActionText, { color: colors.text }]}>
-                  Notifications
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickAction}
-              onPress={() => navigation.navigate("SearchEvents")}
-            >
-              <View
-                style={[
-                  styles.quickActionGlass,
-                  {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text style={styles.quickActionIcon}>🔍</Text>
-                <Text style={[styles.quickActionText, { color: colors.text }]}>
-                  Explore
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickAction}
-              onPress={() => navigation.navigate("MyEvents")}
-            >
-              <View
-                style={[
-                  styles.quickActionGlass,
-                  {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Text style={styles.quickActionIcon}>📅</Text>
-                <Text style={[styles.quickActionText, { color: colors.text }]}>
-                  My Events
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Create o Request Host según permisos */}
-            {canCreateEvents ? (
-              <TouchableOpacity
-                style={styles.quickAction}
-                onPress={() => navigation.navigate("CreateEvent")}
-              >
-                <View
-                  style={[
-                    styles.quickActionGlass,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={styles.quickActionIcon}>✨</Text>
-                  <Text
-                    style={[styles.quickActionText, { color: colors.text }]}
-                  >
-                    Create
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.quickAction}
-                onPress={() => navigation.navigate("RequestHost")}
-              >
-                <View
-                  style={[
-                    styles.quickActionGlass,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={styles.quickActionIcon}>🎪</Text>
-                  <Text
-                    style={[styles.quickActionText, { color: colors.text }]}
-                  >
-                    Be a Host
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                    <Text
+                      style={[styles.quickActionText, { color: colors.text }]}
+                    >
+                      {action.label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -329,7 +298,7 @@ export default function HomeScreen({ navigation }) {
               >
                 <View style={styles.adminContent}>
                   <View style={styles.adminIconContainer}>
-                    <Text style={styles.adminIcon}>👑</Text>
+                    <Crown size={36} color="#FFD700" strokeWidth={1.8} />
                     {pendingHostRequests > 0 && (
                       <View
                         style={[
@@ -359,17 +328,17 @@ export default function HomeScreen({ navigation }) {
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.adminArrow}>→</Text>
+                <ChevronRight size={24} color="#FFD700" strokeWidth={2} />
               </View>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Discover */}
+        {/* Browse by Category */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Discover
+            <Text style={[styles.sectionTitleInline, { color: colors.text }]}>
+              Browse by Category
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate("SearchEvents")}
@@ -385,32 +354,46 @@ export default function HomeScreen({ navigation }) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesScroll}
           >
-            {EVENT_CATEGORIES.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={styles.categoryCard}
-                onPress={() =>
-                  navigation.navigate("SearchEvents", {
-                    category: category.label,
-                  })
-                }
-              >
-                <View
-                  style={[
-                    styles.categoryGlass,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                    },
-                  ]}
+            {EVENT_CATEGORIES.map((category) => {
+              const CategoryIcon = getCategoryIcon(category.id);
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  style={styles.categoryCard}
+                  onPress={() =>
+                    navigation.navigate("SearchEvents", {
+                      category: category.label,
+                    })
+                  }
                 >
-                  <Text style={styles.categoryIcon}>{category.emoji}</Text>
-                  <Text style={[styles.categoryName, { color: colors.text }]}>
-                    {category.label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  <View
+                    style={[
+                      styles.categoryGlass,
+                      {
+                        backgroundColor: colors.surfaceGlass,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.categoryIconCircle,
+                        { backgroundColor: `${colors.primary}15` },
+                      ]}
+                    >
+                      <CategoryIcon
+                        size={28}
+                        color={colors.primary}
+                        strokeWidth={1.8}
+                      />
+                    </View>
+                    <Text style={[styles.categoryName, { color: colors.text }]}>
+                      {category.label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
       </ScrollView>
@@ -457,6 +440,11 @@ function createStyles(colors) {
       marginBottom: 16,
       letterSpacing: -0.3,
     },
+    sectionTitleInline: {
+      fontSize: 20,
+      fontWeight: "700",
+      letterSpacing: -0.3,
+    },
     seeAll: { fontSize: 14, fontWeight: "600" },
     quickActionsGrid: {
       flexDirection: "row",
@@ -470,8 +458,14 @@ function createStyles(colors) {
       paddingVertical: 24,
       alignItems: "center",
     },
-    quickActionIconContainer: { position: "relative" },
-    quickActionIcon: { fontSize: 32, marginBottom: 8 },
+    quickActionIconContainer: { position: "relative", marginBottom: 12 },
+    iconCircle: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: "center",
+      alignItems: "center",
+    },
     badge: {
       position: "absolute",
       top: -4,
@@ -497,7 +491,6 @@ function createStyles(colors) {
     },
     adminContent: { flexDirection: "row", alignItems: "center", flex: 1 },
     adminIconContainer: { position: "relative", marginRight: 16 },
-    adminIcon: { fontSize: 40 },
     adminBadge: {
       position: "absolute",
       top: -4,
@@ -518,13 +511,24 @@ function createStyles(colors) {
       letterSpacing: -0.3,
     },
     adminSubtitle: { fontSize: 13, lineHeight: 18 },
-    adminArrow: { fontSize: 24, marginLeft: 12, color: "#FFD700" },
 
     // Categories
     categoriesScroll: { paddingHorizontal: 24, gap: 12 },
-    categoryCard: { width: 120, borderRadius: 16, overflow: "hidden" },
+    categoryCard: { width: 100, borderRadius: 16, overflow: "hidden" },
     categoryGlass: { borderWidth: 1, padding: 16, alignItems: "center" },
-    categoryIcon: { fontSize: 36, marginBottom: 10 },
-    categoryName: { fontSize: 13, fontWeight: "600", letterSpacing: -0.1 },
+    categoryIconCircle: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    categoryName: {
+      fontSize: 12,
+      fontWeight: "600",
+      letterSpacing: -0.1,
+      textAlign: "center",
+    },
   });
 }

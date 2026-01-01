@@ -13,24 +13,58 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
-import { EVENT_CATEGORIES, normalizeCategory } from "../utils/eventCategories";
+import {
+  EVENT_CATEGORIES,
+  normalizeCategory,
+  getCategoryLabel,
+} from "../utils/eventCategories";
+import { LOCATIONS, locationMatchesFilter } from "../utils/locations";
 import { filterUpcomingEvents, isEventPast } from "../utils/eventFilters";
 import { useFocusEffect } from "@react-navigation/native";
+import Icon, { getCategoryIcon } from "../components/Icon";
+import FilterChips from "../components/FilterChips";
 
 export default function SearchEventsScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(
-    route.params?.category || "All"
-  );
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Create categories array with "All" as an object to match the structure
-  const categories = [{ id: "all", label: "All" }, ...EVENT_CATEGORIES];
+  // ✅ FIX: Properly handle category from route params
+  // route.params?.category comes as label (e.g., "Social", "Sports")
+  const getInitialCategory = () => {
+    const paramCategory = route.params?.category;
+    if (!paramCategory) return "all";
 
-  // ✅ Reload events every time screen comes into focus (after editing, etc.)
+    // Find category by label and return its id
+    const found = EVENT_CATEGORIES.find(
+      (c) => c.label.toLowerCase() === paramCategory.toLowerCase()
+    );
+    return found?.id || "all";
+  };
+
+  const [selectedCategory, setSelectedCategory] = useState(
+    getInitialCategory()
+  );
+  const [selectedLocation, setSelectedLocation] = useState("all");
+
+  // ✅ FIX: Update selected category when route params change
+  useEffect(() => {
+    const newCategory = getInitialCategory();
+    console.log(
+      "📂 Route category param:",
+      route.params?.category,
+      "-> id:",
+      newCategory
+    );
+    setSelectedCategory(newCategory);
+  }, [route.params?.category]);
+
+  // Create categories array with "All" option
+  const categoryOptions = [{ id: "all", label: "All" }, ...EVENT_CATEGORIES];
+
+  // Reload events on focus
   useFocusEffect(
     useCallback(() => {
       console.log("📱 SearchEventsScreen focused - reloading events...");
@@ -40,14 +74,14 @@ export default function SearchEventsScreen({ navigation, route }) {
 
   useEffect(() => {
     filterEvents();
-  }, [searchQuery, selectedCategory, events]);
+  }, [searchQuery, selectedCategory, selectedLocation, events]);
 
-  // ✅ Sort events by date (soonest first)
+  // Sort events by date (soonest first)
   const sortEventsByDate = (eventsArray) => {
     return [...eventsArray].sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
-      return dateA - dateB; // Ascending: soonest first
+      return dateA - dateB;
     });
   };
 
@@ -56,27 +90,14 @@ export default function SearchEventsScreen({ navigation, route }) {
     try {
       const eventsSnapshot = await getDocs(collection(db, "events"));
       const realEvents = eventsSnapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .filter((event) => event.status !== "cancelled"); // Filter out cancelled events
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((event) => event.status !== "cancelled");
 
-      // ✅ Only use real events from Firestore
-      const allEvents = [...realEvents];
-
-      // ✅ Filter only upcoming events or from today
-      const upcomingEvents = filterUpcomingEvents(allEvents);
-
-      // ✅ Sort by date (soonest first)
+      const upcomingEvents = filterUpcomingEvents(realEvents);
       const sortedEvents = sortEventsByDate(upcomingEvents);
 
-      console.log("📊 Total events:", allEvents.length);
+      console.log("📊 Total events:", realEvents.length);
       console.log("📅 Upcoming events:", sortedEvents.length);
-      console.log(
-        "📦 Past events filtered out:",
-        allEvents.length - sortedEvents.length
-      );
 
       setEvents(sortedEvents);
       setFilteredEvents(sortedEvents);
@@ -90,15 +111,25 @@ export default function SearchEventsScreen({ navigation, route }) {
   const filterEvents = () => {
     let filtered = events;
 
-    if (selectedCategory !== "All") {
+    // ✅ FIX: Filter by category using id comparison
+    if (selectedCategory !== "all") {
       filtered = filtered.filter((event) => {
-        // Normalize BOTH the event's category AND the selected category
         const normalizedEventCategory = normalizeCategory(event.category);
-        const normalizedSelectedCategory = normalizeCategory(selectedCategory);
-        return normalizedEventCategory === normalizedSelectedCategory;
+        return normalizedEventCategory === selectedCategory;
       });
+      console.log(
+        `🏷️ Filtering by category: ${selectedCategory}, found: ${filtered.length}`
+      );
     }
 
+    // Filter by location
+    if (selectedLocation !== "all") {
+      filtered = filtered.filter((event) =>
+        locationMatchesFilter(event.location, selectedLocation)
+      );
+    }
+
+    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -109,14 +140,20 @@ export default function SearchEventsScreen({ navigation, route }) {
       );
     }
 
-    // ✅ Keep sorted order after filtering
     setFilteredEvents(sortEventsByDate(filtered));
+  };
+
+  // ✅ FIX: Handle category selection - now uses id directly
+  const handleCategoryChange = (categoryId) => {
+    console.log("🔄 Category changed to:", categoryId);
+    setSelectedCategory(categoryId);
   };
 
   const styles = createStyles(colors);
 
   const EventCard = ({ event }) => {
     const isPast = isEventPast(event.date);
+    const CategoryIcon = getCategoryIcon(event.category);
 
     return (
       <TouchableOpacity
@@ -146,8 +183,13 @@ export default function SearchEventsScreen({ navigation, route }) {
                   },
                 ]}
               >
+                <CategoryIcon
+                  size={14}
+                  color={colors.primary}
+                  strokeWidth={2}
+                />
                 <Text style={[styles.categoryText, { color: colors.primary }]}>
-                  {event.category}
+                  {getCategoryLabel(event.category)}
                 </Text>
               </View>
               {event.isRecurring && (
@@ -157,11 +199,12 @@ export default function SearchEventsScreen({ navigation, route }) {
                     { backgroundColor: `${colors.primary}22` },
                   ]}
                 >
-                  <Text
-                    style={[styles.recurringText, { color: colors.primary }]}
-                  >
-                    🔄
-                  </Text>
+                  <Icon
+                    name="repeat"
+                    size={12}
+                    color={colors.primary}
+                    type="ui"
+                  />
                 </View>
               )}
             </View>
@@ -179,7 +222,12 @@ export default function SearchEventsScreen({ navigation, route }) {
           </Text>
 
           <View style={styles.eventMeta}>
-            <Text style={styles.metaIcon}>📍</Text>
+            <Icon
+              name="location"
+              size={14}
+              color={colors.textSecondary}
+              type="ui"
+            />
             <Text
               style={[styles.metaText, { color: colors.textSecondary }]}
               numberOfLines={1}
@@ -189,12 +237,20 @@ export default function SearchEventsScreen({ navigation, route }) {
           </View>
 
           <View style={styles.attendeesRow}>
-            <Text
-              style={[styles.attendeesText, { color: colors.textSecondary }]}
-            >
-              {event.attendees?.length || 0}/
-              {event.maxAttendees || event.maxPeople || 0} people
-            </Text>
+            <View style={styles.attendeesInfo}>
+              <Icon
+                name="users"
+                size={14}
+                color={colors.textSecondary}
+                type="ui"
+              />
+              <Text
+                style={[styles.attendeesText, { color: colors.textSecondary }]}
+              >
+                {event.attendees?.length || 0}/
+                {event.maxAttendees || event.maxPeople || 0}
+              </Text>
+            </View>
             <View style={styles.badgesRow}>
               {event.price === 0 && (
                 <View style={styles.freeBadge}>
@@ -218,6 +274,13 @@ export default function SearchEventsScreen({ navigation, route }) {
     );
   };
 
+  // Get current category label for header
+  const getCurrentCategoryLabel = () => {
+    if (selectedCategory === "all") return "All Events";
+    const cat = EVENT_CATEGORIES.find((c) => c.id === selectedCategory);
+    return cat?.label || "Events";
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
@@ -225,10 +288,12 @@ export default function SearchEventsScreen({ navigation, route }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={28} color={colors.text} type="ui" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Explore Events
+          {selectedCategory !== "all"
+            ? getCurrentCategoryLabel()
+            : "Explore Events"}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -248,7 +313,7 @@ export default function SearchEventsScreen({ navigation, route }) {
             },
           ]}
         >
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Icon name="search" size={20} color={colors.textTertiary} type="ui" />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search events..."
@@ -258,56 +323,23 @@ export default function SearchEventsScreen({ navigation, route }) {
           />
         </View>
 
+        {/* Location Filter */}
+        <FilterChips
+          label="Location"
+          value={selectedLocation}
+          onValueChange={setSelectedLocation}
+          options={LOCATIONS}
+          type="location"
+        />
+
         {/* Category Filter */}
-        <View style={styles.categorySection}>
-          <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>
-            Categories
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesScroll}
-          >
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={styles.categoryChip}
-                onPress={() => setSelectedCategory(category.label)}
-              >
-                <View
-                  style={[
-                    styles.categoryChipGlass,
-                    {
-                      backgroundColor:
-                        selectedCategory === category.label
-                          ? `${colors.primary}33`
-                          : colors.surfaceGlass,
-                      borderColor:
-                        selectedCategory === category.label
-                          ? `${colors.primary}66`
-                          : colors.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.categoryChipText,
-                      {
-                        color:
-                          selectedCategory === category.label
-                            ? colors.primary
-                            : colors.text,
-                      },
-                    ]}
-                  >
-                    {category.emoji ? `${category.emoji} ` : ""}
-                    {category.label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        <FilterChips
+          label="Categories"
+          value={selectedCategory}
+          onValueChange={handleCategoryChange}
+          options={categoryOptions}
+          type="category"
+        />
 
         {/* Results Header */}
         <View style={styles.resultsHeader}>
@@ -328,7 +360,12 @@ export default function SearchEventsScreen({ navigation, route }) {
           </View>
         ) : filteredEvents.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Icon
+              name="search"
+              size={64}
+              color={colors.textTertiary}
+              type="ui"
+            />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
               No upcoming events found
             </Text>
@@ -357,7 +394,6 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     scrollView: { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
@@ -368,26 +404,10 @@ function createStyles(colors) {
       borderRadius: 16,
       paddingHorizontal: 16,
       paddingVertical: 14,
-      marginBottom: 24,
+      marginBottom: 20,
+      gap: 12,
     },
-    searchIcon: { fontSize: 20, marginRight: 10 },
     searchInput: { flex: 1, fontSize: 15 },
-    categorySection: { marginBottom: 24 },
-    filterLabel: {
-      fontSize: 13,
-      fontWeight: "600",
-      marginBottom: 12,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
-    },
-    categoriesScroll: { gap: 10 },
-    categoryChip: { borderRadius: 12, overflow: "hidden" },
-    categoryChipGlass: {
-      borderWidth: 1,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-    },
-    categoryChipText: { fontSize: 14, fontWeight: "600" },
     resultsHeader: { marginBottom: 20 },
     resultsTitle: {
       fontSize: 18,
@@ -409,14 +429,13 @@ function createStyles(colors) {
       alignItems: "center",
       marginBottom: 12,
     },
-    badgesLeft: {
+    badgesLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
+    categoryBadge: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-    },
-    categoryBadge: {
       paddingVertical: 4,
-      paddingHorizontal: 12,
+      paddingHorizontal: 10,
       borderRadius: 8,
       borderWidth: 1,
     },
@@ -426,22 +445,26 @@ function createStyles(colors) {
       paddingHorizontal: 6,
       borderRadius: 6,
     },
-    recurringText: { fontSize: 10 },
-    eventDate: { fontSize: 13, fontWeight: "600" },
+    eventDate: { fontSize: 12, fontWeight: "600" },
     eventTitle: {
       fontSize: 17,
       fontWeight: "700",
       marginBottom: 10,
       letterSpacing: -0.3,
     },
-    eventMeta: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-    metaIcon: { fontSize: 14, marginRight: 6 },
+    eventMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 12,
+      gap: 6,
+    },
     metaText: { fontSize: 13, flex: 1 },
     attendeesRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
     },
+    attendeesInfo: { flexDirection: "row", alignItems: "center", gap: 6 },
     attendeesText: { fontSize: 13, fontWeight: "600" },
     badgesRow: { flexDirection: "row", gap: 8 },
     freeBadge: {
@@ -471,14 +494,8 @@ function createStyles(colors) {
       borderColor: "rgba(255, 159, 10, 0.3)",
     },
     endedBadgeText: { fontSize: 11, fontWeight: "600", color: "#FF9F0A" },
-    emptyState: { paddingVertical: 60, alignItems: "center" },
-    emptyEmoji: { fontSize: 64, marginBottom: 20 },
-    emptyTitle: {
-      fontSize: 20,
-      fontWeight: "700",
-      marginBottom: 10,
-      letterSpacing: -0.3,
-    },
+    emptyState: { paddingVertical: 60, alignItems: "center", gap: 12 },
+    emptyTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     emptyText: { fontSize: 14, textAlign: "center" },
   });
 }

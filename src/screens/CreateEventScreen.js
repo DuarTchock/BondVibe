@@ -23,18 +23,19 @@ import {
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import EventCreatedModal from "../components/EventCreatedModal";
+import SelectDropdown from "../components/SelectDropdown";
+import Icon from "../components/Icon";
 import { EVENT_CATEGORIES } from "../utils/eventCategories";
+import { LOCATIONS } from "../utils/locations";
 import DateTimePicker from "@react-native-community/datetimepicker";
-
-const categories = EVENT_CATEGORIES;
 
 // Recurrence options
 const RECURRENCE_OPTIONS = [
-  { id: "none", label: "One-time", emoji: "1️⃣" },
-  { id: "daily", label: "Daily", emoji: "📅" },
-  { id: "weekly", label: "Weekly", emoji: "🗓️" },
-  { id: "biweekly", label: "Biweekly", emoji: "📆" },
-  { id: "monthly", label: "Monthly", emoji: "🗓️" },
+  { id: "none", label: "One-time" },
+  { id: "daily", label: "Daily" },
+  { id: "weekly", label: "Weekly" },
+  { id: "biweekly", label: "Biweekly" },
+  { id: "monthly", label: "Monthly" },
 ];
 
 export default function CreateEventScreen({ navigation }) {
@@ -43,6 +44,7 @@ export default function CreateEventScreen({ navigation }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("social");
+  const [selectedCity, setSelectedCity] = useState("tulum");
 
   // Initialize with tomorrow's date and default time
   const tomorrow = new Date();
@@ -58,7 +60,7 @@ export default function CreateEventScreen({ navigation }) {
   const [recurrenceType, setRecurrenceType] = useState("none");
   const [recurrenceEndDate, setRecurrenceEndDate] = useState(() => {
     const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + 3); // Default 3 months
+    endDate.setMonth(endDate.getMonth() + 3);
     return endDate;
   });
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
@@ -68,7 +70,7 @@ export default function CreateEventScreen({ navigation }) {
     return endDate;
   });
 
-  const [location, setLocation] = useState("");
+  const [locationDetail, setLocationDetail] = useState("");
   const [maxPeople, setMaxPeople] = useState("");
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState("");
@@ -79,6 +81,9 @@ export default function CreateEventScreen({ navigation }) {
 
   // User profile state for Stripe validation
   const [userProfile, setUserProfile] = useState(null);
+
+  // Filter out "all" from locations for create event
+  const cityOptions = LOCATIONS.filter((loc) => loc.id !== "all");
 
   // Load user profile on mount
   useEffect(() => {
@@ -108,6 +113,12 @@ export default function CreateEventScreen({ navigation }) {
     const hour12 = hours % 12 || 12;
     const minutesStr = minutes.toString().padStart(2, "0");
     return `${hour12}:${minutesStr} ${ampm}`;
+  };
+
+  // Get city label from id
+  const getCityLabel = (cityId) => {
+    const city = LOCATIONS.find((loc) => loc.id === cityId);
+    return city?.label || cityId;
   };
 
   // Date picker handlers
@@ -183,12 +194,9 @@ export default function CreateEventScreen({ navigation }) {
       if (!canCreatePaid) {
         Alert.alert(
           "Stripe Account Required",
-          "To create paid events, you need to connect your Stripe account first. This allows you to receive payments directly.",
+          "To create paid events, you need to connect your Stripe account first.",
           [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
+            { text: "Cancel", style: "cancel" },
             {
               text: "Connect Stripe",
               onPress: () => navigation.navigate("StripeConnect"),
@@ -243,8 +251,11 @@ export default function CreateEventScreen({ navigation }) {
       Alert.alert("Missing Information", "Please enter an event description.");
       return;
     }
-    if (!location.trim()) {
-      Alert.alert("Missing Information", "Please enter a location.");
+    if (!locationDetail.trim()) {
+      Alert.alert(
+        "Missing Information",
+        "Please enter a specific venue or address."
+      );
       return;
     }
     if (!maxPeople || parseInt(maxPeople) < 2) {
@@ -263,16 +274,12 @@ export default function CreateEventScreen({ navigation }) {
     const eventPrice = parseInt(price) || 0;
     if (eventPrice > 0) {
       const canCreatePaid = userProfile?.hostConfig?.canCreatePaidEvents;
-
       if (!canCreatePaid) {
         Alert.alert(
           "Cannot Create Paid Event",
           "You need to connect and verify your Stripe account before creating paid events.",
           [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
+            { text: "Cancel", style: "cancel" },
             {
               text: "Go to Stripe Settings",
               onPress: () => navigation.navigate("StripeConnect"),
@@ -309,7 +316,6 @@ export default function CreateEventScreen({ navigation }) {
       const userDocRef = doc(db, "users", auth.currentUser.uid);
       const userDoc = await getDoc(userDocRef);
       const userData = userDoc.data();
-      console.log("👤 User data:", userData?.name);
 
       const user = auth.currentUser;
       if (!user) {
@@ -317,6 +323,11 @@ export default function CreateEventScreen({ navigation }) {
         setLoading(false);
         return;
       }
+
+      // Build full location string: "Venue, City"
+      const fullLocation = `${locationDetail.trim()}, ${getCityLabel(
+        selectedCity
+      )}`;
 
       // Generate recurrence group ID if recurring
       const recurrenceGroupId =
@@ -338,7 +349,7 @@ export default function CreateEventScreen({ navigation }) {
       if (eventDates.length > 52) {
         Alert.alert(
           "Too Many Events",
-          "You can create a maximum of 52 recurring events at once. Please reduce the date range."
+          "You can create a maximum of 52 recurring events at once."
         );
         setLoading(false);
         return;
@@ -349,7 +360,8 @@ export default function CreateEventScreen({ navigation }) {
         title: title.trim(),
         description: description.trim(),
         category: selectedCategory,
-        location: location.trim(),
+        city: selectedCity,
+        location: fullLocation,
         maxPeople: parseInt(maxPeople),
         price: isFree ? 0 : parseFloat(price),
         currency: "MXN",
@@ -359,7 +371,6 @@ export default function CreateEventScreen({ navigation }) {
         attendees: [],
         participantCount: 0,
         status: "active",
-        // Recurrence fields
         isRecurring: recurrenceType !== "none",
         recurrenceType: recurrenceType !== "none" ? recurrenceType : null,
         recurrenceGroupId: recurrenceGroupId,
@@ -367,9 +378,8 @@ export default function CreateEventScreen({ navigation }) {
           recurrenceType !== "none" ? recurrenceEndDate.toISOString() : null,
       };
 
-      // Create events using batch write for efficiency
+      // Create events
       if (eventDates.length === 1) {
-        // Single event - use regular addDoc
         const eventData = {
           ...baseEventData,
           date: eventDates[0].toISOString(),
@@ -377,14 +387,9 @@ export default function CreateEventScreen({ navigation }) {
           updatedAt: serverTimestamp(),
         };
 
-        console.log("💾 Saving single event:", eventData);
-        const docRef = await addDoc(collection(db, "events"), eventData);
-        console.log("✅ Event created with ID:", docRef.id);
+        await addDoc(collection(db, "events"), eventData);
       } else {
-        // Multiple events - use batch writes (max 500 per batch)
         const batchSize = 500;
-        let batchCount = 0;
-
         for (let i = 0; i < eventDates.length; i += batchSize) {
           const batch = writeBatch(db);
           const chunk = eventDates.slice(i, i + batchSize);
@@ -403,16 +408,9 @@ export default function CreateEventScreen({ navigation }) {
           });
 
           await batch.commit();
-          batchCount++;
-          console.log(
-            `✅ Batch ${batchCount} committed (${chunk.length} events)`
-          );
         }
-
-        console.log(`✅ Created ${eventDates.length} recurring events`);
       }
 
-      // Show success modal
       setCreatedEventTitle(title.trim());
       setCreatedEventsCount(eventDates.length);
       setShowSuccessModal(true);
@@ -576,7 +574,7 @@ export default function CreateEventScreen({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={28} color={colors.text} type="ui" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Create Event
@@ -641,95 +639,65 @@ export default function CreateEventScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Category */}
+        {/* Category Dropdown */}
+        <SelectDropdown
+          label="Category *"
+          value={selectedCategory}
+          onValueChange={setSelectedCategory}
+          options={EVENT_CATEGORIES}
+          placeholder="Select a category"
+          type="category"
+        />
+
+        {/* City Dropdown */}
+        <SelectDropdown
+          label="City *"
+          value={selectedCity}
+          onValueChange={setSelectedCity}
+          options={cityOptions}
+          placeholder="Select a city"
+          type="location"
+        />
+
+        {/* Specific Location/Venue */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Category</Text>
-          <View style={styles.categoryGrid}>
-            {categories.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.categoryButton,
-                  {
-                    backgroundColor:
-                      selectedCategory === cat.id
-                        ? `${colors.primary}33`
-                        : colors.surfaceGlass,
-                    borderColor:
-                      selectedCategory === cat.id
-                        ? colors.primary
-                        : colors.border,
-                    borderWidth: selectedCategory === cat.id ? 2 : 1,
-                  },
-                ]}
-                onPress={() => setSelectedCategory(cat.id)}
-              >
-                <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                <Text
-                  style={[
-                    styles.categoryLabel,
-                    {
-                      color:
-                        selectedCategory === cat.id
-                          ? colors.primary
-                          : colors.text,
-                    },
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <Text style={[styles.label, { color: colors.text }]}>
+            Venue / Address *
+          </Text>
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Icon
+              name="location"
+              size={20}
+              color={colors.textSecondary}
+              type="ui"
+              style={{ marginRight: 12 }}
+            />
+            <TextInput
+              style={[styles.input, { color: colors.text }]}
+              placeholder="e.g., Beach Club XYZ, Calle 10..."
+              placeholderTextColor={colors.textTertiary}
+              value={locationDetail}
+              onChangeText={setLocationDetail}
+            />
           </View>
         </View>
 
         {/* Recurrence Type */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>
-            Event Frequency
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.recurrenceScroll}
-          >
-            {RECURRENCE_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.recurrenceButton,
-                  {
-                    backgroundColor:
-                      recurrenceType === option.id
-                        ? `${colors.primary}33`
-                        : colors.surfaceGlass,
-                    borderColor:
-                      recurrenceType === option.id
-                        ? colors.primary
-                        : colors.border,
-                    borderWidth: recurrenceType === option.id ? 2 : 1,
-                  },
-                ]}
-                onPress={() => setRecurrenceType(option.id)}
-              >
-                <Text style={styles.recurrenceEmoji}>{option.emoji}</Text>
-                <Text
-                  style={[
-                    styles.recurrenceLabel,
-                    {
-                      color:
-                        recurrenceType === option.id
-                          ? colors.primary
-                          : colors.text,
-                    },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        <SelectDropdown
+          label="Event Frequency"
+          value={recurrenceType}
+          onValueChange={setRecurrenceType}
+          options={RECURRENCE_OPTIONS}
+          placeholder="Select frequency"
+        />
 
         {/* Date and Time */}
         <View style={styles.row}>
@@ -753,7 +721,12 @@ export default function CreateEventScreen({ navigation }) {
               <Text style={[styles.pickerText, { color: colors.text }]}>
                 {formatDate(eventDate)}
               </Text>
-              <Text style={styles.pickerIcon}>📅</Text>
+              <Icon
+                name="calendar"
+                size={20}
+                color={colors.textSecondary}
+                type="ui"
+              />
             </TouchableOpacity>
           </View>
 
@@ -775,7 +748,12 @@ export default function CreateEventScreen({ navigation }) {
               <Text style={[styles.pickerText, { color: colors.text }]}>
                 {formatTime(eventDate)}
               </Text>
-              <Text style={styles.pickerIcon}>🕐</Text>
+              <Icon
+                name="clock"
+                size={20}
+                color={colors.textSecondary}
+                type="ui"
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -802,7 +780,12 @@ export default function CreateEventScreen({ navigation }) {
               <Text style={[styles.pickerText, { color: colors.text }]}>
                 {formatDate(recurrenceEndDate)}
               </Text>
-              <Text style={styles.pickerIcon}>🏁</Text>
+              <Icon
+                name="calendar"
+                size={20}
+                color={colors.textSecondary}
+                type="ui"
+              />
             </TouchableOpacity>
             <Text style={[styles.helperText, { color: colors.textTertiary }]}>
               {recurrenceType === "daily" && "Events will be created daily"}
@@ -815,29 +798,6 @@ export default function CreateEventScreen({ navigation }) {
             </Text>
           </View>
         )}
-
-        {/* Location */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Location *</Text>
-          <View
-            style={[
-              styles.inputWrapper,
-              {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Text style={styles.inputIcon}>📍</Text>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Where will it be?"
-              placeholderTextColor={colors.textTertiary}
-              value={location}
-              onChangeText={setLocation}
-            />
-          </View>
-        </View>
 
         {/* Free/Paid Toggle */}
         <View style={styles.field}>
@@ -859,13 +819,16 @@ export default function CreateEventScreen({ navigation }) {
                 setPrice("");
               }}
             >
-              <Text style={styles.toggleEmoji}>🎁</Text>
+              <Icon
+                name="gift"
+                size={20}
+                color={isFree ? colors.primary : colors.text}
+                type="ui"
+              />
               <Text
                 style={[
                   styles.toggleLabel,
-                  {
-                    color: isFree ? colors.primary : colors.text,
-                  },
+                  { color: isFree ? colors.primary : colors.text },
                 ]}
               >
                 Free
@@ -885,13 +848,16 @@ export default function CreateEventScreen({ navigation }) {
               ]}
               onPress={() => setIsFree(false)}
             >
-              <Text style={styles.toggleEmoji}>💵</Text>
+              <Icon
+                name="dollar"
+                size={20}
+                color={!isFree ? colors.primary : colors.text}
+                type="ui"
+              />
               <Text
                 style={[
                   styles.toggleLabel,
-                  {
-                    color: !isFree ? colors.primary : colors.text,
-                  },
+                  { color: !isFree ? colors.primary : colors.text },
                 ]}
               >
                 Paid
@@ -915,6 +881,13 @@ export default function CreateEventScreen({ navigation }) {
                 },
               ]}
             >
+              <Icon
+                name="users"
+                size={20}
+                color={colors.textSecondary}
+                type="ui"
+                style={{ marginRight: 12 }}
+              />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
                 placeholder="20"
@@ -934,15 +907,19 @@ export default function CreateEventScreen({ navigation }) {
               style={[
                 styles.inputWrapper,
                 {
-                  backgroundColor: isFree
-                    ? colors.surfaceGlass
-                    : colors.surfaceGlass,
+                  backgroundColor: colors.surfaceGlass,
                   borderColor: colors.border,
                   opacity: isFree ? 0.5 : 1,
                 },
               ]}
             >
-              <Text style={styles.inputIcon}>$</Text>
+              <Icon
+                name="dollar"
+                size={20}
+                color={colors.textSecondary}
+                type="ui"
+                style={{ marginRight: 12 }}
+              />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
                 placeholder={isFree ? "0" : "100"}
@@ -994,12 +971,7 @@ export default function CreateEventScreen({ navigation }) {
 
         {/* Create Button */}
         <TouchableOpacity
-          style={[
-            styles.createButton,
-            {
-              opacity: loading ? 0.7 : 1,
-            },
-          ]}
+          style={[styles.createButton, { opacity: loading ? 0.7 : 1 }]}
           onPress={handleCreateEvent}
           disabled={loading}
         >
@@ -1016,7 +988,7 @@ export default function CreateEventScreen({ navigation }) {
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <>
-                <Text style={styles.createIcon}>✨</Text>
+                <Icon name="plus" size={20} color={colors.primary} type="ui" />
                 <Text style={[styles.createText, { color: colors.primary }]}>
                   {recurrenceType !== "none"
                     ? "Create Recurring Events"
@@ -1087,11 +1059,10 @@ function createStyles(colors) {
       paddingBottom: 16,
     },
     backButton: { width: 40, height: 40, justifyContent: "center" },
-    backIcon: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     scrollView: { flex: 1 },
     content: { padding: 20, paddingBottom: 40 },
-    field: { marginBottom: 24 },
+    field: { marginBottom: 20 },
     label: {
       fontSize: 16,
       fontWeight: "700",
@@ -1105,44 +1076,10 @@ function createStyles(colors) {
       borderRadius: 16,
       paddingHorizontal: 16,
     },
-    inputIcon: { fontSize: 20, marginRight: 12 },
     input: { flex: 1, fontSize: 16, paddingVertical: 16 },
-    textAreaWrapper: {
-      borderWidth: 1,
-      borderRadius: 16,
-      padding: 16,
-    },
+    textAreaWrapper: { borderWidth: 1, borderRadius: 16, padding: 16 },
     textArea: { fontSize: 16, minHeight: 100 },
     charCount: { fontSize: 12, marginTop: 8, textAlign: "right" },
-    categoryGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 12,
-    },
-    categoryButton: {
-      flex: 1,
-      minWidth: "30%",
-      paddingVertical: 16,
-      paddingHorizontal: 12,
-      borderRadius: 16,
-      alignItems: "center",
-    },
-    categoryEmoji: { fontSize: 24, marginBottom: 4 },
-    categoryLabel: { fontSize: 14, fontWeight: "600" },
-    recurrenceScroll: {
-      gap: 10,
-      paddingRight: 20,
-    },
-    recurrenceButton: {
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderRadius: 12,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    recurrenceEmoji: { fontSize: 18 },
-    recurrenceLabel: { fontSize: 14, fontWeight: "600" },
     toggleRow: { flexDirection: "row", gap: 12 },
     toggleButton: {
       flex: 1,
@@ -1154,9 +1091,8 @@ function createStyles(colors) {
       justifyContent: "center",
       gap: 8,
     },
-    toggleEmoji: { fontSize: 20 },
     toggleLabel: { fontSize: 16, fontWeight: "600" },
-    row: { flexDirection: "row", marginBottom: 24 },
+    row: { flexDirection: "row", marginBottom: 20 },
     pickerButton: {
       flexDirection: "row",
       alignItems: "center",
@@ -1167,22 +1103,14 @@ function createStyles(colors) {
       paddingVertical: 16,
     },
     pickerText: { fontSize: 16, flex: 1 },
-    pickerIcon: { fontSize: 20, marginLeft: 8 },
-    helperText: {
-      fontSize: 13,
-      marginTop: 8,
-      fontStyle: "italic",
-    },
+    helperText: { fontSize: 13, marginTop: 8, fontStyle: "italic" },
     infoBadge: {
       padding: 12,
       borderRadius: 10,
-      marginTop: -12,
-      marginBottom: 24,
+      marginTop: -8,
+      marginBottom: 20,
     },
-    infoText: {
-      fontSize: 13,
-      lineHeight: 19,
-    },
+    infoText: { fontSize: 13, lineHeight: 19 },
     tipsCard: {
       borderWidth: 1,
       borderRadius: 16,
@@ -1198,10 +1126,9 @@ function createStyles(colors) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 8,
     },
-    createIcon: { fontSize: 20, marginRight: 8 },
     createText: { fontSize: 18, fontWeight: "700", letterSpacing: -0.2 },
-    // Modal styles
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -1221,19 +1148,9 @@ function createStyles(colors) {
       borderBottomWidth: 1,
       borderBottomColor: "rgba(255,255,255,0.1)",
     },
-    pickerTitle: {
-      fontSize: 17,
-      fontWeight: "600",
-    },
-    pickerCancel: {
-      fontSize: 16,
-    },
-    pickerDone: {
-      fontSize: 16,
-      fontWeight: "600",
-    },
-    iosPicker: {
-      height: 200,
-    },
+    pickerTitle: { fontSize: 17, fontWeight: "600" },
+    pickerCancel: { fontSize: 16 },
+    pickerDone: { fontSize: 16, fontWeight: "600" },
+    iosPicker: { height: 200 },
   });
 }
