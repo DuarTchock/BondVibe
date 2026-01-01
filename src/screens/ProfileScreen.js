@@ -15,6 +15,25 @@ import { auth, db } from "../services/firebase";
 import { signOut } from "firebase/auth";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFocusEffect } from "@react-navigation/native";
+import Icon from "../components/Icon";
+import {
+  ChevronLeft,
+  Cake,
+  MapPin,
+  Wallet,
+  Gift,
+  CreditCard,
+  Brain,
+  RefreshCw,
+  Moon,
+  Sun,
+  LogOut,
+  X,
+  Check,
+  ChevronRight,
+  Crown,
+  BadgeCheck,
+} from "lucide-react-native";
 
 const EMOJI_AVATARS = [
   "😊",
@@ -154,7 +173,6 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  // Check if user can manage Stripe (host or admin)
   const canManageStripe = profile.role === "host" || profile.role === "admin";
 
   return (
@@ -181,7 +199,14 @@ export default function ProfileScreen({ navigation }) {
                 },
               ]}
             >
-              <Text style={styles.modalEmoji}>👋</Text>
+              <View
+                style={[
+                  styles.modalIconCircle,
+                  { backgroundColor: "rgba(239, 68, 68, 0.15)" },
+                ]}
+              >
+                <LogOut size={32} color="#EF4444" strokeWidth={1.8} />
+              </View>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 Logout
               </Text>
@@ -303,7 +328,7 @@ export default function ProfileScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+          <ChevronLeft size={28} color={colors.text} strokeWidth={2} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Profile
@@ -539,7 +564,8 @@ export default function ProfileScreen({ navigation }) {
               {profile.role === "admin" && (
                 <View style={styles.roleBadge}>
                   <View style={styles.roleBadgeGlass}>
-                    <Text style={styles.roleBadgeText}>👑 Admin</Text>
+                    <Crown size={14} color="#FFD700" strokeWidth={2} />
+                    <Text style={styles.roleBadgeText}>Admin</Text>
                   </View>
                 </View>
               )}
@@ -554,8 +580,9 @@ export default function ProfileScreen({ navigation }) {
                       },
                     ]}
                   >
+                    <BadgeCheck size={14} color="#34C759" strokeWidth={2} />
                     <Text style={[styles.roleBadgeText, { color: "#34C759" }]}>
-                      ✓ Verified Host
+                      Verified Host
                     </Text>
                   </View>
                 </View>
@@ -591,7 +618,14 @@ export default function ProfileScreen({ navigation }) {
                     },
                   ]}
                 >
-                  <Text style={styles.infoIcon}>🎂</Text>
+                  <View
+                    style={[
+                      styles.infoIconCircle,
+                      { backgroundColor: `${colors.primary}15` },
+                    ]}
+                  >
+                    <Cake size={22} color={colors.primary} strokeWidth={1.8} />
+                  </View>
                   <View style={styles.infoContent}>
                     <Text
                       style={[
@@ -618,7 +652,18 @@ export default function ProfileScreen({ navigation }) {
                     },
                   ]}
                 >
-                  <Text style={styles.infoIcon}>📍</Text>
+                  <View
+                    style={[
+                      styles.infoIconCircle,
+                      { backgroundColor: `${colors.primary}15` },
+                    ]}
+                  >
+                    <MapPin
+                      size={22}
+                      color={colors.primary}
+                      strokeWidth={1.8}
+                    />
+                  </View>
                   <View style={styles.infoContent}>
                     <Text
                       style={[
@@ -635,7 +680,6 @@ export default function ProfileScreen({ navigation }) {
                 </View>
               </View>
 
-              {/* Host Type Section - For hosts AND admins */}
               {canManageStripe && (
                 <View style={styles.infoCard}>
                   <TouchableOpacity
@@ -651,13 +695,32 @@ export default function ProfileScreen({ navigation }) {
                         },
                       ]}
                     >
-                      <Text style={styles.infoIcon}>
-                        {profile.hostConfig?.type === "paid"
-                          ? "💰"
-                          : profile.hostConfig?.type === "free"
-                          ? "🆓"
-                          : "🎪"}
-                      </Text>
+                      <View
+                        style={[
+                          styles.infoIconCircle,
+                          { backgroundColor: `${colors.primary}15` },
+                        ]}
+                      >
+                        {profile.hostConfig?.type === "paid" ? (
+                          <CreditCard
+                            size={22}
+                            color={colors.primary}
+                            strokeWidth={1.8}
+                          />
+                        ) : profile.hostConfig?.type === "free" ? (
+                          <Gift
+                            size={22}
+                            color={colors.primary}
+                            strokeWidth={1.8}
+                          />
+                        ) : (
+                          <Wallet
+                            size={22}
+                            color={colors.primary}
+                            strokeWidth={1.8}
+                          />
+                        )}
+                      </View>
                       <View style={styles.infoContent}>
                         <Text
                           style={[
@@ -678,6 +741,11 @@ export default function ProfileScreen({ navigation }) {
                           {profile.stripeConnect?.status === "active" && " ✓"}
                         </Text>
                       </View>
+                      <ChevronRight
+                        size={20}
+                        color={colors.textTertiary}
+                        strokeWidth={2}
+                      />
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -702,7 +770,18 @@ export default function ProfileScreen({ navigation }) {
                       },
                     ]}
                   >
-                    <Text style={styles.quizPromptEmoji}>🧠</Text>
+                    <View
+                      style={[
+                        styles.quizIconCircle,
+                        { backgroundColor: `${colors.primary}25` },
+                      ]}
+                    >
+                      <Brain
+                        size={28}
+                        color={colors.primary}
+                        strokeWidth={1.8}
+                      />
+                    </View>
                     <View style={styles.quizPromptContent}>
                       <Text
                         style={[styles.quizPromptTitle, { color: colors.text }]}
@@ -719,14 +798,11 @@ export default function ProfileScreen({ navigation }) {
                         groups
                       </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.quizPromptArrow,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      →
-                    </Text>
+                    <ChevronRight
+                      size={24}
+                      color={colors.primary}
+                      strokeWidth={2}
+                    />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -745,7 +821,7 @@ export default function ProfileScreen({ navigation }) {
                       },
                     ]}
                   >
-                    <Text style={styles.quizRetakeIcon}>🔄</Text>
+                    <RefreshCw size={20} color={colors.text} strokeWidth={2} />
                     <Text
                       style={[styles.quizRetakeText, { color: colors.text }]}
                     >
@@ -768,7 +844,22 @@ export default function ProfileScreen({ navigation }) {
                 ]}
               >
                 <View style={styles.themeContent}>
-                  <Text style={styles.themeIcon}>{isDark ? "🌙" : "☀️"}</Text>
+                  <View
+                    style={[
+                      styles.themeIconCircle,
+                      { backgroundColor: `${colors.primary}15` },
+                    ]}
+                  >
+                    {isDark ? (
+                      <Moon
+                        size={24}
+                        color={colors.primary}
+                        strokeWidth={1.8}
+                      />
+                    ) : (
+                      <Sun size={24} color={colors.primary} strokeWidth={1.8} />
+                    )}
+                  </View>
                   <View style={styles.themeInfo}>
                     <Text style={[styles.themeTitle, { color: colors.text }]}>
                       {isDark ? "Dark Mode" : "Light Mode"}
@@ -853,6 +944,7 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => setShowLogoutModal(true)}
             >
               <View style={styles.logoutGlass}>
+                <LogOut size={20} color="#EF4444" strokeWidth={2} />
                 <Text style={styles.logoutButtonText}>Logout</Text>
               </View>
             </TouchableOpacity>
@@ -880,7 +972,6 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     editButton: { fontSize: 15, fontWeight: "600" },
     scrollView: { flex: 1 },
@@ -912,6 +1003,9 @@ function createStyles(colors) {
       borderColor: "rgba(255, 215, 0, 0.3)",
       paddingVertical: 6,
       paddingHorizontal: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
     },
     roleBadgeText: {
       fontSize: 12,
@@ -930,7 +1024,14 @@ function createStyles(colors) {
       flexDirection: "row",
       alignItems: "center",
     },
-    infoIcon: { fontSize: 28, marginRight: 14 },
+    infoIconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 14,
+    },
     infoContent: { flex: 1 },
     infoLabel: { fontSize: 12, marginBottom: 4 },
     infoValue: { fontSize: 16, fontWeight: "600", letterSpacing: -0.2 },
@@ -939,7 +1040,14 @@ function createStyles(colors) {
     themeSection: { marginBottom: 20 },
     themeCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
     themeContent: { padding: 18, flexDirection: "row", alignItems: "center" },
-    themeIcon: { fontSize: 28, marginRight: 14 },
+    themeIconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 14,
+    },
     themeInfo: { flex: 1 },
     themeTitle: {
       fontSize: 16,
@@ -977,13 +1085,17 @@ function createStyles(colors) {
       width: 40,
       textAlign: "right",
     },
+
     logoutButton: { borderRadius: 16, overflow: "hidden" },
     logoutGlass: {
       backgroundColor: "rgba(239, 68, 68, 0.15)",
       borderWidth: 1,
       borderColor: "rgba(239, 68, 68, 0.3)",
       paddingVertical: 16,
+      flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
     },
     logoutButtonText: {
       fontSize: 16,
@@ -1042,7 +1154,14 @@ function createStyles(colors) {
       overflow: "hidden",
     },
     modalGlass: { borderWidth: 1, padding: 28, alignItems: "center" },
-    modalEmoji: { fontSize: 56, marginBottom: 16 },
+    modalIconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 16,
+    },
     modalTitle: {
       fontSize: 20,
       fontWeight: "700",
@@ -1117,7 +1236,14 @@ function createStyles(colors) {
       flexDirection: "row",
       alignItems: "center",
     },
-    quizPromptEmoji: { fontSize: 36, marginRight: 14 },
+    quizIconCircle: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 14,
+    },
     quizPromptContent: { flex: 1 },
     quizPromptTitle: {
       fontSize: 16,
@@ -1126,7 +1252,6 @@ function createStyles(colors) {
       letterSpacing: -0.2,
     },
     quizPromptText: { fontSize: 13, lineHeight: 19 },
-    quizPromptArrow: { fontSize: 24, marginLeft: 8, fontWeight: "600" },
     quizRetakeSection: { marginBottom: 20 },
     quizRetakeButton: { borderRadius: 16, overflow: "hidden" },
     quizRetakeGlass: {
@@ -1135,8 +1260,8 @@ function createStyles(colors) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 8,
     },
-    quizRetakeIcon: { fontSize: 20, marginRight: 8 },
     quizRetakeText: { fontSize: 15, fontWeight: "600", letterSpacing: -0.1 },
   });
 }
