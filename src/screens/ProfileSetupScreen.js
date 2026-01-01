@@ -74,10 +74,7 @@ export default function ProfileSetupScreen() {
 
   const [form, setForm] = useState({
     fullName: "",
-    bio: "",
     avatar: "😊",
-    age: "",
-    location: "",
   });
 
   const handleSave = async () => {
@@ -87,19 +84,8 @@ export default function ProfileSetupScreen() {
       return;
     }
 
-    if (!form.age.trim()) {
-      Alert.alert("Required Field", "Please enter your age to continue.");
-      return;
-    }
-
-    const ageNum = parseInt(form.age);
-    if (isNaN(ageNum) || ageNum < 18 || ageNum > 99) {
-      Alert.alert("Invalid Age", "You must be 18 or older to use BondVibe.");
-      return;
-    }
-
-    if (!form.location.trim()) {
-      Alert.alert("Required Field", "Please enter your location to continue.");
+    if (form.fullName.trim().length < 2) {
+      Alert.alert("Invalid Name", "Please enter at least 2 characters.");
       return;
     }
 
@@ -109,11 +95,9 @@ export default function ProfileSetupScreen() {
 
       await updateDoc(doc(db, "users", auth.currentUser.uid), {
         fullName: form.fullName.trim(),
-        bio: form.bio.trim(),
         avatar: form.avatar,
-        age: ageNum,
-        location: form.location.trim(),
         profileCompleted: true,
+        profileCompletedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
@@ -217,10 +201,10 @@ export default function ProfileSetupScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Complete Your Profile
+          Welcome to BondVibe
         </Text>
         <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-          Tell us a bit about yourself
+          Let's set up your profile
         </Text>
       </View>
 
@@ -256,7 +240,7 @@ export default function ProfileSetupScreen() {
           {/* Full Name - Required */}
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: colors.text }]}>
-              Full Name <Text style={{ color: colors.accent }}>*</Text>
+              What should we call you?
             </Text>
             <View style={styles.inputWrapper}>
               <TextInput
@@ -274,95 +258,9 @@ export default function ProfileSetupScreen() {
                 placeholderTextColor={colors.textTertiary}
                 maxLength={50}
                 autoCapitalize="words"
+                autoFocus={true}
               />
             </View>
-          </View>
-
-          {/* Age and Location Row - Required */}
-          <View style={styles.inputRow}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                Age <Text style={{ color: colors.accent }}>*</Text>
-              </Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
-                  value={form.age}
-                  onChangeText={(text) =>
-                    setForm({
-                      ...form,
-                      age: text.replace(/[^0-9]/g, ""),
-                    })
-                  }
-                  placeholder="25"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                  maxLength={2}
-                />
-              </View>
-            </View>
-
-            <View style={[styles.inputGroup, { flex: 2, marginLeft: 12 }]}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                Location <Text style={{ color: colors.accent }}>*</Text>
-              </Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
-                  value={form.location}
-                  onChangeText={(text) => setForm({ ...form, location: text })}
-                  placeholder="City, Country"
-                  placeholderTextColor={colors.textTertiary}
-                  maxLength={50}
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Bio - Optional */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.text }]}>
-              Bio{" "}
-              <Text style={{ color: colors.textTertiary, fontWeight: "400" }}>
-                (optional)
-              </Text>
-            </Text>
-            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={form.bio}
-                onChangeText={(text) => setForm({ ...form, bio: text })}
-                placeholder="Tell us about yourself, your interests, what kind of events you enjoy..."
-                placeholderTextColor={colors.textTertiary}
-                multiline
-                maxLength={200}
-              />
-            </View>
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {form.bio.length}/200
-            </Text>
           </View>
         </View>
 
@@ -381,8 +279,7 @@ export default function ProfileSetupScreen() {
             <Text
               style={[styles.infoNoteText, { color: colors.textSecondary }]}
             >
-              Your profile helps us match you with compatible groups and events.
-              You can always edit this later.
+              You can add more details to your profile later in Settings.
             </Text>
           </View>
         </View>
@@ -391,27 +288,22 @@ export default function ProfileSetupScreen() {
         <TouchableOpacity
           style={styles.continueButton}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || !form.fullName.trim()}
         >
           <View
             style={[
               styles.continueGlass,
               {
                 backgroundColor: colors.primary,
-                opacity: saving ? 0.7 : 1,
+                opacity: saving || !form.fullName.trim() ? 0.5 : 1,
               },
             ]}
           >
             <Text style={styles.continueButtonText}>
-              {saving ? "Saving..." : "Continue"}
+              {saving ? "Saving..." : "Get Started"}
             </Text>
           </View>
         </TouchableOpacity>
-
-        {/* Required Fields Note */}
-        <Text style={[styles.requiredNote, { color: colors.textTertiary }]}>
-          <Text style={{ color: colors.accent }}>*</Text> Required fields
-        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -424,8 +316,8 @@ function createStyles(colors) {
     },
     header: {
       paddingHorizontal: 24,
-      paddingTop: 70,
-      paddingBottom: 20,
+      paddingTop: 100,
+      paddingBottom: 30,
       alignItems: "center",
     },
     headerTitle: {
@@ -435,7 +327,7 @@ function createStyles(colors) {
       letterSpacing: -0.5,
     },
     headerSubtitle: {
-      fontSize: 15,
+      fontSize: 16,
       textAlign: "center",
     },
     scrollView: {
@@ -449,22 +341,22 @@ function createStyles(colors) {
     // Avatar
     avatarContainer: {
       alignItems: "center",
-      marginBottom: 28,
+      marginBottom: 40,
     },
     avatarGlass: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      borderWidth: 2,
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      borderWidth: 3,
       justifyContent: "center",
       alignItems: "center",
       marginBottom: 12,
     },
     avatarEmoji: {
-      fontSize: 50,
+      fontSize: 60,
     },
     avatarText: {
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: "600",
     },
 
@@ -474,42 +366,30 @@ function createStyles(colors) {
       marginBottom: 24,
     },
     inputGroup: {
-      gap: 8,
+      gap: 10,
     },
     inputLabel: {
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: "600",
-      letterSpacing: -0.1,
+      letterSpacing: -0.2,
+      textAlign: "center",
     },
     inputWrapper: {
-      borderRadius: 12,
+      borderRadius: 16,
       overflow: "hidden",
     },
     input: {
       borderWidth: 1,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      fontSize: 16,
-      borderRadius: 12,
-    },
-    textAreaWrapper: {},
-    textArea: {
-      minHeight: 100,
-      textAlignVertical: "top",
-      paddingTop: 14,
-    },
-    charCount: {
-      fontSize: 12,
-      textAlign: "right",
-      marginTop: 4,
-    },
-    inputRow: {
-      flexDirection: "row",
+      paddingHorizontal: 20,
+      paddingVertical: 18,
+      fontSize: 18,
+      borderRadius: 16,
+      textAlign: "center",
     },
 
     // Info Note
     infoNote: {
-      marginBottom: 24,
+      marginBottom: 32,
       borderRadius: 16,
       overflow: "hidden",
     },
@@ -517,7 +397,7 @@ function createStyles(colors) {
       borderWidth: 1,
       padding: 16,
       flexDirection: "row",
-      alignItems: "flex-start",
+      alignItems: "center",
     },
     infoNoteIcon: {
       fontSize: 20,
@@ -525,7 +405,7 @@ function createStyles(colors) {
     },
     infoNoteText: {
       flex: 1,
-      fontSize: 13,
+      fontSize: 14,
       lineHeight: 20,
     },
 
@@ -533,7 +413,6 @@ function createStyles(colors) {
     continueButton: {
       borderRadius: 16,
       overflow: "hidden",
-      marginBottom: 16,
     },
     continueGlass: {
       paddingVertical: 18,
@@ -544,12 +423,6 @@ function createStyles(colors) {
       fontWeight: "700",
       color: "#FFFFFF",
       letterSpacing: -0.2,
-    },
-
-    // Required Note
-    requiredNote: {
-      fontSize: 12,
-      textAlign: "center",
     },
 
     // Modal

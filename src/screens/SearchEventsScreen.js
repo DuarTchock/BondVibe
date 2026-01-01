@@ -14,6 +14,7 @@ import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
 import { EVENT_CATEGORIES, normalizeCategory } from "../utils/eventCategories";
+import { LOCATIONS, locationMatchesFilter } from "../utils/locations";
 import { filterUpcomingEvents, isEventPast } from "../utils/eventFilters";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -23,12 +24,16 @@ export default function SearchEventsScreen({ navigation, route }) {
   const [selectedCategory, setSelectedCategory] = useState(
     route.params?.category || "All"
   );
+  const [selectedLocation, setSelectedLocation] = useState("all");
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Create categories array with "All" as an object to match the structure
-  const categories = [{ id: "all", label: "All" }, ...EVENT_CATEGORIES];
+  const categories = [
+    { id: "all", label: "All", emoji: null },
+    ...EVENT_CATEGORIES,
+  ];
 
   // ✅ Reload events every time screen comes into focus (after editing, etc.)
   useFocusEffect(
@@ -40,7 +45,7 @@ export default function SearchEventsScreen({ navigation, route }) {
 
   useEffect(() => {
     filterEvents();
-  }, [searchQuery, selectedCategory, events]);
+  }, [searchQuery, selectedCategory, selectedLocation, events]);
 
   // ✅ Sort events by date (soonest first)
   const sortEventsByDate = (eventsArray) => {
@@ -90,15 +95,23 @@ export default function SearchEventsScreen({ navigation, route }) {
   const filterEvents = () => {
     let filtered = events;
 
+    // Filter by category
     if (selectedCategory !== "All") {
       filtered = filtered.filter((event) => {
-        // Normalize BOTH the event's category AND the selected category
         const normalizedEventCategory = normalizeCategory(event.category);
         const normalizedSelectedCategory = normalizeCategory(selectedCategory);
         return normalizedEventCategory === normalizedSelectedCategory;
       });
     }
 
+    // Filter by location
+    if (selectedLocation !== "all") {
+      filtered = filtered.filter((event) =>
+        locationMatchesFilter(event.location, selectedLocation)
+      );
+    }
+
+    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -258,25 +271,75 @@ export default function SearchEventsScreen({ navigation, route }) {
           />
         </View>
 
+        {/* Location Filter */}
+        <View style={styles.filterSection}>
+          <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>
+            Location
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScroll}
+          >
+            {LOCATIONS.map((location) => (
+              <TouchableOpacity
+                key={location.id}
+                style={styles.filterChip}
+                onPress={() => setSelectedLocation(location.id)}
+              >
+                <View
+                  style={[
+                    styles.filterChipGlass,
+                    {
+                      backgroundColor:
+                        selectedLocation === location.id
+                          ? `${colors.primary}33`
+                          : colors.surfaceGlass,
+                      borderColor:
+                        selectedLocation === location.id
+                          ? `${colors.primary}66`
+                          : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      {
+                        color:
+                          selectedLocation === location.id
+                            ? colors.primary
+                            : colors.text,
+                      },
+                    ]}
+                  >
+                    {location.emoji} {location.label}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         {/* Category Filter */}
-        <View style={styles.categorySection}>
+        <View style={styles.filterSection}>
           <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>
             Categories
           </Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesScroll}
+            contentContainerStyle={styles.filterScroll}
           >
             {categories.map((category) => (
               <TouchableOpacity
                 key={category.id}
-                style={styles.categoryChip}
+                style={styles.filterChip}
                 onPress={() => setSelectedCategory(category.label)}
               >
                 <View
                   style={[
-                    styles.categoryChipGlass,
+                    styles.filterChipGlass,
                     {
                       backgroundColor:
                         selectedCategory === category.label
@@ -291,7 +354,7 @@ export default function SearchEventsScreen({ navigation, route }) {
                 >
                   <Text
                     style={[
-                      styles.categoryChipText,
+                      styles.filterChipText,
                       {
                         color:
                           selectedCategory === category.label
@@ -368,11 +431,11 @@ function createStyles(colors) {
       borderRadius: 16,
       paddingHorizontal: 16,
       paddingVertical: 14,
-      marginBottom: 24,
+      marginBottom: 20,
     },
     searchIcon: { fontSize: 20, marginRight: 10 },
     searchInput: { flex: 1, fontSize: 15 },
-    categorySection: { marginBottom: 24 },
+    filterSection: { marginBottom: 20 },
     filterLabel: {
       fontSize: 13,
       fontWeight: "600",
@@ -380,14 +443,14 @@ function createStyles(colors) {
       textTransform: "uppercase",
       letterSpacing: 0.5,
     },
-    categoriesScroll: { gap: 10 },
-    categoryChip: { borderRadius: 12, overflow: "hidden" },
-    categoryChipGlass: {
+    filterScroll: { gap: 10 },
+    filterChip: { borderRadius: 12, overflow: "hidden" },
+    filterChipGlass: {
       borderWidth: 1,
       paddingVertical: 8,
       paddingHorizontal: 16,
     },
-    categoryChipText: { fontSize: 14, fontWeight: "600" },
+    filterChipText: { fontSize: 14, fontWeight: "600" },
     resultsHeader: { marginBottom: 20 },
     resultsTitle: {
       fontSize: 18,

@@ -9,6 +9,14 @@ export const EVENT_CATEGORIES = [
   { id: "arts", emoji: "🎨", label: "Arts" },
   { id: "learning", emoji: "📚", label: "Learning" },
   { id: "adventure", emoji: "🏔️", label: "Adventure" },
+  { id: "wellness", emoji: "🧘", label: "Wellness" },
+  { id: "music", emoji: "🎵", label: "Music" },
+  { id: "games", emoji: "🎮", label: "Games" },
+  { id: "outdoors", emoji: "🌲", label: "Outdoors" },
+  { id: "nightlife", emoji: "🍸", label: "Nightlife" },
+  { id: "networking", emoji: "💼", label: "Networking" },
+  { id: "pets", emoji: "🐕", label: "Pets" },
+  { id: "travel", emoji: "✈️", label: "Travel" },
 ];
 
 // Simple string array for backwards compatibility
@@ -27,18 +35,80 @@ export const normalizeCategory = (category) => {
 
   // Map common variations to standard categories
   const categoryMap = {
+    // Social
     social: "social",
+    party: "social",
+    parties: "social",
+    hangout: "social",
+    meetup: "social",
+    // Sports
     sports: "sports",
     sport: "sports",
+    fitness: "sports",
+    // Food
     food: "food",
     "food & drink": "food",
     "food and drink": "food",
+    dining: "food",
+    restaurant: "food",
+    // Arts
     arts: "arts",
     art: "arts",
+    creative: "arts",
+    // Learning
     learning: "learning",
     education: "learning",
+    workshop: "learning",
+    class: "learning",
+    // Adventure
     adventure: "adventure",
     adventures: "adventure",
+    extreme: "adventure",
+    // Wellness
+    wellness: "wellness",
+    yoga: "wellness",
+    meditation: "wellness",
+    mindfulness: "wellness",
+    health: "wellness",
+    // Music
+    music: "music",
+    concert: "music",
+    concerts: "music",
+    "live music": "music",
+    // Games
+    games: "games",
+    game: "games",
+    gaming: "games",
+    "board games": "games",
+    trivia: "games",
+    // Outdoors
+    outdoors: "outdoors",
+    outdoor: "outdoors",
+    nature: "outdoors",
+    hiking: "outdoors",
+    picnic: "outdoors",
+    // Nightlife
+    nightlife: "nightlife",
+    bar: "nightlife",
+    bars: "nightlife",
+    club: "nightlife",
+    clubs: "nightlife",
+    // Networking
+    networking: "networking",
+    professional: "networking",
+    business: "networking",
+    coworking: "networking",
+    // Pets
+    pets: "pets",
+    pet: "pets",
+    dogs: "pets",
+    dog: "pets",
+    // Travel
+    travel: "travel",
+    trip: "travel",
+    trips: "travel",
+    tour: "travel",
+    tours: "travel",
   };
 
   return categoryMap[normalized] || normalized;
