@@ -19,7 +19,6 @@ import {
   query,
   where,
   getDocs,
-  writeBatch,
   onSnapshot,
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
@@ -27,8 +26,19 @@ import { useTheme } from "../contexts/ThemeContext";
 import { createNotification } from "../utils/notificationService";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
+import EventImageGallery from "../components/EventImageGallery";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useFocusEffect } from "@react-navigation/native";
+import {
+  ChevronLeft,
+  MessageCircle,
+  Pencil,
+  Trash2,
+  Calendar,
+  MapPin,
+  Users,
+  ChevronRight,
+} from "lucide-react-native";
 
 export default function EventDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
@@ -64,7 +74,7 @@ export default function EventDetailScreen({ route, navigation }) {
     loadCurrentUser();
   }, []);
 
-  // ✅ Reload event data every time screen comes into focus (after editing, etc.)
+  // Reload event data every time screen comes into focus
   useFocusEffect(
     useCallback(() => {
       console.log("📱 EventDetailScreen focused - reloading event data...");
@@ -72,18 +82,16 @@ export default function EventDetailScreen({ route, navigation }) {
     }, [eventId])
   );
 
-  // ⭐ NEW: Detectar flag shouldReload
+  // Detect shouldReload flag
   useEffect(() => {
     if (route.params?.shouldReload) {
       console.log("🔄 shouldReload flag detected - reloading event...");
       loadEvent();
-
-      // Limpiar el flag para evitar recargas múltiples
       navigation.setParams({ shouldReload: false });
     }
   }, [route.params?.shouldReload]);
 
-  // ⭐ FIXED: Real-time listener con manejo correcto de timestamps
+  // Real-time listener
   useEffect(() => {
     if (!eventId) return;
 
@@ -95,22 +103,17 @@ export default function EventDetailScreen({ route, navigation }) {
         const data = snapshot.data();
         console.log("🔄 Event data updated in real-time");
 
-        // Handle date - support both Firestore Timestamp and ISO string
         let eventDate = null;
         if (data.date) {
           if (data.date.toDate) {
-            // It's a Firestore Timestamp
             eventDate = data.date.toDate();
           } else if (typeof data.date === "string") {
-            // It's an ISO string
             eventDate = new Date(data.date);
           } else if (data.date instanceof Date) {
-            // It's already a Date object
             eventDate = data.date;
           }
         }
 
-        // Handle createdAt similarly
         let createdAtDate = null;
         if (data.createdAt) {
           if (data.createdAt.toDate) {
@@ -132,7 +135,6 @@ export default function EventDetailScreen({ route, navigation }) {
         setEvent(updatedEvent);
         setIsJoined(data.attendees?.includes(auth.currentUser.uid));
 
-        // Recargar attendees si cambió el array
         if (data.attendees && data.attendees.length > 0) {
           loadAttendeesData(data.attendees);
         }
@@ -164,12 +166,10 @@ export default function EventDetailScreen({ route, navigation }) {
         setEvent(eventData);
         setIsJoined(eventData.attendees?.includes(auth.currentUser.uid));
 
-        // Check if this is a recurring event
         if (eventData.isRecurring && eventData.recurrenceGroupId) {
           setIsRecurring(true);
           setRecurrenceGroupId(eventData.recurrenceGroupId);
 
-          // Count future events in the series (from this event's date onwards, not from today)
           const futureQuery = query(
             collection(db, "events"),
             where("recurrenceGroupId", "==", eventData.recurrenceGroupId),
@@ -177,33 +177,19 @@ export default function EventDetailScreen({ route, navigation }) {
           );
           const futureSnapshot = await getDocs(futureQuery);
 
-          // Get this event's date at midnight for comparison
           const thisEventDate = new Date(eventData.date);
           thisEventDate.setHours(0, 0, 0, 0);
           const thisEventTimestamp = thisEventDate.getTime();
-
-          console.log(`📅 This event's date: ${thisEventDate.toISOString()}`);
-          console.log(
-            `📊 Total events in series: ${futureSnapshot.docs.length}`
-          );
 
           const futureEvents = futureSnapshot.docs.filter((d) => {
             const eData = d.data();
             const eventDateObj = new Date(eData.date);
             eventDateObj.setHours(0, 0, 0, 0);
             const eventTimestamp = eventDateObj.getTime();
-            // Include events from this event's date onwards
-            const isFromThisDateOnwards = eventTimestamp >= thisEventTimestamp;
-            console.log(
-              `  Event ${d.id}: ${eData.date} | From this date onwards: ${isFromThisDateOnwards}`
-            );
-            return isFromThisDateOnwards;
+            return eventTimestamp >= thisEventTimestamp;
           });
 
           setFutureEventsCount(futureEvents.length);
-          console.log(
-            `🔄 Recurring event: ${futureEvents.length} events from this date onwards`
-          );
         } else {
           setIsRecurring(false);
           setRecurrenceGroupId(null);
@@ -236,17 +222,13 @@ export default function EventDetailScreen({ route, navigation }) {
         (id) => typeof id === "string" && id.trim().length > 0
       );
 
-      if (validIds.length === 0) {
-        console.log("No valid attendee IDs to load");
-        return;
-      }
+      if (validIds.length === 0) return;
 
       const attendeesPromises = validIds.map(async (userId) => {
         try {
           const userDoc = await getDoc(doc(db, "users", userId));
           return userDoc.exists() ? { id: userId, ...userDoc.data() } : null;
         } catch (error) {
-          console.error(`Error loading user ${userId}:`, error);
           return null;
         }
       });
@@ -258,19 +240,15 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
-  // ✅ FIXED: Now routes to refund flow for paid events
   const handleJoinLeave = async () => {
     if (!event) return;
 
-    // If leaving, check if it's a paid event
     if (isJoined) {
-      // For paid events, use the refund flow
       if (event.price && event.price > 0) {
         handleCancelAttendance();
         return;
       }
 
-      // For free events, just remove from attendees
       setJoining(true);
       try {
         const eventRef = doc(db, "events", eventId);
@@ -289,7 +267,6 @@ export default function EventDetailScreen({ route, navigation }) {
       return;
     }
 
-    // Check capacity
     const maxCapacity = event.maxAttendees || event.maxPeople || 0;
     const currentCount = event.attendees?.length || 0;
 
@@ -298,7 +275,6 @@ export default function EventDetailScreen({ route, navigation }) {
       return;
     }
 
-    // If event has price, navigate to Checkout
     if (event.price && event.price > 0) {
       const amountInCentavos = pesosTocentavos(event.price);
       navigation.navigate("Checkout", {
@@ -309,7 +285,6 @@ export default function EventDetailScreen({ route, navigation }) {
       return;
     }
 
-    // Free event - join directly
     setJoining(true);
     try {
       const eventRef = doc(db, "events", eventId);
@@ -322,7 +297,6 @@ export default function EventDetailScreen({ route, navigation }) {
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         const userName = userDoc.data()?.fullName || "Someone";
 
-        console.log("📬 Creating notification for:", event.creatorId);
         await createNotification(event.creatorId, {
           type: "event_joined",
           title: "New attendee!",
@@ -342,9 +316,7 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
-  // Show cancel/delete options
   const handleCancelEvent = () => {
-    // If recurring event with multiple future events, show options
     if (isRecurring && futureEventsCount > 1) {
       Alert.alert(
         "Delete Recurring Event",
@@ -368,7 +340,6 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
-  // Cancel all future events in the series (from this event's date onwards)
   const cancelAllFutureEvents = async () => {
     try {
       setLoading(true);
@@ -380,22 +351,14 @@ export default function EventDetailScreen({ route, navigation }) {
       );
       const futureSnapshot = await getDocs(futureQuery);
 
-      // Get this event's date at midnight for comparison
       const thisEventDate = new Date(event.date);
       thisEventDate.setHours(0, 0, 0, 0);
       const thisEventTimestamp = thisEventDate.getTime();
 
-      console.log(
-        `🗑️ Cancelling events from ${thisEventDate.toISOString()} onwards`
-      );
-      console.log(`📊 Total events in series: ${futureSnapshot.docs.length}`);
-
-      // For paid events, we need to process refunds for each event
       const functions = getFunctions();
       const hostCancel = httpsCallable(functions, "hostCancelEvent");
 
       let cancelledCount = 0;
-      let skippedCount = 0;
       let totalRefunds = 0;
 
       for (const docSnap of futureSnapshot.docs) {
@@ -404,20 +367,12 @@ export default function EventDetailScreen({ route, navigation }) {
         eventDateObj.setHours(0, 0, 0, 0);
         const eventTimestamp = eventDateObj.getTime();
 
-        // Include events from this event's date onwards
-        const isFromThisDateOnwards = eventTimestamp >= thisEventTimestamp;
-        console.log(
-          `  Event ${docSnap.id}: ${eventData.date} | Cancel: ${isFromThisDateOnwards}`
-        );
-
-        if (isFromThisDateOnwards) {
-          // Check if event has attendees and is paid
+        if (eventTimestamp >= thisEventTimestamp) {
           if (
             eventData.price &&
             eventData.price > 0 &&
             eventData.attendees?.length > 0
           ) {
-            // Use Cloud Function to handle refunds
             try {
               const result = await hostCancel({
                 eventId: docSnap.id,
@@ -433,7 +388,6 @@ export default function EventDetailScreen({ route, navigation }) {
               );
             }
           } else {
-            // Free event or no attendees - just update status
             await updateDoc(docSnap.ref, {
               status: "cancelled",
               cancelledAt: new Date().toISOString(),
@@ -441,21 +395,12 @@ export default function EventDetailScreen({ route, navigation }) {
             });
           }
           cancelledCount++;
-        } else {
-          skippedCount++;
         }
       }
 
       setLoading(false);
 
-      console.log(
-        `✅ Cancelled: ${cancelledCount}, Preserved (earlier): ${skippedCount}`
-      );
-
       let message = `${cancelledCount} events cancelled successfully.`;
-      if (skippedCount > 0) {
-        message += ` ${skippedCount} earlier events were preserved.`;
-      }
       if (totalRefunds > 0) {
         message += ` ${totalRefunds} refunds processed.`;
       }
@@ -470,7 +415,6 @@ export default function EventDetailScreen({ route, navigation }) {
     }
   };
 
-  // ✅ User cancels their attendance - with refund calculation
   const handleCancelAttendance = async () => {
     if (!event || !isJoined) return;
 
@@ -503,15 +447,12 @@ export default function EventDetailScreen({ route, navigation }) {
           onPress: async () => {
             setJoining(true);
             try {
-              console.log("🔄 Calling cancelEventAttendance Cloud Function...");
               const functions = getFunctions();
               const cancelAttendance = httpsCallable(
                 functions,
                 "cancelEventAttendance"
               );
-
               const result = await cancelAttendance({ eventId: event.id });
-              console.log("✅ Cloud Function result:", result.data);
 
               if (result.data.success) {
                 setIsJoined(false);
@@ -541,29 +482,22 @@ export default function EventDetailScreen({ route, navigation }) {
     );
   };
 
-  // ✅ Host cancels the event - refund all attendees
   const performCancellation = async (cancellationReason) => {
     try {
       setShowCancelModal(false);
       setLoading(true);
 
-      // For paid events with attendees, use Cloud Function to handle refunds
       if (
         event.price &&
         event.price > 0 &&
         (event.attendees?.length > 0 || event.participants?.length > 0)
       ) {
-        console.log("🔄 Using hostCancelEvent Cloud Function for refunds...");
-
         const functions = getFunctions();
         const hostCancel = httpsCallable(functions, "hostCancelEvent");
-
         const result = await hostCancel({
           eventId: event.id,
           reason: cancellationReason,
         });
-
-        console.log("✅ Host cancel result:", result.data);
 
         if (result.data.success) {
           Alert.alert(
@@ -579,7 +513,6 @@ export default function EventDetailScreen({ route, navigation }) {
         return;
       }
 
-      // For free events or events with no attendees, just update status
       const eventRef = doc(db, "events", eventId);
       await updateDoc(eventRef, {
         status: "cancelled",
@@ -592,12 +525,6 @@ export default function EventDetailScreen({ route, navigation }) {
         ...(event.attendees || []),
       ];
       const uniqueParticipants = [...new Set(allParticipants)];
-
-      console.log(
-        "📤 Sending notifications to:",
-        uniqueParticipants.length,
-        "participants"
-      );
 
       const reason =
         cancellationReason !== "No reason provided"
@@ -618,18 +545,12 @@ export default function EventDetailScreen({ route, navigation }) {
                 reason: cancellationReason,
               },
             });
-            console.log("✅ Notification sent to:", participantId);
           } catch (notifError) {
-            console.error(
-              "❌ Failed to send notification to:",
-              participantId,
-              notifError
-            );
+            console.error("Failed to send notification:", notifError);
           }
         }
       }
 
-      console.log("✅ Event cancelled successfully");
       setLoading(false);
       navigation.navigate("Home");
     } catch (error) {
@@ -698,11 +619,20 @@ export default function EventDetailScreen({ route, navigation }) {
   const spotsLeft = maxCapacity - currentAttendees;
   const isFull = spotsLeft <= 0;
 
+  // Safe getters for event properties
+  const eventTitle = event.title || "Untitled Event";
+  const eventCategory = event.category || "";
+  const eventLocation = event.location || "Location TBD";
+  const eventDescription = event.description || "No description available";
+  const eventPrice = typeof event.price === "number" ? event.price : 0;
+  const eventStatus = event.status || "active";
+  const eventImages = Array.isArray(event.images) ? event.images : [];
+
   const getButtonText = () => {
     if (joining) return "Loading...";
     if (isJoined) return "Leave Event";
     if (isFull) return "Event Full";
-    if (event.price && event.price > 0) return `Pay $${event.price} MXN`;
+    if (eventPrice > 0) return `Pay $${eventPrice} MXN`;
     return "Join Event (Free)";
   };
 
@@ -722,9 +652,7 @@ export default function EventDetailScreen({ route, navigation }) {
               },
             ]}
           >
-            <Text style={[styles.headerButtonText, { color: colors.text }]}>
-              ←
-            </Text>
+            <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
           </View>
         </TouchableOpacity>
         <View style={styles.headerActions}>
@@ -733,7 +661,7 @@ export default function EventDetailScreen({ route, navigation }) {
               onPress={() =>
                 navigation.navigate("EventChat", {
                   eventId: event.id,
-                  eventTitle: event.title,
+                  eventTitle: eventTitle,
                 })
               }
             >
@@ -746,7 +674,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <Text style={styles.headerButtonText}>💬</Text>
+                <MessageCircle size={20} color={colors.text} strokeWidth={2} />
               </View>
             </TouchableOpacity>
           )}
@@ -763,11 +691,11 @@ export default function EventDetailScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <Text style={styles.headerButtonText}>✏️</Text>
+                <Pencil size={18} color={colors.text} strokeWidth={2} />
               </View>
             </TouchableOpacity>
           )}
-          {(isCreator || isAdmin) && event.status !== "cancelled" && (
+          {(isCreator || isAdmin) && eventStatus !== "cancelled" && (
             <TouchableOpacity onPress={handleCancelEvent}>
               <View
                 style={[
@@ -778,11 +706,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <Text
-                  style={[styles.headerButtonText, { color: colors.error }]}
-                >
-                  🗑️
-                </Text>
+                <Trash2 size={18} color={colors.error} strokeWidth={2} />
               </View>
             </TouchableOpacity>
           )}
@@ -794,27 +718,32 @@ export default function EventDetailScreen({ route, navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Image Gallery */}
+        {eventImages.length > 0 && <EventImageGallery images={eventImages} />}
+
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <View style={styles.categoryRow}>
-            <View
-              style={[
-                styles.categoryBadge,
-                {
-                  backgroundColor: `${colors.primary}26`,
-                  borderColor: `${colors.primary}4D`,
-                },
-              ]}
-            >
-              <Text style={[styles.categoryText, { color: colors.primary }]}>
-                {event.category}
-              </Text>
-            </View>
-            {event.price === 0 ? (
+            {eventCategory !== "" && (
+              <View
+                style={[
+                  styles.categoryBadge,
+                  {
+                    backgroundColor: `${colors.primary}26`,
+                    borderColor: `${colors.primary}4D`,
+                  },
+                ]}
+              >
+                <Text style={[styles.categoryText, { color: colors.primary }]}>
+                  {eventCategory}
+                </Text>
+              </View>
+            )}
+            {eventPrice === 0 ? (
               <View style={styles.freeBadge}>
                 <Text style={styles.freeBadgeText}>FREE</Text>
               </View>
-            ) : (
+            ) : eventPrice > 0 ? (
               <View
                 style={[
                   styles.priceBadge,
@@ -825,17 +754,15 @@ export default function EventDetailScreen({ route, navigation }) {
                 ]}
               >
                 <Text style={[styles.priceText, { color: colors.secondary }]}>
-                  ${event.price}
+                  ${eventPrice}
                 </Text>
               </View>
-            )}
+            ) : null}
             {isRecurring && (
               <View
                 style={[
                   styles.recurringBadge,
-                  {
-                    backgroundColor: `${colors.primary}22`,
-                  },
+                  { backgroundColor: `${colors.primary}22` },
                 ]}
               >
                 <Text
@@ -848,9 +775,9 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
 
           <Text style={[styles.title, { color: colors.text }]}>
-            {event.title}
+            {eventTitle}
           </Text>
-          {event.status === "cancelled" && (
+          {eventStatus === "cancelled" && (
             <View
               style={[
                 styles.cancelledBadge,
@@ -879,7 +806,14 @@ export default function EventDetailScreen({ route, navigation }) {
                 },
               ]}
             >
-              <Text style={styles.infoIcon}>📅</Text>
+              <View
+                style={[
+                  styles.infoIconCircle,
+                  { backgroundColor: `${colors.primary}15` },
+                ]}
+              >
+                <Calendar size={22} color={colors.primary} strokeWidth={1.8} />
+              </View>
               <View style={styles.infoContent}>
                 <Text
                   style={[styles.infoLabel, { color: colors.textSecondary }]}
@@ -921,7 +855,14 @@ export default function EventDetailScreen({ route, navigation }) {
                 },
               ]}
             >
-              <Text style={styles.infoIcon}>📍</Text>
+              <View
+                style={[
+                  styles.infoIconCircle,
+                  { backgroundColor: `${colors.primary}15` },
+                ]}
+              >
+                <MapPin size={22} color={colors.primary} strokeWidth={1.8} />
+              </View>
               <View style={styles.infoContent}>
                 <Text
                   style={[styles.infoLabel, { color: colors.textSecondary }]}
@@ -929,7 +870,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   Location
                 </Text>
                 <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {event.location}
+                  {eventLocation}
                 </Text>
               </View>
             </View>
@@ -945,7 +886,14 @@ export default function EventDetailScreen({ route, navigation }) {
                 },
               ]}
             >
-              <Text style={styles.infoIcon}>👥</Text>
+              <View
+                style={[
+                  styles.infoIconCircle,
+                  { backgroundColor: `${colors.primary}15` },
+                ]}
+              >
+                <Users size={22} color={colors.primary} strokeWidth={1.8} />
+              </View>
               <View style={styles.infoContent}>
                 <Text
                   style={[styles.infoLabel, { color: colors.textSecondary }]}
@@ -953,8 +901,9 @@ export default function EventDetailScreen({ route, navigation }) {
                   Attendees
                 </Text>
                 <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {currentAttendees}/{maxCapacity}
-                  {isFull ? " (Full)" : ` (${spotsLeft} spots left)`}
+                  {`${currentAttendees}/${maxCapacity}${
+                    isFull ? " (Full)" : ` (${spotsLeft} spots left)`
+                  }`}
                 </Text>
               </View>
             </View>
@@ -969,7 +918,7 @@ export default function EventDetailScreen({ route, navigation }) {
               onPress={() =>
                 navigation.navigate("EventChat", {
                   eventId: event.id,
-                  eventTitle: event.title,
+                  eventTitle: eventTitle,
                 })
               }
               activeOpacity={0.8}
@@ -983,7 +932,18 @@ export default function EventDetailScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <Text style={styles.chatIcon}>💬</Text>
+                <View
+                  style={[
+                    styles.chatIconCircle,
+                    { backgroundColor: `${colors.primary}25` },
+                  ]}
+                >
+                  <MessageCircle
+                    size={24}
+                    color={colors.primary}
+                    strokeWidth={1.8}
+                  />
+                </View>
                 <View style={styles.chatContent}>
                   <Text style={[styles.chatTitle, { color: colors.primary }]}>
                     Group Chat
@@ -997,9 +957,11 @@ export default function EventDetailScreen({ route, navigation }) {
                     Connect with other attendees
                   </Text>
                 </View>
-                <Text style={[styles.chatArrow, { color: colors.primary }]}>
-                  →
-                </Text>
+                <ChevronRight
+                  size={24}
+                  color={colors.primary}
+                  strokeWidth={2}
+                />
               </View>
             </TouchableOpacity>
           </View>
@@ -1022,13 +984,13 @@ export default function EventDetailScreen({ route, navigation }) {
             <Text
               style={[styles.descriptionText, { color: colors.textSecondary }]}
             >
-              {event.description}
+              {eventDescription}
             </Text>
           </View>
         </View>
 
         {/* Cancellation Policy */}
-        {event.price && event.price > 0 && (
+        {eventPrice > 0 && (
           <View style={styles.policySection}>
             <View
               style={[
@@ -1088,25 +1050,6 @@ export default function EventDetailScreen({ route, navigation }) {
                   If host cancels: 100% refund - platform & Stripe fees
                 </Text>
               </View>
-              <View style={styles.policyItem}>
-                <Text
-                  style={[styles.policyDot, { color: colors.textTertiary }]}
-                >
-                  ℹ️
-                </Text>
-                <Text
-                  style={[
-                    styles.policyText,
-                    {
-                      color: colors.textTertiary,
-                      fontSize: 12,
-                      fontStyle: "italic",
-                    },
-                  ]}
-                >
-                  Processing fees (~7%) are non-refundable
-                </Text>
-              </View>
             </View>
           </View>
         )}
@@ -1124,7 +1067,7 @@ export default function EventDetailScreen({ route, navigation }) {
               ]}
             >
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Attendees ({attendeesData.length})
+                {`Attendees (${attendeesData.length})`}
               </Text>
               {attendeesData.map((attendee, index) => (
                 <View key={index} style={styles.attendeeRow}>
@@ -1152,7 +1095,7 @@ export default function EventDetailScreen({ route, navigation }) {
       </ScrollView>
 
       {/* Bottom Action */}
-      {!isCreator && event.status !== "cancelled" && (
+      {!isCreator && eventStatus !== "cancelled" && (
         <View style={styles.bottomAction}>
           <View
             style={[
@@ -1179,12 +1122,12 @@ export default function EventDetailScreen({ route, navigation }) {
                   {
                     backgroundColor: isJoined
                       ? colors.surfaceGlass
-                      : event.price && event.price > 0
+                      : eventPrice > 0
                       ? colors.primary
                       : `${colors.primary}33`,
                     borderColor: isJoined
                       ? colors.border
-                      : event.price && event.price > 0
+                      : eventPrice > 0
                       ? colors.primary
                       : `${colors.primary}66`,
                   },
@@ -1195,7 +1138,7 @@ export default function EventDetailScreen({ route, navigation }) {
                     styles.actionButtonText,
                     {
                       color:
-                        event.price && event.price > 0 && !isJoined
+                        eventPrice > 0 && !isJoined
                           ? "#FFFFFF"
                           : isJoined
                           ? colors.text
@@ -1216,7 +1159,7 @@ export default function EventDetailScreen({ route, navigation }) {
         visible={showCancelModal}
         onClose={() => setShowCancelModal(false)}
         onConfirm={performCancellation}
-        eventTitle={event?.title || ""}
+        eventTitle={eventTitle}
       />
     </View>
   );
@@ -1269,7 +1212,6 @@ function createStyles(colors) {
       alignItems: "center",
       marginLeft: 8,
     },
-    headerButtonText: { fontSize: 20 },
     headerActions: { flexDirection: "row" },
     scrollView: { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 120 },
@@ -1314,10 +1256,7 @@ function createStyles(colors) {
       paddingHorizontal: 10,
       borderRadius: 10,
     },
-    recurringBadgeText: {
-      fontSize: 12,
-      fontWeight: "600",
-    },
+    recurringBadgeText: { fontSize: 12, fontWeight: "600" },
     title: {
       fontSize: 28,
       fontWeight: "700",
@@ -1341,7 +1280,14 @@ function createStyles(colors) {
       flexDirection: "row",
       alignItems: "center",
     },
-    infoIcon: { fontSize: 28, marginRight: 14 },
+    infoIconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 14,
+    },
     infoContent: { flex: 1 },
     infoLabel: { fontSize: 12, marginBottom: 4, letterSpacing: 0.3 },
     infoValue: { fontSize: 15, fontWeight: "600", letterSpacing: -0.2 },
@@ -1353,7 +1299,14 @@ function createStyles(colors) {
       flexDirection: "row",
       alignItems: "center",
     },
-    chatIcon: { fontSize: 32, marginRight: 16 },
+    chatIconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 14,
+    },
     chatContent: { flex: 1 },
     chatTitle: {
       fontSize: 18,
@@ -1362,7 +1315,6 @@ function createStyles(colors) {
       letterSpacing: -0.3,
     },
     chatSubtitle: { fontSize: 13 },
-    chatArrow: { fontSize: 24, marginLeft: 12 },
     descriptionSection: {
       marginBottom: 24,
       borderRadius: 16,

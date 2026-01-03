@@ -19,14 +19,17 @@ import {
   doc,
   getDoc,
   writeBatch,
+  updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import EventCreatedModal from "../components/EventCreatedModal";
 import SelectDropdown from "../components/SelectDropdown";
+import EventImagePicker from "../components/EventImagePicker";
 import Icon from "../components/Icon";
 import { EVENT_CATEGORIES } from "../utils/eventCategories";
 import { LOCATIONS } from "../utils/locations";
+import { uploadEventImages } from "../services/storageService";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 // Recurrence options
@@ -75,6 +78,7 @@ export default function CreateEventScreen({ navigation }) {
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
+  const [eventImages, setEventImages] = useState([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdEventTitle, setCreatedEventTitle] = useState("");
   const [createdEventsCount, setCreatedEventsCount] = useState(1);
@@ -383,22 +387,50 @@ export default function CreateEventScreen({ navigation }) {
         const eventData = {
           ...baseEventData,
           date: eventDates[0].toISOString(),
+          images: [], // Will be updated after upload
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
 
-        await addDoc(collection(db, "events"), eventData);
+        const eventDocRef = await addDoc(collection(db, "events"), eventData);
+
+        // Upload images if any
+        if (eventImages.length > 0) {
+          console.log(`📸 Uploading ${eventImages.length} images...`);
+          try {
+            const imageUrls = await uploadEventImages(
+              eventDocRef.id,
+              eventImages
+            );
+            await updateDoc(eventDocRef, { images: imageUrls });
+            console.log("✅ Images uploaded and saved to event");
+          } catch (imageError) {
+            console.error("⚠️ Error uploading images:", imageError);
+            // Event was created, just images failed - don't block
+            Alert.alert(
+              "Partial Success",
+              "Event created but images could not be uploaded. You can add them later by editing the event."
+            );
+          }
+        }
       } else {
+        // For recurring events, only add images to the first event
         const batchSize = 500;
+        let firstEventId = null;
+
         for (let i = 0; i < eventDates.length; i += batchSize) {
           const batch = writeBatch(db);
           const chunk = eventDates.slice(i, i + batchSize);
 
           chunk.forEach((date, index) => {
             const eventRef = doc(collection(db, "events"));
+            if (i === 0 && index === 0) {
+              firstEventId = eventRef.id;
+            }
             const eventData = {
               ...baseEventData,
               date: date.toISOString(),
+              images: [], // Will be updated for first event
               eventIndex: i + index + 1,
               totalInSeries: eventDates.length,
               createdAt: new Date().toISOString(),
@@ -408,6 +440,25 @@ export default function CreateEventScreen({ navigation }) {
           });
 
           await batch.commit();
+        }
+
+        // Upload images for first recurring event
+        if (eventImages.length > 0 && firstEventId) {
+          console.log(
+            `📸 Uploading ${eventImages.length} images for first recurring event...`
+          );
+          try {
+            const imageUrls = await uploadEventImages(
+              firstEventId,
+              eventImages
+            );
+            await updateDoc(doc(db, "events", firstEventId), {
+              images: imageUrls,
+            });
+            console.log("✅ Images uploaded for first recurring event");
+          } catch (imageError) {
+            console.error("⚠️ Error uploading images:", imageError);
+          }
         }
       }
 
@@ -608,6 +659,12 @@ export default function CreateEventScreen({ navigation }) {
             />
           </View>
         </View>
+
+        {/* Event Images */}
+        <EventImagePicker
+          images={eventImages}
+          onImagesChange={setEventImages}
+        />
 
         {/* Description */}
         <View style={styles.field}>
