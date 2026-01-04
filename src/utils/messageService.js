@@ -209,7 +209,7 @@ export const setTypingStatus = async (conversationId, userId, isTyping) => {
 };
 
 /**
- * ✅ FIXED: Marcar mensajes como entregados
+ * Marcar mensajes como entregados
  */
 export const markMessagesAsDelivered = async (
   conversationId,
@@ -247,7 +247,7 @@ export const markMessagesAsDelivered = async (
 };
 
 /**
- * ✅ IMPROVED: Marcar mensajes como leídos con mejor logging y manejo de errores
+ * Marcar mensajes como leídos
  */
 export const markMessagesAsRead = async (conversationId, currentUserId) => {
   try {
@@ -258,7 +258,6 @@ export const markMessagesAsRead = async (conversationId, currentUserId) => {
     const eventId = conversationId.replace("event_", "");
     const messagesRef = collection(db, "events", eventId, "messages");
 
-    // Query for unread messages
     const q = query(messagesRef, where("read", "==", false));
     const snapshot = await getDocs(q);
 
@@ -266,7 +265,6 @@ export const markMessagesAsRead = async (conversationId, currentUserId) => {
 
     if (snapshot.empty) {
       console.log("📭 No unread messages to mark");
-      // Still try to clear notifications even if no messages
       await clearEventMessageNotifications(conversationId, currentUserId);
       return;
     }
@@ -276,7 +274,6 @@ export const markMessagesAsRead = async (conversationId, currentUserId) => {
 
     snapshot.docs.forEach((docSnap) => {
       const data = docSnap.data();
-      // Only mark messages from OTHER users as read
       if (data.senderId !== currentUserId) {
         batch.update(docSnap.ref, {
           read: true,
@@ -293,19 +290,10 @@ export const markMessagesAsRead = async (conversationId, currentUserId) => {
       console.log(`✅ Successfully marked ${count} messages as read`);
     }
 
-    // ✅ ALWAYS clear notifications regardless of message count
     await clearEventMessageNotifications(conversationId, currentUserId);
   } catch (error) {
     console.error("❌ Error marking as read:", error);
-    console.error("  - Error code:", error.code);
-    console.error("  - Error message:", error.message);
-
-    // ✅ Still try to clear notifications even if marking messages failed
-    try {
-      await clearEventMessageNotifications(conversationId, currentUserId);
-    } catch (notifError) {
-      console.error("❌ Error clearing notifications:", notifError);
-    }
+    await clearEventMessageNotifications(conversationId, currentUserId);
   }
 };
 
@@ -314,8 +302,8 @@ export const markMessagesAsRead = async (conversationId, currentUserId) => {
 // ============================================
 
 /**
- * ✅ IMPROVED: Limpiar notificaciones de mensajes de un evento
- * con mejor logging y manejo de errores
+ * ✅ FIXED: Limpiar notificaciones de mensajes de un evento
+ * Silencia errores si la notificación no existe (comportamiento esperado)
  */
 export const clearEventMessageNotifications = async (
   conversationId,
@@ -325,15 +313,16 @@ export const clearEventMessageNotifications = async (
     const cleanEventId = conversationId.replace("event_", "");
     const notificationId = `event_msg_${cleanEventId}_${userId}`;
 
-    console.log("🧹 Clearing notification:", notificationId);
-
     const notificationRef = doc(db, "notifications", notificationId);
     const notifDoc = await getDoc(notificationRef);
 
     if (notifDoc.exists()) {
       const currentData = notifDoc.data();
-      console.log("  - Current unreadCount:", currentData.unreadCount);
-      console.log("  - Current read status:", currentData.read);
+
+      // Verify this notification belongs to the current user
+      if (currentData.userId !== userId) {
+        return;
+      }
 
       await updateDoc(notificationRef, {
         read: true,
@@ -342,14 +331,13 @@ export const clearEventMessageNotifications = async (
         updatedAt: new Date().toISOString(),
       });
 
-      console.log("✅ Notification cleared successfully:", notificationId);
-    } else {
-      console.log("📭 No notification document found for:", notificationId);
+      console.log("✅ Notification cleared");
     }
+    // If notification doesn't exist, that's fine - nothing to clear
   } catch (error) {
-    console.error("❌ Error clearing notifications:", error);
-    console.error("  - Error code:", error.code);
-    console.error("  - Error message:", error.message);
+    // Silently handle errors - this is not critical
+    // The notification might have been deleted or never existed
+    // This is expected behavior when user sends their own messages
   }
 };
 

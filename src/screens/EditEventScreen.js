@@ -26,6 +26,11 @@ import {
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import EventImagePicker from "../components/EventImagePicker";
+import {
+  uploadEventImages,
+  deleteEventImage,
+} from "../services/storageService";
 
 const CATEGORIES = [
   "Social",
@@ -51,6 +56,11 @@ export default function EditEventScreen({ route, navigation }) {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Image state
+  const [eventImages, setEventImages] = useState([]); // Current images (URLs or local URIs)
+  const [originalImages, setOriginalImages] = useState([]); // Original URLs from Firestore
+  const [imagesToDelete, setImagesToDelete] = useState([]); // URLs to delete from Storage
 
   // Recurrence state
   const [isRecurring, setIsRecurring] = useState(false);
@@ -94,6 +104,12 @@ export default function EditEventScreen({ route, navigation }) {
         });
         setTempDate(eventDate);
 
+        // Load existing images
+        if (data.images && Array.isArray(data.images)) {
+          setEventImages(data.images);
+          setOriginalImages(data.images);
+        }
+
         // Check if this is a recurring event
         if (data.isRecurring && data.recurrenceGroupId) {
           setIsRecurring(true);
@@ -130,6 +146,22 @@ export default function EditEventScreen({ route, navigation }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle image changes from EventImagePicker
+  const handleImagesChange = (newImages) => {
+    // Find images that were removed (were in original but not in new)
+    const removedImages = originalImages.filter(
+      (origUrl) => !newImages.includes(origUrl)
+    );
+
+    // Add to deletion queue (only URLs, not local URIs)
+    setImagesToDelete((prev) => [
+      ...prev,
+      ...removedImages.filter((url) => url.startsWith("http")),
+    ]);
+
+    setEventImages(newImages);
   };
 
   // Format date for display
@@ -250,6 +282,34 @@ export default function EditEventScreen({ route, navigation }) {
   const saveEvent = async (updateAllFuture) => {
     setSaving(true);
     try {
+      // Process images first
+      let finalImageUrls = [];
+
+      // Separate existing URLs from new local images
+      const existingUrls = eventImages.filter((img) => img.startsWith("http"));
+      const newLocalImages = eventImages.filter(
+        (img) => !img.startsWith("http")
+      );
+
+      // Delete removed images from Storage
+      for (const urlToDelete of imagesToDelete) {
+        try {
+          await deleteEventImage(urlToDelete);
+          console.log("🗑️ Deleted image from storage");
+        } catch (deleteError) {
+          console.warn("⚠️ Could not delete image:", deleteError.message);
+        }
+      }
+
+      // Upload new images
+      if (newLocalImages.length > 0) {
+        console.log(`📸 Uploading ${newLocalImages.length} new images...`);
+        const newUrls = await uploadEventImages(eventId, newLocalImages);
+        finalImageUrls = [...existingUrls, ...newUrls];
+      } else {
+        finalImageUrls = existingUrls;
+      }
+
       const updateData = {
         title: form.title.trim(),
         description: form.description.trim(),
@@ -258,6 +318,7 @@ export default function EditEventScreen({ route, navigation }) {
         maxAttendees: parseInt(form.maxAttendees) || 10,
         maxPeople: parseInt(form.maxAttendees) || 10,
         price: parseFloat(form.price) || 0,
+        images: finalImageUrls,
         updatedAt: new Date().toISOString(),
       };
 
@@ -352,6 +413,15 @@ export default function EditEventScreen({ route, navigation }) {
   // Delete event(s)
   const deleteEvent = async (deleteAllFuture) => {
     try {
+      // Delete images from storage
+      for (const imageUrl of originalImages) {
+        try {
+          await deleteEventImage(imageUrl);
+        } catch (deleteError) {
+          console.warn("⚠️ Could not delete image:", deleteError.message);
+        }
+      }
+
       if (deleteAllFuture && recurrenceGroupId) {
         // Delete all events from this date onwards in the series
         const futureQuery = query(
@@ -596,6 +666,12 @@ export default function EditEventScreen({ route, navigation }) {
             />
           </View>
         </View>
+
+        {/* Event Images */}
+        <EventImagePicker
+          images={eventImages}
+          onImagesChange={handleImagesChange}
+        />
 
         {/* Description */}
         <View style={styles.section}>

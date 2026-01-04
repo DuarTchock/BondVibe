@@ -20,7 +20,7 @@ import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { EVENT_CATEGORIES } from "../utils/eventCategories";
-import Icon, { getCategoryIcon } from "../components/Icon";
+import { getCategoryIcon } from "../components/Icon";
 import {
   Bell,
   Search,
@@ -29,7 +29,11 @@ import {
   Crown,
   ChevronRight,
   Tent,
+  Star,
 } from "lucide-react-native";
+import RatingModal from "../components/RatingModal";
+import { getPendingRatings } from "../services/ratingService";
+import { AvatarDisplay } from "../components/AvatarPicker";
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -37,15 +41,17 @@ export default function HomeScreen({ navigation }) {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [pendingHostRequests, setPendingHostRequests] = useState(0);
 
+  // Rating state
+  const [pendingRatingEvents, setPendingRatingEvents] = useState([]);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
   useEffect(() => {
     loadUser();
   }, []);
 
-  // Real-time notifications listener
   useEffect(() => {
     if (!auth.currentUser) return;
-
-    console.log("🔔 Setting up real-time notifications listener");
 
     const notifQuery = query(
       collection(db, "notifications"),
@@ -57,7 +63,6 @@ export default function HomeScreen({ navigation }) {
       notifQuery,
       (snapshot) => {
         let totalCount = 0;
-
         snapshot.docs.forEach((docSnap) => {
           const data = docSnap.data();
           if (data.type === "event_messages" && data.unreadCount) {
@@ -66,28 +71,25 @@ export default function HomeScreen({ navigation }) {
             totalCount += 1;
           }
         });
-
         setUnreadNotifications(totalCount);
-        console.log("🔔 Real-time notification count:", totalCount);
       },
       (error) => {
-        console.error("❌ Error in notifications listener:", error);
+        console.error("Error in notifications listener:", error);
       }
     );
 
-    return () => {
-      console.log("🔕 Cleaning up notifications listener");
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [auth.currentUser?.uid]);
 
   useFocusEffect(
     useCallback(() => {
-      console.log("🔄 HomeScreen focused");
       if (user?.role === "admin") {
         loadPendingHostRequests();
       }
-    }, [user])
+      loadPendingRatings();
+      // Reload user to get updated avatar
+      loadUser();
+    }, [user?.role])
   );
 
   const loadUser = async () => {
@@ -96,7 +98,6 @@ export default function HomeScreen({ navigation }) {
       if (userDoc.exists()) {
         const userData = userDoc.data();
         setUser(userData);
-
         if (userData.role === "admin") {
           loadPendingHostRequests();
         }
@@ -113,12 +114,32 @@ export default function HomeScreen({ navigation }) {
         where("status", "==", "pending")
       );
       const snapshot = await getDocs(requestsQuery);
-      const count = snapshot.size;
-      console.log("👑 Pending host requests:", count);
-      setPendingHostRequests(count);
+      setPendingHostRequests(snapshot.size);
     } catch (error) {
       console.error("Error loading host requests:", error);
     }
+  };
+
+  const loadPendingRatings = async () => {
+    try {
+      const events = await getPendingRatings();
+      setPendingRatingEvents(events);
+    } catch (error) {
+      console.error("Error loading pending ratings:", error);
+    }
+  };
+
+  const handleRateEvent = (event) => {
+    setSelectedEvent(event);
+    setShowRatingModal(true);
+  };
+
+  const handleRatingSuccess = () => {
+    setPendingRatingEvents((prev) =>
+      prev.filter((e) => e.id !== selectedEvent.id)
+    );
+    setShowRatingModal(false);
+    setSelectedEvent(null);
   };
 
   const getGreeting = () => {
@@ -134,8 +155,20 @@ export default function HomeScreen({ navigation }) {
   };
 
   const getUserAvatar = () => {
-    if (!user) return "😊";
-    return user.avatar || user.emoji || "😊";
+    if (!user) return { type: "emoji", value: "😊" };
+
+    // Handle new format (object)
+    if (user.avatar && typeof user.avatar === "object") {
+      return user.avatar;
+    }
+
+    // Handle legacy format (string emoji)
+    if (user.avatar && typeof user.avatar === "string") {
+      return { type: "emoji", value: user.avatar };
+    }
+
+    // Fallback to emoji field or default
+    return { type: "emoji", value: user.emoji || "😊" };
   };
 
   const isAdmin = user?.role === "admin";
@@ -144,8 +177,6 @@ export default function HomeScreen({ navigation }) {
 
   const styles = createStyles(colors);
 
-  // Quick action items configuration
-  // Order: Explore, My Events, Notifications, Create/Be Host
   const quickActions = [
     {
       id: "explore",
@@ -208,7 +239,7 @@ export default function HomeScreen({ navigation }) {
               },
             ]}
           >
-            <Text style={styles.avatarEmoji}>{getUserAvatar()}</Text>
+            <AvatarDisplay avatar={getUserAvatar()} size={44} />
           </View>
         </TouchableOpacity>
       </View>
@@ -218,6 +249,72 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Pending Ratings Section */}
+        {pendingRatingEvents.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Rate Your Experiences
+            </Text>
+            {pendingRatingEvents.map((event) => {
+              const eventDate = event.date ? new Date(event.date) : null;
+              const dateStr = eventDate
+                ? eventDate.toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "Date unknown";
+              return (
+                <TouchableOpacity
+                  key={event.id}
+                  style={styles.ratingCard}
+                  onPress={() => handleRateEvent(event)}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.ratingGlass,
+                      {
+                        backgroundColor: "rgba(255, 215, 0, 0.08)",
+                        borderColor: "rgba(255, 215, 0, 0.20)",
+                      },
+                    ]}
+                  >
+                    <View style={styles.ratingIconCircle}>
+                      <Star
+                        size={22}
+                        color="#FFD700"
+                        fill="#FFD700"
+                        strokeWidth={1.5}
+                      />
+                    </View>
+                    <View style={styles.ratingContent}>
+                      <Text
+                        style={[
+                          styles.ratingEventTitle,
+                          { color: colors.text },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {event.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.ratingEventDate,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {dateStr}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color="#FFD700" strokeWidth={2} />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -397,6 +494,17 @@ export default function HomeScreen({ navigation }) {
           </ScrollView>
         </View>
       </ScrollView>
+
+      {/* Rating Modal */}
+      <RatingModal
+        visible={showRatingModal}
+        onClose={() => {
+          setShowRatingModal(false);
+          setSelectedEvent(null);
+        }}
+        onSuccess={handleRatingSuccess}
+        event={selectedEvent}
+      />
     </View>
   );
 }
@@ -421,8 +529,8 @@ function createStyles(colors) {
       borderWidth: 2,
       justifyContent: "center",
       alignItems: "center",
+      overflow: "hidden",
     },
-    avatarEmoji: { fontSize: 24 },
     scrollView: { flex: 1 },
     scrollContent: { paddingBottom: 40 },
     section: { marginBottom: 28 },
@@ -446,6 +554,35 @@ function createStyles(colors) {
       letterSpacing: -0.3,
     },
     seeAll: { fontSize: 14, fontWeight: "600" },
+    ratingCard: {
+      marginHorizontal: 24,
+      marginBottom: 10,
+      borderRadius: 14,
+      overflow: "hidden",
+    },
+    ratingGlass: {
+      borderWidth: 1,
+      padding: 14,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    ratingIconCircle: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: "rgba(255, 215, 0, 0.15)",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+    },
+    ratingContent: { flex: 1 },
+    ratingEventTitle: {
+      fontSize: 15,
+      fontWeight: "600",
+      marginBottom: 2,
+      letterSpacing: -0.2,
+    },
+    ratingEventDate: { fontSize: 13 },
     quickActionsGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -479,8 +616,6 @@ function createStyles(colors) {
     },
     badgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
     quickActionText: { fontSize: 14, fontWeight: "600", letterSpacing: -0.1 },
-
-    // Admin Dashboard Card
     adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: "hidden" },
     adminGlass: {
       borderWidth: 1,
@@ -511,8 +646,6 @@ function createStyles(colors) {
       letterSpacing: -0.3,
     },
     adminSubtitle: { fontSize: 13, lineHeight: 18 },
-
-    // Categories
     categoriesScroll: { paddingHorizontal: 24, gap: 12 },
     categoryCard: { width: 100, borderRadius: 16, overflow: "hidden" },
     categoryGlass: { borderWidth: 1, padding: 16, alignItems: "center" },

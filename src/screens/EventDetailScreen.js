@@ -27,6 +27,7 @@ import { createNotification } from "../utils/notificationService";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
 import EventImageGallery from "../components/EventImageGallery";
+import EventRatings from "../components/EventRatings";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useFocusEffect } from "@react-navigation/native";
 import {
@@ -38,6 +39,7 @@ import {
   MapPin,
   Users,
   ChevronRight,
+  Star,
 } from "lucide-react-native";
 
 export default function EventDetailScreen({ route, navigation }) {
@@ -50,8 +52,6 @@ export default function EventDetailScreen({ route, navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [attendeesData, setAttendeesData] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
-
-  // Recurrence state
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceGroupId, setRecurrenceGroupId] = useState(null);
   const [futureEventsCount, setFutureEventsCount] = useState(0);
@@ -69,90 +69,63 @@ export default function EventDetailScreen({ route, navigation }) {
     return 0;
   };
 
-  // Load current user only once on mount
   useEffect(() => {
     loadCurrentUser();
   }, []);
 
-  // Reload event data every time screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log("📱 EventDetailScreen focused - reloading event data...");
       loadEvent();
     }, [eventId])
   );
 
-  // Detect shouldReload flag
   useEffect(() => {
     if (route.params?.shouldReload) {
-      console.log("🔄 shouldReload flag detected - reloading event...");
       loadEvent();
       navigation.setParams({ shouldReload: false });
     }
   }, [route.params?.shouldReload]);
 
-  // Real-time listener
   useEffect(() => {
     if (!eventId) return;
-
-    console.log("🔄 Setting up real-time listener for event:", eventId);
     const eventRef = doc(db, "events", eventId);
-
     const unsubscribe = onSnapshot(eventRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        console.log("🔄 Event data updated in real-time");
-
         let eventDate = null;
         if (data.date) {
-          if (data.date.toDate) {
-            eventDate = data.date.toDate();
-          } else if (typeof data.date === "string") {
+          if (data.date.toDate) eventDate = data.date.toDate();
+          else if (typeof data.date === "string")
             eventDate = new Date(data.date);
-          } else if (data.date instanceof Date) {
-            eventDate = data.date;
-          }
+          else if (data.date instanceof Date) eventDate = data.date;
         }
-
         let createdAtDate = null;
         if (data.createdAt) {
-          if (data.createdAt.toDate) {
-            createdAtDate = data.createdAt.toDate();
-          } else if (typeof data.createdAt === "string") {
+          if (data.createdAt.toDate) createdAtDate = data.createdAt.toDate();
+          else if (typeof data.createdAt === "string")
             createdAtDate = new Date(data.createdAt);
-          } else if (data.createdAt instanceof Date) {
+          else if (data.createdAt instanceof Date)
             createdAtDate = data.createdAt;
-          }
         }
-
         const updatedEvent = {
           id: snapshot.id,
           ...data,
           date: eventDate,
           createdAt: createdAtDate,
         };
-
         setEvent(updatedEvent);
         setIsJoined(data.attendees?.includes(auth.currentUser.uid));
-
-        if (data.attendees && data.attendees.length > 0) {
+        if (data.attendees && data.attendees.length > 0)
           loadAttendeesData(data.attendees);
-        }
       }
     });
-
-    return () => {
-      console.log("🧹 Cleaning up real-time listener");
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [eventId]);
 
   const loadCurrentUser = async () => {
     try {
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setCurrentUser(userDoc.data());
-      }
+      if (userDoc.exists()) setCurrentUser(userDoc.data());
     } catch (error) {
       console.error("Error loading current user:", error);
     }
@@ -165,37 +138,30 @@ export default function EventDetailScreen({ route, navigation }) {
         const eventData = { id: eventDoc.id, ...eventDoc.data() };
         setEvent(eventData);
         setIsJoined(eventData.attendees?.includes(auth.currentUser.uid));
-
         if (eventData.isRecurring && eventData.recurrenceGroupId) {
           setIsRecurring(true);
           setRecurrenceGroupId(eventData.recurrenceGroupId);
-
           const futureQuery = query(
             collection(db, "events"),
             where("recurrenceGroupId", "==", eventData.recurrenceGroupId),
             where("status", "==", "active")
           );
           const futureSnapshot = await getDocs(futureQuery);
-
           const thisEventDate = new Date(eventData.date);
           thisEventDate.setHours(0, 0, 0, 0);
           const thisEventTimestamp = thisEventDate.getTime();
-
           const futureEvents = futureSnapshot.docs.filter((d) => {
             const eData = d.data();
             const eventDateObj = new Date(eData.date);
             eventDateObj.setHours(0, 0, 0, 0);
-            const eventTimestamp = eventDateObj.getTime();
-            return eventTimestamp >= thisEventTimestamp;
+            return eventDateObj.getTime() >= thisEventTimestamp;
           });
-
           setFutureEventsCount(futureEvents.length);
         } else {
           setIsRecurring(false);
           setRecurrenceGroupId(null);
           setFutureEventsCount(0);
         }
-
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         const userData = userDoc.data();
         if (
@@ -205,7 +171,6 @@ export default function EventDetailScreen({ route, navigation }) {
           await loadAttendeesData(eventData.attendees || []);
         }
       } else {
-        console.log("❌ Event not found:", eventId);
         setEvent(null);
       }
     } catch (error) {
@@ -221,9 +186,7 @@ export default function EventDetailScreen({ route, navigation }) {
       const validIds = (attendeeIds || []).filter(
         (id) => typeof id === "string" && id.trim().length > 0
       );
-
       if (validIds.length === 0) return;
-
       const attendeesPromises = validIds.map(async (userId) => {
         try {
           const userDoc = await getDoc(doc(db, "users", userId));
@@ -232,7 +195,6 @@ export default function EventDetailScreen({ route, navigation }) {
           return null;
         }
       });
-
       const attendees = await Promise.all(attendeesPromises);
       setAttendeesData(attendees.filter((a) => a !== null));
     } catch (error) {
@@ -242,13 +204,11 @@ export default function EventDetailScreen({ route, navigation }) {
 
   const handleJoinLeave = async () => {
     if (!event) return;
-
     if (isJoined) {
       if (event.price && event.price > 0) {
         handleCancelAttendance();
         return;
       }
-
       setJoining(true);
       try {
         const eventRef = doc(db, "events", eventId);
@@ -259,22 +219,18 @@ export default function EventDetailScreen({ route, navigation }) {
         Alert.alert("Left Event", "You have left this event");
         await loadEvent();
       } catch (error) {
-        console.error("Error leaving event:", error);
         Alert.alert("Error", "Could not leave event");
       } finally {
         setJoining(false);
       }
       return;
     }
-
     const maxCapacity = event.maxAttendees || event.maxPeople || 0;
     const currentCount = event.attendees?.length || 0;
-
     if (currentCount >= maxCapacity) {
       Alert.alert("Event Full", "This event has reached maximum capacity");
       return;
     }
-
     if (event.price && event.price > 0) {
       const amountInCentavos = pesosTocentavos(event.price);
       navigation.navigate("Checkout", {
@@ -284,7 +240,6 @@ export default function EventDetailScreen({ route, navigation }) {
       });
       return;
     }
-
     setJoining(true);
     try {
       const eventRef = doc(db, "events", eventId);
@@ -292,11 +247,9 @@ export default function EventDetailScreen({ route, navigation }) {
         attendees: arrayUnion(auth.currentUser.uid),
       });
       setIsJoined(true);
-
       if (event.creatorId && event.creatorId !== auth.currentUser.uid) {
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         const userName = userDoc.data()?.fullName || "Someone";
-
         await createNotification(event.creatorId, {
           type: "event_joined",
           title: "New attendee!",
@@ -305,11 +258,9 @@ export default function EventDetailScreen({ route, navigation }) {
           metadata: { eventId: event.id, eventTitle: event.title },
         });
       }
-
       Alert.alert("Joined!", "You have joined this event");
       await loadEvent();
     } catch (error) {
-      console.error("Error joining event:", error);
       Alert.alert("Error", "Could not join event");
     } finally {
       setJoining(false);
@@ -320,7 +271,7 @@ export default function EventDetailScreen({ route, navigation }) {
     if (isRecurring && futureEventsCount > 1) {
       Alert.alert(
         "Delete Recurring Event",
-        "Do you want to delete only this event or this and all following events in this series?",
+        "Do you want to delete only this event or this and all following events?",
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -343,31 +294,24 @@ export default function EventDetailScreen({ route, navigation }) {
   const cancelAllFutureEvents = async () => {
     try {
       setLoading(true);
-
       const futureQuery = query(
         collection(db, "events"),
         where("recurrenceGroupId", "==", recurrenceGroupId),
         where("status", "==", "active")
       );
       const futureSnapshot = await getDocs(futureQuery);
-
       const thisEventDate = new Date(event.date);
       thisEventDate.setHours(0, 0, 0, 0);
       const thisEventTimestamp = thisEventDate.getTime();
-
       const functions = getFunctions();
       const hostCancel = httpsCallable(functions, "hostCancelEvent");
-
       let cancelledCount = 0;
       let totalRefunds = 0;
-
       for (const docSnap of futureSnapshot.docs) {
         const eventData = docSnap.data();
         const eventDateObj = new Date(eventData.date);
         eventDateObj.setHours(0, 0, 0, 0);
-        const eventTimestamp = eventDateObj.getTime();
-
-        if (eventTimestamp >= thisEventTimestamp) {
+        if (eventDateObj.getTime() >= thisEventTimestamp) {
           if (
             eventData.price &&
             eventData.price > 0 &&
@@ -378,15 +322,9 @@ export default function EventDetailScreen({ route, navigation }) {
                 eventId: docSnap.id,
                 reason: "Recurring series cancelled by host",
               });
-              if (result.data.success) {
+              if (result.data.success)
                 totalRefunds += result.data.refundsProcessed || 0;
-              }
-            } catch (refundError) {
-              console.error(
-                `Error refunding event ${docSnap.id}:`,
-                refundError
-              );
-            }
+            } catch (e) {}
           } else {
             await updateDoc(docSnap.ref, {
               status: "cancelled",
@@ -397,45 +335,36 @@ export default function EventDetailScreen({ route, navigation }) {
           cancelledCount++;
         }
       }
-
       setLoading(false);
-
-      let message = `${cancelledCount} events cancelled successfully.`;
-      if (totalRefunds > 0) {
-        message += ` ${totalRefunds} refunds processed.`;
-      }
-
-      Alert.alert("Events Cancelled", message, [
-        { text: "OK", onPress: () => navigation.navigate("Home") },
-      ]);
+      Alert.alert(
+        "Events Cancelled",
+        `${cancelledCount} events cancelled.${
+          totalRefunds > 0 ? ` ${totalRefunds} refunds processed.` : ""
+        }`,
+        [{ text: "OK", onPress: () => navigation.navigate("Home") }]
+      );
     } catch (error) {
-      console.error("Error cancelling future events:", error);
       setLoading(false);
-      Alert.alert("Error", "Failed to cancel events. Please try again.");
+      Alert.alert("Error", "Failed to cancel events.");
     }
   };
 
   const handleCancelAttendance = async () => {
     if (!event || !isJoined) return;
-
     const daysUntil = calculateDaysUntilEvent(event.date);
     const refundPercentage = getRefundPercentage(daysUntil);
-
     let refundText = "";
     if (event.price && event.price > 0) {
-      if (refundPercentage === 100) {
+      if (refundPercentage === 100)
         refundText = `You will receive a 100% refund ($${event.price} MXN)`;
-      } else if (refundPercentage === 50) {
+      else if (refundPercentage === 50)
         refundText = `You will receive a 50% refund ($${
           event.price * 0.5
         } MXN)`;
-      } else {
-        refundText = "No refund available (less than 3 days until event)";
-      }
+      else refundText = "No refund available (less than 3 days until event)";
     } else {
       refundText = "You will be removed from this free event";
     }
-
     Alert.alert(
       "Cancel Your Attendance?",
       `${refundText}\n\nAre you sure you want to cancel?`,
@@ -453,7 +382,6 @@ export default function EventDetailScreen({ route, navigation }) {
                 "cancelEventAttendance"
               );
               const result = await cancelAttendance({ eventId: event.id });
-
               if (result.data.success) {
                 setIsJoined(false);
                 Alert.alert(
@@ -468,11 +396,7 @@ export default function EventDetailScreen({ route, navigation }) {
                 );
               }
             } catch (error) {
-              console.error("❌ Error cancelling attendance:", error);
-              Alert.alert(
-                "Error",
-                "Failed to cancel attendance. Please try again."
-              );
+              Alert.alert("Error", "Failed to cancel attendance.");
             } finally {
               setJoining(false);
             }
@@ -486,7 +410,6 @@ export default function EventDetailScreen({ route, navigation }) {
     try {
       setShowCancelModal(false);
       setLoading(true);
-
       if (
         event.price &&
         event.price > 0 &&
@@ -498,7 +421,6 @@ export default function EventDetailScreen({ route, navigation }) {
           eventId: event.id,
           reason: cancellationReason,
         });
-
         if (result.data.success) {
           Alert.alert(
             "Event Cancelled",
@@ -508,29 +430,24 @@ export default function EventDetailScreen({ route, navigation }) {
         } else {
           throw new Error(result.data.message || "Failed to cancel event");
         }
-
         setLoading(false);
         return;
       }
-
       const eventRef = doc(db, "events", eventId);
       await updateDoc(eventRef, {
         status: "cancelled",
         cancelledAt: new Date().toISOString(),
-        cancellationReason: cancellationReason,
+        cancellationReason,
       });
-
       const allParticipants = [
         ...(event.participants || []),
         ...(event.attendees || []),
       ];
       const uniqueParticipants = [...new Set(allParticipants)];
-
       const reason =
         cancellationReason !== "No reason provided"
           ? `Reason: ${cancellationReason}`
           : "No reason provided.";
-
       for (const participantId of uniqueParticipants) {
         if (participantId !== auth.currentUser.uid) {
           try {
@@ -545,18 +462,14 @@ export default function EventDetailScreen({ route, navigation }) {
                 reason: cancellationReason,
               },
             });
-          } catch (notifError) {
-            console.error("Failed to send notification:", notifError);
-          }
+          } catch (e) {}
         }
       }
-
       setLoading(false);
       navigation.navigate("Home");
     } catch (error) {
-      console.error("Error cancelling event:", error);
       setLoading(false);
-      Alert.alert("Error", "Failed to cancel event. Please try again.");
+      Alert.alert("Error", "Failed to cancel event.");
     }
   };
 
@@ -612,14 +525,12 @@ export default function EventDetailScreen({ route, navigation }) {
   const isCreator = event.creatorId === auth.currentUser.uid;
   const isAdmin = currentUser?.role === "admin";
   const canSeeAttendees = isCreator || isAdmin;
-
   const maxCapacity = event.maxAttendees || event.maxPeople || 0;
   const currentAttendees =
     event.attendees?.length || event.participants?.length || 0;
   const spotsLeft = maxCapacity - currentAttendees;
   const isFull = spotsLeft <= 0;
 
-  // Safe getters for event properties
   const eventTitle = event.title || "Untitled Event";
   const eventCategory = event.category || "";
   const eventLocation = event.location || "Location TBD";
@@ -627,6 +538,8 @@ export default function EventDetailScreen({ route, navigation }) {
   const eventPrice = typeof event.price === "number" ? event.price : 0;
   const eventStatus = event.status || "active";
   const eventImages = Array.isArray(event.images) ? event.images : [];
+  const eventDate = event.date ? new Date(event.date) : null;
+  const isPastEvent = eventDate ? eventDate < new Date() : false;
 
   const getButtonText = () => {
     if (joining) return "Loading...";
@@ -639,8 +552,6 @@ export default function EventDetailScreen({ route, navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
-
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <View
@@ -661,7 +572,7 @@ export default function EventDetailScreen({ route, navigation }) {
               onPress={() =>
                 navigation.navigate("EventChat", {
                   eventId: event.id,
-                  eventTitle: eventTitle,
+                  eventTitle,
                 })
               }
             >
@@ -718,10 +629,8 @@ export default function EventDetailScreen({ route, navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Image Gallery */}
         {eventImages.length > 0 && <EventImageGallery images={eventImages} />}
 
-        {/* Hero Section */}
         <View style={styles.heroSection}>
           <View style={styles.categoryRow}>
             {eventCategory !== "" && (
@@ -772,8 +681,25 @@ export default function EventDetailScreen({ route, navigation }) {
                 </Text>
               </View>
             )}
+            {event.averageRating > 0 && (
+              <View
+                style={[
+                  styles.ratingBadge,
+                  { backgroundColor: "rgba(255, 215, 0, 0.15)" },
+                ]}
+              >
+                <Star
+                  size={12}
+                  color="#FFD700"
+                  fill="#FFD700"
+                  strokeWidth={1.5}
+                />
+                <Text style={styles.ratingBadgeText}>
+                  {event.averageRating.toFixed(1)}
+                </Text>
+              </View>
+            )}
           </View>
-
           <Text style={[styles.title, { color: colors.text }]}>
             {eventTitle}
           </Text>
@@ -794,7 +720,6 @@ export default function EventDetailScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* Info Cards */}
         <View style={styles.infoSection}>
           <View style={styles.infoCard}>
             <View
@@ -823,8 +748,8 @@ export default function EventDetailScreen({ route, navigation }) {
                 <Text style={[styles.infoValue, { color: colors.text }]}>
                   {event.date
                     ? (() => {
-                        const eventDate = new Date(event.date);
-                        const dateStr = eventDate.toLocaleDateString("en-US", {
+                        const d = new Date(event.date);
+                        const dateStr = d.toLocaleDateString("en-US", {
                           weekday: "short",
                           year: "numeric",
                           month: "short",
@@ -832,7 +757,7 @@ export default function EventDetailScreen({ route, navigation }) {
                         });
                         const timeStr =
                           event.time ||
-                          eventDate.toLocaleTimeString("en-US", {
+                          d.toLocaleTimeString("en-US", {
                             hour: "numeric",
                             minute: "2-digit",
                             hour12: true,
@@ -844,7 +769,6 @@ export default function EventDetailScreen({ route, navigation }) {
               </View>
             </View>
           </View>
-
           <View style={styles.infoCard}>
             <View
               style={[
@@ -875,7 +799,6 @@ export default function EventDetailScreen({ route, navigation }) {
               </View>
             </View>
           </View>
-
           <View style={styles.infoCard}>
             <View
               style={[
@@ -900,17 +823,16 @@ export default function EventDetailScreen({ route, navigation }) {
                 >
                   Attendees
                 </Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {`${currentAttendees}/${maxCapacity}${
-                    isFull ? " (Full)" : ` (${spotsLeft} spots left)`
-                  }`}
-                </Text>
+                <Text
+                  style={[styles.infoValue, { color: colors.text }]}
+                >{`${currentAttendees}/${maxCapacity}${
+                  isFull ? " (Full)" : ` (${spotsLeft} spots left)`
+                }`}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Group Chat Button */}
         {(isJoined || isCreator) && (
           <View style={styles.chatSection}>
             <TouchableOpacity
@@ -918,7 +840,7 @@ export default function EventDetailScreen({ route, navigation }) {
               onPress={() =>
                 navigation.navigate("EventChat", {
                   eventId: event.id,
-                  eventTitle: eventTitle,
+                  eventTitle,
                 })
               }
               activeOpacity={0.8}
@@ -967,7 +889,6 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Description */}
         <View style={styles.descriptionSection}>
           <View
             style={[
@@ -989,7 +910,11 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Cancellation Policy */}
+        {/* Event Ratings - Only visible to host for past events */}
+        {isPastEvent && isCreator && (
+          <EventRatings eventId={eventId} isHost={isCreator} />
+        )}
+
         {eventPrice > 0 && (
           <View style={styles.policySection}>
             <View
@@ -1054,7 +979,6 @@ export default function EventDetailScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Attendees List */}
         {canSeeAttendees && attendeesData.length > 0 && (
           <View style={styles.attendeesSection}>
             <View
@@ -1066,9 +990,9 @@ export default function EventDetailScreen({ route, navigation }) {
                 },
               ]}
             >
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                {`Attendees (${attendeesData.length})`}
-              </Text>
+              <Text
+                style={[styles.sectionTitle, { color: colors.text }]}
+              >{`Attendees (${attendeesData.length})`}</Text>
               {attendeesData.map((attendee, index) => (
                 <View key={index} style={styles.attendeeRow}>
                   <View
@@ -1094,8 +1018,7 @@ export default function EventDetailScreen({ route, navigation }) {
         )}
       </ScrollView>
 
-      {/* Bottom Action */}
-      {!isCreator && eventStatus !== "cancelled" && (
+      {!isCreator && eventStatus !== "cancelled" && !isPastEvent && (
         <View style={styles.bottomAction}>
           <View
             style={[
@@ -1154,7 +1077,6 @@ export default function EventDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Cancel Event Modal */}
       <CancelEventModal
         visible={showCancelModal}
         onClose={() => setShowCancelModal(false)}
@@ -1257,6 +1179,17 @@ function createStyles(colors) {
       borderRadius: 10,
     },
     recurringBadgeText: { fontSize: 12, fontWeight: "600" },
+    ratingBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      gap: 4,
+      borderWidth: 1,
+      borderColor: "rgba(255, 215, 0, 0.3)",
+    },
+    ratingBadgeText: { fontSize: 12, fontWeight: "700", color: "#FFD700" },
     title: {
       fontSize: 28,
       fontWeight: "700",

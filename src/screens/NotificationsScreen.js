@@ -222,6 +222,15 @@ export default function NotificationsScreen({ navigation }) {
         }
         break;
 
+      case "event_rating":
+        // Navigate directly to the event that received the rating
+        if (notification.metadata?.eventId) {
+          navigation.navigate("EventDetail", {
+            eventId: notification.metadata.eventId,
+          });
+        }
+        break;
+
       case "host_approved":
       case "host_rejected":
         navigation.navigate("Profile");

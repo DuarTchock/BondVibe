@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  Modal,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -15,57 +14,7 @@ import { StatusBar } from "expo-status-bar";
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
-
-const EMOJI_AVATARS = [
-  "😊",
-  "🎉",
-  "🌟",
-  "🎨",
-  "🎭",
-  "🎪",
-  "🎬",
-  "🎮",
-  "🎯",
-  "🎲",
-  "🎸",
-  "🎹",
-  "🎺",
-  "🎻",
-  "🎤",
-  "🎧",
-  "🌈",
-  "🌸",
-  "🌺",
-  "🌻",
-  "🌼",
-  "🌷",
-  "🍕",
-  "🍔",
-  "🍰",
-  "🎂",
-  "🍦",
-  "🍩",
-  "☕",
-  "🍵",
-  "🌮",
-  "🌯",
-  "🦄",
-  "🐶",
-  "🐱",
-  "🐼",
-  "🦊",
-  "🦁",
-  "🐯",
-  "🐨",
-  "🚀",
-  "✨",
-  "🔥",
-  "💫",
-  "⭐",
-  "🌙",
-  "☀️",
-  "🌊",
-];
+import AvatarPicker, { AvatarDisplay } from "../components/AvatarPicker";
 
 export default function ProfileSetupScreen() {
   const { colors, isDark } = useTheme();
@@ -75,10 +24,14 @@ export default function ProfileSetupScreen() {
   const [form, setForm] = useState({
     fullName: "",
     bio: "",
-    avatar: "😊",
+    avatar: { type: "emoji", value: "😊" },
     age: "",
     location: "",
   });
+
+  const handleAvatarChange = (newAvatar) => {
+    setForm({ ...form, avatar: newAvatar });
+  };
 
   const handleSave = async () => {
     // Validate required fields
@@ -114,6 +67,7 @@ export default function ProfileSetupScreen() {
         age: ageNum,
         location: form.location.trim(),
         profileCompleted: true,
+        profileCompletedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
@@ -137,82 +91,13 @@ export default function ProfileSetupScreen() {
     >
       <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* Avatar Picker Modal */}
-      <Modal
+      {/* New Avatar Picker */}
+      <AvatarPicker
         visible={showAvatarPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowAvatarPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.avatarPickerModal}>
-            <View
-              style={[
-                styles.avatarPickerGlass,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(17, 24, 39, 0.95)"
-                    : "rgba(255, 255, 255, 0.95)",
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text style={[styles.avatarPickerTitle, { color: colors.text }]}>
-                Choose Your Avatar
-              </Text>
-              <ScrollView contentContainerStyle={styles.avatarGrid}>
-                {EMOJI_AVATARS.map((emoji) => (
-                  <TouchableOpacity
-                    key={emoji}
-                    style={[
-                      styles.avatarOption,
-                      {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor:
-                          form.avatar === emoji
-                            ? `${colors.primary}99`
-                            : colors.border,
-                      },
-                      form.avatar === emoji && {
-                        backgroundColor: `${colors.primary}26`,
-                      },
-                    ]}
-                    onPress={() => {
-                      setForm({ ...form, avatar: emoji });
-                      setShowAvatarPicker(false);
-                    }}
-                  >
-                    <Text style={styles.avatarOptionEmoji}>{emoji}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity
-                style={styles.avatarPickerClose}
-                onPress={() => setShowAvatarPicker(false)}
-              >
-                <View
-                  style={[
-                    styles.avatarPickerCloseGlass,
-                    {
-                      backgroundColor: `${colors.primary}33`,
-                      borderColor: `${colors.primary}66`,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.avatarPickerCloseText,
-                      { color: colors.primary },
-                    ]}
-                  >
-                    Close
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowAvatarPicker(false)}
+        currentAvatar={form.avatar}
+        onAvatarChange={handleAvatarChange}
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -244,7 +129,7 @@ export default function ProfileSetupScreen() {
               },
             ]}
           >
-            <Text style={styles.avatarEmoji}>{form.avatar}</Text>
+            <AvatarDisplay avatar={form.avatar} size={80} />
           </View>
           <Text style={[styles.avatarText, { color: colors.primary }]}>
             Tap to change avatar
@@ -459,9 +344,7 @@ function createStyles(colors) {
       justifyContent: "center",
       alignItems: "center",
       marginBottom: 12,
-    },
-    avatarEmoji: {
-      fontSize: 50,
+      overflow: "hidden",
     },
     avatarText: {
       fontSize: 14,
@@ -550,64 +433,6 @@ function createStyles(colors) {
     requiredNote: {
       fontSize: 12,
       textAlign: "center",
-    },
-
-    // Modal
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.7)",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: 24,
-    },
-    avatarPickerModal: {
-      width: "100%",
-      maxWidth: 500,
-      maxHeight: "80%",
-      borderRadius: 20,
-      overflow: "hidden",
-    },
-    avatarPickerGlass: {
-      borderWidth: 1,
-      padding: 24,
-    },
-    avatarPickerTitle: {
-      fontSize: 20,
-      fontWeight: "700",
-      textAlign: "center",
-      marginBottom: 20,
-      letterSpacing: -0.3,
-    },
-    avatarGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "center",
-      gap: 10,
-      marginBottom: 20,
-    },
-    avatarOption: {
-      width: 56,
-      height: 56,
-      borderRadius: 12,
-      borderWidth: 2,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    avatarOptionEmoji: {
-      fontSize: 28,
-    },
-    avatarPickerClose: {
-      borderRadius: 12,
-      overflow: "hidden",
-    },
-    avatarPickerCloseGlass: {
-      borderWidth: 1,
-      paddingVertical: 14,
-      alignItems: "center",
-    },
-    avatarPickerCloseText: {
-      fontSize: 16,
-      fontWeight: "600",
     },
   });
 }

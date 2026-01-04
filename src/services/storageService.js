@@ -88,19 +88,62 @@ export const uploadEventImages = async (eventId, imageUris) => {
 };
 
 /**
- * Delete a single image from Firebase Storage
- * @param {string} eventId - Event ID
- * @param {number} index - Image index
+ * Extract storage path from Firebase Storage URL
+ * @param {string} url - Firebase Storage download URL
+ * @returns {string|null} - Storage path or null if invalid
  */
-export const deleteEventImage = async (eventId, index) => {
+const extractPathFromUrl = (url) => {
   try {
-    const imageRef = ref(storage, `events/${eventId}/image_${index}.jpg`);
+    // Firebase Storage URLs look like:
+    // https://firebasestorage.googleapis.com/v0/b/BUCKET/o/PATH?alt=media&token=TOKEN
+    // The path is URL-encoded after /o/
+
+    const match = url.match(/\/o\/([^?]+)/);
+    if (match && match[1]) {
+      // Decode the URL-encoded path
+      return decodeURIComponent(match[1]);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error extracting path from URL:", error);
+    return null;
+  }
+};
+
+/**
+ * Delete a single image from Firebase Storage
+ * Can accept either (eventId, index) or just (url)
+ * @param {string} eventIdOrUrl - Event ID or full Firebase Storage URL
+ * @param {number} [index] - Image index (only if first param is eventId)
+ */
+export const deleteEventImage = async (eventIdOrUrl, index) => {
+  try {
+    let imageRef;
+
+    // Check if first argument is a URL
+    if (eventIdOrUrl.startsWith("http")) {
+      // Extract path from URL
+      const path = extractPathFromUrl(eventIdOrUrl);
+      if (!path) {
+        console.warn("⚠️ Could not extract path from URL:", eventIdOrUrl);
+        return;
+      }
+      imageRef = ref(storage, path);
+      console.log(`🗑️ Deleting image at path: ${path}`);
+    } else {
+      // Legacy mode: eventId + index
+      imageRef = ref(storage, `events/${eventIdOrUrl}/image_${index}.jpg`);
+      console.log(`🗑️ Deleting image ${index} for event ${eventIdOrUrl}`);
+    }
+
     await deleteObject(imageRef);
-    console.log(`🗑️ Image ${index} deleted for event ${eventId}`);
+    console.log(`✅ Image deleted successfully`);
   } catch (error) {
     // Ignore if file doesn't exist
-    if (error.code !== "storage/object-not-found") {
-      console.error(`Error deleting image ${index}:`, error);
+    if (error.code === "storage/object-not-found") {
+      console.log("📭 Image already deleted or doesn't exist");
+    } else {
+      console.error(`❌ Error deleting image:`, error.message);
     }
   }
 };

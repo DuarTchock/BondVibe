@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -25,22 +26,45 @@ import {
   isEventPast,
 } from "../utils/eventFilters";
 import { useFocusEffect } from "@react-navigation/native";
+import { Star, MapPin } from "lucide-react-native";
+import RatingModal from "../components/RatingModal";
+import { getUserRatingForEvent } from "../services/ratingService";
 
-export default function MyEventsScreen({ navigation }) {
+export default function MyEventsScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
   const [allEvents, setAllEvents] = useState([]);
   const [displayedEvents, setDisplayedEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("joined"); // joined | hosting
-  const [timeFilter, setTimeFilter] = useState("upcoming"); // upcoming | past
+
+  // Get initial values from navigation params or use defaults
+  const initialTab = route?.params?.initialTab || "joined";
+  const initialSubTab = route?.params?.initialSubTab || "upcoming";
+
+  const [activeTab, setActiveTab] = useState(initialTab); // joined | hosting
+  const [timeFilter, setTimeFilter] = useState(initialSubTab); // upcoming | past
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Rating state
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [ratedEvents, setRatedEvents] = useState({}); // { eventId: true }
+
+  // Update tabs when navigation params change
+  useEffect(() => {
+    if (route?.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+    if (route?.params?.initialSubTab) {
+      setTimeFilter(route.params.initialSubTab);
+    }
+  }, [route?.params]);
 
   // Load current user data once on mount
   useEffect(() => {
     loadCurrentUser();
   }, []);
 
-  // ✅ Reload events every time screen comes into focus (after editing, etc.)
+  // Reload events every time screen comes into focus
   useFocusEffect(
     useCallback(() => {
       if (currentUser) {
@@ -54,6 +78,17 @@ export default function MyEventsScreen({ navigation }) {
     applyTimeFilter();
   }, [timeFilter, allEvents]);
 
+  // Check which events have been rated when viewing past joined events
+  useEffect(() => {
+    if (
+      activeTab === "joined" &&
+      timeFilter === "past" &&
+      displayedEvents.length > 0
+    ) {
+      checkRatedEvents();
+    }
+  }, [displayedEvents, activeTab, timeFilter]);
+
   const loadCurrentUser = async () => {
     try {
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
@@ -65,7 +100,18 @@ export default function MyEventsScreen({ navigation }) {
     }
   };
 
-  // ✅ Sort events by date
+  const checkRatedEvents = async () => {
+    const rated = {};
+    for (const event of displayedEvents) {
+      const existingRating = await getUserRatingForEvent(event.id);
+      if (existingRating) {
+        rated[event.id] = existingRating.rating;
+      }
+    }
+    setRatedEvents(rated);
+  };
+
+  // Sort events by date
   const sortEventsByDate = (eventsArray, ascending = true) => {
     return [...eventsArray].sort((a, b) => {
       const dateA = new Date(a.date).getTime();
@@ -132,17 +178,30 @@ export default function MyEventsScreen({ navigation }) {
   const applyTimeFilter = () => {
     if (timeFilter === "upcoming") {
       const upcoming = filterUpcomingEvents(allEvents);
-      // ✅ Sort upcoming events: soonest first (ascending)
       const sorted = sortEventsByDate(upcoming, true);
       console.log("📅 Upcoming:", sorted.length);
       setDisplayedEvents(sorted);
     } else {
       const past = filterPastEvents(allEvents);
-      // ✅ Sort past events: most recent first (descending)
       const sorted = sortEventsByDate(past, false);
       console.log("📦 Past:", sorted.length);
       setDisplayedEvents(sorted);
     }
+  };
+
+  const handleRateEvent = (event) => {
+    setSelectedEvent(event);
+    setShowRatingModal(true);
+  };
+
+  const handleRatingSuccess = (rating, comment) => {
+    Alert.alert(
+      "Thank you! ⭐",
+      "Your feedback helps hosts improve their events.",
+      [{ text: "OK" }]
+    );
+    // Update local state to show the rating
+    setRatedEvents((prev) => ({ ...prev, [selectedEvent.id]: rating }));
   };
 
   const canHost = currentUser?.role === "host" || currentUser?.role === "admin";
@@ -151,6 +210,8 @@ export default function MyEventsScreen({ navigation }) {
 
   const EventCard = ({ event }) => {
     const isPast = isEventPast(event.date);
+    const showRateButton = activeTab === "joined" && isPast;
+    const existingRating = ratedEvents[event.id];
 
     return (
       <TouchableOpacity
@@ -183,7 +244,7 @@ export default function MyEventsScreen({ navigation }) {
                 ]}
               >
                 <Text style={[styles.categoryText, { color: colors.primary }]}>
-                  {event.category}
+                  {event.category || "Event"}
                 </Text>
               </View>
               {event.isRecurring && (
@@ -211,16 +272,16 @@ export default function MyEventsScreen({ navigation }) {
             style={[styles.eventTitle, { color: colors.text }]}
             numberOfLines={2}
           >
-            {event.title}
+            {event.title || "Untitled Event"}
           </Text>
 
           <View style={styles.eventMeta}>
-            <Text style={styles.metaIcon}>📍</Text>
+            <MapPin size={14} color={colors.textSecondary} strokeWidth={2} />
             <Text
               style={[styles.metaText, { color: colors.textSecondary }]}
               numberOfLines={1}
             >
-              {event.location}
+              {event.location || "Location TBD"}
             </Text>
           </View>
 
@@ -242,13 +303,71 @@ export default function MyEventsScreen({ navigation }) {
                   <Text style={styles.priceBadgeText}>${event.price}</Text>
                 </View>
               )}
-              {isPast && (
+              {isPast && !showRateButton && (
                 <View style={styles.endedBadge}>
                   <Text style={styles.endedBadgeText}>Ended</Text>
                 </View>
               )}
             </View>
           </View>
+
+          {/* Rate Button for past joined events */}
+          {showRateButton && (
+            <View style={styles.rateSection}>
+              {existingRating ? (
+                <View style={styles.ratedContainer}>
+                  <View style={styles.ratedStars}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        size={16}
+                        color={
+                          star <= existingRating
+                            ? "#FFD700"
+                            : `${colors.text}30`
+                        }
+                        fill={
+                          star <= existingRating ? "#FFD700" : "transparent"
+                        }
+                        strokeWidth={1.5}
+                      />
+                    ))}
+                  </View>
+                  <Text
+                    style={[styles.ratedText, { color: colors.textSecondary }]}
+                  >
+                    You rated this event
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.rateButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleRateEvent(event);
+                  }}
+                >
+                  <View
+                    style={[
+                      styles.rateButtonGlass,
+                      {
+                        backgroundColor: "rgba(255, 215, 0, 0.15)",
+                        borderColor: "rgba(255, 215, 0, 0.3)",
+                      },
+                    ]}
+                  >
+                    <Star
+                      size={16}
+                      color="#FFD700"
+                      fill="#FFD700"
+                      strokeWidth={1.5}
+                    />
+                    <Text style={styles.rateButtonText}>Rate this event</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -491,6 +610,17 @@ export default function MyEventsScreen({ navigation }) {
           ))}
         </ScrollView>
       )}
+
+      {/* Rating Modal */}
+      <RatingModal
+        visible={showRatingModal}
+        onClose={() => {
+          setShowRatingModal(false);
+          setSelectedEvent(null);
+        }}
+        onSuccess={handleRatingSuccess}
+        event={selectedEvent}
+      />
     </View>
   );
 }
@@ -570,8 +700,12 @@ function createStyles(colors) {
       marginBottom: 10,
       letterSpacing: -0.3,
     },
-    eventMeta: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-    metaIcon: { fontSize: 14, marginRight: 6 },
+    eventMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 12,
+      gap: 6,
+    },
     metaText: { fontSize: 13, flex: 1 },
     attendeesRow: {
       flexDirection: "row",
@@ -607,6 +741,46 @@ function createStyles(colors) {
       borderColor: "rgba(255, 159, 10, 0.3)",
     },
     endedBadgeText: { fontSize: 11, fontWeight: "600", color: "#FF9F0A" },
+
+    // Rating section styles
+    rateSection: {
+      marginTop: 14,
+      paddingTop: 14,
+      borderTopWidth: 1,
+      borderTopColor: "rgba(255, 255, 255, 0.08)",
+    },
+    rateButton: {
+      borderRadius: 10,
+      overflow: "hidden",
+    },
+    rateButtonGlass: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderWidth: 1,
+      gap: 8,
+    },
+    rateButtonText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#FFD700",
+    },
+    ratedContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    ratedStars: {
+      flexDirection: "row",
+      gap: 2,
+    },
+    ratedText: {
+      fontSize: 12,
+      fontStyle: "italic",
+    },
+
     emptyState: {
       flex: 1,
       justifyContent: "center",
