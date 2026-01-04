@@ -26,6 +26,7 @@ import GradientBackground from "../components/GradientBackground";
 import { useAuthContext } from "../contexts/AuthContext";
 import SuccessModal from "../components/SuccessModal";
 import BondVibeLogo from "../components/BondVibeLogo";
+import { Eye, EyeOff } from "lucide-react-native";
 
 export default function SignupScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -35,6 +36,20 @@ export default function SignupScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  
+  // Validate password strength
+  const validatePassword = (pwd) => {
+    const errors = [];
+    if (pwd.length < 8) errors.push("at least 8 characters");
+    if (!/[A-Z]/.test(pwd)) errors.push("one uppercase letter");
+    if (!/[a-z]/.test(pwd)) errors.push("one lowercase letter");
+    if (!/[0-9]/.test(pwd)) errors.push("one number");
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) errors.push("one special character");
+    return errors;
+  };
 
   const handleSignup = async () => {
     console.log("📝 Starting signup process...");
@@ -49,8 +64,12 @@ export default function SignupScreen({ navigation }) {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+    const passwordErrors = validatePassword(password);
+    if (passwordErrors.length > 0) {
+      Alert.alert(
+        "Weak Password",
+        "Password must have: " + passwordErrors.join(", ")
+      );
       return;
     }
 
@@ -210,13 +229,68 @@ export default function SignupScreen({ navigation }) {
                 <Text style={styles.inputIcon}>🔒</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text }]}
-                  placeholder="Password (min 6 characters)"
+                  placeholder="Create a password"
                   placeholderTextColor={colors.textTertiary}
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                   returnKeyType="next"
                 />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={colors.textTertiary} />
+                  ) : (
+                    <Eye size={20} color={colors.textTertiary} />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              
+              {/* Password Requirements */}
+              <View style={styles.passwordRequirements}>
+                <View style={styles.requirementRow}>
+                  <Text style={[styles.requirementIcon, { color: password.length >= 8 ? "#34C759" : colors.textTertiary }]}>
+                    {password.length >= 8 ? "✓" : "○"}
+                  </Text>
+                  <Text style={[styles.requirementText, { color: password.length >= 8 ? "#34C759" : colors.textTertiary }]}>
+                    At least 8 characters
+                  </Text>
+                </View>
+                <View style={styles.requirementRow}>
+                  <Text style={[styles.requirementIcon, { color: /[A-Z]/.test(password) ? "#34C759" : colors.textTertiary }]}>
+                    {/[A-Z]/.test(password) ? "✓" : "○"}
+                  </Text>
+                  <Text style={[styles.requirementText, { color: /[A-Z]/.test(password) ? "#34C759" : colors.textTertiary }]}>
+                    One uppercase letter
+                  </Text>
+                </View>
+                <View style={styles.requirementRow}>
+                  <Text style={[styles.requirementIcon, { color: /[a-z]/.test(password) ? "#34C759" : colors.textTertiary }]}>
+                    {/[a-z]/.test(password) ? "✓" : "○"}
+                  </Text>
+                  <Text style={[styles.requirementText, { color: /[a-z]/.test(password) ? "#34C759" : colors.textTertiary }]}>
+                    One lowercase letter
+                  </Text>
+                </View>
+                <View style={styles.requirementRow}>
+                  <Text style={[styles.requirementIcon, { color: /[0-9]/.test(password) ? "#34C759" : colors.textTertiary }]}>
+                    {/[0-9]/.test(password) ? "✓" : "○"}
+                  </Text>
+                  <Text style={[styles.requirementText, { color: /[0-9]/.test(password) ? "#34C759" : colors.textTertiary }]}>
+                    One number
+                  </Text>
+                </View>
+                <View style={styles.requirementRow}>
+                  <Text style={[styles.requirementIcon, { color: /[!@#$%^&*(),.?":{}|<>]/.test(password) ? "#34C759" : colors.textTertiary }]}>
+                    {/[!@#$%^&*(),.?":{}|<>]/.test(password) ? "✓" : "○"}
+                  </Text>
+                  <Text style={[styles.requirementText, { color: /[!@#$%^&*(),.?":{}|<>]/.test(password) ? "#34C759" : colors.textTertiary }]}>
+                    One special character (!@#$%...)
+                  </Text>
+                </View>
               </View>
 
               <View
@@ -235,10 +309,20 @@ export default function SignupScreen({ navigation }) {
                   placeholderTextColor={colors.textTertiary}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  secureTextEntry
+                  secureTextEntry={!showConfirmPassword}
                   returnKeyType="done"
                   onSubmitEditing={handleSignup}
                 />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff size={20} color={colors.textTertiary} />
+                  ) : (
+                    <Eye size={20} color={colors.textTertiary} />
+                  )}
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity
@@ -345,6 +429,7 @@ function createStyles(colors) {
       marginBottom: 16,
     },
     inputIcon: { fontSize: 20, marginRight: 12 },
+    eyeButton: { padding: 8, marginLeft: 4 },
     input: { flex: 1, fontSize: 16, paddingVertical: 16 },
     signupButton: {
       borderRadius: 16,
@@ -355,6 +440,23 @@ function createStyles(colors) {
     signupGlass: { borderWidth: 1, paddingVertical: 16, alignItems: "center" },
     loadingRow: { flexDirection: "row", alignItems: "center" },
     signupText: { fontSize: 17, fontWeight: "700", letterSpacing: -0.2 },
+    passwordRequirements: {
+      marginBottom: 16,
+      paddingHorizontal: 4,
+    },
+    requirementRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 6,
+    },
+    requirementIcon: {
+      fontSize: 12,
+      marginRight: 8,
+      width: 16,
+    },
+    requirementText: {
+      fontSize: 12,
+    },
     loginLink: { alignItems: "center", paddingVertical: 12 },
     loginLinkText: { fontSize: 15 },
   });

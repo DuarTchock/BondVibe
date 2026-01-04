@@ -14,19 +14,21 @@ import {
   Keyboard,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import SuccessModal from "../components/SuccessModal";
 import BondVibeLogo from "../components/BondVibeLogo";
+import { Eye, EyeOff } from "lucide-react-native";
 
 export default function LoginScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [errorModal, setErrorModal] = useState({
     visible: false,
     title: "",
@@ -108,9 +110,9 @@ export default function LoginScreen({ navigation }) {
       ) {
         setErrorModal({
           visible: true,
-          title: "Account Not Found",
+          title: "Login Failed",
           message:
-            "No account exists with this email or the password is incorrect. Would you like to create an account?",
+            "The email or password is incorrect. Would you like to create an account or reset your password?",
           showSignup: true,
         });
       } else if (error.code === "auth/invalid-email") {
@@ -148,6 +150,48 @@ export default function LoginScreen({ navigation }) {
     console.log("✅ Sign Up clicked - navigating");
     setErrorModal({ ...errorModal, visible: false });
     setTimeout(() => navigation.navigate("Signup"), 100);
+  };
+
+  const handleResetPassword = async () => {
+    console.log("🔑 Reset Password clicked");
+    setErrorModal({ ...errorModal, visible: false });
+    
+    if (!email.trim()) {
+      setErrorModal({
+        visible: true,
+        title: "Email Required",
+        message: "Please enter your email address first, then try again.",
+        showSignup: false,
+      });
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setErrorModal({
+        visible: true,
+        title: "Reset Email Sent",
+        message: "Check your inbox for a link to reset your password. Don't forget to check your spam folder.",
+        showSignup: false,
+      });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      if (error.code === "auth/user-not-found") {
+        setErrorModal({
+          visible: true,
+          title: "Email Not Found",
+          message: "No account exists with this email address.",
+          showSignup: false,
+        });
+      } else {
+        setErrorModal({
+          visible: true,
+          title: "Error",
+          message: "Failed to send reset email. Please try again.",
+          showSignup: false,
+        });
+      }
+    }
   };
 
   const handleSimpleModalClose = () => {
@@ -223,10 +267,20 @@ export default function LoginScreen({ navigation }) {
                   placeholderTextColor={colors.textTertiary}
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
                 />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={colors.textTertiary} />
+                  ) : (
+                    <Eye size={20} color={colors.textTertiary} />
+                  )}
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity
@@ -330,30 +384,9 @@ export default function LoginScreen({ navigation }) {
                 >
                   {errorModal.message}
                 </Text>
-                <View style={styles.modalButtons}>
+                <View style={styles.modalButtonsColumn}>
                   <TouchableOpacity
-                    style={styles.modalButton}
-                    onPress={handleCancel}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[
-                        styles.modalButtonGlass,
-                        {
-                          backgroundColor: colors.surfaceGlass,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.modalButtonText, { color: colors.text }]}
-                      >
-                        Cancel
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalButton}
+                    style={styles.modalFullButton}
                     onPress={handleSignupClick}
                     activeOpacity={0.7}
                   >
@@ -372,9 +405,41 @@ export default function LoginScreen({ navigation }) {
                           { color: colors.primary },
                         ]}
                       >
-                        Sign Up
+                        Create Account
                       </Text>
                     </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalFullButton}
+                    onPress={handleResetPassword}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.modalButtonGlass,
+                        {
+                          backgroundColor: colors.surfaceGlass,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.modalButtonText, { color: colors.text }]}
+                      >
+                        Reset Password
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalFullButton}
+                    onPress={handleCancel}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[styles.modalLinkText, { color: colors.textSecondary }]}
+                    >
+                      Cancel
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -427,6 +492,7 @@ function createStyles(colors) {
       marginBottom: 16,
     },
     inputIcon: { fontSize: 20, marginRight: 12 },
+    eyeButton: { padding: 8, marginLeft: 4 },
     input: { flex: 1, fontSize: 16, paddingVertical: 16 },
     loginButton: { borderRadius: 16, overflow: "hidden", marginBottom: 20 },
     loginGlass: { borderWidth: 1, paddingVertical: 16, alignItems: "center" },
@@ -479,6 +545,12 @@ function createStyles(colors) {
       marginBottom: 28,
     },
     modalButtons: { flexDirection: "row", gap: 12, width: "100%" },
+    modalButtonsColumn: { width: "100%", gap: 12 },
+    modalFullButton: { width: "100%" },
+    modalLinkText: { fontSize: 15, fontWeight: "500", textAlign: "center", paddingVertical: 8 },
+    forgotPassword: { alignItems: "center", marginTop: 16, marginBottom: 8 },
+    forgotPasswordText: { fontSize: 14, fontWeight: "600" },
+    orText: { textAlign: "center", fontSize: 14, marginVertical: 12 },
     modalButton: { flex: 1, borderRadius: 16, overflow: "hidden" },
     modalButtonGlass: {
       borderWidth: 1,

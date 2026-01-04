@@ -20,12 +20,11 @@ export default function ProfileSetupScreen() {
   const { colors, isDark } = useTheme();
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isOver18, setIsOver18] = useState(false);
 
   const [form, setForm] = useState({
     fullName: "",
-    bio: "",
     avatar: { type: "emoji", value: "😊" },
-    age: "",
     location: "",
   });
 
@@ -34,25 +33,18 @@ export default function ProfileSetupScreen() {
   };
 
   const handleSave = async () => {
-    // Validate required fields
     if (!form.fullName.trim()) {
       Alert.alert("Required Field", "Please enter your name to continue.");
       return;
     }
 
-    if (!form.age.trim()) {
-      Alert.alert("Required Field", "Please enter your age to continue.");
-      return;
-    }
-
-    const ageNum = parseInt(form.age);
-    if (isNaN(ageNum) || ageNum < 18 || ageNum > 99) {
-      Alert.alert("Invalid Age", "You must be 18 or older to use BondVibe.");
-      return;
-    }
-
     if (!form.location.trim()) {
       Alert.alert("Required Field", "Please enter your location to continue.");
+      return;
+    }
+
+    if (!isOver18) {
+      Alert.alert("Age Requirement", "You must be 18 or older to use BondVibe.");
       return;
     }
 
@@ -62,18 +54,15 @@ export default function ProfileSetupScreen() {
 
       await updateDoc(doc(db, "users", auth.currentUser.uid), {
         fullName: form.fullName.trim(),
-        bio: form.bio.trim(),
         avatar: form.avatar,
-        age: ageNum,
         location: form.location.trim(),
+        isOver18: true,
         profileCompleted: true,
         profileCompletedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
       console.log("✅ Profile setup completed!");
-      // AppNavigator will automatically detect profileCompleted: true
-      // and navigate to Home via the Firestore listener
     } catch (error) {
       console.error("❌ Error saving profile:", error);
       Alert.alert("Error", "Failed to save profile. Please try again.");
@@ -91,7 +80,6 @@ export default function ProfileSetupScreen() {
     >
       <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* New Avatar Picker */}
       <AvatarPicker
         visible={showAvatarPicker}
         onClose={() => setShowAvatarPicker(false)}
@@ -99,7 +87,6 @@ export default function ProfileSetupScreen() {
         onAvatarChange={handleAvatarChange}
       />
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Complete Your Profile
@@ -138,117 +125,89 @@ export default function ProfileSetupScreen() {
 
         {/* Form Fields */}
         <View style={styles.formSection}>
-          {/* Full Name - Required */}
+          {/* Full Name */}
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: colors.text }]}>
               Full Name <Text style={{ color: colors.accent }}>*</Text>
             </Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={form.fullName}
-                onChangeText={(text) => setForm({ ...form, fullName: text })}
-                placeholder="Your name"
-                placeholderTextColor={colors.textTertiary}
-                maxLength={50}
-                autoCapitalize="words"
-              />
-            </View>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              value={form.fullName}
+              onChangeText={(text) => setForm({ ...form, fullName: text })}
+              placeholder="Your name"
+              placeholderTextColor={colors.textTertiary}
+              maxLength={50}
+              autoCapitalize="words"
+            />
           </View>
 
-          {/* Age and Location Row - Required */}
-          <View style={styles.inputRow}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                Age <Text style={{ color: colors.accent }}>*</Text>
-              </Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
-                  value={form.age}
-                  onChangeText={(text) =>
-                    setForm({
-                      ...form,
-                      age: text.replace(/[^0-9]/g, ""),
-                    })
-                  }
-                  placeholder="25"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                  maxLength={2}
-                />
-              </View>
-            </View>
-
-            <View style={[styles.inputGroup, { flex: 2, marginLeft: 12 }]}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                Location <Text style={{ color: colors.accent }}>*</Text>
-              </Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
-                  value={form.location}
-                  onChangeText={(text) => setForm({ ...form, location: text })}
-                  placeholder="City, Country"
-                  placeholderTextColor={colors.textTertiary}
-                  maxLength={50}
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Bio - Optional */}
+          {/* Location */}
           <View style={styles.inputGroup}>
             <Text style={[styles.inputLabel, { color: colors.text }]}>
-              Bio{" "}
-              <Text style={{ color: colors.textTertiary, fontWeight: "400" }}>
-                (optional)
-              </Text>
+              Location <Text style={{ color: colors.accent }}>*</Text>
             </Text>
-            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-              <TextInput
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surfaceGlass,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              value={form.location}
+              onChangeText={(text) => setForm({ ...form, location: text })}
+              placeholder="City, Country"
+              placeholderTextColor={colors.textTertiary}
+              maxLength={50}
+            />
+          </View>
+
+          {/* Age Confirmation Checkbox */}
+          <TouchableOpacity
+            style={[
+              styles.ageCheckbox,
+              {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: isOver18 ? colors.primary : colors.border,
+                borderWidth: isOver18 ? 2 : 1,
+              },
+            ]}
+            onPress={() => setIsOver18(!isOver18)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.checkboxContainer}>
+              <View
                 style={[
-                  styles.input,
-                  styles.textArea,
+                  styles.checkbox,
                   {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
-                    color: colors.text,
+                    backgroundColor: isOver18 ? colors.primary : "transparent",
+                    borderColor: isOver18 ? colors.primary : colors.border,
                   },
                 ]}
-                value={form.bio}
-                onChangeText={(text) => setForm({ ...form, bio: text })}
-                placeholder="Tell us about yourself, your interests, what kind of events you enjoy..."
-                placeholderTextColor={colors.textTertiary}
-                multiline
-                maxLength={200}
-              />
+              >
+                {isOver18 && <Text style={styles.checkmark}>✓</Text>}
+              </View>
             </View>
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {form.bio.length}/200
-            </Text>
-          </View>
+            <View style={styles.checkboxTextContainer}>
+              <Text style={[styles.checkboxTitle, { color: colors.text }]}>
+                I confirm I am 18 years or older{" "}
+                <Text style={{ color: colors.accent }}>*</Text>
+              </Text>
+              <Text
+                style={[styles.checkboxSubtitle, { color: colors.textSecondary }]}
+              >
+                BondVibe is only available for adults
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Info Note */}
@@ -304,9 +263,7 @@ export default function ProfileSetupScreen() {
 
 function createStyles(colors) {
   return StyleSheet.create({
-    container: {
-      flex: 1,
-    },
+    container: { flex: 1 },
     header: {
       paddingHorizontal: 24,
       paddingTop: 70,
@@ -319,23 +276,10 @@ function createStyles(colors) {
       marginBottom: 8,
       letterSpacing: -0.5,
     },
-    headerSubtitle: {
-      fontSize: 15,
-      textAlign: "center",
-    },
-    scrollView: {
-      flex: 1,
-    },
-    scrollContent: {
-      paddingHorizontal: 24,
-      paddingBottom: 40,
-    },
-
-    // Avatar
-    avatarContainer: {
-      alignItems: "center",
-      marginBottom: 28,
-    },
+    headerSubtitle: { fontSize: 15, textAlign: "center" },
+    scrollView: { flex: 1 },
+    scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+    avatarContainer: { alignItems: "center", marginBottom: 28 },
     avatarGlass: {
       width: 100,
       height: 100,
@@ -346,28 +290,10 @@ function createStyles(colors) {
       marginBottom: 12,
       overflow: "hidden",
     },
-    avatarText: {
-      fontSize: 14,
-      fontWeight: "600",
-    },
-
-    // Form
-    formSection: {
-      gap: 20,
-      marginBottom: 24,
-    },
-    inputGroup: {
-      gap: 8,
-    },
-    inputLabel: {
-      fontSize: 14,
-      fontWeight: "600",
-      letterSpacing: -0.1,
-    },
-    inputWrapper: {
-      borderRadius: 12,
-      overflow: "hidden",
-    },
+    avatarText: { fontSize: 14, fontWeight: "600" },
+    formSection: { gap: 20, marginBottom: 24 },
+    inputGroup: { gap: 8 },
+    inputLabel: { fontSize: 14, fontWeight: "600", letterSpacing: -0.1 },
     input: {
       borderWidth: 1,
       paddingHorizontal: 16,
@@ -375,64 +301,42 @@ function createStyles(colors) {
       fontSize: 16,
       borderRadius: 12,
     },
-    textAreaWrapper: {},
-    textArea: {
-      minHeight: 100,
-      textAlignVertical: "top",
-      paddingTop: 14,
-    },
-    charCount: {
-      fontSize: 12,
-      textAlign: "right",
-      marginTop: 4,
-    },
-    inputRow: {
-      flexDirection: "row",
-    },
-
-    // Info Note
-    infoNote: {
-      marginBottom: 24,
+    ageCheckbox: {
       borderRadius: 16,
-      overflow: "hidden",
+      padding: 16,
+      flexDirection: "row",
+      alignItems: "flex-start",
     },
+    checkboxContainer: { marginRight: 14, marginTop: 2 },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderRadius: 6,
+      borderWidth: 2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    checkmark: { color: "#FFF", fontSize: 14, fontWeight: "700" },
+    checkboxTextContainer: { flex: 1 },
+    checkboxTitle: { fontSize: 15, fontWeight: "600", marginBottom: 4 },
+    checkboxSubtitle: { fontSize: 13 },
+    infoNote: { marginBottom: 24, borderRadius: 16, overflow: "hidden" },
     infoNoteGlass: {
       borderWidth: 1,
       padding: 16,
       flexDirection: "row",
       alignItems: "flex-start",
     },
-    infoNoteIcon: {
-      fontSize: 20,
-      marginRight: 12,
-    },
-    infoNoteText: {
-      flex: 1,
-      fontSize: 13,
-      lineHeight: 20,
-    },
-
-    // Continue Button
-    continueButton: {
-      borderRadius: 16,
-      overflow: "hidden",
-      marginBottom: 16,
-    },
-    continueGlass: {
-      paddingVertical: 18,
-      alignItems: "center",
-    },
+    infoNoteIcon: { fontSize: 20, marginRight: 12 },
+    infoNoteText: { flex: 1, fontSize: 13, lineHeight: 20 },
+    continueButton: { borderRadius: 16, overflow: "hidden", marginBottom: 16 },
+    continueGlass: { paddingVertical: 18, alignItems: "center" },
     continueButtonText: {
       fontSize: 17,
       fontWeight: "700",
       color: "#FFFFFF",
       letterSpacing: -0.2,
     },
-
-    // Required Note
-    requiredNote: {
-      fontSize: 12,
-      textAlign: "center",
-    },
+    requiredNote: { fontSize: 12, textAlign: "center" },
   });
 }

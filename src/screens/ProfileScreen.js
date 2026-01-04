@@ -10,6 +10,7 @@ import {
   Switch,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { signOut } from "firebase/auth";
@@ -19,7 +20,7 @@ import AvatarPicker, { AvatarDisplay } from "../components/AvatarPicker";
 import GradientBackground from "../components/GradientBackground";
 import {
   ChevronLeft,
-  Cake,
+  
   MapPin,
   Wallet,
   Gift,
@@ -32,6 +33,7 @@ import {
   ChevronRight,
   Crown,
   BadgeCheck,
+  Trash2,
 } from "lucide-react-native";
 
 export default function ProfileScreen({ navigation }) {
@@ -40,13 +42,13 @@ export default function ProfileScreen({ navigation }) {
   const [editing, setEditing] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [editForm, setEditForm] = useState({
     fullName: "",
-    bio: "",
     avatar: null,
-    age: "",
     location: "",
   });
 
@@ -76,9 +78,7 @@ export default function ProfileScreen({ navigation }) {
 
         setEditForm({
           fullName: data.fullName || "",
-          bio: data.bio || "",
           avatar: avatarData || { type: "emoji", value: "😊" },
-          age: data.age?.toString() || "",
           location: data.location || "",
         });
       }
@@ -92,9 +92,7 @@ export default function ProfileScreen({ navigation }) {
     try {
       await updateDoc(doc(db, "users", auth.currentUser.uid), {
         fullName: editForm.fullName.trim(),
-        bio: editForm.bio.trim(),
         avatar: editForm.avatar,
-        age: parseInt(editForm.age) || 0,
         location: editForm.location.trim(),
         updatedAt: new Date().toISOString(),
       });
@@ -104,6 +102,42 @@ export default function ProfileScreen({ navigation }) {
       console.error("Error updating profile:", error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const performDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      // Set flag to prevent "user not found" modal
+      await AsyncStorage.setItem("@account_deleting", "true");
+      const userId = auth.currentUser.uid;
+      
+      // Call cloud function to delete all user data
+      const response = await fetch(
+        "https://us-central1-bondvibe-dev.cloudfunctions.net/deleteUserAccount",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to delete account");
+      }
+      
+      console.log("✅ Account deleted:", result);
+      
+      // Sign out after deletion
+      await signOut(auth);
+    } catch (error) {
+      console.error("Delete account error:", error);
+      alert("Error deleting account: " + error.message);
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -213,6 +247,83 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Delete Account Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View
+              style={[
+                styles.modalGlass,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(17, 24, 39, 0.95)"
+                    : "rgba(255, 255, 255, 0.95)",
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.modalIconCircle,
+                  { backgroundColor: "rgba(239, 68, 68, 0.15)" },
+                ]}
+              >
+                <Trash2 size={32} color="#EF4444" strokeWidth={1.8} />
+              </View>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Delete Account
+              </Text>
+              <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+                This action is permanent and cannot be undone. All your data, events, and messages will be deleted.
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowDeleteModal(false)}
+                  disabled={deleting}
+                >
+                  <View
+                    style={[
+                      styles.modalButtonGlass,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.modalCancelText, { color: colors.text }]}
+                    >
+                      Cancel
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalLogoutButton}
+                  onPress={performDeleteAccount}
+                  disabled={deleting}
+                >
+                  <View style={styles.modalLogoutGlass}>
+                    <Text style={styles.modalLogoutText}>
+                      {deleting ? "Deleting..." : "Delete"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Avatar Picker */}
       <AvatarPicker
         visible={showAvatarPicker}
@@ -300,12 +411,11 @@ export default function ProfileScreen({ navigation }) {
 
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Bio
+                  Location
                 </Text>
                 <TextInput
                   style={[
                     styles.input,
-                    styles.textArea,
                     {
                       backgroundColor: isDark
                         ? "rgba(255, 255, 255, 0.04)"
@@ -316,80 +426,14 @@ export default function ProfileScreen({ navigation }) {
                       color: colors.text,
                     },
                   ]}
-                  value={editForm.bio}
+                  value={editForm.location}
                   onChangeText={(text) =>
-                    setEditForm({ ...editForm, bio: text })
+                    setEditForm({ ...editForm, location: text })
                   }
-                  placeholder="Tell us about yourself..."
+                  placeholder="City, Country"
                   placeholderTextColor={colors.textTertiary}
-                  multiline
-                  maxLength={200}
+                  maxLength={50}
                 />
-                <Text
-                  style={[styles.charCount, { color: colors.textTertiary }]}
-                >
-                  {editForm.bio.length}/200
-                </Text>
-              </View>
-
-              <View style={styles.inputRow}>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={[styles.inputLabel, { color: colors.text }]}>
-                    Age
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(255, 255, 255, 0.04)"
-                          : "rgba(255, 255, 255, 0.85)",
-                        borderColor: isDark
-                          ? "rgba(255, 255, 255, 0.10)"
-                          : "rgba(0, 0, 0, 0.08)",
-                        color: colors.text,
-                      },
-                    ]}
-                    value={editForm.age}
-                    onChangeText={(text) =>
-                      setEditForm({
-                        ...editForm,
-                        age: text.replace(/[^0-9]/g, ""),
-                      })
-                    }
-                    placeholder="25"
-                    placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
-                    maxLength={2}
-                  />
-                </View>
-
-                <View style={[styles.inputGroup, { flex: 2, marginLeft: 12 }]}>
-                  <Text style={[styles.inputLabel, { color: colors.text }]}>
-                    Location
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(255, 255, 255, 0.04)"
-                          : "rgba(255, 255, 255, 0.85)",
-                        borderColor: isDark
-                          ? "rgba(255, 255, 255, 0.10)"
-                          : "rgba(0, 0, 0, 0.08)",
-                        color: colors.text,
-                      },
-                    ]}
-                    value={editForm.location}
-                    onChangeText={(text) =>
-                      setEditForm({ ...editForm, location: text })
-                    }
-                    placeholder="City, Country"
-                    placeholderTextColor={colors.textTertiary}
-                    maxLength={50}
-                  />
-                </View>
               </View>
             </View>
 
@@ -509,45 +553,7 @@ export default function ProfileScreen({ navigation }) {
               </View>
             )}
 
-            <View style={styles.infoSection}>
-              {/* Age Card */}
-              <View
-                style={[
-                  styles.infoCard,
-                  {
-                    backgroundColor: isDark
-                      ? "rgba(255, 255, 255, 0.04)"
-                      : "rgba(255, 255, 255, 0.85)",
-                    borderColor: isDark
-                      ? "rgba(255, 255, 255, 0.10)"
-                      : "rgba(0, 0, 0, 0.08)",
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.infoIconCircle,
-                    {
-                      backgroundColor: isDark
-                        ? `${colors.primary}20`
-                        : `${colors.primary}15`,
-                    },
-                  ]}
-                >
-                  <Cake size={22} color={colors.primary} strokeWidth={1.8} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text
-                    style={[styles.infoLabel, { color: colors.textSecondary }]}
-                  >
-                    Age
-                  </Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {profile.age || "Not set"}
-                  </Text>
-                </View>
-              </View>
-
+              <View style={styles.infoSection}>
               {/* Location Card */}
               <View
                 style={[
@@ -855,6 +861,16 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={styles.logoutButtonText}>Logout</Text>
               </View>
             </TouchableOpacity>
+
+            {/* Delete Account - Subtle link at bottom */}
+            <TouchableOpacity
+              style={styles.deleteAccountLink}
+              onPress={() => setShowDeleteModal(true)}
+            >
+              <Text style={[styles.deleteAccountText, { color: colors.textTertiary }]}>
+                Delete Account
+              </Text>
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -1066,7 +1082,16 @@ function createStyles(colors, isDark) {
     },
 
     // Logout
-    logoutButton: { marginBottom: 20 },
+    logoutButton: { marginBottom: 32 },
+    deleteAccountLink: {
+      alignItems: "center",
+      paddingVertical: 16,
+      marginBottom: 20,
+    },
+    deleteAccountText: {
+      fontSize: 14,
+      fontWeight: "500",
+    },
     logoutGlass: {
       backgroundColor: "rgba(239, 68, 68, 0.15)",
       borderWidth: 1,

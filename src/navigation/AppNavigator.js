@@ -1,5 +1,6 @@
 import React, { useState, useEffect, forwardRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -152,10 +153,18 @@ const AppNavigator = forwardRef((props, ref) => {
                 setInitialUser(user);
               }
             } else {
-              console.log(
-                "❌ User doc does not exist - showing modal and signing out"
-              );
-              setShowUserNotFoundModal(true);
+              // Check if account is being intentionally deleted
+              AsyncStorage.getItem("@account_deleting").then((isDeletingAccount) => {
+                if (isDeletingAccount === "true") {
+                  console.log("🗑️ Account deletion completed, skipping modal");
+                  AsyncStorage.removeItem("@account_deleting");
+                } else {
+                  console.log(
+                    "❌ User doc does not exist - showing modal and signing out"
+                  );
+                  setShowUserNotFoundModal(true);
+                }
+              });
               setInitialRoute("Login");
               setInitialUser(null);
               auth.signOut();

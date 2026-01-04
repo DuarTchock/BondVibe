@@ -477,3 +477,107 @@ const {stripePaymentWebhook} = require("./stripe/paymentWebhook");
 
 // Export Stripe Payment Webhook
 exports.stripePaymentWebhook = stripePaymentWebhook;
+
+
+// ============================================
+// DELETE ACCOUNT
+// ============================================
+
+/**
+ * Delete user account and all associated data
+ * This is required by Apple App Store guidelines
+ */
+exports.deleteUserAccount = onRequest(
+  {cors: true},
+  async (req, res) => {
+    if (req.method !== "POST") {
+      return res.status(405).json({error: "Method not allowed"});
+    }
+
+    try {
+      const {userId} = req.body;
+
+      if (!userId) {
+        return res.status(400).json({error: "Missing userId"});
+      }
+
+      console.log("🗑️ Starting account deletion for user:", userId);
+
+      // 1. Delete user's events (where they are creator)
+      const eventsSnapshot = await db
+        .collection("events")
+        .where("creatorId", "==", userId)
+        .get();
+
+      const eventDeletePromises = eventsSnapshot.docs.map(async (eventDoc) => {
+        // Delete event messages subcollection
+        const messagesSnapshot = await eventDoc.ref.collection("messages").get();
+        const messageDeletes = messagesSnapshot.docs.map((msg) => msg.ref.delete());
+        await Promise.all(messageDeletes);
+
+        // Delete event document
+        return eventDoc.ref.delete();
+      });
+      await Promise.all(eventDeletePromises);
+      console.log("✅ Deleted", eventsSnapshot.size, "events created by user");
+
+      // 3. Delete user's notifications
+      const notificationsSnapshot = await db
+        .collection("notifications")
+        .where("userId", "==", userId)
+        .get();
+
+      const notifDeletePromises = notificationsSnapshot.docs.map((doc) => doc.ref.delete());
+      await Promise.all(notifDeletePromises);
+      console.log("✅ Deleted", notificationsSnapshot.size, "notifications");
+
+      // 4. Delete user's ratings
+      const ratingsSnapshot = await db
+        .collection("ratings")
+        .where("raterId", "==", userId)
+        .get();
+
+      const ratingDeletePromises = ratingsSnapshot.docs.map((doc) => doc.ref.delete());
+      await Promise.all(ratingDeletePromises);
+      console.log("✅ Deleted", ratingsSnapshot.size, "ratings");
+
+      // 5. Delete user document from Firestore
+      await db.collection("users").doc(userId).delete();
+      console.log("✅ Deleted user document");
+
+      // 6. Delete user from Firebase Auth
+      try {
+        await admin.auth().deleteUser(userId);
+        console.log("✅ Deleted user from Firebase Auth");
+      } catch (authError) {
+        console.error("⚠️ Error deleting from Auth (may already be deleted):", authError.message);
+      }
+
+      // 7. Delete user's files from Storage (profile photos, etc.)
+      try {
+        const bucket = admin.storage().bucket();
+        const [files] = await bucket.getFiles({prefix: `users/${userId}/`});
+        const deleteFilePromises = files.map((file) => file.delete());
+        await Promise.all(deleteFilePromises);
+        console.log("✅ Deleted", files.length, "files from storage");
+      } catch (storageError) {
+        console.error("⚠️ Error deleting from Storage:", storageError.message);
+      }
+
+      console.log("🎉 Account deletion complete for user:", userId);
+
+      res.json({
+        success: true,
+        message: "Account deleted successfully",
+        deletedData: {
+          events: eventsSnapshot.size,
+          notifications: notificationsSnapshot.size,
+          ratings: ratingsSnapshot.size,
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error deleting account:", error);
+      res.status(500).json({error: error.message});
+    }
+  },
+);
