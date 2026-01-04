@@ -146,3 +146,10 @@ export const getCategoryId = (label) => {
   const category = EVENT_CATEGORIES.find((cat) => cat.label === label);
   return category?.id || label?.toLowerCase();
 };
+
+// Event language options
+export const EVENT_LANGUAGES = [
+  { id: "es", label: "🇲🇽 Español", icon: "🇲🇽" },
+  { id: "en", label: "🇺🇸 English", icon: "🇺🇸" },
+  { id: "both", label: "🌎 Bilingual", icon: "🌎" },
+];

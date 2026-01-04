@@ -42,6 +42,12 @@ const CATEGORIES = [
   "Adventure",
 ];
 
+const EVENT_LANGUAGES = [
+  { id: "es", label: "🇲🇽 Español" },
+  { id: "en", label: "🇺🇸 English" },
+  { id: "both", label: "�� Bilingual" },
+];
+
 export default function EditEventScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
   const { eventId } = route.params;
@@ -49,6 +55,7 @@ export default function EditEventScreen({ route, navigation }) {
     title: "",
     description: "",
     category: "Social",
+    language: "both",
     date: new Date(),
     time: "",
     location: "",
@@ -96,6 +103,7 @@ export default function EditEventScreen({ route, navigation }) {
           title: data.title || "",
           description: data.description || "",
           category: data.category || "Social",
+          language: data.language || "both",
           date: eventDate,
           time: data.time || "",
           location: data.location || "",
@@ -315,6 +323,7 @@ export default function EditEventScreen({ route, navigation }) {
         title: form.title.trim(),
         description: form.description.trim(),
         category: form.category,
+        language: form.language,
         location: form.location.trim(),
         maxAttendees: parseInt(form.maxAttendees) || 10,
         maxPeople: parseInt(form.maxAttendees) || 10,
@@ -744,6 +753,54 @@ export default function EditEventScreen({ route, navigation }) {
                     ]}
                   >
                     {cat}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Language */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.text }]}>Language</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryScroll}
+          >
+            {EVENT_LANGUAGES.map((lang) => (
+              <TouchableOpacity
+                key={lang.id}
+                style={styles.categoryChip}
+                onPress={() => setForm({ ...form, language: lang.id })}
+              >
+                <View
+                  style={[
+                    styles.categoryChipGlass,
+                    {
+                      backgroundColor:
+                        form.language === lang.id
+                          ? `${colors.primary}33`
+                          : colors.surfaceGlass,
+                      borderColor:
+                        form.language === lang.id
+                          ? colors.primary
+                          : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.categoryChipText,
+                      {
+                        color:
+                          form.language === lang.id
+                            ? colors.primary
+                            : colors.text,
+                      },
+                    ]}
+                  >
+                    {lang.label}
                   </Text>
                 </View>
               </TouchableOpacity>

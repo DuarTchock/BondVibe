@@ -28,7 +28,7 @@ import EventCreatedModal from "../components/EventCreatedModal";
 import SelectDropdown from "../components/SelectDropdown";
 import EventImagePicker from "../components/EventImagePicker";
 import Icon from "../components/Icon";
-import { EVENT_CATEGORIES } from "../utils/eventCategories";
+import { EVENT_CATEGORIES, EVENT_LANGUAGES } from "../utils/eventCategories";
 import { LOCATIONS } from "../utils/locations";
 import { uploadEventImages } from "../services/storageService";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -48,6 +48,7 @@ export default function CreateEventScreen({ navigation }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("social");
+  const [selectedLanguage, setSelectedLanguage] = useState("both");
   const [selectedCity, setSelectedCity] = useState("tulum");
 
   // Initialize with tomorrow's date and default time
@@ -365,6 +366,7 @@ export default function CreateEventScreen({ navigation }) {
         title: title.trim(),
         description: description.trim(),
         category: selectedCategory,
+        language: selectedLanguage,
         city: selectedCity,
         location: fullLocation,
         maxPeople: parseInt(maxPeople),
@@ -705,6 +707,16 @@ export default function CreateEventScreen({ navigation }) {
           options={EVENT_CATEGORIES}
           placeholder="Select a category"
           type="category"
+        />
+
+        {/* Language Dropdown */}
+        <SelectDropdown
+          label="Language"
+          value={selectedLanguage}
+          onValueChange={setSelectedLanguage}
+          options={EVENT_LANGUAGES}
+          placeholder="Select language"
+          type="language"
         />
 
         {/* City Dropdown */}

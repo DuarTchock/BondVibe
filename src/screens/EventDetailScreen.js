@@ -683,6 +683,28 @@ export default function EventDetailScreen({ route, navigation }) {
                 </Text>
               </View>
             )}
+            {event.language && event.language !== "both" && (
+              <View
+                style={[
+                  styles.languageBadge,
+                  { backgroundColor: "rgba(100, 100, 255, 0.15)" },
+                ]}
+              >
+                <Text style={styles.languageBadgeText}>
+                  {event.language === "es" ? "🇲🇽 Español" : "🇺🇸 English"}
+                </Text>
+              </View>
+            )}
+            {event.language === "both" && (
+              <View
+                style={[
+                  styles.languageBadge,
+                  { backgroundColor: "rgba(100, 200, 100, 0.15)" },
+                ]}
+              >
+                <Text style={styles.languageBadgeText}>🌎 Bilingual</Text>
+              </View>
+            )}
             {event.averageRating > 0 && (
               <View
                 style={[
@@ -1190,6 +1212,14 @@ function createStyles(colors) {
       borderColor: "rgba(255, 215, 0, 0.3)",
     },
     ratingBadgeText: { fontSize: 12, fontWeight: "700", color: "#FFD700" },
+    languageBadge: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: "rgba(100, 100, 255, 0.3)",
+    },
+    languageBadgeText: { fontSize: 12, fontWeight: "600", color: "#FFFFFF" },
     title: {
       fontSize: 28,
       fontWeight: "700",

@@ -49,6 +49,8 @@ export default function SearchEventsScreen({ navigation, route }) {
     getInitialCategory()
   );
   const [selectedLocation, setSelectedLocation] = useState("all");
+  const [priceFilter, setPriceFilter] = useState("all");
+  const [languageFilter, setLanguageFilter] = useState("all");
 
   // ✅ FIX: Update selected category when route params change
   useEffect(() => {
@@ -75,7 +77,7 @@ export default function SearchEventsScreen({ navigation, route }) {
 
   useEffect(() => {
     filterEvents();
-  }, [searchQuery, selectedCategory, selectedLocation, events]);
+  }, [searchQuery, selectedCategory, selectedLocation, priceFilter, languageFilter, events]);
 
   // Sort events by date (soonest first)
   const sortEventsByDate = (eventsArray) => {
@@ -115,12 +117,31 @@ export default function SearchEventsScreen({ navigation, route }) {
     // ✅ FIX: Filter by category using id comparison
     if (selectedCategory !== "all") {
       filtered = filtered.filter((event) => {
-        const normalizedEventCategory = normalizeCategory(event.category);
+        const normalizedEventCategory = event.category?.toLowerCase().trim();
         return normalizedEventCategory === selectedCategory;
       });
       console.log(
         `🏷️ Filtering by category: ${selectedCategory}, found: ${filtered.length}`
       );
+    }
+
+    // Price filter
+    if (priceFilter === "free") {
+      filtered = filtered.filter(e => !e.price || e.price === 0);
+      console.log(`💰 Filtering free events, found: ${filtered.length}`);
+    } else if (priceFilter === "paid") {
+      filtered = filtered.filter(e => e.price && e.price > 0);
+      console.log(`💰 Filtering paid events, found: ${filtered.length}`);
+    }
+
+    // Language filter
+    if (languageFilter !== "all") {
+      filtered = filtered.filter(e => 
+        e.language === languageFilter || 
+        e.language === "both" || 
+        !e.language
+      );
+      console.log(`🌐 Filtering by language: ${languageFilter}, found: ${filtered.length}`);
     }
 
     // Filter by location
@@ -342,6 +363,81 @@ export default function SearchEventsScreen({ navigation, route }) {
           type="category"
         />
 
+        {/* Price & Language Filters */}
+        <View style={styles.filtersRow}>
+          <View style={styles.filterGroup}>
+            <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Price</Text>
+            <View style={styles.filterButtons}>
+              {[
+                { id: "all", label: "All" },
+                { id: "free", label: "Free" },
+                { id: "paid", label: "Paid" },
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.filterButton,
+                    {
+                      backgroundColor: priceFilter === option.id
+                        ? colors.primary
+                        : (isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.85)"),
+                      borderColor: priceFilter === option.id
+                        ? colors.primary
+                        : (isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)"),
+                    },
+                  ]}
+                  onPress={() => setPriceFilter(option.id)}
+                >
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      { color: priceFilter === option.id ? "#FFFFFF" : colors.text },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          
+          <View style={styles.filterGroup}>
+            <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Language</Text>
+            <View style={styles.filterButtons}>
+              {[
+                { id: "all", label: "All" },
+                { id: "es", label: "🇲🇽" },
+                { id: "en", label: "🇺🇸" },
+                { id: "both", label: "🌎" },
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.filterButton,
+                    {
+                      backgroundColor: languageFilter === option.id
+                        ? colors.primary
+                        : (isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.85)"),
+                      borderColor: languageFilter === option.id
+                        ? colors.primary
+                        : (isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)"),
+                    },
+                  ]}
+                  onPress={() => setLanguageFilter(option.id)}
+                >
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      { color: languageFilter === option.id ? "#FFFFFF" : colors.text },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
         {/* Results Header */}
         <View style={styles.resultsHeader}>
           <Text style={[styles.resultsTitle, { color: colors.text }]}>
@@ -498,5 +594,34 @@ function createStyles(colors) {
     emptyState: { paddingVertical: 60, alignItems: "center", gap: 12 },
     emptyTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     emptyText: { fontSize: 14, textAlign: "center" },
+    filtersRow: {
+      flexDirection: "row",
+      paddingHorizontal: 24,
+      marginBottom: 16,
+      gap: 16,
+    },
+    filterGroup: {
+      flex: 1,
+    },
+    filterLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      marginBottom: 8,
+    },
+    filterButtons: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    filterButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    filterButtonText: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+
   });
 }
