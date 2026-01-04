@@ -25,6 +25,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import EventImagePicker from "../components/EventImagePicker";
 import {
@@ -578,7 +579,7 @@ export default function EditEventScreen({ route, navigation }) {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
@@ -943,7 +944,7 @@ export default function EditEventScreen({ route, navigation }) {
           onChange={onTimeChange}
         />
       )}
-    </View>
+    </GradientBackground>
   );
 }
 

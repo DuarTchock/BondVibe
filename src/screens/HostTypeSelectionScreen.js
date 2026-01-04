@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import * as WebBrowser from "expo-web-browser";
 import {
   createConnectAccount,
@@ -138,7 +139,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       <View style={styles.header}>
@@ -396,7 +397,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </GradientBackground>
   );
 }
 

@@ -18,6 +18,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import SuccessModal from "../components/SuccessModal";
 import BondVibeLogo from "../components/BondVibeLogo";
 
@@ -161,7 +162,7 @@ export default function LoginScreen({ navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1 }}
     >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <GradientBackground>
         <StatusBar style={isDark ? "light" : "dark"} />
 
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -391,7 +392,7 @@ export default function LoginScreen({ navigation }) {
             emoji="❌"
           />
         )}
-      </View>
+      </GradientBackground>
     </KeyboardAvoidingView>
   );
 }

@@ -19,6 +19,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
 import {
   filterUpcomingEvents,
@@ -374,7 +375,7 @@ export default function MyEventsScreen({ navigation, route }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
@@ -621,7 +622,7 @@ export default function MyEventsScreen({ navigation, route }) {
         onSuccess={handleRatingSuccess}
         event={selectedEvent}
       />
-    </View>
+    </GradientBackground>
   );
 }
 

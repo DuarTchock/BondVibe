@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
+import GradientBackground from "../components/GradientBackground";
 
 const QUESTIONS = [
   {
@@ -140,7 +141,7 @@ export default function PersonalityTestScreen({ navigation }) {
   const progress = ((currentQuestion + 1) / QUESTIONS.length) * 100;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
       
       <ScrollView
@@ -208,7 +209,7 @@ export default function PersonalityTestScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </GradientBackground>
   );
 }
 

@@ -23,6 +23,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import EventCreatedModal from "../components/EventCreatedModal";
 import SelectDropdown from "../components/SelectDropdown";
 import EventImagePicker from "../components/EventImagePicker";
@@ -616,7 +617,7 @@ export default function CreateEventScreen({ navigation }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
@@ -1100,7 +1101,7 @@ export default function CreateEventScreen({ navigation }) {
           minimumDate={eventDate}
         />
       )}
-    </View>
+    </GradientBackground>
   );
 }
 

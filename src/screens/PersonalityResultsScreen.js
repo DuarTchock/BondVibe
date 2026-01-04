@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../contexts/ThemeContext';
+import GradientBackground from "../components/GradientBackground";
 import { DIMENSION_INFO } from '../utils/personalityQuiz';
 import { getPersonalityInsights } from '../utils/personalityScoring';
 
@@ -54,7 +55,7 @@ export default function PersonalityResultsScreen({ route, navigation }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
@@ -206,7 +207,7 @@ export default function PersonalityResultsScreen({ route, navigation }) {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </GradientBackground>
   );
 }
 

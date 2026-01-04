@@ -8,7 +8,6 @@ import {
   TextInput,
   Modal,
   Switch,
-  Image,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -17,6 +16,7 @@ import { signOut } from "firebase/auth";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFocusEffect } from "@react-navigation/native";
 import AvatarPicker, { AvatarDisplay } from "../components/AvatarPicker";
+import GradientBackground from "../components/GradientBackground";
 import {
   ChevronLeft,
   Cake,
@@ -63,13 +63,10 @@ export default function ProfileScreen({ navigation }) {
         const data = userDoc.data();
         setProfile(data);
 
-        // Handle legacy emoji avatars and new format
         let avatarData = data.avatar;
         if (typeof data.avatar === "string" && !data.avatar.startsWith("{")) {
-          // Legacy emoji string - convert to new format
           avatarData = { type: "emoji", value: data.avatar };
         } else if (typeof data.avatar === "string") {
-          // JSON string - parse it
           try {
             avatarData = JSON.parse(data.avatar);
           } catch (e) {
@@ -123,27 +120,24 @@ export default function ProfileScreen({ navigation }) {
     setEditForm({ ...editForm, avatar: newAvatar });
   };
 
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, isDark);
 
   if (!profile) {
     return (
-      <View
-        style={[
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading...
-        </Text>
-      </View>
+      <GradientBackground>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading...
+          </Text>
+        </View>
+      </GradientBackground>
     );
   }
 
   const canManageStripe = profile.role === "host" || profile.role === "admin";
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Logout Modal */}
@@ -187,10 +181,14 @@ export default function ProfileScreen({ navigation }) {
                 >
                   <View
                     style={[
-                      styles.modalCancelGlass,
+                      styles.modalButtonGlass,
                       {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
                       },
                     ]}
                   >
@@ -215,7 +213,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* New Avatar Picker */}
+      {/* Avatar Picker */}
       <AvatarPicker
         visible={showAvatarPicker}
         onClose={() => setShowAvatarPicker(false)}
@@ -256,9 +254,11 @@ export default function ProfileScreen({ navigation }) {
             >
               <View
                 style={[
-                  styles.avatarEditGlass,
+                  styles.avatarGlass,
                   {
-                    backgroundColor: colors.surfaceGlass,
+                    backgroundColor: isDark
+                      ? "rgba(255, 255, 255, 0.04)"
+                      : "rgba(255, 255, 255, 0.85)",
                     borderColor: `${colors.primary}66`,
                   },
                 ]}
@@ -275,52 +275,56 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={[styles.inputLabel, { color: colors.text }]}>
                   Full Name
                 </Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
-                        color: colors.text,
-                      },
-                    ]}
-                    value={editForm.fullName}
-                    onChangeText={(text) =>
-                      setEditForm({ ...editForm, fullName: text })
-                    }
-                    placeholder="Your name"
-                    placeholderTextColor={colors.textTertiary}
-                    maxLength={50}
-                  />
-                </View>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255, 255, 255, 0.04)"
+                        : "rgba(255, 255, 255, 0.85)",
+                      borderColor: isDark
+                        ? "rgba(255, 255, 255, 0.10)"
+                        : "rgba(0, 0, 0, 0.08)",
+                      color: colors.text,
+                    },
+                  ]}
+                  value={editForm.fullName}
+                  onChangeText={(text) =>
+                    setEditForm({ ...editForm, fullName: text })
+                  }
+                  placeholder="Your name"
+                  placeholderTextColor={colors.textTertiary}
+                  maxLength={50}
+                />
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.text }]}>
                   Bio
                 </Text>
-                <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.textArea,
-                      {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
-                        color: colors.text,
-                      },
-                    ]}
-                    value={editForm.bio}
-                    onChangeText={(text) =>
-                      setEditForm({ ...editForm, bio: text })
-                    }
-                    placeholder="Tell us about yourself..."
-                    placeholderTextColor={colors.textTertiary}
-                    multiline
-                    maxLength={200}
-                  />
-                </View>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.textArea,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255, 255, 255, 0.04)"
+                        : "rgba(255, 255, 255, 0.85)",
+                      borderColor: isDark
+                        ? "rgba(255, 255, 255, 0.10)"
+                        : "rgba(0, 0, 0, 0.08)",
+                      color: colors.text,
+                    },
+                  ]}
+                  value={editForm.bio}
+                  onChangeText={(text) =>
+                    setEditForm({ ...editForm, bio: text })
+                  }
+                  placeholder="Tell us about yourself..."
+                  placeholderTextColor={colors.textTertiary}
+                  multiline
+                  maxLength={200}
+                />
                 <Text
                   style={[styles.charCount, { color: colors.textTertiary }]}
                 >
@@ -333,54 +337,58 @@ export default function ProfileScreen({ navigation }) {
                   <Text style={[styles.inputLabel, { color: colors.text }]}>
                     Age
                   </Text>
-                  <View style={styles.inputWrapper}>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          backgroundColor: colors.surfaceGlass,
-                          borderColor: colors.border,
-                          color: colors.text,
-                        },
-                      ]}
-                      value={editForm.age}
-                      onChangeText={(text) =>
-                        setEditForm({
-                          ...editForm,
-                          age: text.replace(/[^0-9]/g, ""),
-                        })
-                      }
-                      placeholder="25"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="numeric"
-                      maxLength={2}
-                    />
-                  </View>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
+                        color: colors.text,
+                      },
+                    ]}
+                    value={editForm.age}
+                    onChangeText={(text) =>
+                      setEditForm({
+                        ...editForm,
+                        age: text.replace(/[^0-9]/g, ""),
+                      })
+                    }
+                    placeholder="25"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="numeric"
+                    maxLength={2}
+                  />
                 </View>
 
                 <View style={[styles.inputGroup, { flex: 2, marginLeft: 12 }]}>
                   <Text style={[styles.inputLabel, { color: colors.text }]}>
                     Location
                   </Text>
-                  <View style={styles.inputWrapper}>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          backgroundColor: colors.surfaceGlass,
-                          borderColor: colors.border,
-                          color: colors.text,
-                        },
-                      ]}
-                      value={editForm.location}
-                      onChangeText={(text) =>
-                        setEditForm({ ...editForm, location: text })
-                      }
-                      placeholder="City, Country"
-                      placeholderTextColor={colors.textTertiary}
-                      maxLength={50}
-                    />
-                  </View>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
+                        color: colors.text,
+                      },
+                    ]}
+                    value={editForm.location}
+                    onChangeText={(text) =>
+                      setEditForm({ ...editForm, location: text })
+                    }
+                    placeholder="City, Country"
+                    placeholderTextColor={colors.textTertiary}
+                    maxLength={50}
+                  />
                 </View>
               </View>
             </View>
@@ -395,10 +403,14 @@ export default function ProfileScreen({ navigation }) {
               >
                 <View
                   style={[
-                    styles.cancelGlass,
+                    styles.actionButtonGlass,
                     {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
+                      backgroundColor: isDark
+                        ? "rgba(255, 255, 255, 0.04)"
+                        : "rgba(255, 255, 255, 0.85)",
+                      borderColor: isDark
+                        ? "rgba(255, 255, 255, 0.10)"
+                        : "rgba(0, 0, 0, 0.08)",
                     },
                   ]}
                 >
@@ -417,7 +429,7 @@ export default function ProfileScreen({ navigation }) {
               >
                 <View
                   style={[
-                    styles.saveGlass,
+                    styles.actionButtonGlass,
                     {
                       backgroundColor: `${colors.primary}33`,
                       borderColor: `${colors.primary}66`,
@@ -439,9 +451,11 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.profileHeader}>
               <View
                 style={[
-                  styles.avatarViewGlass,
+                  styles.avatarGlass,
                   {
-                    backgroundColor: colors.surfaceGlass,
+                    backgroundColor: isDark
+                      ? "rgba(255, 255, 255, 0.04)"
+                      : "rgba(255, 255, 255, 0.85)",
                     borderColor: `${colors.primary}66`,
                   },
                 ]}
@@ -459,382 +473,379 @@ export default function ProfileScreen({ navigation }) {
 
               {profile.role === "admin" && (
                 <View style={styles.roleBadge}>
-                  <View style={styles.roleBadgeGlass}>
+                  <View style={styles.roleBadgeAdmin}>
                     <Crown size={14} color="#FFD700" strokeWidth={2} />
-                    <Text style={styles.roleBadgeText}>Admin</Text>
+                    <Text style={styles.roleBadgeTextAdmin}>Admin</Text>
                   </View>
                 </View>
               )}
               {profile.role === "host" && (
                 <View style={styles.roleBadge}>
-                  <View
-                    style={[
-                      styles.roleBadgeGlass,
-                      {
-                        backgroundColor: "rgba(52, 199, 89, 0.15)",
-                        borderColor: "rgba(52, 199, 89, 0.3)",
-                      },
-                    ]}
-                  >
+                  <View style={styles.roleBadgeHost}>
                     <BadgeCheck size={14} color="#34C759" strokeWidth={2} />
-                    <Text style={[styles.roleBadgeText, { color: "#34C759" }]}>
-                      Verified Host
-                    </Text>
+                    <Text style={styles.roleBadgeTextHost}>Verified Host</Text>
                   </View>
                 </View>
               )}
             </View>
 
             {profile.bio && (
-              <View style={styles.bioCard}>
-                <View
-                  style={[
-                    styles.bioGlass,
-                    {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.bioText, { color: colors.text }]}>
-                    {profile.bio}
-                  </Text>
-                </View>
+              <View
+                style={[
+                  styles.bioCard,
+                  {
+                    backgroundColor: isDark
+                      ? "rgba(255, 255, 255, 0.04)"
+                      : "rgba(255, 255, 255, 0.85)",
+                    borderColor: isDark
+                      ? "rgba(255, 255, 255, 0.10)"
+                      : "rgba(0, 0, 0, 0.08)",
+                  },
+                ]}
+              >
+                <Text style={[styles.bioText, { color: colors.text }]}>
+                  {profile.bio}
+                </Text>
               </View>
             )}
 
             <View style={styles.infoSection}>
-              <View style={styles.infoCard}>
+              {/* Age Card */}
+              <View
+                style={[
+                  styles.infoCard,
+                  {
+                    backgroundColor: isDark
+                      ? "rgba(255, 255, 255, 0.04)"
+                      : "rgba(255, 255, 255, 0.85)",
+                    borderColor: isDark
+                      ? "rgba(255, 255, 255, 0.10)"
+                      : "rgba(0, 0, 0, 0.08)",
+                  },
+                ]}
+              >
                 <View
                   style={[
-                    styles.infoGlass,
+                    styles.infoIconCircle,
                     {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
+                      backgroundColor: isDark
+                        ? `${colors.primary}20`
+                        : `${colors.primary}15`,
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.infoIconCircle,
-                      { backgroundColor: `${colors.primary}15` },
-                    ]}
+                  <Cake size={22} color={colors.primary} strokeWidth={1.8} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text
+                    style={[styles.infoLabel, { color: colors.textSecondary }]}
                   >
-                    <Cake size={22} color={colors.primary} strokeWidth={1.8} />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text
-                      style={[
-                        styles.infoLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Age
-                    </Text>
-                    <Text style={[styles.infoValue, { color: colors.text }]}>
-                      {profile.age || "Not set"}
-                    </Text>
-                  </View>
+                    Age
+                  </Text>
+                  <Text style={[styles.infoValue, { color: colors.text }]}>
+                    {profile.age || "Not set"}
+                  </Text>
                 </View>
               </View>
 
-              <View style={styles.infoCard}>
+              {/* Location Card */}
+              <View
+                style={[
+                  styles.infoCard,
+                  {
+                    backgroundColor: isDark
+                      ? "rgba(255, 255, 255, 0.04)"
+                      : "rgba(255, 255, 255, 0.85)",
+                    borderColor: isDark
+                      ? "rgba(255, 255, 255, 0.10)"
+                      : "rgba(0, 0, 0, 0.08)",
+                  },
+                ]}
+              >
                 <View
                   style={[
-                    styles.infoGlass,
+                    styles.infoIconCircle,
                     {
-                      backgroundColor: colors.surfaceGlass,
-                      borderColor: colors.border,
+                      backgroundColor: isDark
+                        ? `${colors.primary}20`
+                        : `${colors.primary}15`,
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.infoIconCircle,
-                      { backgroundColor: `${colors.primary}15` },
-                    ]}
+                  <MapPin size={22} color={colors.primary} strokeWidth={1.8} />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text
+                    style={[styles.infoLabel, { color: colors.textSecondary }]}
                   >
-                    <MapPin
-                      size={22}
-                      color={colors.primary}
-                      strokeWidth={1.8}
-                    />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text
-                      style={[
-                        styles.infoLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Location
-                    </Text>
-                    <Text style={[styles.infoValue, { color: colors.text }]}>
-                      {profile.location || "Not set"}
-                    </Text>
-                  </View>
+                    Location
+                  </Text>
+                  <Text style={[styles.infoValue, { color: colors.text }]}>
+                    {profile.location || "Not set"}
+                  </Text>
                 </View>
               </View>
 
+              {/* Host Type Card */}
               {canManageStripe && (
-                <View style={styles.infoCard}>
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate("StripeConnect")}
-                    activeOpacity={0.8}
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("StripeConnect")}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.infoCard,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
+                      },
+                    ]}
                   >
                     <View
                       style={[
-                        styles.infoGlass,
+                        styles.infoIconCircle,
                         {
-                          backgroundColor: colors.surfaceGlass,
-                          borderColor: colors.border,
+                          backgroundColor: isDark
+                            ? `${colors.primary}20`
+                            : `${colors.primary}15`,
                         },
                       ]}
                     >
-                      <View
+                      {profile.hostConfig?.type === "paid" ? (
+                        <CreditCard
+                          size={22}
+                          color={colors.primary}
+                          strokeWidth={1.8}
+                        />
+                      ) : profile.hostConfig?.type === "free" ? (
+                        <Gift
+                          size={22}
+                          color={colors.primary}
+                          strokeWidth={1.8}
+                        />
+                      ) : (
+                        <Wallet
+                          size={22}
+                          color={colors.primary}
+                          strokeWidth={1.8}
+                        />
+                      )}
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
                         style={[
-                          styles.infoIconCircle,
-                          { backgroundColor: `${colors.primary}15` },
+                          styles.infoLabel,
+                          { color: colors.textSecondary },
                         ]}
                       >
-                        {profile.hostConfig?.type === "paid" ? (
-                          <CreditCard
-                            size={22}
-                            color={colors.primary}
-                            strokeWidth={1.8}
-                          />
-                        ) : profile.hostConfig?.type === "free" ? (
-                          <Gift
-                            size={22}
-                            color={colors.primary}
-                            strokeWidth={1.8}
-                          />
-                        ) : (
-                          <Wallet
-                            size={22}
-                            color={colors.primary}
-                            strokeWidth={1.8}
-                          />
-                        )}
-                      </View>
-                      <View style={styles.infoContent}>
-                        <Text
-                          style={[
-                            styles.infoLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Host Type
-                        </Text>
-                        <Text
-                          style={[styles.infoValue, { color: colors.text }]}
-                        >
-                          {profile.hostConfig?.type === "paid"
-                            ? "Paid Host"
-                            : profile.hostConfig?.type === "free"
-                            ? "Free Host"
-                            : "Not configured"}
-                          {profile.stripeConnect?.status === "active" && " ✓"}
-                        </Text>
-                      </View>
-                      <ChevronRight
-                        size={20}
-                        color={colors.textTertiary}
-                        strokeWidth={2}
-                      />
+                        Host Type
+                      </Text>
+                      <Text style={[styles.infoValue, { color: colors.text }]}>
+                        {profile.hostConfig?.type === "paid"
+                          ? "Paid Host"
+                          : profile.hostConfig?.type === "free"
+                          ? "Free Host"
+                          : "Not configured"}
+                        {profile.stripeConnect?.status === "active" && " ✓"}
+                      </Text>
                     </View>
-                  </TouchableOpacity>
-                </View>
+                    <ChevronRight
+                      size={20}
+                      color={colors.textTertiary}
+                      strokeWidth={2}
+                    />
+                  </View>
+                </TouchableOpacity>
               )}
             </View>
 
             {/* PERSONALITY QUIZ SECTION */}
             {!profile.personality ||
             Object.keys(profile.personality).length === 0 ? (
-              <View style={styles.quizPromptSection}>
-                <TouchableOpacity
-                  style={styles.quizPromptCard}
-                  onPress={() => navigation.navigate("PersonalityQuiz")}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.quizPromptGlass,
-                      {
-                        backgroundColor: `${colors.primary}15`,
-                        borderColor: `${colors.primary}40`,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.quizIconCircle,
-                        { backgroundColor: `${colors.primary}25` },
-                      ]}
-                    >
-                      <Brain
-                        size={28}
-                        color={colors.primary}
-                        strokeWidth={1.8}
-                      />
-                    </View>
-                    <View style={styles.quizPromptContent}>
-                      <Text
-                        style={[styles.quizPromptTitle, { color: colors.text }]}
-                      >
-                        Discover Your Personality
-                      </Text>
-                      <Text
-                        style={[
-                          styles.quizPromptText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Take our Big Five quiz to get matched with compatible
-                        groups
-                      </Text>
-                    </View>
-                    <ChevronRight
-                      size={24}
-                      color={colors.primary}
-                      strokeWidth={2}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.quizRetakeSection}>
-                <TouchableOpacity
-                  style={styles.quizRetakeButton}
-                  onPress={() => navigation.navigate("PersonalityQuiz")}
-                >
-                  <View
-                    style={[
-                      styles.quizRetakeGlass,
-                      {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <RefreshCw size={20} color={colors.text} strokeWidth={2} />
-                    <Text
-                      style={[styles.quizRetakeText, { color: colors.text }]}
-                    >
-                      Retake Personality Quiz
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* THEME TOGGLE SECTION */}
-            <View style={styles.themeSection}>
-              <View
-                style={[
-                  styles.themeCard,
-                  {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
-                  },
-                ]}
+              <TouchableOpacity
+                style={styles.quizPromptCard}
+                onPress={() => navigation.navigate("PersonalityQuiz")}
+                activeOpacity={0.8}
               >
-                <View style={styles.themeContent}>
+                <View
+                  style={[
+                    styles.quizPromptGlass,
+                    {
+                      backgroundColor: isDark
+                        ? `${colors.primary}15`
+                        : `${colors.primary}10`,
+                      borderColor: isDark
+                        ? `${colors.primary}40`
+                        : `${colors.primary}30`,
+                    },
+                  ]}
+                >
                   <View
                     style={[
-                      styles.themeIconCircle,
-                      { backgroundColor: `${colors.primary}15` },
+                      styles.quizIconCircle,
+                      {
+                        backgroundColor: isDark
+                          ? `${colors.primary}25`
+                          : `${colors.primary}20`,
+                      },
                     ]}
                   >
-                    {isDark ? (
-                      <Moon
-                        size={24}
-                        color={colors.primary}
-                        strokeWidth={1.8}
-                      />
-                    ) : (
-                      <Sun size={24} color={colors.primary} strokeWidth={1.8} />
-                    )}
+                    <Brain size={28} color={colors.primary} strokeWidth={1.8} />
                   </View>
-                  <View style={styles.themeInfo}>
-                    <Text style={[styles.themeTitle, { color: colors.text }]}>
-                      {isDark ? "Dark Mode" : "Light Mode"}
+                  <View style={styles.quizPromptContent}>
+                    <Text
+                      style={[styles.quizPromptTitle, { color: colors.text }]}
+                    >
+                      Discover Your Personality
                     </Text>
                     <Text
                       style={[
-                        styles.themeSubtitle,
+                        styles.quizPromptText,
                         { color: colors.textSecondary },
                       ]}
                     >
-                      {isDark ? "Easier on the eyes" : "Bright and clear"}
+                      Take our Big Five quiz to get matched with compatible
+                      groups
                     </Text>
                   </View>
-                  <Switch
-                    value={isDark}
-                    onValueChange={toggleTheme}
-                    trackColor={{ false: "#E5E7EB", true: colors.primary }}
-                    thumbColor={isDark ? "#FFFFFF" : "#F3F4F6"}
+                  <ChevronRight
+                    size={24}
+                    color={colors.primary}
+                    strokeWidth={2}
                   />
                 </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.quizRetakeButton}
+                onPress={() => navigation.navigate("PersonalityQuiz")}
+              >
+                <View
+                  style={[
+                    styles.quizRetakeGlass,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255, 255, 255, 0.04)"
+                        : "rgba(255, 255, 255, 0.85)",
+                      borderColor: isDark
+                        ? "rgba(255, 255, 255, 0.10)"
+                        : "rgba(0, 0, 0, 0.08)",
+                    },
+                  ]}
+                >
+                  <RefreshCw size={20} color={colors.text} strokeWidth={2} />
+                  <Text style={[styles.quizRetakeText, { color: colors.text }]}>
+                    Retake Personality Quiz
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* THEME TOGGLE SECTION */}
+            <View
+              style={[
+                styles.themeCard,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(255, 255, 255, 0.04)"
+                    : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark
+                    ? "rgba(255, 255, 255, 0.10)"
+                    : "rgba(0, 0, 0, 0.08)",
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.themeIconCircle,
+                  {
+                    backgroundColor: isDark
+                      ? `${colors.primary}20`
+                      : `${colors.primary}15`,
+                  },
+                ]}
+              >
+                {isDark ? (
+                  <Moon size={24} color={colors.primary} strokeWidth={1.8} />
+                ) : (
+                  <Sun size={24} color={colors.primary} strokeWidth={1.8} />
+                )}
               </View>
+              <View style={styles.themeInfo}>
+                <Text style={[styles.themeTitle, { color: colors.text }]}>
+                  {isDark ? "Dark Mode" : "Light Mode"}
+                </Text>
+                <Text
+                  style={[styles.themeSubtitle, { color: colors.textSecondary }]}
+                >
+                  {isDark ? "Easier on the eyes" : "Bright and clear"}
+                </Text>
+              </View>
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: "#E5E7EB", true: colors.primary }}
+                thumbColor={isDark ? "#FFFFFF" : "#F3F4F6"}
+              />
             </View>
 
+            {/* Personality Results */}
             {profile.personality &&
               Object.keys(profile.personality).length > 0 && (
-                <View style={styles.personalitySection}>
-                  <View
-                    style={[
-                      styles.personalityGlass,
-                      {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                      Personality
-                    </Text>
-                    {Object.entries(profile.personality).map(
-                      ([trait, score]) => (
-                        <View key={trait} style={styles.traitRow}>
-                          <Text
-                            style={[styles.traitName, { color: colors.text }]}
-                          >
-                            {trait.charAt(0).toUpperCase() + trait.slice(1)}
-                          </Text>
-                          <View style={styles.traitBarContainer}>
-                            <View
-                              style={[
-                                styles.traitBar,
-                                { backgroundColor: `${colors.border}` },
-                              ]}
-                            >
-                              <View
-                                style={[
-                                  styles.traitFill,
-                                  {
-                                    width: `${score}%`,
-                                    backgroundColor: colors.primary,
-                                  },
-                                ]}
-                              />
-                            </View>
-                            <Text
-                              style={[
-                                styles.traitScore,
-                                { color: colors.primary },
-                              ]}
-                            >
-                              {score}%
-                            </Text>
-                          </View>
+                <View
+                  style={[
+                    styles.personalityCard,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255, 255, 255, 0.04)"
+                        : "rgba(255, 255, 255, 0.85)",
+                      borderColor: isDark
+                        ? "rgba(255, 255, 255, 0.10)"
+                        : "rgba(0, 0, 0, 0.08)",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    Personality
+                  </Text>
+                  {Object.entries(profile.personality).map(([trait, score]) => (
+                    <View key={trait} style={styles.traitRow}>
+                      <Text style={[styles.traitName, { color: colors.text }]}>
+                        {trait.charAt(0).toUpperCase() + trait.slice(1)}
+                      </Text>
+                      <View style={styles.traitBarContainer}>
+                        <View
+                          style={[
+                            styles.traitBar,
+                            { backgroundColor: `${colors.border}` },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.traitFill,
+                              {
+                                width: `${score}%`,
+                                backgroundColor: colors.primary,
+                              },
+                            ]}
+                          />
                         </View>
-                      )
-                    )}
-                  </View>
+                        <Text
+                          style={[styles.traitScore, { color: colors.primary }]}
+                        >
+                          {score}%
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
                 </View>
               )}
 
+            {/* Logout Button */}
             <TouchableOpacity
               style={styles.logoutButton}
               onPress={() => setShowLogoutModal(true)}
@@ -847,13 +858,12 @@ export default function ProfileScreen({ navigation }) {
           </>
         )}
       </ScrollView>
-    </View>
+    </GradientBackground>
   );
 }
 
-function createStyles(colors) {
+function createStyles(colors, isDark) {
   return StyleSheet.create({
-    container: { flex: 1 },
     loadingContainer: {
       flex: 1,
       justifyContent: "center",
@@ -873,9 +883,8 @@ function createStyles(colors) {
     scrollView: { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
 
-    // View Mode
-    profileHeader: { alignItems: "center", marginBottom: 24 },
-    avatarViewGlass: {
+    // Avatar
+    avatarGlass: {
       width: 100,
       height: 100,
       borderRadius: 50,
@@ -885,6 +894,11 @@ function createStyles(colors) {
       marginBottom: 16,
       overflow: "hidden",
     },
+    avatarEditContainer: { alignItems: "center", marginBottom: 28 },
+    avatarEditText: { fontSize: 13, fontWeight: "600" },
+
+    // Profile Header
+    profileHeader: { alignItems: "center", marginBottom: 24 },
     profileName: {
       fontSize: 24,
       fontWeight: "700",
@@ -893,7 +907,7 @@ function createStyles(colors) {
     },
     profileEmail: { fontSize: 13, marginBottom: 12 },
     roleBadge: { borderRadius: 10, overflow: "hidden" },
-    roleBadgeGlass: {
+    roleBadgeAdmin: {
       backgroundColor: "rgba(255, 215, 0, 0.15)",
       borderWidth: 1,
       borderColor: "rgba(255, 215, 0, 0.3)",
@@ -902,20 +916,46 @@ function createStyles(colors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
+      borderRadius: 10,
     },
-    roleBadgeText: {
+    roleBadgeTextAdmin: {
       fontSize: 12,
       fontWeight: "600",
       color: "#FFD700",
       letterSpacing: 0.3,
     },
-    bioCard: { marginBottom: 20, borderRadius: 16, overflow: "hidden" },
-    bioGlass: { borderWidth: 1, padding: 18 },
-    bioText: { fontSize: 14, lineHeight: 22, textAlign: "center" },
-    infoSection: { gap: 12, marginBottom: 20 },
-    infoCard: { borderRadius: 16, overflow: "hidden" },
-    infoGlass: {
+    roleBadgeHost: {
+      backgroundColor: "rgba(52, 199, 89, 0.15)",
       borderWidth: 1,
+      borderColor: "rgba(52, 199, 89, 0.3)",
+      paddingVertical: 6,
+      paddingHorizontal: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: 10,
+    },
+    roleBadgeTextHost: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: "#34C759",
+      letterSpacing: 0.3,
+    },
+
+    // Bio
+    bioCard: {
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 18,
+      marginBottom: 20,
+    },
+    bioText: { fontSize: 14, lineHeight: 22, textAlign: "center" },
+
+    // Info Cards
+    infoSection: { gap: 12, marginBottom: 20 },
+    infoCard: {
+      borderWidth: 1,
+      borderRadius: 16,
       padding: 16,
       flexDirection: "row",
       alignItems: "center",
@@ -932,10 +972,52 @@ function createStyles(colors) {
     infoLabel: { fontSize: 12, marginBottom: 4 },
     infoValue: { fontSize: 16, fontWeight: "600", letterSpacing: -0.2 },
 
-    // Theme Section
-    themeSection: { marginBottom: 20 },
-    themeCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
-    themeContent: { padding: 18, flexDirection: "row", alignItems: "center" },
+    // Quiz Prompt
+    quizPromptCard: { marginBottom: 20 },
+    quizPromptGlass: {
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 20,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    quizIconCircle: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 14,
+    },
+    quizPromptContent: { flex: 1 },
+    quizPromptTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      marginBottom: 4,
+      letterSpacing: -0.2,
+    },
+    quizPromptText: { fontSize: 13, lineHeight: 19 },
+    quizRetakeButton: { marginBottom: 20 },
+    quizRetakeGlass: {
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+    },
+    quizRetakeText: { fontSize: 15, fontWeight: "600", letterSpacing: -0.1 },
+
+    // Theme Card
+    themeCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 18,
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 20,
+    },
     themeIconCircle: {
       width: 48,
       height: 48,
@@ -953,12 +1035,13 @@ function createStyles(colors) {
     },
     themeSubtitle: { fontSize: 13 },
 
-    personalitySection: {
-      marginBottom: 20,
+    // Personality Card
+    personalityCard: {
+      borderWidth: 1,
       borderRadius: 16,
-      overflow: "hidden",
+      padding: 18,
+      marginBottom: 20,
     },
-    personalityGlass: { borderWidth: 1, padding: 18 },
     sectionTitle: {
       fontSize: 16,
       fontWeight: "700",
@@ -982,11 +1065,13 @@ function createStyles(colors) {
       textAlign: "right",
     },
 
-    logoutButton: { borderRadius: 16, overflow: "hidden" },
+    // Logout
+    logoutButton: { marginBottom: 20 },
     logoutGlass: {
       backgroundColor: "rgba(239, 68, 68, 0.15)",
       borderWidth: 1,
       borderColor: "rgba(239, 68, 68, 0.3)",
+      borderRadius: 16,
       paddingVertical: 16,
       flexDirection: "row",
       alignItems: "center",
@@ -1001,22 +1086,9 @@ function createStyles(colors) {
     },
 
     // Edit Mode
-    avatarEditContainer: { alignItems: "center", marginBottom: 28 },
-    avatarEditGlass: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      borderWidth: 2,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 12,
-      overflow: "hidden",
-    },
-    avatarEditText: { fontSize: 13, fontWeight: "600" },
     formSection: { gap: 16, marginBottom: 24 },
     inputGroup: { gap: 8 },
     inputLabel: { fontSize: 13, fontWeight: "600", letterSpacing: -0.1 },
-    inputWrapper: { borderRadius: 12, overflow: "hidden" },
     input: {
       borderWidth: 1,
       paddingHorizontal: 16,
@@ -1024,19 +1096,22 @@ function createStyles(colors) {
       fontSize: 15,
       borderRadius: 12,
     },
-    textAreaWrapper: {},
     textArea: { minHeight: 100, textAlignVertical: "top" },
     charCount: { fontSize: 11, textAlign: "right" },
     inputRow: { flexDirection: "row" },
     formActions: { flexDirection: "row", gap: 12 },
-    cancelButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
-    cancelGlass: { borderWidth: 1, paddingVertical: 14, alignItems: "center" },
+    cancelButton: { flex: 1 },
+    saveButton: { flex: 1 },
+    actionButtonGlass: {
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+    },
     cancelButtonText: { fontSize: 15, fontWeight: "600" },
-    saveButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
-    saveGlass: { borderWidth: 1, paddingVertical: 14, alignItems: "center" },
     saveButtonText: { fontSize: 15, fontWeight: "600" },
 
-    // Modals
+    // Modal
     modalOverlay: {
       flex: 1,
       backgroundColor: "rgba(0, 0, 0, 0.7)",
@@ -1067,58 +1142,23 @@ function createStyles(colors) {
     },
     modalText: { fontSize: 14, textAlign: "center", marginBottom: 24 },
     modalButtons: { flexDirection: "row", gap: 12, width: "100%" },
-    modalCancelButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
-    modalCancelGlass: {
+    modalCancelButton: { flex: 1 },
+    modalLogoutButton: { flex: 1 },
+    modalButtonGlass: {
       borderWidth: 1,
+      borderRadius: 12,
       paddingVertical: 12,
       alignItems: "center",
     },
     modalCancelText: { fontSize: 15, fontWeight: "600" },
-    modalLogoutButton: { flex: 1, borderRadius: 12, overflow: "hidden" },
     modalLogoutGlass: {
       backgroundColor: "rgba(239, 68, 68, 0.2)",
       borderWidth: 1,
       borderColor: "rgba(239, 68, 68, 0.4)",
+      borderRadius: 12,
       paddingVertical: 12,
       alignItems: "center",
     },
     modalLogoutText: { fontSize: 15, fontWeight: "600", color: "#EF4444" },
-
-    // Personality Quiz Prompt
-    quizPromptSection: { marginBottom: 20 },
-    quizPromptCard: { borderRadius: 16, overflow: "hidden" },
-    quizPromptGlass: {
-      borderWidth: 1,
-      padding: 20,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    quizIconCircle: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      justifyContent: "center",
-      alignItems: "center",
-      marginRight: 14,
-    },
-    quizPromptContent: { flex: 1 },
-    quizPromptTitle: {
-      fontSize: 16,
-      fontWeight: "700",
-      marginBottom: 4,
-      letterSpacing: -0.2,
-    },
-    quizPromptText: { fontSize: 13, lineHeight: 19 },
-    quizRetakeSection: { marginBottom: 20 },
-    quizRetakeButton: { borderRadius: 16, overflow: "hidden" },
-    quizRetakeGlass: {
-      borderWidth: 1,
-      padding: 16,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-    },
-    quizRetakeText: { fontSize: 15, fontWeight: "600", letterSpacing: -0.1 },
   });
 }

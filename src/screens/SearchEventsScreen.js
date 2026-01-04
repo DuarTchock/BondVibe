@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import { formatISODate, formatEventTime } from "../utils/dateUtils";
 import {
   EVENT_CATEGORIES,
@@ -282,7 +283,7 @@ export default function SearchEventsScreen({ navigation, route }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
@@ -379,7 +380,7 @@ export default function SearchEventsScreen({ navigation, route }) {
           ))
         )}
       </ScrollView>
-    </View>
+    </GradientBackground>
   );
 }
 

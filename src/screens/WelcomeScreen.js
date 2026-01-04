@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../contexts/ThemeContext';
+import GradientBackground from "../components/GradientBackground";
 
 export default function WelcomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -14,7 +15,7 @@ export default function WelcomeScreen({ navigation }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
       
       {/* Content */}
@@ -81,7 +82,7 @@ export default function WelcomeScreen({ navigation }) {
           </View>
         </TouchableOpacity>
       </View>
-    </View>
+    </GradientBackground>
   );
 }
 

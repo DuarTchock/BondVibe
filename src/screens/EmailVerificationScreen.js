@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import GradientBackground from "../components/GradientBackground";
 
 export default function EmailVerificationScreen() {
   const { colors } = useTheme();
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <Text style={[styles.text, { color: colors.text }]}>Email Verification</Text>
-    </View>
+    </GradientBackground>
   );
 }
 

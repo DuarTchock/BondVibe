@@ -34,6 +34,7 @@ import {
 import RatingModal from "../components/RatingModal";
 import { getPendingRatings } from "../services/ratingService";
 import { AvatarDisplay } from "../components/AvatarPicker";
+import GradientBackground from "../components/GradientBackground";
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -87,7 +88,6 @@ export default function HomeScreen({ navigation }) {
         loadPendingHostRequests();
       }
       loadPendingRatings();
-      // Reload user to get updated avatar
       loadUser();
     }, [user?.role])
   );
@@ -157,17 +157,14 @@ export default function HomeScreen({ navigation }) {
   const getUserAvatar = () => {
     if (!user) return { type: "emoji", value: "😊" };
 
-    // Handle new format (object)
     if (user.avatar && typeof user.avatar === "object") {
       return user.avatar;
     }
 
-    // Handle legacy format (string emoji)
     if (user.avatar && typeof user.avatar === "string") {
       return { type: "emoji", value: user.avatar };
     }
 
-    // Fallback to emoji field or default
     return { type: "emoji", value: user.emoji || "😊" };
   };
 
@@ -175,7 +172,7 @@ export default function HomeScreen({ navigation }) {
   const isHost = user?.role === "host";
   const canCreateEvents = isAdmin || isHost;
 
-  const styles = createStyles(colors);
+  const styles = createStyles(colors, isDark);
 
   const quickActions = [
     {
@@ -217,7 +214,7 @@ export default function HomeScreen({ navigation }) {
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       <View style={styles.header}>
@@ -273,14 +270,23 @@ export default function HomeScreen({ navigation }) {
                 >
                   <View
                     style={[
-                      styles.ratingGlass,
+                      styles.cardGlass,
                       {
-                        backgroundColor: "rgba(255, 215, 0, 0.08)",
-                        borderColor: "rgba(255, 215, 0, 0.20)",
+                        backgroundColor: isDark
+                          ? "rgba(255, 215, 0, 0.08)"
+                          : "rgba(255, 215, 0, 0.12)",
+                        borderColor: isDark
+                          ? "rgba(255, 215, 0, 0.20)"
+                          : "rgba(255, 215, 0, 0.35)",
                       },
                     ]}
                   >
-                    <View style={styles.ratingIconCircle}>
+                    <View
+                      style={[
+                        styles.iconCircle,
+                        { backgroundColor: "rgba(255, 215, 0, 0.15)" },
+                      ]}
+                    >
                       <Star
                         size={22}
                         color="#FFD700"
@@ -288,19 +294,16 @@ export default function HomeScreen({ navigation }) {
                         strokeWidth={1.5}
                       />
                     </View>
-                    <View style={styles.ratingContent}>
+                    <View style={styles.cardContent}>
                       <Text
-                        style={[
-                          styles.ratingEventTitle,
-                          { color: colors.text },
-                        ]}
+                        style={[styles.cardTitle, { color: colors.text }]}
                         numberOfLines={1}
                       >
                         {event.title}
                       </Text>
                       <Text
                         style={[
-                          styles.ratingEventDate,
+                          styles.cardSubtitle,
                           { color: colors.textSecondary },
                         ]}
                       >
@@ -328,21 +331,30 @@ export default function HomeScreen({ navigation }) {
                   key={action.id}
                   style={styles.quickAction}
                   onPress={() => navigation.navigate(action.screen)}
+                  activeOpacity={0.7}
                 >
                   <View
                     style={[
-                      styles.quickActionGlass,
+                      styles.quickActionCard,
                       {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
                       },
                     ]}
                   >
                     <View style={styles.quickActionIconContainer}>
                       <View
                         style={[
-                          styles.iconCircle,
-                          { backgroundColor: `${colors.primary}15` },
+                          styles.iconCircleLarge,
+                          {
+                            backgroundColor: isDark
+                              ? `${colors.primary}20`
+                              : `${colors.primary}15`,
+                          },
                         ]}
                       >
                         <ActionIcon
@@ -386,44 +398,44 @@ export default function HomeScreen({ navigation }) {
             >
               <View
                 style={[
-                  styles.adminGlass,
+                  styles.cardGlass,
                   {
-                    backgroundColor: "rgba(255, 215, 0, 0.15)",
-                    borderColor: "rgba(255, 215, 0, 0.3)",
+                    backgroundColor: isDark
+                      ? "rgba(255, 215, 0, 0.10)"
+                      : "rgba(255, 215, 0, 0.15)",
+                    borderColor: isDark
+                      ? "rgba(255, 215, 0, 0.25)"
+                      : "rgba(255, 215, 0, 0.40)",
                   },
                 ]}
               >
-                <View style={styles.adminContent}>
-                  <View style={styles.adminIconContainer}>
-                    <Crown size={36} color="#FFD700" strokeWidth={1.8} />
-                    {pendingHostRequests > 0 && (
-                      <View
-                        style={[
-                          styles.adminBadge,
-                          { backgroundColor: colors.accent },
-                        ]}
-                      >
-                        <Text style={styles.badgeText}>
-                          {pendingHostRequests}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.adminText}>
-                    <Text style={styles.adminTitle}>Admin Dashboard</Text>
-                    <Text
+                <View style={styles.adminIconContainer}>
+                  <Crown size={36} color="#FFD700" strokeWidth={1.8} />
+                  {pendingHostRequests > 0 && (
+                    <View
                       style={[
-                        styles.adminSubtitle,
-                        { color: colors.textSecondary },
+                        styles.adminBadge,
+                        { backgroundColor: colors.accent },
                       ]}
                     >
-                      {pendingHostRequests > 0
-                        ? `${pendingHostRequests} pending request${
-                            pendingHostRequests > 1 ? "s" : ""
-                          }`
-                        : "Manage host requests and events"}
-                    </Text>
-                  </View>
+                      <Text style={styles.badgeText}>{pendingHostRequests}</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.adminText}>
+                  <Text style={styles.adminTitle}>Admin Dashboard</Text>
+                  <Text
+                    style={[
+                      styles.adminSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {pendingHostRequests > 0
+                      ? `${pendingHostRequests} pending request${
+                          pendingHostRequests > 1 ? "s" : ""
+                        }`
+                      : "Manage host requests and events"}
+                  </Text>
                 </View>
                 <ChevronRight size={24} color="#FFD700" strokeWidth={2} />
               </View>
@@ -462,20 +474,29 @@ export default function HomeScreen({ navigation }) {
                       category: category.label,
                     })
                   }
+                  activeOpacity={0.7}
                 >
                   <View
                     style={[
-                      styles.categoryGlass,
+                      styles.categoryCardInner,
                       {
-                        backgroundColor: colors.surfaceGlass,
-                        borderColor: colors.border,
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
                       },
                     ]}
                   >
                     <View
                       style={[
                         styles.categoryIconCircle,
-                        { backgroundColor: `${colors.primary}15` },
+                        {
+                          backgroundColor: isDark
+                            ? `${colors.primary}20`
+                            : `${colors.primary}15`,
+                        },
                       ]}
                     >
                       <CategoryIcon
@@ -505,13 +526,12 @@ export default function HomeScreen({ navigation }) {
         onSuccess={handleRatingSuccess}
         event={selectedEvent}
       />
-    </View>
+    </GradientBackground>
   );
 }
 
-function createStyles(colors) {
+function createStyles(colors, isDark) {
   return StyleSheet.create({
-    container: { flex: 1 },
     header: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -554,55 +574,62 @@ function createStyles(colors) {
       letterSpacing: -0.3,
     },
     seeAll: { fontSize: 14, fontWeight: "600" },
-    ratingCard: {
-      marginHorizontal: 24,
-      marginBottom: 10,
-      borderRadius: 14,
-      overflow: "hidden",
-    },
-    ratingGlass: {
+
+    // Shared card styles
+    cardGlass: {
       borderWidth: 1,
-      padding: 14,
+      borderRadius: 16,
+      padding: 16,
       flexDirection: "row",
       alignItems: "center",
     },
-    ratingIconCircle: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      backgroundColor: "rgba(255, 215, 0, 0.15)",
-      justifyContent: "center",
-      alignItems: "center",
-      marginRight: 12,
-    },
-    ratingContent: { flex: 1 },
-    ratingEventTitle: {
+    cardContent: { flex: 1 },
+    cardTitle: {
       fontSize: 15,
       fontWeight: "600",
       marginBottom: 2,
       letterSpacing: -0.2,
     },
-    ratingEventDate: { fontSize: 13 },
-    quickActionsGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      paddingHorizontal: 24,
-      gap: 12,
-    },
-    quickAction: { width: "48%", borderRadius: 16, overflow: "hidden" },
-    quickActionGlass: {
-      borderWidth: 1,
-      paddingVertical: 24,
-      alignItems: "center",
-    },
-    quickActionIconContainer: { position: "relative", marginBottom: 12 },
+    cardSubtitle: { fontSize: 13 },
     iconCircle: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+    },
+    iconCircleLarge: {
       width: 56,
       height: 56,
       borderRadius: 28,
       justifyContent: "center",
       alignItems: "center",
     },
+
+    // Rating card
+    ratingCard: {
+      marginHorizontal: 24,
+      marginBottom: 10,
+    },
+
+    // Quick Actions
+    quickActionsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      paddingHorizontal: 24,
+      gap: 12,
+    },
+    quickAction: {
+      width: "48%",
+    },
+    quickActionCard: {
+      borderWidth: 1,
+      borderRadius: 16,
+      paddingVertical: 24,
+      alignItems: "center",
+    },
+    quickActionIconContainer: { position: "relative", marginBottom: 12 },
     badge: {
       position: "absolute",
       top: -4,
@@ -616,15 +643,11 @@ function createStyles(colors) {
     },
     badgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
     quickActionText: { fontSize: 14, fontWeight: "600", letterSpacing: -0.1 },
-    adminCard: { marginHorizontal: 24, borderRadius: 20, overflow: "hidden" },
-    adminGlass: {
-      borderWidth: 1,
-      padding: 20,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
+
+    // Admin Card
+    adminCard: {
+      marginHorizontal: 24,
     },
-    adminContent: { flexDirection: "row", alignItems: "center", flex: 1 },
     adminIconContainer: { position: "relative", marginRight: 16 },
     adminBadge: {
       position: "absolute",
@@ -646,9 +669,18 @@ function createStyles(colors) {
       letterSpacing: -0.3,
     },
     adminSubtitle: { fontSize: 13, lineHeight: 18 },
+
+    // Categories
     categoriesScroll: { paddingHorizontal: 24, gap: 12 },
-    categoryCard: { width: 100, borderRadius: 16, overflow: "hidden" },
-    categoryGlass: { borderWidth: 1, padding: 16, alignItems: "center" },
+    categoryCard: {
+      width: 100,
+    },
+    categoryCardInner: {
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 16,
+      alignItems: "center",
+    },
     categoryIconCircle: {
       width: 52,
       height: 52,

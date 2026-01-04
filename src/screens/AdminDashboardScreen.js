@@ -21,6 +21,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import { createNotification } from "../utils/notificationService";
 import AdminMessageModal from "../components/AdminMessageModal";
 import AdminConfirmModal from "../components/AdminConfirmModal";
@@ -548,7 +549,7 @@ export default function AdminDashboardScreen({ navigation }) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
@@ -980,7 +981,7 @@ export default function AdminDashboardScreen({ navigation }) {
         userName={confirmUser ? getUserDisplayName(confirmUser) : ""}
         userRole={confirmUser?.role}
       />
-    </View>
+    </GradientBackground>
   );
 }
 

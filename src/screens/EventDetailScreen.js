@@ -23,6 +23,8 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
+import { AvatarDisplay } from "../components/AvatarPicker";
 import { createNotification } from "../utils/notificationService";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
@@ -550,7 +552,7 @@ export default function EventDetailScreen({ route, navigation }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -558,8 +560,8 @@ export default function EventDetailScreen({ route, navigation }) {
             style={[
               styles.headerButton,
               {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
+                backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
               },
             ]}
           >
@@ -580,8 +582,8 @@ export default function EventDetailScreen({ route, navigation }) {
                 style={[
                   styles.headerButton,
                   {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
                   },
                 ]}
               >
@@ -597,8 +599,8 @@ export default function EventDetailScreen({ route, navigation }) {
                 style={[
                   styles.headerButton,
                   {
-                    backgroundColor: colors.surfaceGlass,
-                    borderColor: colors.border,
+                    backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
                   },
                 ]}
               >
@@ -726,8 +728,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.infoGlass,
                 {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
                 },
               ]}
             >
@@ -774,8 +776,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.infoGlass,
                 {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
                 },
               ]}
             >
@@ -804,8 +806,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.infoGlass,
                 {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
                 },
               ]}
             >
@@ -894,8 +896,8 @@ export default function EventDetailScreen({ route, navigation }) {
             style={[
               styles.descriptionGlass,
               {
-                backgroundColor: colors.surfaceGlass,
-                borderColor: colors.border,
+                backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
               },
             ]}
           >
@@ -921,8 +923,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.policyGlass,
                 {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
                 },
               ]}
             >
@@ -985,8 +987,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.attendeesGlass,
                 {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
                 },
               ]}
             >
@@ -1004,9 +1006,7 @@ export default function EventDetailScreen({ route, navigation }) {
                       },
                     ]}
                   >
-                    <Text style={styles.attendeeEmoji}>
-                      {attendee.avatar || attendee.emoji || "😊"}
-                    </Text>
+                    <AvatarDisplay avatar={attendee.avatar || { type: "emoji", value: attendee.emoji || "😊" }} size={36} />
                   </View>
                   <Text style={[styles.attendeeName, { color: colors.text }]}>
                     {attendee.fullName || attendee.name || "Anonymous"}
@@ -1083,7 +1083,7 @@ export default function EventDetailScreen({ route, navigation }) {
         onConfirm={performCancellation}
         eventTitle={eventTitle}
       />
-    </View>
+    </GradientBackground>
   );
 }
 
@@ -1212,6 +1212,7 @@ function createStyles(colors) {
       padding: 16,
       flexDirection: "row",
       alignItems: "center",
+      borderRadius: 16,
     },
     infoIconCircle: {
       width: 44,

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import { auth, db } from "../services/firebase";
 import { getUserConversations } from "../utils/messageService";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -167,7 +168,7 @@ export default function ConversationsScreen({ navigation }) {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
@@ -216,7 +217,7 @@ export default function ConversationsScreen({ navigation }) {
           ))}
         </ScrollView>
       )}
-    </View>
+    </GradientBackground>
   );
 }
 

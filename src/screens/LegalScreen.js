@@ -13,6 +13,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import LegalDocumentModal from "../components/LegalDocumentModal";
 
 // Contenido de los documentos legales
@@ -243,7 +244,7 @@ export default function LegalScreen({ navigation }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header con botón de regreso */}
@@ -438,7 +439,7 @@ export default function LegalScreen({ navigation }) {
         title="Privacy Policy"
         content={PRIVACY_POLICY}
       />
-    </View>
+    </GradientBackground>
   );
 }
 

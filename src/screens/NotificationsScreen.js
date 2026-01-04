@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import { auth, db } from "../services/firebase";
 import {
   getUserNotifications,
@@ -280,10 +281,10 @@ export default function NotificationsScreen({ navigation }) {
               styles.notificationGlass,
               {
                 backgroundColor: notification.read
-                  ? colors.surfaceGlass
-                  : `${colors.primary}0D`,
+                  ? (isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)")
+                  : (isDark ? `${colors.primary}15` : `${colors.primary}10`),
                 borderColor: notification.read
-                  ? colors.border
+                  ? (isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)")
                   : `${colors.primary}4D`,
               },
             ]}
@@ -367,7 +368,7 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       <View style={styles.header}>
@@ -419,7 +420,7 @@ export default function NotificationsScreen({ navigation }) {
           ))}
         </ScrollView>
       )}
-    </View>
+    </GradientBackground>
   );
 }
 
@@ -449,7 +450,7 @@ function createStyles(colors) {
       borderRadius: 16,
       overflow: "hidden",
     },
-    notificationGlass: { borderWidth: 1, padding: 16, flexDirection: "row" },
+    notificationGlass: { borderWidth: 1, padding: 16, flexDirection: "row", borderRadius: 16 },
     notificationIcon: {
       width: 44,
       height: 44,

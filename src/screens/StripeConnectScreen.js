@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import { useFocusEffect } from "@react-navigation/native";
 import * as WebBrowser from "expo-web-browser";
 import {
@@ -151,7 +152,7 @@ export default function StripeConnectScreen({ navigation }) {
   const canCreatePaidEvents = hostConfig?.canCreatePaidEvents;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       <View style={styles.header}>
@@ -451,7 +452,7 @@ export default function StripeConnectScreen({ navigation }) {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </GradientBackground>
   );
 }
 

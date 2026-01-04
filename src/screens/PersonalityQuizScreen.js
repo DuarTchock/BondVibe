@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import { doc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import SuccessModal from "../components/SuccessModal";
@@ -102,7 +103,7 @@ export default function PersonalityQuizScreen({ navigation }) {
   const styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Success Modal */}
@@ -295,7 +296,7 @@ export default function PersonalityQuizScreen({ navigation }) {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </GradientBackground>
   );
 }
 

@@ -22,6 +22,7 @@ import {
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import GradientBackground from "../components/GradientBackground";
 import { useAuthContext } from "../contexts/AuthContext";
 import SuccessModal from "../components/SuccessModal";
 import BondVibeLogo from "../components/BondVibeLogo";
@@ -146,7 +147,7 @@ export default function SignupScreen({ navigation }) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1 }}
     >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <GradientBackground>
         <StatusBar style={isDark ? "light" : "dark"} />
 
         <View style={styles.header}>
@@ -307,7 +308,7 @@ export default function SignupScreen({ navigation }) {
           message="We've sent a verification link to your email. Please check your inbox (and spam folder) and click the link to verify your account before logging in."
           emoji="📧"
         />
-      </View>
+      </GradientBackground>
     </KeyboardAvoidingView>
   );
 }
