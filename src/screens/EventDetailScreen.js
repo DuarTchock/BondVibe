@@ -960,7 +960,7 @@ export default function EventDetailScreen({ route, navigation }) {
                 <Text
                   style={[styles.policyText, { color: colors.textSecondary }]}
                 >
-                  7+ days before: 100% refund - platform & Stripe fees
+                  7+ days before: 100% refund (minus fees)
                 </Text>
               </View>
               <View style={styles.policyItem}>
@@ -970,7 +970,7 @@ export default function EventDetailScreen({ route, navigation }) {
                 <Text
                   style={[styles.policyText, { color: colors.textSecondary }]}
                 >
-                  3-7 days before: 50% refund - platform & Stripe fees
+                  3-7 days before: 50% refund (minus fees)
                 </Text>
               </View>
               <View style={styles.policyItem}>
@@ -996,7 +996,7 @@ export default function EventDetailScreen({ route, navigation }) {
                 <Text
                   style={[styles.policyText, { color: colors.textSecondary }]}
                 >
-                  If host cancels: 100% refund - platform & Stripe fees
+                  If host cancels: 100% refund (minus fees)
                 </Text>
               </View>
             </View>

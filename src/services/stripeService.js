@@ -1,15 +1,53 @@
 /**
  * Stripe Service - Frontend
- * Handles payment flows in React Native
+ * NEW MODEL: User pays fees on top of event price
  */
 
-// Cloud Functions base URL
 const FUNCTIONS_BASE_URL = 'https://us-central1-bondvibe-dev.cloudfunctions.net';
+
+// Fee configuration (mirror of backend)
+const FEES = {
+  platformPercent: 0.05,    // 5%
+  stripePercent: 0.029,     // 2.9%
+  stripeFixed: 300,         // $3.00 MXN in centavos
+};
+
+/**
+ * Calculate checkout breakdown (for UI display)
+ * @param {number} eventPriceCentavos - Event price set by host
+ * @returns {object} Breakdown of all fees
+ */
+export const calculateCheckoutBreakdown = (eventPriceCentavos) => {
+  const eventPrice = eventPriceCentavos;
+  
+  // Platform fee (5% of event price)
+  const platformFee = Math.ceil(eventPrice * FEES.platformPercent);
+  
+  // Stripe fee on subtotal
+  const subtotal = eventPrice + platformFee;
+  const stripeFee = Math.ceil(subtotal * FEES.stripePercent) + FEES.stripeFixed;
+  
+  // Total
+  const totalAmount = eventPrice + platformFee + stripeFee;
+  
+  return {
+    eventPrice,
+    platformFee,
+    stripeFee,
+    totalAmount,
+    hostReceives: eventPrice,
+    refundableAmount: eventPrice,
+    nonRefundableFees: platformFee + stripeFee,
+  };
+};
 
 /**
  * Create payment intent for event ticket
+ * @param {string} eventId 
+ * @param {string} userId 
+ * @param {number} eventPriceCentavos - Event price (NOT total, backend calculates fees)
  */
-export const createEventPaymentIntent = async (eventId, userId, amount) => {
+export const createEventPaymentIntent = async (eventId, userId, eventPriceCentavos) => {
   try {
     const response = await fetch(`${FUNCTIONS_BASE_URL}/createEventPaymentIntent`, {
       method: 'POST',
@@ -19,7 +57,7 @@ export const createEventPaymentIntent = async (eventId, userId, amount) => {
       body: JSON.stringify({
         eventId,
         userId,
-        amount,
+        eventPriceCentavos, // Send event price, backend adds fees
       }),
     });
 
@@ -69,7 +107,7 @@ export const createTipPaymentIntent = async (hostId, userId, amount, eventId = '
 };
 
 /**
- * Get pricing information
+ * Get pricing information from backend
  */
 export const getPricingInfo = async (amount) => {
   try {
@@ -88,13 +126,6 @@ export const getPricingInfo = async (amount) => {
 };
 
 /**
- * Get Stripe publishable key from environment
- */
-export const getStripePublishableKey = () => {
-  return process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-};
-
-/**
  * Format amount in centavos to MXN string
  */
 export const formatMXN = (centavos) => {
@@ -107,4 +138,11 @@ export const formatMXN = (centavos) => {
  */
 export const pesosTocentavos = (pesos) => {
   return Math.round(pesos * 100);
+};
+
+/**
+ * Get Stripe publishable key
+ */
+export const getStripePublishableKey = () => {
+  return process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 };

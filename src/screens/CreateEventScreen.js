@@ -1012,9 +1012,43 @@ export default function CreateEventScreen({ navigation }) {
             ]}
           >
             <Text style={[styles.infoText, { color: colors.primary }]}>
-              💰 You'll receive 95% of each ticket sale. BondVibe takes 5%
-              platform fee.
+              💰 You'll receive 100% of each ticket sale. Platform and
+              processing fees are added at checkout.
             </Text>
+            
+            {/* Cancellation Policy Disclosure */}
+            <View style={[styles.refundPolicyCard, { backgroundColor: `${colors.primary}11`, borderColor: `${colors.primary}33` }]}>
+              <Text style={[styles.refundPolicyTitle, { color: colors.text }]}>
+                📋 Cancellation Policy for Attendees
+              </Text>
+              <View style={styles.refundPolicyItem}>
+                <Text style={[styles.refundPolicyBullet, { color: colors.primary }]}>•</Text>
+                <Text style={[styles.refundPolicyItemText, { color: colors.textSecondary }]}>
+                  7+ days before: 100% ticket refund
+                </Text>
+              </View>
+              <View style={styles.refundPolicyItem}>
+                <Text style={[styles.refundPolicyBullet, { color: colors.primary }]}>•</Text>
+                <Text style={[styles.refundPolicyItemText, { color: colors.textSecondary }]}>
+                  3-7 days before: 50% ticket refund
+                </Text>
+              </View>
+              <View style={styles.refundPolicyItem}>
+                <Text style={[styles.refundPolicyBullet, { color: colors.primary }]}>•</Text>
+                <Text style={[styles.refundPolicyItemText, { color: colors.textSecondary }]}>
+                  Less than 3 days: No refund
+                </Text>
+              </View>
+              <View style={styles.refundPolicyItem}>
+                <Text style={[styles.refundPolicyBullet, { color: colors.secondary }]}>•</Text>
+                <Text style={[styles.refundPolicyItemText, { color: colors.textSecondary }]}>
+                  If you cancel: 100% refund to attendees
+                </Text>
+              </View>
+              <Text style={[styles.refundPolicyNote, { color: colors.textTertiary }]}>
+                Service and processing fees are non-refundable.
+              </Text>
+            </View>
           </View>
         )}
 
@@ -1180,7 +1214,43 @@ function createStyles(colors) {
       marginTop: -8,
       marginBottom: 20,
     },
-    infoText: { fontSize: 13, lineHeight: 19 },
+    refundPolicyCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  refundPolicyTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  refundPolicyText: {
+    fontSize: 12,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  refundPolicyItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 6,
+  },
+  refundPolicyBullet: {
+    fontSize: 14,
+    marginRight: 8,
+    marginTop: 1,
+  },
+  refundPolicyItemText: {
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 18,
+  },
+  refundPolicyNote: {
+    fontSize: 11,
+    marginTop: 8,
+    fontStyle: "italic",
+  },
+  infoText: { fontSize: 13, lineHeight: 19 },
     tipsCard: {
       borderWidth: 1,
       borderRadius: 16,

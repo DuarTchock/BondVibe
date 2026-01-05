@@ -124,24 +124,38 @@ async function processRefund(
       };
     }
 
-    const originalAmount = paymentIntent.amount;
+    const metadata = paymentIntent.metadata || {};
+    const totalPaid = paymentIntent.amount;
     const alreadyRefunded = paymentIntent.amount_refunded || 0;
 
-    // ✅ NEW: Calculate Stripe fee (non-refundable)
-    const stripeFee = calculateStripeFee(originalAmount);
+    // NEW MODEL: Only event price is refundable (fees are NOT refundable)
+    // Get eventPrice from metadata (what host set)
+    let eventPrice = parseInt(metadata.eventPrice) || 0;
 
-    // ✅ NEW: Refundable amount = original amount - Stripe fee
-    const refundableAmount = originalAmount - stripeFee;
+    // Fallback for old payments without new metadata
+    if (!eventPrice) {
+      // Old model: calculate based on total - fees
+      const stripeFee = calculateStripeFee(totalPaid);
+      eventPrice = totalPaid - stripeFee;
+    }
 
-    console.log("💵 Fee breakdown:", {
-      originalAmount: originalAmount,
+    const platformFee = parseInt(metadata.platformFee) || 0;
+    const stripeFee = parseInt(metadata.stripeFee) || calculateStripeFee(totalPaid);
+    const nonRefundableFees = platformFee + stripeFee;
+
+    console.log("💵 NEW Fee breakdown:", {
+      totalPaid: totalPaid,
+      eventPrice: eventPrice,
+      platformFee: platformFee,
       stripeFee: stripeFee,
-      refundableAmount: refundableAmount,
-      stripeFeesRefundable: REFUND_POLICY.STRIPE_FEES_REFUNDABLE,
+      nonRefundableFees: nonRefundableFees,
+      refundableAmount: eventPrice,
+      feeModel: metadata.feeModel || "LEGACY",
     });
 
-    // Calculate refund based on refundable amount
-    const maxRefundable = refundableAmount - alreadyRefunded;
+    // Only the event price is refundable
+    const refundableAmount = eventPrice;
+    const maxRefundable = Math.max(0, refundableAmount - alreadyRefunded);
     const desiredRefund = Math.floor(refundableAmount * refundPercentage);
     const refundAmount = Math.min(desiredRefund, maxRefundable);
 
@@ -150,18 +164,19 @@ async function processRefund(
         success: false,
         error: "No refund available",
         refundPercentage: 0,
-        stripeFeeRetained: stripeFee,
+        feesRetained: nonRefundableFees,
       };
     }
 
     console.log("💵 Refund calculation:", {
-      originalAmount: originalAmount,
-      stripeFee: stripeFee,
+      totalPaid: totalPaid,
+      eventPrice: eventPrice,
       refundableAmount: refundableAmount,
       alreadyRefunded: alreadyRefunded,
       maxRefundable: maxRefundable,
       desiredRefund: desiredRefund,
       refundAmount: refundAmount,
+      feesRetained: nonRefundableFees,
     });
 
     const refund = await stripe.refunds.create({
@@ -170,10 +185,11 @@ async function processRefund(
       reason: reason || "requested_by_customer",
       metadata: {
         refund_percentage: refundPercentage * 100,
-        original_amount: originalAmount,
+        total_paid: totalPaid,
+        event_price: eventPrice,
         refunded_amount: refundAmount,
-        stripe_fee_retained: stripeFee,
-        refundable_amount: refundableAmount,
+        fees_retained: nonRefundableFees,
+        fee_model: "USER_PAYS_FEES",
       },
     });
 
@@ -185,8 +201,9 @@ async function processRefund(
         id: refund.id,
         amount: refundAmount,
         percentage: refundPercentage * 100,
-        originalAmount: originalAmount,
-        stripeFeeRetained: stripeFee,
+        totalPaid: totalPaid,
+        eventPrice: eventPrice,
+        feesRetained: nonRefundableFees,
         refundableAmount: refundableAmount,
         status: refund.status,
       },

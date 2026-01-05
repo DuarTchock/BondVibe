@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Last Updated: January 4, 2026**
+**Last Updated: January 5, 2026**
 
 Welcome to BondVibe! These Terms of Service ("Terms") govern your use of the BondVibe mobile application ("App") operated by BondVibe ("we," "us," or "our").
 
@@ -115,13 +115,13 @@ If you attend events, you agree to:
 
 ### 5.3 Refund Policy
 
-| Cancellation Timing              | Refund Amount              |
-| -------------------------------- | -------------------------- |
-| 7+ days before event             | 100% minus processing fees |
-| 3-7 days before event            | 50% minus processing fees  |
-| Less than 3 days                 | No refund                  |
-| Host cancels event               | 100% minus processing fees |
-| Event doesn't occur as described | Contact support for review |
+| Cancellation Timing              | Refund Amount                                                |
+| -------------------------------- | ------------------------------------------------------------ |
+| 7+ days before event             | 100% of ticket price (servie & processing fees not refunded) |
+| 3-7 days before event            | 50% mof ticket price (servie & processing fees not refunded) |
+| Less than 3 days                 | No refund                                                    |
+| Host cancels event               | 100% of ticket price (servie & processing fees not refunded) |
+| Event doesn't occur as described | Contact support for review                                   |
 
 ### 5.4 Disputes
 
