@@ -1,5 +1,5 @@
-import { initializeApp, getApps } from "firebase/app";
-import { initializeAuth, getReactNativePersistence } from "firebase/auth";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth, initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -23,18 +23,30 @@ console.log(
 );
 
 // Initialize app (singleton pattern)
-const app =
-  getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-
-console.log("[Firebase] ✅ Firebase app initialized");
+let app;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+  console.log("[Firebase] ✅ Firebase app initialized (new)");
+} else {
+  app = getApp();
+  console.log("[Firebase] ✅ Firebase app initialized (existing)");
+}
 
 // Initialize Auth with AsyncStorage persistence
-// This properly handles React Native persistence
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+// Must use initializeAuth on first load, getAuth on subsequent loads
+let auth;
+if (getApps().length === 1 && !global._firebaseAuthInitialized) {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+  global._firebaseAuthInitialized = true;
+  console.log("[Firebase] 🔐 Auth initialized with AsyncStorage persistence");
+} else {
+  auth = getAuth(app);
+  console.log("[Firebase] 🔐 Auth retrieved from existing instance");
+}
 
-console.log("[Firebase] 🔐 Auth initialized with AsyncStorage persistence");
+export { auth };
 
 // Initialize Firestore
 export const db = getFirestore(app);
