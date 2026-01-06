@@ -43,9 +43,9 @@ const CATEGORIES = [
 ];
 
 const EVENT_LANGUAGES = [
-  { id: "es", label: "🇲🇽 Español" },
-  { id: "en", label: "🇺🇸 English" },
-  { id: "both", label: "�� Bilingual" },
+  { id: "es", label: "Español" },
+  { id: "en", label: "English" },
+  { id: "both", label: "Bilingual" },
 ];
 
 export default function EditEventScreen({ route, navigation }) {

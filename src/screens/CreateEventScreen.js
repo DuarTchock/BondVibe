@@ -18,8 +18,11 @@ import {
   serverTimestamp,
   doc,
   getDoc,
+  getDocs,
   writeBatch,
   updateDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -32,15 +35,10 @@ import { EVENT_CATEGORIES, EVENT_LANGUAGES } from "../utils/eventCategories";
 import { LOCATIONS } from "../utils/locations";
 import { uploadEventImages } from "../services/storageService";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import RecurrenceModal from "../components/RecurrenceModal";
+import { generateRecurringDates, getRecurrenceSummary } from "../utils/recurrenceUtils";
 
-// Recurrence options
-const RECURRENCE_OPTIONS = [
-  { id: "none", label: "One-time" },
-  { id: "daily", label: "Daily" },
-  { id: "weekly", label: "Weekly" },
-  { id: "biweekly", label: "Biweekly" },
-  { id: "monthly", label: "Monthly" },
-];
+// Recurrence handled by modal
 
 export default function CreateEventScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -62,17 +60,23 @@ export default function CreateEventScreen({ navigation }) {
   const [tempDate, setTempDate] = useState(tomorrow);
 
   // Recurrence state
-  const [recurrenceType, setRecurrenceType] = useState("none");
-  const [recurrenceEndDate, setRecurrenceEndDate] = useState(() => {
-    const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + 3);
-    return endDate;
-  });
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [tempEndDate, setTempEndDate] = useState(() => {
-    const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + 3);
-    return endDate;
+  const [showRecurrenceModal, setShowRecurrenceModal] = useState(false);
+  const [recurrenceConfig, setRecurrenceConfig] = useState({
+    type: "none",
+    selectedDays: [],
+    weekOfMonth: "first",
+    monthlyMode: "dayOfWeek",
+    dayOfMonth: 1,
+    lunarPhase: "full",
+    startDate: null,
+    endDate: (() => {
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + 3);
+      return endDate.toISOString();
+    })(),
+    eventCount: 1,
+    summary: "One-time event",
+    previewDates: [],
   });
 
   const [locationDetail, setLocationDetail] = useState("");
@@ -216,34 +220,7 @@ export default function CreateEventScreen({ navigation }) {
     setPrice(priceText);
   };
 
-  // Generate recurring event dates
-  const generateRecurringDates = (startDate, endDate, type) => {
-    const dates = [];
-    let currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-      dates.push(new Date(currentDate));
-
-      switch (type) {
-        case "daily":
-          currentDate.setDate(currentDate.getDate() + 1);
-          break;
-        case "weekly":
-          currentDate.setDate(currentDate.getDate() + 7);
-          break;
-        case "biweekly":
-          currentDate.setDate(currentDate.getDate() + 14);
-          break;
-        case "monthly":
-          currentDate.setMonth(currentDate.getMonth() + 1);
-          break;
-        default:
-          return dates;
-      }
-    }
-
-    return dates;
-  };
+  // Generate recurring dates handled by recurrenceUtils
 
   const handleCreateEvent = async () => {
     console.log("✨ Create Event clicked");
@@ -306,7 +283,7 @@ export default function CreateEventScreen({ navigation }) {
     }
 
     // Validate recurrence end date
-    if (recurrenceType !== "none" && recurrenceEndDate <= eventDate) {
+    if (recurrenceConfig.type !== "none" && new Date(recurrenceConfig.endDate) <= eventDate) {
       Alert.alert(
         "Invalid End Date",
         "Recurrence end date must be after the first event date."
@@ -337,7 +314,7 @@ export default function CreateEventScreen({ navigation }) {
 
       // Generate recurrence group ID if recurring
       const recurrenceGroupId =
-        recurrenceType !== "none"
+        recurrenceConfig.type !== "none"
           ? `recurrence_${Date.now()}_${Math.random()
               .toString(36)
               .substr(2, 9)}`
@@ -345,8 +322,8 @@ export default function CreateEventScreen({ navigation }) {
 
       // Get all dates for recurring events
       const eventDates =
-        recurrenceType !== "none"
-          ? generateRecurringDates(eventDate, recurrenceEndDate, recurrenceType)
+        recurrenceConfig.type !== "none"
+          ? generateRecurringDates(eventDate, recurrenceConfig)
           : [eventDate];
 
       console.log(`📅 Creating ${eventDates.length} event(s)...`);
@@ -378,11 +355,17 @@ export default function CreateEventScreen({ navigation }) {
         attendees: [],
         participantCount: 0,
         status: "active",
-        isRecurring: recurrenceType !== "none",
-        recurrenceType: recurrenceType !== "none" ? recurrenceType : null,
+        isRecurring: recurrenceConfig.type !== "none",
+        recurrenceType: recurrenceConfig.type !== "none" ? recurrenceConfig.type : null,
         recurrenceGroupId: recurrenceGroupId,
-        recurrenceEndDate:
-          recurrenceType !== "none" ? recurrenceEndDate.toISOString() : null,
+        recurrenceEndDate: recurrenceConfig.type !== "none" ? recurrenceConfig.endDate : null,
+        recurrenceConfig: recurrenceConfig.type !== "none" ? {
+          selectedDays: recurrenceConfig.selectedDays,
+          weekOfMonth: recurrenceConfig.weekOfMonth,
+          monthlyMode: recurrenceConfig.monthlyMode,
+          dayOfMonth: recurrenceConfig.dayOfMonth,
+          lunarPhase: recurrenceConfig.lunarPhase,
+        } : null,
       };
 
       // Create events
@@ -445,20 +428,31 @@ export default function CreateEventScreen({ navigation }) {
           await batch.commit();
         }
 
-        // Upload images for first recurring event
+        // Upload images and apply to ALL recurring events
         if (eventImages.length > 0 && firstEventId) {
           console.log(
-            `📸 Uploading ${eventImages.length} images for first recurring event...`
+            `📸 Uploading ${eventImages.length} images for recurring series...`
           );
           try {
             const imageUrls = await uploadEventImages(
               firstEventId,
               eventImages
             );
-            await updateDoc(doc(db, "events", firstEventId), {
-              images: imageUrls,
+            
+            // Update ALL events in the series with the same images
+            const seriesQuery = query(
+              collection(db, "events"),
+              where("recurrenceGroupId", "==", recurrenceGroupId)
+            );
+            const seriesSnapshot = await getDocs(seriesQuery);
+            
+            const updateBatch = writeBatch(db);
+            seriesSnapshot.docs.forEach((docSnap) => {
+              updateBatch.update(docSnap.ref, { images: imageUrls });
             });
-            console.log("✅ Images uploaded for first recurring event");
+            await updateBatch.commit();
+            
+            console.log(`✅ Images uploaded and applied to ${seriesSnapshot.docs.length} events`);
           } catch (imageError) {
             console.error("⚠️ Error uploading images:", imageError);
           }
@@ -570,52 +564,7 @@ export default function CreateEventScreen({ navigation }) {
   );
 
   // iOS End Date Picker Modal
-  const renderIOSEndDatePicker = () => (
-    <Modal
-      visible={showEndDatePicker}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowEndDatePicker(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View
-          style={[
-            styles.pickerModal,
-            { backgroundColor: isDark ? "#1a1a2e" : "#ffffff" },
-          ]}
-        >
-          <View style={styles.pickerHeader}>
-            <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-              <Text
-                style={[styles.pickerCancel, { color: colors.textSecondary }]}
-              >
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <Text style={[styles.pickerTitle, { color: colors.text }]}>
-              Select End Date
-            </Text>
-            <TouchableOpacity onPress={confirmEndDateSelection}>
-              <Text style={[styles.pickerDone, { color: colors.primary }]}>
-                Done
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <DateTimePicker
-            value={tempEndDate}
-            mode="date"
-            display="spinner"
-            onChange={onEndDateChange}
-            minimumDate={eventDate}
-            textColor={colors.text}
-            themeVariant={isDark ? "dark" : "light"}
-            style={styles.iosPicker}
-          />
-        </View>
-      </View>
-    </Modal>
-  );
-
+  
   const styles = createStyles(colors);
 
   return (
@@ -760,20 +709,47 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Recurrence Type */}
-        <SelectDropdown
-          label="Event Frequency"
-          value={recurrenceType}
-          onValueChange={setRecurrenceType}
-          options={RECURRENCE_OPTIONS}
-          placeholder="Select frequency"
-        />
+        {/* Event Frequency */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.text }]}>Event Frequency</Text>
+          <TouchableOpacity
+            style={[
+              styles.recurrenceButton,
+              {
+                backgroundColor: colors.surfaceGlass,
+                borderColor: recurrenceConfig.type !== "none" ? colors.primary : colors.border,
+                borderWidth: recurrenceConfig.type !== "none" ? 2 : 1,
+              },
+            ]}
+            onPress={() => setShowRecurrenceModal(true)}
+          >
+            <View style={styles.recurrenceButtonContent}>
+              <Icon
+                name="calendar"
+                size={20}
+                color={recurrenceConfig.type !== "none" ? colors.primary : colors.textSecondary}
+                type="ui"
+              />
+              <View style={styles.recurrenceButtonText}>
+                <Text
+                  style={[
+                    styles.recurrenceLabel,
+                    { color: recurrenceConfig.type !== "none" ? colors.primary : colors.text },
+                  ]}
+                >
+                  {recurrenceConfig.type === "none" ? "One-time" : recurrenceConfig.summary}
+                </Text>
+              </View>
+            </View>
+            <Icon name="chevronRight" size={20} color={colors.textSecondary} type="ui" />
+          </TouchableOpacity>
+        </View>
 
         {/* Date and Time */}
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
-              {recurrenceType !== "none" ? "Start Date *" : "Date *"}
+              {recurrenceConfig.type !== "none" ? "Start Date *" : "Date *"}
             </Text>
             <TouchableOpacity
               style={[
@@ -828,46 +804,7 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Recurrence End Date */}
-        {recurrenceType !== "none" && (
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              Repeat Until *
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.pickerButton,
-                {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                },
-              ]}
-              onPress={() => {
-                setTempEndDate(recurrenceEndDate);
-                setShowEndDatePicker(true);
-              }}
-            >
-              <Text style={[styles.pickerText, { color: colors.text }]}>
-                {formatDate(recurrenceEndDate)}
-              </Text>
-              <Icon
-                name="calendar"
-                size={20}
-                color={colors.textSecondary}
-                type="ui"
-              />
-            </TouchableOpacity>
-            <Text style={[styles.helperText, { color: colors.textTertiary }]}>
-              {recurrenceType === "daily" && "Events will be created daily"}
-              {recurrenceType === "weekly" &&
-                "Events will be created every week"}
-              {recurrenceType === "biweekly" &&
-                "Events will be created every 2 weeks"}
-              {recurrenceType === "monthly" &&
-                "Events will be created every month"}
-            </Text>
-          </View>
-        )}
+        
 
         {/* Free/Paid Toggle */}
         <View style={styles.field}>
@@ -1068,7 +1005,7 @@ export default function CreateEventScreen({ navigation }) {
           <Text style={[styles.tipsText, { color: colors.textSecondary }]}>
             • Be specific about the vibe{"\n"}• Choose public, accessible
             locations{"\n"}• Set clear expectations
-            {recurrenceType !== "none" &&
+            {recurrenceConfig.type !== "none" &&
               "\n• Recurring events create independent instances"}
           </Text>
         </View>
@@ -1094,7 +1031,7 @@ export default function CreateEventScreen({ navigation }) {
               <>
                 <Icon name="plus" size={20} color={colors.primary} type="ui" />
                 <Text style={[styles.createText, { color: colors.primary }]}>
-                  {recurrenceType !== "none"
+                  {recurrenceConfig.type !== "none"
                     ? "Create Recurring Events"
                     : "Create Event"}
                 </Text>
@@ -1115,10 +1052,29 @@ export default function CreateEventScreen({ navigation }) {
         eventsCount={createdEventsCount}
       />
 
+      {/* Recurrence Modal */}
+      <RecurrenceModal
+        visible={showRecurrenceModal}
+        onClose={() => setShowRecurrenceModal(false)}
+        onSave={(config) => {
+          setRecurrenceConfig(config);
+          // Sync start date from modal to event date
+          if (config.startDate) {
+            const newDate = new Date(config.startDate);
+            newDate.setHours(eventDate.getHours(), eventDate.getMinutes(), 0, 0);
+            setEventDate(newDate);
+          }
+        }}
+        initialConfig={{
+          ...recurrenceConfig,
+          startDate: eventDate.toISOString(),
+        }}
+        startDate={eventDate}
+      />
+
       {/* iOS Pickers */}
       {Platform.OS === "ios" && renderIOSDatePicker()}
       {Platform.OS === "ios" && renderIOSTimePicker()}
-      {Platform.OS === "ios" && renderIOSEndDatePicker()}
 
       {/* Android Pickers */}
       {Platform.OS === "android" && showDatePicker && (
@@ -1138,15 +1094,7 @@ export default function CreateEventScreen({ navigation }) {
           onChange={onTimeChange}
         />
       )}
-      {Platform.OS === "android" && showEndDatePicker && (
-        <DateTimePicker
-          value={recurrenceEndDate}
-          mode="date"
-          display="default"
-          onChange={onEndDateChange}
-          minimumDate={eventDate}
-        />
-      )}
+      
     </GradientBackground>
   );
 }
@@ -1208,6 +1156,31 @@ function createStyles(colors) {
     },
     pickerText: { fontSize: 16, flex: 1 },
     helperText: { fontSize: 13, marginTop: 8, fontStyle: "italic" },
+    recurrenceButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    recurrenceButtonContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      flex: 1,
+      gap: 12,
+    },
+    recurrenceButtonText: {
+      flex: 1,
+    },
+    recurrenceLabel: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    recurrenceCount: {
+      fontSize: 13,
+      marginTop: 2,
+    },
     infoBadge: {
       padding: 12,
       borderRadius: 10,
