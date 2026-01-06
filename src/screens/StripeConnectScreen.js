@@ -363,16 +363,16 @@ export default function StripeConnectScreen({ navigation }) {
             </Text>
             <View style={styles.infoList}>
               <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
-                • You receive 95% of each ticket sale
+                • You receive 100% of the ticket price you set
               </Text>
               <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
-                • BondVibe takes 5% platform fee
+                • Platform fee (5%) + processing fee (2.9% + $3 MXN) are added at checkout
               </Text>
               <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
-                • Payments go directly to your account
+                • Attendees see the total price before paying
               </Text>
               <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
-                • You handle your own refunds
+                • Payments go directly to your Stripe account
               </Text>
             </View>
           </View>
