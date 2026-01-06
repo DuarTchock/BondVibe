@@ -381,7 +381,7 @@ export default function AdminDashboardScreen({ navigation }) {
             ]}
           >
             <Text style={styles.avatarText}>
-              {user.avatar || user.emoji || "👤"}
+              {user.emoji || (typeof user.avatar === "string" ? user.avatar : "👤")}
             </Text>
           </View>
           <View style={styles.userInfo}>
