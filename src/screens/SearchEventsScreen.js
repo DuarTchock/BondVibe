@@ -24,6 +24,25 @@ import { filterUpcomingEvents, isEventPast } from "../utils/eventFilters";
 import { useFocusEffect } from "@react-navigation/native";
 import Icon, { getCategoryIcon } from "../components/Icon";
 import FilterChips from "../components/FilterChips";
+import SelectDropdown from "../components/SelectDropdown";
+
+// Filter options
+const PRICE_OPTIONS = [
+  { id: "all", label: "All Prices" },
+  { id: "free", label: "Free" },
+  { id: "paid", label: "Paid" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { id: "all", label: "All Languages" },
+  { id: "es", label: "Español" },
+  { id: "en", label: "English" },
+  { id: "de", label: "Deutsch" },
+  { id: "fr", label: "Français" },
+  { id: "pl", label: "Polski" },
+  { id: "it", label: "Italiano" },
+  { id: "pt", label: "Português" },
+];
 
 export default function SearchEventsScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
@@ -365,77 +384,24 @@ export default function SearchEventsScreen({ navigation, route }) {
 
         {/* Price & Language Filters */}
         <View style={styles.filtersRow}>
-          <View style={styles.filterGroup}>
-            <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Price</Text>
-            <View style={styles.filterButtons}>
-              {[
-                { id: "all", label: "All" },
-                { id: "free", label: "Free" },
-                { id: "paid", label: "Paid" },
-              ].map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.filterButton,
-                    {
-                      backgroundColor: priceFilter === option.id
-                        ? colors.primary
-                        : (isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.85)"),
-                      borderColor: priceFilter === option.id
-                        ? colors.primary
-                        : (isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)"),
-                    },
-                  ]}
-                  onPress={() => setPriceFilter(option.id)}
-                >
-                  <Text
-                    style={[
-                      styles.filterButtonText,
-                      { color: priceFilter === option.id ? "#FFFFFF" : colors.text },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <View style={styles.filterDropdown}>
+            <SelectDropdown
+              label="Price"
+              value={priceFilter}
+              onValueChange={setPriceFilter}
+              options={PRICE_OPTIONS}
+              placeholder="All Prices"
+            />
           </View>
-          
-          <View style={styles.filterGroup}>
-            <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Language</Text>
-            <View style={styles.filterButtons}>
-              {[
-                { id: "all", label: "All" },
-                { id: "es", label: "🇲🇽" },
-                { id: "en", label: "🇺🇸" },
-                { id: "both", label: "🌎" },
-              ].map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.filterButton,
-                    {
-                      backgroundColor: languageFilter === option.id
-                        ? colors.primary
-                        : (isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.85)"),
-                      borderColor: languageFilter === option.id
-                        ? colors.primary
-                        : (isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)"),
-                    },
-                  ]}
-                  onPress={() => setLanguageFilter(option.id)}
-                >
-                  <Text
-                    style={[
-                      styles.filterButtonText,
-                      { color: languageFilter === option.id ? "#FFFFFF" : colors.text },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <View style={styles.filterDropdown}>
+            <SelectDropdown
+              label="Language"
+              value={languageFilter}
+              onValueChange={setLanguageFilter}
+              options={LANGUAGE_OPTIONS}
+              placeholder="All Languages"
+              type="language"
+            />
           </View>
         </View>
         {/* Results Header */}
@@ -596,31 +562,11 @@ function createStyles(colors) {
     emptyText: { fontSize: 14, textAlign: "center" },
     filtersRow: {
       flexDirection: "row",
-      paddingHorizontal: 24,
-      marginBottom: 16,
-      gap: 16,
-    },
-    filterGroup: {
-      flex: 1,
-    },
-    filterLabel: {
-      fontSize: 12,
-      fontWeight: "600",
       marginBottom: 8,
+      gap: 12,
     },
-    filterButtons: {
-      flexDirection: "row",
-      gap: 8,
-    },
-    filterButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      borderWidth: 1,
-    },
-    filterButtonText: {
-      fontSize: 13,
-      fontWeight: "600",
+    filterDropdown: {
+      flex: 1,
     },
 
   });

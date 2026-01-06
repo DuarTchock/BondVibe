@@ -15,13 +15,15 @@ import Icon, { getCategoryIcon, getLocationIcon } from "./Icon";
  * SelectDropdown Component
  *
  * A reusable dropdown selector for categories, locations, or any list of options
+ * Supports single-select and multi-select modes
  *
  * @param {string} label - Label text above the dropdown
- * @param {string} value - Currently selected value (id)
+ * @param {string|array} value - Currently selected value(s) (id or array of ids for multiSelect)
  * @param {function} onValueChange - Callback when value changes
  * @param {array} options - Array of options: [{ id, label, emoji? }]
  * @param {string} placeholder - Placeholder text when no value selected
- * @param {string} type - "category" | "location" | "default" (affects icon rendering)
+ * @param {string} type - "category" | "location" | "language" | "default" (affects icon rendering)
+ * @param {boolean} multiSelect - Enable multi-select mode with checkboxes
  */
 export default function SelectDropdown({
   label,
@@ -30,15 +32,48 @@ export default function SelectDropdown({
   options = [],
   placeholder = "Select an option",
   type = "default",
+  multiSelect = false,
 }) {
   const { colors, isDark } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Find the selected option
-  const selectedOption = options.find((opt) => opt.id === value);
+  // For multi-select, value is an array; for single-select, it's a string
+  const selectedValues = multiSelect 
+    ? (Array.isArray(value) ? value : [value].filter(Boolean))
+    : [value];
+
+  // Find the selected option(s)
+  const selectedOptions = options.filter((opt) => selectedValues.includes(opt.id));
 
   // Get display text
-  const displayText = selectedOption?.label || placeholder;
+  const getDisplayText = () => {
+    if (selectedOptions.length === 0) return placeholder;
+    if (multiSelect) {
+      if (selectedOptions.length === 1) return selectedOptions[0].label;
+      if (selectedOptions.length === options.length) return "All Languages";
+      return selectedOptions.map(o => o.label).join(", ");
+    }
+    return selectedOptions[0]?.label || placeholder;
+  };
+
+  // Handle option selection
+  const handleSelect = (optionId) => {
+    if (multiSelect) {
+      let newValues;
+      if (selectedValues.includes(optionId)) {
+        // Remove if already selected (but keep at least one)
+        newValues = selectedValues.filter(id => id !== optionId);
+        if (newValues.length === 0) return; // Don't allow empty selection
+      } else {
+        // Add to selection
+        newValues = [...selectedValues, optionId];
+      }
+      onValueChange(newValues);
+    } else {
+      onValueChange(optionId);
+      setModalVisible(false);
+    }
+  };
 
   // Render icon based on type
   const renderIcon = (option, isSelected = false) => {
@@ -59,6 +94,25 @@ export default function SelectDropdown({
       return <Text style={styles.optionEmoji}>{option.emoji}</Text>;
     }
     return null;
+  };
+
+  // Render checkbox for multi-select
+  const renderCheckbox = (isChecked) => {
+    return (
+      <View
+        style={[
+          styles.checkbox,
+          {
+            backgroundColor: isChecked ? colors.primary : "transparent",
+            borderColor: isChecked ? colors.primary : colors.textSecondary,
+          },
+        ]}
+      >
+        {isChecked && (
+          <Icon name="check" size={14} color="#FFFFFF" type="ui" />
+        )}
+      </View>
+    );
   };
 
   const styles = createStyles(colors, isDark);
@@ -82,14 +136,15 @@ export default function SelectDropdown({
         activeOpacity={0.7}
       >
         <View style={styles.dropdownContent}>
-          {selectedOption && renderIcon(selectedOption, false)}
+          {!multiSelect && selectedOptions[0] && renderIcon(selectedOptions[0], false)}
           <Text
             style={[
               styles.dropdownText,
-              { color: selectedOption ? colors.text : colors.textTertiary },
+              { color: selectedOptions.length > 0 ? colors.text : colors.textTertiary },
             ]}
+            numberOfLines={1}
           >
-            {displayText}
+            {getDisplayText()}
           </Text>
         </View>
         <Icon name="down" size={20} color={colors.textSecondary} type="ui" />
@@ -140,7 +195,7 @@ export default function SelectDropdown({
               showsVerticalScrollIndicator={false}
             >
               {options.map((option) => {
-                const isSelected = option.id === value;
+                const isSelected = selectedValues.includes(option.id);
                 return (
                   <TouchableOpacity
                     key={option.id}
@@ -155,14 +210,15 @@ export default function SelectDropdown({
                           : "transparent",
                       },
                     ]}
-                    onPress={() => {
-                      onValueChange(option.id);
-                      setModalVisible(false);
-                    }}
+                    onPress={() => handleSelect(option.id)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.optionContent}>
-                      {renderIcon(option, isSelected)}
+                      {multiSelect ? (
+                        renderCheckbox(isSelected)
+                      ) : (
+                        renderIcon(option, isSelected)
+                      )}
                       <Text
                         style={[
                           styles.optionLabel,
@@ -175,7 +231,7 @@ export default function SelectDropdown({
                         {option.label}
                       </Text>
                     </View>
-                    {isSelected && (
+                    {!multiSelect && isSelected && (
                       <Icon
                         name="check"
                         size={20}
@@ -187,6 +243,18 @@ export default function SelectDropdown({
                 );
               })}
             </ScrollView>
+
+            {/* Done button for multi-select */}
+            {multiSelect && (
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.doneButton, { backgroundColor: colors.primary }]}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -281,6 +349,29 @@ function createStyles(colors, isDark) {
     },
     optionLabel: {
       fontSize: 16,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modalFooter: {
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: "rgba(255, 255, 255, 0.1)",
+    },
+    doneButton: {
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+    doneButtonText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
     },
   });
 }

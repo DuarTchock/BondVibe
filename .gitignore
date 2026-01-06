@@ -39,3 +39,5 @@ bondvibe-dev-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
 bondvibe-dev-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
+bondvibe-app-firebase-adminsdk.json
+cleanup-firebase.js

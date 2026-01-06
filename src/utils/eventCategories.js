@@ -149,7 +149,11 @@ export const getCategoryId = (label) => {
 
 // Event language options
 export const EVENT_LANGUAGES = [
-  { id: "es", label: "🇲🇽 Español", icon: "🇲🇽" },
-  { id: "en", label: "🇺🇸 English", icon: "🇺🇸" },
-  { id: "both", label: "🌎 Bilingual", icon: "🌎" },
+  { id: "es", label: "Español" },
+  { id: "en", label: "English" },
+  { id: "de", label: "Deutsch" },
+  { id: "fr", label: "Français" },
+  { id: "pl", label: "Polski" },
+  { id: "it", label: "Italiano" },
+  { id: "pt", label: "Português" },
 ];

@@ -46,7 +46,7 @@ export default function CreateEventScreen({ navigation }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("social");
-  const [selectedLanguage, setSelectedLanguage] = useState("both");
+  const [selectedLanguages, setSelectedLanguages] = useState(["es", "en"]);
   const [selectedCity, setSelectedCity] = useState("tulum");
 
   // Initialize with tomorrow's date and default time
@@ -343,7 +343,7 @@ export default function CreateEventScreen({ navigation }) {
         title: title.trim(),
         description: description.trim(),
         category: selectedCategory,
-        language: selectedLanguage,
+        languages: selectedLanguages,
         city: selectedCity,
         location: fullLocation,
         maxPeople: parseInt(maxPeople),
@@ -658,14 +658,15 @@ export default function CreateEventScreen({ navigation }) {
           type="category"
         />
 
-        {/* Language Dropdown */}
+        {/* Language Dropdown (Multi-select) */}
         <SelectDropdown
-          label="Language"
-          value={selectedLanguage}
-          onValueChange={setSelectedLanguage}
+          label="Languages"
+          value={selectedLanguages}
+          onValueChange={setSelectedLanguages}
           options={EVENT_LANGUAGES}
-          placeholder="Select language"
+          placeholder="Select languages"
           type="language"
+          multiSelect
         />
 
         {/* City Dropdown */}
