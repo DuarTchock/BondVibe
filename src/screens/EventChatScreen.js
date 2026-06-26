@@ -359,13 +359,34 @@ export default function EventChatScreen({ route, navigation }) {
   const getMessageStatus = (message) => {
     if (message.senderId !== auth.currentUser.uid) return null;
 
-    if (message.read) {
-      return { icon: "✓✓", color: colors.primary };
-    } else if (message.delivered) {
-      return { icon: "✓✓", color: colors.textTertiary };
-    } else {
+    // Other participants (everyone loaded in the chat except the sender)
+    const otherIds = Object.keys(users).filter(
+      (uid) => uid !== auth.currentUser.uid
+    );
+
+    if (otherIds.length === 0) {
+      // Solo chat — sent tick only
       return { icon: "✓", color: colors.textTertiary };
     }
+
+    // New per-user map format
+    if (message.readBy !== undefined || message.deliveredTo !== undefined) {
+      const readBy = message.readBy || {};
+      const deliveredTo = message.deliveredTo || {};
+
+      const allRead = otherIds.every((uid) => readBy[uid]);
+      if (allRead) return { icon: "✓✓", color: colors.primary }; // blue — all read
+
+      const anyDelivered = otherIds.some((uid) => deliveredTo[uid] || readBy[uid]);
+      if (anyDelivered) return { icon: "✓✓", color: colors.textTertiary }; // grey double — delivered to some
+
+      return { icon: "✓", color: colors.textTertiary }; // grey single — sent
+    }
+
+    // Legacy boolean format fallback (old messages)
+    if (message.read) return { icon: "✓✓", color: colors.primary };
+    if (message.delivered) return { icon: "✓✓", color: colors.textTertiary };
+    return { icon: "✓", color: colors.textTertiary };
   };
 
   // ✅ HELPER: Get user display name (handles both fullName and name fields)

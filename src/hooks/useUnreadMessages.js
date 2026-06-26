@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 
 export const useUnreadMessages = () => {
@@ -40,14 +40,24 @@ export const useUnreadMessages = () => {
         // One real-time listener per event for unread messages
         const counts = {};
         userEventIds.forEach((eventId) => {
+          // All messages — filter unread for current user in the listener
           const q = query(
             collection(db, 'events', eventId, 'messages'),
-            where('read', '==', false)
+            orderBy('createdAt', 'desc'),
+            limit(100)
           );
           const unsub = onSnapshot(q, (msgSnap) => {
             let count = 0;
             msgSnap.forEach((msgDoc) => {
-              if (msgDoc.data().senderId !== userId) count++;
+              const d = msgDoc.data();
+              if (d.senderId === userId) return;
+              // New map format
+              if (d.readBy !== undefined) {
+                if (!d.readBy?.[userId]) count++;
+              } else if (!d.read) {
+                // Legacy boolean format
+                count++;
+              }
             });
             counts[eventId] = count;
             const total = Object.values(counts).reduce((s, c) => s + c, 0);
