@@ -571,6 +571,75 @@ exports.createMembershipPaymentIntent = onRequest(
 );
 
 // ============================================
+// FEATURED-EVENT PROMOTIONS (platform keeps 100%)
+// ============================================
+
+/**
+ * Create a PaymentIntent to promote (feature) an event. Charged to the host's
+ * card with the funds going to the PLATFORM account — no Connect transfer — so
+ * the platform keeps 100%. The webhook flips the event to featured on success.
+ */
+exports.createPromotionPaymentIntent = onRequest(
+  {cors: true, secrets: [stripeSecretKey]},
+  async (req, res) => {
+    if (req.method !== "POST") {
+      return res.status(405).json({error: "Method not allowed"});
+    }
+    try {
+      if (!stripe) {
+        stripe = require("stripe")(stripeSecretKey.value());
+      }
+      const {eventId, planId, userId} = req.body;
+      if (!eventId || !planId || !userId) {
+        return res.status(400).json({error: "Missing required fields"});
+      }
+
+      const {getPromotionPlan} = require("./stripe/promotions");
+      const plan = getPromotionPlan(planId);
+      if (!plan) return res.status(400).json({error: "Invalid promotion plan"});
+
+      const eventDoc = await db.collection("events").doc(eventId).get();
+      if (!eventDoc.exists) {
+        return res.status(404).json({error: "Event not found"});
+      }
+      // Only the event's own host may promote it.
+      if (getEventCreatorId(eventDoc.data()) !== userId) {
+        return res.status(403).json({error: "Only the host can promote this event"});
+      }
+
+      const buyerEmail = await getUserEmail(userId);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: plan.priceCentavos,
+        currency: "mxn",
+        receipt_email: buyerEmail || undefined,
+        // No transfer_data / application_fee → 100% to the platform account.
+        metadata: {
+          type: "promotion",
+          eventId,
+          eventTitle: eventDoc.data().title || "",
+          planId,
+          days: plan.days.toString(),
+          tier: plan.tier,
+          hostId: userId,
+          amount: plan.priceCentavos.toString(),
+        },
+        description: `Featured promotion: ${eventDoc.data().title || eventId}`,
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        amountCentavos: plan.priceCentavos,
+      });
+    } catch (error) {
+      console.error("❌ Error creating promotion payment intent:", error);
+      res.status(500).json({error: error.message});
+    }
+  },
+);
+
+// ============================================
 // MEMBERSHIP CREDIT RESERVE / REDEEM / RELEASE
 // Credits are deducted at host check-in (not at RSVP). RSVP places a "hold"
 // (a reservation) that counts against available credits to prevent

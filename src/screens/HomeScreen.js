@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Image,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -33,6 +34,7 @@ import {
 } from "lucide-react-native";
 import RatingModal from "../components/RatingModal";
 import { getPendingRatings } from "../services/ratingService";
+import { getFeaturedEvents } from "../services/promotionService";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import GradientBackground from "../components/GradientBackground";
 
@@ -47,9 +49,22 @@ export default function HomeScreen({ navigation }) {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
+  // Featured (promoted) events
+  const [featuredEvents, setFeaturedEvents] = useState([]);
+
   useEffect(() => {
     loadUser();
+    loadFeatured();
   }, []);
+
+  const loadFeatured = async () => {
+    try {
+      const events = await getFeaturedEvents(10);
+      setFeaturedEvents(events);
+    } catch (e) {
+      console.error("Error loading featured events:", e);
+    }
+  };
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -405,6 +420,74 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Featured Events */}
+        {featuredEvents.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitleInline, { color: colors.text }]}>
+                ✨ Featured
+              </Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
+            >
+              {featuredEvents.map((ev) => {
+                const img = Array.isArray(ev.images) ? ev.images[0] : null;
+                return (
+                  <TouchableOpacity
+                    key={ev.id}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      navigation.navigate("EventDetail", { eventId: ev.id })
+                    }
+                    style={[
+                      styles.featuredCard,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(255,255,255,0.9)",
+                        borderColor: `${colors.primary}40`,
+                      },
+                    ]}
+                  >
+                    {img ? (
+                      <Image source={{ uri: img }} style={styles.featuredImage} />
+                    ) : (
+                      <View
+                        style={[
+                          styles.featuredImage,
+                          { backgroundColor: `${colors.primary}26`, alignItems: "center", justifyContent: "center" },
+                        ]}
+                      >
+                        <Sparkles size={28} color={colors.primary} strokeWidth={2} />
+                      </View>
+                    )}
+                    <View style={styles.featuredBadge}>
+                      <Text style={styles.featuredBadgeText}>✨ Featured</Text>
+                    </View>
+                    <View style={{ padding: 12 }}>
+                      <Text
+                        style={[styles.featuredTitle, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {ev.title || "Event"}
+                      </Text>
+                      <Text
+                        style={[styles.featuredMeta, { color: colors.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        {ev.location || ev.city || ""}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Admin Dashboard Card */}
         {isAdmin && (
           <View style={styles.section}>
@@ -664,6 +747,25 @@ function createStyles(colors, isDark) {
     quickActionText: { fontSize: 14, fontWeight: "600", letterSpacing: -0.1 },
 
     // Admin Card
+    featuredCard: {
+      width: 240,
+      borderRadius: 16,
+      borderWidth: 1,
+      overflow: "hidden",
+    },
+    featuredImage: { width: "100%", height: 120 },
+    featuredBadge: {
+      position: "absolute",
+      top: 10,
+      left: 10,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 10,
+    },
+    featuredBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+    featuredTitle: { fontSize: 15, fontWeight: "700", letterSpacing: -0.2 },
+    featuredMeta: { fontSize: 12, marginTop: 3 },
     adminCard: {
       marginHorizontal: 24,
     },

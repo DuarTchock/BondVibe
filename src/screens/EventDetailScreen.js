@@ -53,6 +53,7 @@ import {
   Users,
   ChevronRight,
   Ticket,
+  Sparkles,
   Star,
 } from "lucide-react-native";
 
@@ -1096,6 +1097,86 @@ export default function EventDetailScreen({ route, navigation }) {
               </View>
               <ChevronRight size={20} color={colors.primary} strokeWidth={2} />
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Promote event — host only, upcoming events */}
+        {isCreator && !isPastEvent && (
+          <View style={[styles.infoCard, { marginBottom: 12 }]}>
+            {(() => {
+              const featuredMs = event.featuredUntil?.toMillis
+                ? event.featuredUntil.toMillis()
+                : event.featuredUntil
+                ? new Date(event.featuredUntil).getTime()
+                : 0;
+              const isFeatured = featuredMs > Date.now();
+              if (isFeatured) {
+                return (
+                  <View
+                    style={[
+                      styles.infoGlass,
+                      {
+                        backgroundColor: `${colors.primary}14`,
+                        borderColor: `${colors.primary}40`,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.infoIconCircle,
+                        { backgroundColor: `${colors.primary}26` },
+                      ]}
+                    >
+                      <Sparkles size={22} color={colors.primary} strokeWidth={1.8} />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                        Featured
+                      </Text>
+                      <Text style={[styles.infoValue, { color: colors.text }]}>
+                        Active until {new Date(featuredMs).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              }
+              return (
+                <TouchableOpacity
+                  onPress={() =>
+                    navigation.navigate("PromoteEvent", {
+                      eventId,
+                      eventTitle: event.title,
+                    })
+                  }
+                  activeOpacity={0.85}
+                  style={[
+                    styles.infoGlass,
+                    {
+                      backgroundColor: `${colors.primary}14`,
+                      borderColor: `${colors.primary}40`,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.infoIconCircle,
+                      { backgroundColor: `${colors.primary}26` },
+                    ]}
+                  >
+                    <Sparkles size={22} color={colors.primary} strokeWidth={1.8} />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                      Promote
+                    </Text>
+                    <Text style={[styles.infoValue, { color: colors.text }]}>
+                      Feature this event
+                    </Text>
+                  </View>
+                  <ChevronRight size={20} color={colors.primary} strokeWidth={2} />
+                </TouchableOpacity>
+              );
+            })()}
           </View>
         )}
 

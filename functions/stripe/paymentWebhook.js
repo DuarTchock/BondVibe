@@ -73,12 +73,96 @@ async function handlePaymentSuccess(paymentIntent) {
     return handleMembershipPurchase(paymentIntent);
   }
 
+  if (type === "promotion") {
+    return handlePromotionPurchase(paymentIntent);
+  }
+
   if (type !== "event_ticket") {
     console.log("⏭️ Skipping unhandled payment type:", type);
     return;
   }
 
   return handleEventTicketPurchase(paymentIntent);
+}
+
+/**
+ * Handle a successful event-promotion payment: feature the event for the
+ * purchased window and record the promotion. Platform keeps 100%.
+ * @param {Object} paymentIntent - Stripe PaymentIntent object
+ * @return {Promise<void>}
+ */
+async function handlePromotionPurchase(paymentIntent) {
+  const {id: paymentIntentId, amount, currency, metadata} = paymentIntent;
+  const {eventId, eventTitle, planId, tier, hostId} = metadata;
+  const days = parseInt(metadata.days, 10) || 7;
+
+  console.log("⭐ Processing promotion purchase:", paymentIntentId);
+  if (!eventId || !hostId) {
+    throw new Error("Missing promotion metadata in payment intent");
+  }
+
+  // Idempotency
+  const existing = await db.collection("payments").doc(paymentIntentId).get();
+  if (existing.exists) {
+    console.log("⏭️ Promotion payment already processed, skipping");
+    return;
+  }
+
+  const now = new Date();
+  const expiresAt = new Date(now);
+  expiresAt.setDate(expiresAt.getDate() + days);
+
+  // 1. Payment record
+  await db.collection("payments").doc(paymentIntentId).set({
+    paymentIntentId,
+    userId: hostId,
+    hostId,
+    eventId,
+    eventTitle,
+    planId,
+    type: "promotion",
+    amount,
+    currency,
+    status: "succeeded",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    metadata,
+  });
+
+  // 2. Feature the event (server-only fields)
+  await db.collection("events").doc(eventId).update({
+    featured: true,
+    featuredTier: tier || "standard",
+    featuredUntil: admin.firestore.Timestamp.fromDate(expiresAt),
+  });
+
+  // 3. Promotion record
+  await db.collection("promotions").add({
+    hostId,
+    eventId,
+    eventTitle: eventTitle || "",
+    planId,
+    tier: tier || "standard",
+    amountCentavos: amount,
+    startsAt: admin.firestore.Timestamp.fromDate(now),
+    expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+    paymentId: paymentIntentId,
+    status: "active",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // 4. Notify the host
+  await db.collection("notifications").add({
+    userId: hostId,
+    type: "promotion_active",
+    title: "Your event is featured! ⭐",
+    message: `"${eventTitle}" is now featured for ${days} days.`,
+    icon: "⭐",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    metadata: {eventId, eventTitle},
+  });
+
+  console.log("✅ Promotion processing complete; featured until", expiresAt);
 }
 
 /**
