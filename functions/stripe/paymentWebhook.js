@@ -66,18 +66,33 @@ exports.stripePaymentWebhook = onRequest(
  * @return {Promise<void>}
  */
 async function handlePaymentSuccess(paymentIntent) {
-  const {id: paymentIntentId, amount, currency, metadata} = paymentIntent;
+  const {metadata} = paymentIntent;
+  const type = metadata.type;
 
-  console.log("💳 Processing payment success:", paymentIntentId);
+  if (type === "membership") {
+    return handleMembershipPurchase(paymentIntent);
+  }
 
-  // Extract metadata
-  const {type, eventId, eventTitle, userId, hostId} = metadata;
-
-  // Only process event_ticket payments
   if (type !== "event_ticket") {
-    console.log("⏭️ Skipping non-event payment:", type);
+    console.log("⏭️ Skipping unhandled payment type:", type);
     return;
   }
+
+  return handleEventTicketPurchase(paymentIntent);
+}
+
+/**
+ * Handle a successful event ticket payment.
+ * @param {Object} paymentIntent - Stripe PaymentIntent object
+ * @return {Promise<void>}
+ */
+async function handleEventTicketPurchase(paymentIntent) {
+  const {id: paymentIntentId, amount, currency, metadata} = paymentIntent;
+
+  console.log("💳 Processing event ticket payment:", paymentIntentId);
+
+  // Extract metadata
+  const {eventId, eventTitle, userId, hostId} = metadata;
 
   // Validate required fields
   if (!eventId || !userId || !hostId) {
@@ -143,4 +158,109 @@ async function handlePaymentSuccess(paymentIntent) {
   console.log("✅ Notification sent to host");
 
   console.log("✅ Payment processing complete");
+}
+
+/**
+ * Handle a successful membership plan purchase.
+ * Creates the membership instance (credits + expiry) and notifies both parties.
+ * @param {Object} paymentIntent - Stripe PaymentIntent object
+ * @return {Promise<void>}
+ */
+async function handleMembershipPurchase(paymentIntent) {
+  const {id: paymentIntentId, amount, currency, metadata} = paymentIntent;
+  const {planId, planName, planType, userId, hostId} = metadata;
+  const creditsIncluded = parseInt(metadata.creditsIncluded, 10) || 0;
+  const validityDays = parseInt(metadata.validityDays, 10) || 0;
+
+  console.log("🎟️ Processing membership purchase:", paymentIntentId);
+
+  if (!planId || !userId || !hostId) {
+    throw new Error("Missing required membership metadata in payment intent");
+  }
+
+  // Idempotency: if this payment was already processed, skip.
+  const existingPayment = await db
+    .collection("payments")
+    .doc(paymentIntentId)
+    .get();
+  if (existingPayment.exists) {
+    console.log("⏭️ Membership payment already processed, skipping");
+    return;
+  }
+
+  // 1. Save payment record
+  await db.collection("payments").doc(paymentIntentId).set({
+    paymentIntentId,
+    userId,
+    hostId,
+    planId,
+    planName,
+    type: "membership",
+    amount,
+    currency,
+    status: "succeeded",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    metadata,
+  });
+  console.log("✅ Membership payment record saved");
+
+  // 2. Create the membership instance
+  const now = new Date();
+  const expiresAt = new Date(now);
+  expiresAt.setDate(expiresAt.getDate() + validityDays);
+  const isCredits = planType === "credits";
+
+  const membershipRef = await db.collection("memberships").add({
+    userId,
+    hostId,
+    planId,
+    planName,
+    type: planType,
+    creditsTotal: isCredits ? creditsIncluded : null,
+    creditsRemaining: isCredits ? creditsIncluded : null,
+    purchasedAt: admin.firestore.Timestamp.fromDate(now),
+    expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+    status: "active",
+    autoRenew: false,
+    paymentId: paymentIntentId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  console.log("✅ Membership created:", membershipRef.id);
+
+  // 3. Get buyer name for notifications
+  const userDoc = await db.collection("users").doc(userId).get();
+  const userName = userDoc.exists ?
+    userDoc.data().fullName || userDoc.data().name || "Someone" :
+    "Someone";
+
+  // 4. Notify host
+  await db.collection("notifications").add({
+    userId: hostId,
+    type: "membership_sold",
+    title: "Membership sold! 🎟️",
+    message: `${userName} purchased "${planName}" for $${(amount / 100).toFixed(
+      2,
+    )} MXN`,
+    icon: "🎟️",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    metadata: {planId, planName, membershipId: membershipRef.id, userId},
+  });
+
+  // 5. Notify buyer
+  await db.collection("notifications").add({
+    userId: userId,
+    type: "membership_purchased",
+    title: "Membership active! 🎉",
+    message: isCredits ?
+      `Your "${planName}" is ready — ${creditsIncluded} classes available.` :
+      `Your "${planName}" is active. Enjoy unlimited classes!`,
+    icon: "🎉",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    metadata: {planId, planName, membershipId: membershipRef.id},
+  });
+
+  console.log("✅ Membership purchase processing complete");
 }

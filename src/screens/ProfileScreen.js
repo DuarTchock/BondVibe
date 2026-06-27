@@ -739,6 +739,54 @@ export default function ProfileScreen({ navigation }) {
                 </TouchableOpacity>
               )}
 
+              {/* My Memberships — any user (attendee view) */}
+              <TouchableOpacity
+                onPress={() => navigation.navigate("MyMemberships")}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.infoCard,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255, 255, 255, 0.04)"
+                        : "rgba(255, 255, 255, 0.85)",
+                      borderColor: isDark
+                        ? "rgba(255, 255, 255, 0.10)"
+                        : "rgba(0, 0, 0, 0.08)",
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.infoIconCircle,
+                      {
+                        backgroundColor: isDark
+                          ? `${colors.primary}20`
+                          : `${colors.primary}15`,
+                      },
+                    ]}
+                  >
+                    <Ticket size={22} color={colors.primary} strokeWidth={1.8} />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text
+                      style={[styles.infoLabel, { color: colors.textSecondary }]}
+                    >
+                      Memberships
+                    </Text>
+                    <Text style={[styles.infoValue, { color: colors.text }]}>
+                      My memberships
+                    </Text>
+                  </View>
+                  <ChevronRight
+                    size={20}
+                    color={colors.textTertiary}
+                    strokeWidth={2}
+                  />
+                </View>
+              </TouchableOpacity>
+
               {/* Membership Plans — paid hosts only */}
               {isPaidHost && (
                 <TouchableOpacity

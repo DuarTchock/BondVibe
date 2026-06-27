@@ -26,7 +26,12 @@ import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import { createNotification } from "../utils/notificationService";
-import { isUserAttending, getAttendeeIds } from "../utils/eventHelpers";
+import {
+  isUserAttending,
+  getAttendeeIds,
+  getEventCreatorId,
+} from "../utils/eventHelpers";
+import { getHostMembershipPlans } from "../services/membershipService";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
 import EventImageGallery from "../components/EventImageGallery";
@@ -58,6 +63,7 @@ export default function EventDetailScreen({ route, navigation }) {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceGroupId, setRecurrenceGroupId] = useState(null);
   const [futureEventsCount, setFutureEventsCount] = useState(0);
+  const [hostHasPlans, setHostHasPlans] = useState(false);
 
   const calculateDaysUntilEvent = (eventDate) => {
     const now = new Date();
@@ -88,6 +94,19 @@ export default function EventDetailScreen({ route, navigation }) {
       navigation.setParams({ shouldReload: false });
     }
   }, [route.params?.shouldReload]);
+
+  // Check whether the host sells membership plans (for the buy entry point).
+  useEffect(() => {
+    const creatorId = getEventCreatorId(event);
+    if (!creatorId) return;
+    let active = true;
+    getHostMembershipPlans(creatorId, { activeOnly: true }).then((plans) => {
+      if (active) setHostHasPlans(plans.length > 0);
+    });
+    return () => {
+      active = false;
+    };
+  }, [event?.creatorId, event?.createdBy]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -936,6 +955,43 @@ export default function EventDetailScreen({ route, navigation }) {
             </Text>
           </View>
         </View>
+
+        {/* Membership options — host sells plans and viewer isn't the host */}
+        {hostHasPlans && !isCreator && (
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate("HostMemberships", {
+                hostId: getEventCreatorId(event),
+                hostName: event.hostName || "Host",
+              })
+            }
+            activeOpacity={0.85}
+            style={{
+              marginHorizontal: 20,
+              marginTop: 8,
+              marginBottom: 8,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: `${colors.primary}66`,
+              backgroundColor: `${colors.primary}1A`,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontWeight: "700", fontSize: 15 }}>
+                🎟️ Membership plans available
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 2 }}>
+                Buy a class pack or pass from this host
+              </Text>
+            </View>
+            <Text style={{ color: colors.primary, fontWeight: "700" }}>View</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Event Ratings - Only visible to host for past events */}
         {isPastEvent && isCreator && (

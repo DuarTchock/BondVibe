@@ -27,6 +27,9 @@ import {
 import { db, auth } from "./firebase";
 import { logger } from "../utils/logger";
 
+const FUNCTIONS_BASE_URL =
+  "https://us-central1-bondvibe-dev.cloudfunctions.net";
+
 export const MEMBERSHIP_PLAN_TYPES = {
   CREDITS: "credits",
   UNLIMITED: "unlimited",
@@ -187,6 +190,120 @@ export const getMembershipPlan = async (planId) => {
     console.error("❌ Error loading membership plan:", e);
     return null;
   }
+};
+
+/**
+ * Create a Stripe PaymentIntent to purchase a membership plan.
+ * The membership document itself is created by the payment webhook on success.
+ * @param {string} planId
+ * @returns {Promise<{success:boolean, clientSecret?:string,
+ *                     paymentIntentId?:string, breakdown?:object, error?:string}>}
+ */
+export const createMembershipPaymentIntent = async (planId) => {
+  try {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return { success: false, error: "Not signed in." };
+
+    const response = await fetch(
+      `${FUNCTIONS_BASE_URL}/createMembershipPaymentIntent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, userId }),
+      }
+    );
+
+    const data = await response.json();
+    if (!response.ok) {
+      return { success: false, error: data.error || "Could not start purchase." };
+    }
+    return { success: true, ...data };
+  } catch (e) {
+    console.error("❌ Error creating membership payment intent:", e);
+    return { success: false, error: e.message };
+  }
+};
+
+/**
+ * Get the current user's memberships (newest first).
+ * @param {string} [userId] defaults to current user
+ * @returns {Promise<Array>}
+ */
+export const getUserMemberships = async (userId = null) => {
+  try {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) return [];
+    const q = query(
+      collection(db, "memberships"),
+      where("userId", "==", uid),
+      orderBy("createdAt", "desc")
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error("❌ Error loading user memberships:", e);
+    return [];
+  }
+};
+
+/**
+ * Get a user's active, usable membership with a given host, if any.
+ * "Usable" = active, not expired, and (for credit packs) has credits left.
+ * @param {string} hostId
+ * @param {string} [userId]
+ * @returns {Promise<object|null>}
+ */
+export const getUsableMembershipForHost = async (hostId, userId = null) => {
+  try {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid || !hostId) return null;
+    const q = query(
+      collection(db, "memberships"),
+      where("userId", "==", uid),
+      where("hostId", "==", hostId)
+    );
+    const snapshot = await getDocs(q);
+    const usable = snapshot.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((m) => getMembershipState(m) === "active");
+    // Prefer the one expiring soonest so credits are used before they lapse.
+    usable.sort((a, b) => toMillis(a.expiresAt) - toMillis(b.expiresAt));
+    return usable[0] || null;
+  } catch (e) {
+    console.error("❌ Error finding usable membership:", e);
+    return null;
+  }
+};
+
+const toMillis = (ts) => {
+  if (!ts) return 0;
+  if (ts.toMillis) return ts.toMillis();
+  if (ts.seconds) return ts.seconds * 1000;
+  return new Date(ts).getTime();
+};
+
+/**
+ * Derive a membership's usable state from its data.
+ * @param {object} m membership
+ * @returns {"active"|"expired"|"depleted"}
+ */
+export const getMembershipState = (m) => {
+  if (!m) return "expired";
+  if (toMillis(m.expiresAt) < Date.now()) return "expired";
+  if (m.type === MEMBERSHIP_PLAN_TYPES.CREDITS && (m.creditsRemaining || 0) <= 0) {
+    return "depleted";
+  }
+  return "active";
+};
+
+/**
+ * Convert a membership's expiry to a JS Date.
+ * @param {object} m
+ * @returns {Date|null}
+ */
+export const getMembershipExpiryDate = (m) => {
+  const ms = toMillis(m?.expiresAt);
+  return ms ? new Date(ms) : null;
 };
 
 /**

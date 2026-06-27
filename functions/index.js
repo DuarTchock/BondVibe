@@ -440,6 +440,109 @@ exports.createTipPaymentIntent = onRequest(
 );
 
 /**
+ * Create Payment Intent for a MEMBERSHIP plan purchase.
+ * Same fee model as event tickets (user pays platform + processing fees on
+ * top; host receives 100% of the plan price via Stripe Connect).
+ */
+exports.createMembershipPaymentIntent = onRequest(
+  {cors: true, secrets: [stripeSecretKey]},
+  async (req, res) => {
+    if (req.method !== "POST") {
+      return res.status(405).json({error: "Method not allowed"});
+    }
+
+    try {
+      if (!stripe) {
+        stripe = require("stripe")(stripeSecretKey.value());
+      }
+
+      const {planId, userId} = req.body;
+      if (!planId || !userId) {
+        return res.status(400).json({error: "Missing required fields"});
+      }
+
+      // Load the plan
+      const planDoc = await db.collection("membershipPlans").doc(planId).get();
+      if (!planDoc.exists) {
+        return res.status(404).json({error: "Plan not found"});
+      }
+      const plan = planDoc.data();
+      if (plan.active === false) {
+        return res.status(400).json({error: "This plan is no longer available"});
+      }
+
+      const hostId = plan.hostId;
+
+      // Host must have a Stripe Connect account able to accept payments
+      const hostDoc = await db.collection("users").doc(hostId).get();
+      if (!hostDoc.exists) {
+        return res.status(404).json({error: "Host not found"});
+      }
+      const hostData = hostDoc.data();
+      const stripeAccountId = hostData.stripeConnect?.accountId;
+      if (!stripeAccountId) {
+        return res.status(400).json({
+          error: "Host has not connected their Stripe account",
+        });
+      }
+      if (!hostData.hostConfig?.canCreatePaidEvents) {
+        return res.status(400).json({
+          error: "Host cannot accept payments yet",
+        });
+      }
+
+      const {calculateCheckoutAmount} = require("./stripe/pricing");
+      const pricing = calculateCheckoutAmount(plan.priceCentavos);
+
+      const paymentIntentConfig = {
+        amount: pricing.totalAmount,
+        currency: "mxn",
+        metadata: {
+          type: "membership",
+          planId: planId,
+          planName: plan.name,
+          planType: plan.type,
+          creditsIncluded: (plan.creditsIncluded || 0).toString(),
+          validityDays: (plan.validityDays || 0).toString(),
+          userId: userId,
+          hostId: hostId,
+          eventPrice: pricing.eventPrice.toString(),
+          platformFee: pricing.platformFee.toString(),
+          stripeFee: pricing.stripeFee.toString(),
+          totalAmount: pricing.totalAmount.toString(),
+          hostReceives: pricing.hostReceives.toString(),
+          feeModel: "USER_PAYS_FEES",
+        },
+        description: `Membership: ${plan.name}`,
+        application_fee_amount: pricing.platformFee + pricing.stripeFee,
+        transfer_data: {destination: stripeAccountId},
+      };
+
+      const paymentIntent = await stripe.paymentIntents.create(
+        paymentIntentConfig,
+      );
+
+      console.log("✅ Membership Payment Intent created:", paymentIntent.id);
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+        breakdown: {
+          planPrice: pricing.eventPrice,
+          platformFee: pricing.platformFee,
+          stripeFee: pricing.stripeFee,
+          totalAmount: pricing.totalAmount,
+          currency: "mxn",
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error creating membership payment intent:", error);
+      res.status(500).json({error: error.message});
+    }
+  },
+);
+
+/**
  * Get pricing info
  */
 exports.getPricingInfo = onRequest({cors: true}, (req, res) => {

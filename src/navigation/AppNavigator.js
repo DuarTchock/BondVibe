@@ -44,6 +44,9 @@ import StripeConnectScreen from "../screens/StripeConnectScreen";
 
 // Host Membership Screens
 import MembershipPlansScreen from "../screens/MembershipPlansScreen";
+import HostMembershipsScreen from "../screens/HostMembershipsScreen";
+import MembershipCheckoutScreen from "../screens/MembershipCheckoutScreen";
+import MyMembershipsScreen from "../screens/MyMembershipsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -331,6 +334,18 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen
             name="MembershipPlans"
             component={MembershipPlansScreen}
+          />
+          <Stack.Screen
+            name="HostMemberships"
+            component={HostMembershipsScreen}
+          />
+          <Stack.Screen
+            name="MembershipCheckout"
+            component={MembershipCheckoutScreen}
+          />
+          <Stack.Screen
+            name="MyMemberships"
+            component={MyMembershipsScreen}
           />
         </Stack.Navigator>
       </NavigationContainer>
