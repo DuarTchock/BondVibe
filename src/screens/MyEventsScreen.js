@@ -197,6 +197,14 @@ export default function MyEventsScreen({ navigation, route }) {
   };
 
   const canHost = currentUser?.role === "host" || currentUser?.role === "admin";
+  // Approved as host but hasn't chosen a type yet → send them to choose,
+  // not to re-apply via RequestHost.
+  const isApprovedPendingHostType = currentUser?.hostApproved && !canHost;
+  const hostActionRoute = canHost
+    ? "CreateEvent"
+    : isApprovedPendingHostType
+    ? "HostTypeSelection"
+    : "RequestHost";
 
   const styles = createStyles(colors);
 
@@ -565,7 +573,7 @@ export default function MyEventsScreen({ navigation, route }) {
                 if (activeTab === "joined") {
                   navigation.navigate("SearchEvents");
                 } else {
-                  navigation.navigate(canHost ? "CreateEvent" : "RequestHost");
+                  navigation.navigate(hostActionRoute);
                 }
               }}
             >

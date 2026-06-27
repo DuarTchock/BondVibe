@@ -34,6 +34,7 @@ import {
   Crown,
   BadgeCheck,
   Trash2,
+  Sparkles,
 } from "lucide-react-native";
 
 export default function ProfileScreen({ navigation }) {
@@ -169,6 +170,11 @@ export default function ProfileScreen({ navigation }) {
   }
 
   const canManageStripe = profile.role === "host" || profile.role === "admin";
+  // Approved as host but hasn't activated hosting yet (deferred the choice).
+  const isApprovedPendingHostType =
+    profile.hostApproved &&
+    profile.role !== "host" &&
+    profile.role !== "admin";
 
   return (
     <GradientBackground>
@@ -662,6 +668,67 @@ export default function ProfileScreen({ navigation }) {
                     <ChevronRight
                       size={20}
                       color={colors.textTertiary}
+                      strokeWidth={2}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Choose Host Type — for users approved as host who deferred */}
+              {isApprovedPendingHostType && (
+                <TouchableOpacity
+                  onPress={() =>
+                    navigation.navigate("HostTypeSelection", {
+                      fromProfile: true,
+                      userEmail: profile.email || auth.currentUser?.email,
+                      fullName: profile.fullName || "Host",
+                    })
+                  }
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.infoCard,
+                      {
+                        backgroundColor: isDark
+                          ? `${colors.primary}15`
+                          : `${colors.primary}10`,
+                        borderColor: `${colors.primary}40`,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.infoIconCircle,
+                        {
+                          backgroundColor: isDark
+                            ? `${colors.primary}20`
+                            : `${colors.primary}15`,
+                        },
+                      ]}
+                    >
+                      <Sparkles
+                        size={22}
+                        color={colors.primary}
+                        strokeWidth={1.8}
+                      />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
+                        style={[
+                          styles.infoLabel,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Hosting
+                      </Text>
+                      <Text style={[styles.infoValue, { color: colors.text }]}>
+                        Choose your host type
+                      </Text>
+                    </View>
+                    <ChevronRight
+                      size={20}
+                      color={colors.primary}
                       strokeWidth={2}
                     />
                   </View>

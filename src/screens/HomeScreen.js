@@ -175,8 +175,35 @@ export default function HomeScreen({ navigation }) {
   const isAdmin = user?.role === "admin";
   const isHost = user?.role === "host";
   const canCreateEvents = isAdmin || isHost;
+  // Approved as host but hasn't chosen a type yet → prompt them to choose,
+  // not to re-apply for hosting.
+  const isApprovedPendingHostType = user?.hostApproved && !canCreateEvents;
 
   const styles = createStyles(colors, isDark);
+
+  const hostQuickAction = canCreateEvents
+    ? {
+        id: "create",
+        label: "Create",
+        icon: Sparkles,
+        screen: "CreateEvent",
+        badge: 0,
+      }
+    : isApprovedPendingHostType
+    ? {
+        id: "choosehost",
+        label: "Choose Type",
+        icon: Sparkles,
+        screen: "HostTypeSelection",
+        badge: 0,
+      }
+    : {
+        id: "behost",
+        label: "Be a Host",
+        icon: Tent,
+        screen: "RequestHost",
+        badge: 0,
+      };
 
   const quickActions = [
     {
@@ -200,21 +227,7 @@ export default function HomeScreen({ navigation }) {
       screen: "Notifications",
       badge: unreadNotifications,
     },
-    canCreateEvents
-      ? {
-          id: "create",
-          label: "Create",
-          icon: Sparkles,
-          screen: "CreateEvent",
-          badge: 0,
-        }
-      : {
-          id: "behost",
-          label: "Be a Host",
-          icon: Tent,
-          screen: "RequestHost",
-          badge: 0,
-        },
+    hostQuickAction,
   ];
 
   return (

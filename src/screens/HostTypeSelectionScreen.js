@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { doc, updateDoc, onSnapshot } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -19,58 +19,42 @@ import {
   getAccountLink,
 } from "../services/stripeConnectService";
 
+// Deep link the Stripe return page redirects to (intercepted by
+// openAuthSessionAsync to auto-close the browser).
+const STRIPE_RETURN_URL = "bondvibe://stripe/return";
+
 export default function HostTypeSelectionScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
   const [selectedType, setSelectedType] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const { userEmail, fullName } = route.params || {};
+  const { userEmail, fullName, fromProfile } = route.params || {};
 
-  // Listen for hostConfig changes and navigate to Home when detected
-  useEffect(() => {
-    if (!auth.currentUser) return;
-
-    console.log("🔄 Setting up hostConfig listener in HostTypeSelection");
-
-    const userDocRef = doc(db, "users", auth.currentUser.uid);
-    const unsubscribe = onSnapshot(userDocRef, (docSnapshot) => {
-      if (docSnapshot.exists()) {
-        const userData = docSnapshot.data();
-
-        // If hostConfig was just created and we're in loading state
-        if (userData.hostConfig && loading) {
-          console.log(
-            "✅ hostConfig detected, AppNavigator will handle navigation"
-          );
-          // Stop loading to allow AppNavigator to take over
-          setLoading(false);
-        }
-      }
-    });
-
-    return () => {
-      console.log("🔕 Cleaning up hostConfig listener");
-      unsubscribe();
-    };
-  }, [loading]);
+  // Where to go once the user has made (or deferred) their choice. From the
+  // onboarding flow we land on Home; when opened from Profile we go back.
+  const goAfterSelection = () => {
+    if (fromProfile && navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+    }
+  };
 
   const handleDecideLater = async () => {
     setLoading(true);
     try {
-      // Write a placeholder hostConfig so AppNavigator knows the user
-      // acknowledged the screen and won't show it again mid-session.
-      // "deferred" means they'll be prompted again on next login only
-      // if hostConfig is still absent; here it exists so they get to Home.
+      // User deferred. They remain a NORMAL user (role: "user", no host
+      // privileges) but keep hostApproved so they can pick a type later from
+      // their Profile. The "deferred" marker stops AppNavigator from
+      // prompting them again on every login.
       await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        role: "user",
         "hostConfig.type": "deferred",
         "hostConfig.canCreatePaidEvents": false,
-        "hostConfig.createdAt": new Date().toISOString(),
         "hostConfig.updatedAt": new Date().toISOString(),
       });
-      console.log("✅ User deferred host type selection");
-      // Navigate to Home immediately — AppNavigator won't re-route because
-      // hasInitiallyRouted is already true for this session.
-      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+      console.log("✅ User deferred host type selection (stays normal user)");
+      goAfterSelection();
     } catch (error) {
       console.error("❌ Error deferring selection:", error);
       Alert.alert("Error", "Could not continue. Please try again.");
@@ -91,8 +75,9 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
 
     try {
       if (selectedType === "free") {
-        // Update user to Free Host
+        // Activate hosting as a Free Host (role becomes "host").
         await updateDoc(doc(db, "users", auth.currentUser.uid), {
+          role: "host",
           "hostConfig.type": "free",
           "hostConfig.canCreatePaidEvents": false,
           "hostConfig.createdAt": new Date().toISOString(),
@@ -100,7 +85,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
         });
 
         console.log("✅ User set as Free Host");
-        // The onSnapshot will detect this change and navigate to Home
+        goAfterSelection();
       } else if (selectedType === "paid") {
         // Create Stripe Connect account
         console.log("📤 Creating Stripe Connect account...");
@@ -122,13 +107,24 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
           throw new Error(linkResult.error);
         }
 
-        // Open Stripe onboarding in browser
+        // Open Stripe onboarding. openAuthSessionAsync auto-closes the browser
+        // when Stripe redirects back to our return page.
         console.log("🌐 Opening Stripe onboarding...");
-        await WebBrowser.openBrowserAsync(linkResult.url);
+        await WebBrowser.openAuthSessionAsync(linkResult.url, STRIPE_RETURN_URL);
 
-        // After browser closes, the Firestore webhook will update the user
-        // The onSnapshot will detect changes and navigate appropriately
-        console.log("✅ Stripe onboarding opened, waiting for verification");
+        // Activate hosting as a Paid Host. canCreatePaidEvents stays false
+        // until Stripe finishes verification (synced from the Stripe Connect
+        // screen / webhook); the user can already create free events.
+        await updateDoc(doc(db, "users", auth.currentUser.uid), {
+          role: "host",
+          "hostConfig.type": "paid",
+          "hostConfig.canCreatePaidEvents": false,
+          "hostConfig.createdAt": new Date().toISOString(),
+          "hostConfig.updatedAt": new Date().toISOString(),
+        });
+
+        console.log("✅ User set as Paid Host (Stripe verification pending)");
+        goAfterSelection();
       }
     } catch (error) {
       console.error("❌ Error setting up host:", error);

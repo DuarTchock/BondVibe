@@ -22,6 +22,10 @@ import {
   checkAccountStatus,
 } from "../services/stripeConnectService";
 
+// Deep link the Stripe return/refresh pages redirect to. openAuthSessionAsync
+// watches for this URL to auto-close the browser and return to the app.
+const STRIPE_RETURN_URL = "bondvibe://stripe/return";
+
 export default function StripeConnectScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
@@ -48,22 +52,26 @@ export default function StripeConnectScreen({ navigation }) {
     }
   };
 
-  const handleRefreshStatus = async () => {
+  const handleRefreshStatus = async ({ silent = false } = {}) => {
     setRefreshing(true);
     try {
       const result = await checkAccountStatus(auth.currentUser.uid);
       if (result.success) {
         await loadData();
-        Alert.alert(
-          "Status Updated",
-          "Your Stripe account status has been refreshed."
-        );
-      } else {
+        if (!silent) {
+          Alert.alert(
+            "Status Updated",
+            "Your Stripe account status has been refreshed."
+          );
+        }
+      } else if (!silent) {
         Alert.alert("Error", result.error || "Could not refresh status.");
       }
     } catch (error) {
       console.error("Error refreshing status:", error);
-      Alert.alert("Error", "Could not refresh status. Please try again.");
+      if (!silent) {
+        Alert.alert("Error", "Could not refresh status. Please try again.");
+      }
     } finally {
       setRefreshing(false);
     }
@@ -100,25 +108,15 @@ export default function StripeConnectScreen({ navigation }) {
       }
 
       console.log("🌐 Opening Stripe onboarding...");
-      const result = await WebBrowser.openBrowserAsync(linkResult.url);
+      // openAuthSessionAsync auto-closes the browser when Stripe redirects to
+      // our return/refresh page (which deep-links back to STRIPE_RETURN_URL),
+      // returning control to the app without a manual "Open App" tap.
+      await WebBrowser.openAuthSessionAsync(linkResult.url, STRIPE_RETURN_URL);
 
-      if (result.type === "cancel") {
-        Alert.alert(
-          "Verification Incomplete",
-          "You can complete your Stripe verification anytime to start accepting payments."
-        );
-      } else {
-        Alert.alert(
-          "Verification in Progress",
-          "Please allow 1-2 days for Stripe to verify your account. Check back soon!",
-          [
-            {
-              text: "Refresh Status",
-              onPress: handleRefreshStatus,
-            },
-          ]
-        );
-      }
+      // Whether they finished, deferred, or just closed the browser, sync the
+      // real status from Stripe so the UI reflects reality instead of showing
+      // a misleading "Verification Incomplete" message.
+      await handleRefreshStatus({ silent: true });
     } catch (error) {
       console.error("❌ Error connecting Stripe:", error);
       Alert.alert(
@@ -241,17 +239,28 @@ export default function StripeConnectScreen({ navigation }) {
             ]}
           >
             <Text style={styles.hostTypeEmoji}>
-              {hostConfig?.type === "paid" ? "💰" : "🆓"}
+              {hostConfig?.type === "paid"
+                ? "💰"
+                : hostConfig?.type === "free"
+                ? "🆓"
+                : "✨"}
             </Text>
             <Text style={[styles.hostTypeTitle, { color: colors.text }]}>
-              Current: {hostConfig?.type === "paid" ? "Paid Host" : "Free Host"}
+              Current:{" "}
+              {hostConfig?.type === "paid"
+                ? "Paid Host"
+                : hostConfig?.type === "free"
+                ? "Free Host"
+                : "Host type not selected"}
             </Text>
             <Text
               style={[styles.hostTypeText, { color: colors.textSecondary }]}
             >
               {hostConfig?.type === "paid"
                 ? "You can create both free and paid events"
-                : "You can create free events. Connect Stripe to upgrade to paid events."}
+                : hostConfig?.type === "free"
+                ? "You can create free events. Connect Stripe to upgrade to paid events."
+                : "Choose a host type to start creating events."}
             </Text>
           </View>
         </View>

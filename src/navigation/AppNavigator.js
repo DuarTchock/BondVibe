@@ -179,9 +179,15 @@ const AppNavigator = forwardRef((props, ref) => {
                 );
                 navigateToRoute("ProfileSetup", { user });
               }
-              // 4. Host needs to select type — only shown before Home is reached,
-              //    so mid-session admin approvals won't interrupt the user.
-              else if (userData.role === "host" && !userData.hostConfig) {
+              // 4. Approved host needs to choose their type (free/paid) before
+              //    hosting is activated. Only shown before Home is reached, so
+              //    mid-session admin approvals won't interrupt the user.
+              //    (role === "host" covers legacy hosts approved before the
+              //    hostApproved flag existed.)
+              else if (
+                (userData.hostApproved || userData.role === "host") &&
+                !userData.hostConfig
+              ) {
                 console.log(
                   "🎪 Host needs to select type - navigating to HostTypeSelection",
                 );

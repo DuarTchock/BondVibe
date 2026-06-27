@@ -163,8 +163,12 @@ export default function AdminDashboardScreen({ navigation }) {
         adminMessage: message,
       });
 
+      // hostApproved grants the RIGHT to become a host. The user does not get
+      // host privileges (role: "host") until they explicitly choose a host
+      // type (free/paid) in HostTypeSelection. If they defer, they stay a
+      // normal user but can choose their type later from their Profile.
       await updateDoc(doc(db, "users", currentRequest.userId), {
-        role: "host",
+        hostApproved: true,
       });
 
       await createNotification(currentRequest.userId, {
@@ -181,7 +185,7 @@ export default function AdminDashboardScreen({ navigation }) {
 
       Alert.alert(
         "Success",
-        `${currentRequest.userName} is now a host! They will need to choose their host type on their next login.`,
+        `${currentRequest.userName} has been approved! They'll choose their host type (free or paid) to activate hosting.`,
         [{ text: "OK" }]
       );
     } catch (error) {

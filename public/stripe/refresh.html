@@ -43,9 +43,18 @@
   <div class="container">
     <div class="emoji">🔄</div>
     <h1>Session Expired</h1>
-    <p>Your setup session has expired. Please return to the BondVibe app and try connecting your Stripe account again.</p>
+    <p>Your setup session has expired. Returning you to the BondVibe app so you can try again…</p>
     <a href="bondvibe://stripe/refresh" class="button">Open BondVibe App</a>
-    <p class="note">If the button doesn't work, simply close this tab and reopen the app.</p>
+    <p class="note">If you're not redirected automatically, tap the button above or close this tab and reopen the app.</p>
   </div>
+  <script>
+    // Auto-return to the app (intercepted by openAuthSessionAsync).
+    (function () {
+      var deepLink = "bondvibe://stripe/refresh";
+      setTimeout(function () {
+        window.location.href = deepLink;
+      }, 400);
+    })();
+  </script>
 </body>
 </html>
