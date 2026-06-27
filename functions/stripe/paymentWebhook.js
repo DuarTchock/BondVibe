@@ -117,45 +117,15 @@ async function handleEventTicketPurchase(paymentIntent) {
   await db.collection("payments").doc(paymentIntentId).set(paymentData);
   console.log("✅ Payment record saved");
 
-  // 2. Add user to event attendees
+  // 2. Add user to event attendees. The host's "new attendee" notification
+  //    (in-app bubble + push, including the paid amount) is sent by the
+  //    onEventAttendeesChanged Cloud Function, so we don't duplicate it here.
   console.log("👥 Adding user to event attendees...");
   const eventRef = db.collection("events").doc(eventId);
   await eventRef.update({
     attendees: admin.firestore.FieldValue.arrayUnion(userId),
   });
   console.log("✅ User added to attendees");
-
-  // ⭐ 3. Get user info for notification
-  console.log("📧 Getting user info for notification...");
-  const userDoc = await db.collection("users").doc(userId).get();
-  const userName = userDoc.exists ?
-    userDoc.data().fullName || userDoc.data().name || "Someone" :
-    "Someone";
-
-  // ⭐ 4. Send notification to host
-  console.log("📬 Sending notification to host:", hostId);
-  const notificationData = {
-    userId: hostId,
-    type: "event_paid_attendee",
-    title: "New paid attendee! 💰",
-    message: `${userName} paid $${(amount / 100).toFixed(
-      2,
-    )} MXN for "${eventTitle}"`,
-    icon: "💰",
-    read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    metadata: {
-      eventId: eventId,
-      eventTitle: eventTitle,
-      attendeeId: userId,
-      attendeeName: userName,
-      amount: amount,
-      currency: currency,
-    },
-  };
-
-  await db.collection("notifications").add(notificationData);
-  console.log("✅ Notification sent to host");
 
   console.log("✅ Payment processing complete");
 }

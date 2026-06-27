@@ -35,10 +35,7 @@ import {
   getHostMembershipPlans,
   getUsableMembershipForHost,
   getUserReservationForEvent,
-  reserveMembershipCredit,
   releaseMembershipReservation,
-  getMembershipState,
-  MEMBERSHIP_PLAN_TYPES,
 } from "../services/membershipService";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
@@ -55,6 +52,7 @@ import {
   MapPin,
   Users,
   ChevronRight,
+  Ticket,
   Star,
 } from "lucide-react-native";
 
@@ -263,42 +261,12 @@ export default function EventDetailScreen({ route, navigation }) {
         attendees: arrayUnion(auth.currentUser.uid),
       });
       setIsJoined(true);
-      const creatorId = getEventCreatorId(event);
-      if (creatorId && creatorId !== auth.currentUser.uid) {
-        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-        const userName = userDoc.data()?.fullName || "Someone";
-        await createNotification(creatorId, {
-          type: "event_joined",
-          title: "New attendee!",
-          message: `${userName} joined your "${event.title}" event`,
-          icon: "👋",
-          metadata: { eventId: event.id, eventTitle: event.title },
-        });
-      }
+      // The host's "new attendee" notification (in-app bubble + push) is sent
+      // by the onEventAttendeesChanged Cloud Function for all join paths.
       Alert.alert("Joined!", "You have joined this event");
       await loadEvent();
     } catch (error) {
       Alert.alert("Error", "Could not join event");
-    } finally {
-      setJoining(false);
-    }
-  };
-
-  // Reserve a spot using a membership credit (deducted at host check-in).
-  const joinWithMembershipCredit = async () => {
-    setJoining(true);
-    try {
-      const r = await reserveMembershipCredit(eventId);
-      if (!r.success) {
-        Alert.alert("Couldn't use membership", r.error || "Please try again.");
-        return;
-      }
-      setIsJoined(true);
-      Alert.alert(
-        "Spot reserved! 🎟️",
-        "You're booked with your membership. The host will check you in at the event."
-      );
-      await loadEvent();
     } finally {
       setJoining(false);
     }
@@ -357,27 +325,21 @@ export default function EventDetailScreen({ route, navigation }) {
       return;
     }
 
-    // If the user has a usable membership for this host, let them choose
-    // between using a credit and paying/joining normally.
-    const canUseMembership =
-      event.acceptsMembership !== false &&
-      usableMembership &&
-      getMembershipState(usableMembership) === "active";
+    // When there's a real choice — a paid event, or the host offers
+    // memberships this event accepts — show the full "How to attend" screen.
+    const membershipOption =
+      event.acceptsMembership !== false && (hostHasPlans || usableMembership);
+    const isPaid = event.price && event.price > 0;
 
-    if (canUseMembership) {
-      const isUnlimited =
-        usableMembership.type === MEMBERSHIP_PLAN_TYPES.UNLIMITED;
-      const creditLabel = isUnlimited
-        ? "Use membership"
-        : `Use 1 credit (${usableMembership.creditsRemaining} left)`;
-      const payLabel =
-        event.price && event.price > 0 ? `Pay $${event.price}` : "Join free";
-
-      Alert.alert("How do you want to attend?", undefined, [
-        { text: creditLabel, onPress: joinWithMembershipCredit },
-        { text: payLabel, onPress: proceedJoinPayOrFree },
-        { text: "Cancel", style: "cancel" },
-      ]);
+    if (isPaid || membershipOption) {
+      navigation.navigate("HowToAttend", {
+        eventId,
+        eventTitle: event.title,
+        price: event.price || 0,
+        hostId: getEventCreatorId(event),
+        hostName: event.hostName || "Host",
+        acceptsMembership: event.acceptsMembership !== false,
+      });
       return;
     }
 
@@ -662,7 +624,11 @@ export default function EventDetailScreen({ route, navigation }) {
     if (joining) return "Loading...";
     if (isJoined) return "Leave Event";
     if (isFull) return "Event Full";
-    if (eventPrice > 0) return `Pay $${eventPrice} MXN`;
+    // A paid event or one that accepts membership opens the "How to attend"
+    // screen, so the button reflects attending rather than a fixed price.
+    if (eventPrice > 0 || (event.acceptsMembership !== false && hostHasPlans)) {
+      return "Attend this event";
+    }
     return "Join Event (Free)";
   };
 
@@ -1051,73 +1017,86 @@ export default function EventDetailScreen({ route, navigation }) {
 
         {/* Membership options — host sells plans and viewer isn't the host */}
         {hostHasPlans && !isCreator && (
-          <TouchableOpacity
-            onPress={() =>
-              navigation.navigate("HostMemberships", {
-                hostId: getEventCreatorId(event),
-                hostName: event.hostName || "Host",
-              })
-            }
-            activeOpacity={0.85}
-            style={{
-              marginHorizontal: 20,
-              marginTop: 8,
-              marginBottom: 8,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: `${colors.primary}66`,
-              backgroundColor: `${colors.primary}1A`,
-              paddingVertical: 14,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontWeight: "700", fontSize: 15 }}>
-                🎟️ Membership plans available
-              </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 2 }}>
-                Buy a class pack or pass from this host
-              </Text>
-            </View>
-            <Text style={{ color: colors.primary, fontWeight: "700" }}>View</Text>
-          </TouchableOpacity>
+          <View style={[styles.infoCard, { marginBottom: 12 }]}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate("HostMemberships", {
+                  hostId: getEventCreatorId(event),
+                  hostName: event.hostName || "Host",
+                })
+              }
+              activeOpacity={0.85}
+              style={[
+                styles.infoGlass,
+                {
+                  backgroundColor: `${colors.primary}14`,
+                  borderColor: `${colors.primary}40`,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.infoIconCircle,
+                  { backgroundColor: `${colors.primary}26` },
+                ]}
+              >
+                <Ticket size={22} color={colors.primary} strokeWidth={1.8} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                  Memberships
+                </Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  Plans available
+                </Text>
+              </View>
+              <ChevronRight size={20} color={colors.primary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Host check-in / attendance — host only */}
         {isCreator && (
-          <TouchableOpacity
-            onPress={() =>
-              navigation.navigate("EventCheckIn", {
-                eventId,
-                eventTitle: event.title,
-              })
-            }
-            activeOpacity={0.85}
-            style={{
-              marginHorizontal: 20,
-              marginTop: 8,
-              marginBottom: 8,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.04)"
-                : "rgba(255,255,255,0.85)",
-              paddingVertical: 14,
-              paddingHorizontal: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: "700", fontSize: 15 }}>
-              ✅ Take attendance / check-in
-            </Text>
-            <Text style={{ color: colors.primary, fontWeight: "700" }}>Open</Text>
-          </TouchableOpacity>
+          <View style={[styles.infoCard, { marginBottom: 12 }]}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate("EventCheckIn", {
+                  eventId,
+                  eventTitle: event.title,
+                })
+              }
+              activeOpacity={0.85}
+              style={[
+                styles.infoGlass,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.04)"
+                    : "rgba(255,255,255,0.85)",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.10)"
+                    : "rgba(0,0,0,0.08)",
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.infoIconCircle,
+                  { backgroundColor: `${colors.primary}15` },
+                ]}
+              >
+                <Users size={22} color={colors.primary} strokeWidth={1.8} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+                  Attendance
+                </Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  Take attendance / check-in
+                </Text>
+              </View>
+              <ChevronRight size={20} color={colors.primary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Event Ratings - Only visible to host for past events */}

@@ -148,6 +148,9 @@ export default function StripeConnectScreen({ navigation }) {
   const isActive = stripeConnect?.status === "active";
   const isPending = stripeConnect?.status === "pending";
   const canCreatePaidEvents = hostConfig?.canCreatePaidEvents;
+  // Can charge attendees but Stripe isn't releasing funds to the bank yet.
+  const payoutsPending =
+    stripeConnect?.chargesEnabled && !stripeConnect?.payoutsEnabled;
 
   return (
     <GradientBackground>
@@ -264,6 +267,39 @@ export default function StripeConnectScreen({ navigation }) {
             </Text>
           </View>
         </View>
+
+        {/* Payouts pending warning */}
+        {payoutsPending && (
+          <View style={styles.detailsCard}>
+            <View
+              style={[
+                styles.detailsGlass,
+                {
+                  backgroundColor: "rgba(255, 159, 10, 0.1)",
+                  borderColor: "rgba(255, 159, 10, 0.3)",
+                },
+              ]}
+            >
+              <Text style={[styles.detailsTitle, { color: "#FF9F0A" }]}>
+                ⚠️ Payouts not active yet
+              </Text>
+              <Text
+                style={[styles.statusText, { color: colors.textSecondary, textAlign: "left", marginBottom: 12 }]}
+              >
+                You can accept payments, but Stripe isn't releasing funds to your
+                bank yet. This usually means Stripe still needs more information
+                (bank details or identity verification). Complete your Stripe
+                setup to start receiving payouts. Your collected funds are held
+                safely by Stripe until then.
+              </Text>
+              <TouchableOpacity onPress={handleConnectStripe} disabled={connecting}>
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                  {connecting ? "Opening…" : "Complete Stripe setup →"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Details Card */}
         {stripeConnect?.accountId && (

@@ -34,6 +34,7 @@ import Icon from "../components/Icon";
 import { EVENT_CATEGORIES, EVENT_LANGUAGES } from "../utils/eventCategories";
 import { LOCATIONS } from "../utils/locations";
 import { uploadEventImages } from "../services/storageService";
+import { getHostMembershipPlans } from "../services/membershipService";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import RecurrenceModal from "../components/RecurrenceModal";
 import { generateRecurringDates, getRecurrenceSummary } from "../utils/recurrenceUtils";
@@ -91,6 +92,10 @@ export default function CreateEventScreen({ navigation }) {
 
   // User profile state for Stripe validation
   const [userProfile, setUserProfile] = useState(null);
+
+  // Membership: whether this event can be attended with a membership credit.
+  const [acceptsMembership, setAcceptsMembership] = useState(false);
+  const [checkingPlans, setCheckingPlans] = useState(false);
 
   // Filter out "all" from locations for create event
   const cityOptions = LOCATIONS.filter((loc) => loc.id !== "all");
@@ -192,6 +197,38 @@ export default function CreateEventScreen({ navigation }) {
   const confirmEndDateSelection = () => {
     setRecurrenceEndDate(tempEndDate);
     setShowEndDatePicker(false);
+  };
+
+  // Toggle "accept membership credits". Requires the host to have at least one
+  // active membership plan; otherwise invite them to create one first.
+  const handleToggleMembership = async () => {
+    if (acceptsMembership) {
+      setAcceptsMembership(false);
+      return;
+    }
+    setCheckingPlans(true);
+    try {
+      const plans = await getHostMembershipPlans(auth.currentUser.uid, {
+        activeOnly: true,
+      });
+      if (plans.length === 0) {
+        Alert.alert(
+          "No membership plans yet",
+          "To let members attend this event with a class credit, you first need to create a membership plan.",
+          [
+            { text: "Not now", style: "cancel" },
+            {
+              text: "Create a plan",
+              onPress: () => navigation.navigate("MembershipPlans"),
+            },
+          ]
+        );
+        return;
+      }
+      setAcceptsMembership(true);
+    } finally {
+      setCheckingPlans(false);
+    }
   };
 
   // Handle price change with Stripe validation
@@ -352,8 +389,14 @@ export default function CreateEventScreen({ navigation }) {
         maxPeople: parseInt(maxPeople),
         price: isFree ? 0 : parseFloat(price),
         currency: "MXN",
-        hostName: userData?.name || userData?.displayName || "Anonymous",
+        hostName:
+          userData?.fullName ||
+          userData?.name ||
+          userData?.displayName ||
+          "Host",
         creatorId: user.uid,
+        acceptsMembership: acceptsMembership,
+        creditCost: 1,
         attendees: [],
         participantCount: 0,
         status: "active",
@@ -876,6 +919,54 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Accept membership credits */}
+        <View style={styles.field}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleToggleMembership}
+            disabled={checkingPlans}
+            style={[
+              styles.membershipToggle,
+              {
+                backgroundColor: acceptsMembership
+                  ? `${colors.primary}1A`
+                  : colors.surfaceGlass,
+                borderColor: acceptsMembership ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={[styles.label, { color: colors.text, marginBottom: 2 }]}>
+                Accept membership credits
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                Let your members attend this event using a class credit.
+              </Text>
+            </View>
+            {checkingPlans ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <View
+                style={[
+                  styles.switchTrack,
+                  {
+                    backgroundColor: acceptsMembership
+                      ? colors.primary
+                      : colors.border,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.switchKnob,
+                    { alignSelf: acceptsMembership ? "flex-end" : "flex-start" },
+                  ]}
+                />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Max People and Price */}
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
@@ -1149,6 +1240,26 @@ function createStyles(colors) {
       gap: 8,
     },
     toggleLabel: { fontSize: 16, fontWeight: "600" },
+    membershipToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 16,
+    },
+    switchTrack: {
+      width: 48,
+      height: 28,
+      borderRadius: 14,
+      padding: 3,
+      justifyContent: "center",
+    },
+    switchKnob: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: "#FFFFFF",
+    },
     row: { flexDirection: "row", marginBottom: 20 },
     pickerButton: {
       flexDirection: "row",

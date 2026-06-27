@@ -10,6 +10,8 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ticket, Infinity as InfinityIcon } from "lucide-react-native";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import {
@@ -21,8 +23,9 @@ import {
 
 export default function HostMembershipsScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
-  const { hostId, hostName } = route.params || {};
+  const { hostId, hostName: hostNameParam } = route.params || {};
   const [plans, setPlans] = useState([]);
+  const [hostName, setHostName] = useState(hostNameParam || "");
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -32,8 +35,15 @@ export default function HostMembershipsScreen({ route, navigation }) {
   );
 
   const load = async () => {
-    const data = await getHostMembershipPlans(hostId, { activeOnly: true });
+    const [data, hostSnap] = await Promise.all([
+      getHostMembershipPlans(hostId, { activeOnly: true }),
+      getDoc(doc(db, "users", hostId)),
+    ]);
     setPlans(data);
+    if (hostSnap.exists()) {
+      const d = hostSnap.data();
+      setHostName(d.fullName || d.name || hostNameParam || "Host");
+    }
     setLoading(false);
   };
 
@@ -94,9 +104,24 @@ export default function HostMembershipsScreen({ route, navigation }) {
                   {describePlan(plan)}
                 </Text>
                 {!!plan.description && (
-                  <Text style={[styles.planDesc, { color: colors.textTertiary }]}>
-                    {plan.description}
-                  </Text>
+                  <>
+                    <Text style={[styles.sectionHeading, { color: colors.text }]}>
+                      What's included
+                    </Text>
+                    <Text style={[styles.planDesc, { color: colors.textTertiary }]}>
+                      {plan.description}
+                    </Text>
+                  </>
+                )}
+                {!!plan.terms && (
+                  <>
+                    <Text style={[styles.sectionHeading, { color: colors.text }]}>
+                      Terms & conditions
+                    </Text>
+                    <Text style={[styles.planDesc, { color: colors.textTertiary }]}>
+                      {plan.terms}
+                    </Text>
+                  </>
                 )}
                 <TouchableOpacity
                   style={styles.buyButton}
@@ -159,6 +184,13 @@ function createStyles(colors, isDark) {
     planName: { fontSize: 16, fontWeight: "700", flex: 1 },
     planPrice: { fontSize: 16, fontWeight: "700" },
     planMeta: { fontSize: 13, marginBottom: 4, marginLeft: 52 },
+    sectionHeading: {
+      fontSize: 13,
+      fontWeight: "700",
+      marginLeft: 52,
+      marginTop: 10,
+      marginBottom: 2,
+    },
     planDesc: { fontSize: 13, lineHeight: 18, marginLeft: 52 },
     buyButton: { borderRadius: 12, overflow: "hidden", marginTop: 14 },
     buyGlass: {

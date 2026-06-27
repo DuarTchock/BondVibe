@@ -27,7 +27,14 @@
           "color": "#4A00E0"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.bondvibe.app",
+          "enableGooglePay": false
+        }
+      ]
     ],
     "extra": {
       "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCLaUcFpX5KcemGsCCMHSfCz49CauUKjGc",

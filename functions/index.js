@@ -35,6 +35,21 @@ const {sendBatchPushNotifications} = require("./notifications/pushService");
 // Import event helpers (attendee/creator normalization)
 const {getAttendeeIds, getEventCreatorId} = require("./utils/eventHelpers");
 
+/**
+ * Look up a user's email (for Stripe receipts). Returns null if unavailable.
+ * @param {string} userId
+ * @return {Promise<string|null>}
+ */
+async function getUserEmail(userId) {
+  try {
+    const snap = await db.collection("users").doc(userId).get();
+    return snap.exists ? snap.data().email || null : null;
+  } catch (e) {
+    console.warn("⚠️ Could not load user email:", e.message);
+    return null;
+  }
+}
+
 // ============================================
 // PUSH NOTIFICATIONS
 // ============================================
@@ -300,9 +315,13 @@ exports.createEventPaymentIntent = onRequest(
       }
 
       // Create Payment Intent with NEW pricing
+      // Buyer email → Stripe sends an automatic receipt to it.
+      const buyerEmail = await getUserEmail(userId);
+
       const paymentIntentConfig = {
         amount: pricing.totalAmount, // User pays total (event + fees)
         currency: "mxn",
+        receipt_email: buyerEmail || undefined,
         metadata: {
           type: "event_ticket",
           eventId: eventId,
@@ -402,10 +421,14 @@ exports.createTipPaymentIntent = onRequest(
         stripeAccountId: stripeAccountId,
       });
 
+      // Buyer email → Stripe sends an automatic receipt to it.
+      const tipperEmail = await getUserEmail(userId);
+
       // Tip goes 100% to host (no platform fee)
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "mxn",
+        receipt_email: tipperEmail || undefined,
         application_fee_amount: 0, // No platform fee on tips
         transfer_data: {
           destination: stripeAccountId, // 100% to host
@@ -495,9 +518,13 @@ exports.createMembershipPaymentIntent = onRequest(
       const {calculateCheckoutAmount} = require("./stripe/pricing");
       const pricing = calculateCheckoutAmount(plan.priceCentavos);
 
+      // Buyer email → Stripe sends an automatic receipt to it.
+      const buyerEmail = await getUserEmail(userId);
+
       const paymentIntentConfig = {
         amount: pricing.totalAmount,
         currency: "mxn",
+        receipt_email: buyerEmail || undefined,
         metadata: {
           type: "membership",
           planId: planId,

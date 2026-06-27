@@ -31,6 +31,7 @@ import {
 const emptyForm = {
   name: "",
   description: "",
+  terms: "",
   type: MEMBERSHIP_PLAN_TYPES.CREDITS,
   creditsIncluded: "",
   validityDays: "",
@@ -70,6 +71,7 @@ export default function MembershipPlansScreen({ navigation }) {
     setForm({
       name: plan.name || "",
       description: plan.description || "",
+      terms: plan.terms || "",
       type: plan.type,
       creditsIncluded: plan.creditsIncluded ? String(plan.creditsIncluded) : "",
       validityDays: plan.validityDays ? String(plan.validityDays) : "",
@@ -83,6 +85,7 @@ export default function MembershipPlansScreen({ navigation }) {
     const payload = {
       name: form.name,
       description: form.description,
+      terms: form.terms,
       type: form.type,
       creditsIncluded:
         form.type === MEMBERSHIP_PLAN_TYPES.CREDITS
@@ -359,19 +362,35 @@ export default function MembershipPlansScreen({ navigation }) {
                 />
               </Field>
 
-              <Field label="Description (optional)" colors={colors}>
+              <Field label="What's included (optional)" colors={colors}>
                 <TextInput
                   style={[
                     styles.input,
                     styles.textArea,
                     { color: colors.text, borderColor: colors.border },
                   ]}
-                  placeholder="What's included, schedule, etc."
+                  placeholder="What members get, schedule, level, etc."
                   placeholderTextColor={colors.textTertiary}
                   value={form.description}
                   onChangeText={(t) => setForm({ ...form, description: t })}
                   multiline
-                  maxLength={300}
+                  maxLength={500}
+                />
+              </Field>
+
+              <Field label="Terms & conditions (optional)" colors={colors}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.textArea,
+                    { color: colors.text, borderColor: colors.border },
+                  ]}
+                  placeholder="Cancellation, expiry, transfer rules, etc."
+                  placeholderTextColor={colors.textTertiary}
+                  value={form.terms}
+                  onChangeText={(t) => setForm({ ...form, terms: t })}
+                  multiline
+                  maxLength={500}
                 />
               </Field>
 

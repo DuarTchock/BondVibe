@@ -95,29 +95,18 @@ async function notifyHostOfNewAttendees(
   }
 
   try {
-    // Get host's push token
     const hostDoc = await db.collection("users").doc(hostId).get();
     if (!hostDoc.exists) {
       console.log("⚠️ Host not found:", hostId);
       return;
     }
-
     const hostData = hostDoc.data();
     const pushToken = hostData.pushToken;
 
-    if (!pushToken) {
-      console.log("⚠️ Host has no push token:", hostId);
-      return;
-    }
-
-    // Get attendee names
+    // Get attendee names (skip the host joining their own event)
     const attendeeNames = [];
     for (const attendeeId of attendeeIds) {
-      // Don't notify if host joined their own event
-      if (attendeeId === hostId) {
-        continue;
-      }
-
+      if (attendeeId === hostId) continue;
       try {
         const attendeeDoc = await db.collection("users").doc(attendeeId).get();
         if (attendeeDoc.exists) {
@@ -141,47 +130,57 @@ async function notifyHostOfNewAttendees(
     // Format notification message
     let title;
     let body;
-
     if (eventPrice && eventPrice > 0) {
-      // Paid event
       const priceMXN = (eventPrice / 100).toFixed(0);
-      if (attendeeNames.length === 1) {
-        title = "💰 New Paid Attendee!";
-        body = `${attendeeNames[0]} paid $${priceMXN} MXN for "${eventTitle}"`;
-      } else {
-        title = `💰 ${attendeeNames.length} New Paid Attendees!`;
-        body = `${attendeeNames.join(", ")} joined "${eventTitle}"`;
-      }
+      title =
+        attendeeNames.length === 1 ?
+          "💰 New Paid Attendee!" :
+          `💰 ${attendeeNames.length} New Paid Attendees!`;
+      body =
+        attendeeNames.length === 1 ?
+          `${attendeeNames[0]} paid $${priceMXN} MXN for "${eventTitle}"` :
+          `${attendeeNames.join(", ")} joined "${eventTitle}"`;
     } else {
-      // Free event
-      if (attendeeNames.length === 1) {
-        title = "👋 New Attendee!";
-        body = `${attendeeNames[0]} joined "${eventTitle}"`;
-      } else {
-        title = `👋 ${attendeeNames.length} New Attendees!`;
-        body = `${attendeeNames.join(", ")} joined "${eventTitle}"`;
-      }
+      title =
+        attendeeNames.length === 1 ?
+          "👋 New Attendee!" :
+          `👋 ${attendeeNames.length} New Attendees!`;
+      body =
+        attendeeNames.length === 1 ?
+          `${attendeeNames[0]} joined "${eventTitle}"` :
+          `${attendeeNames.join(", ")} joined "${eventTitle}"`;
     }
 
-    // Send push notification
-    console.log("📤 Sending push notification to host:", hostId);
-    const notifications = [
-      {
-        pushToken,
-        title,
-        body,
-        data: {
-          type: "event_joined",
-          eventId: eventId,
-          eventTitle: eventTitle,
-        },
-      },
-    ];
+    // 1. Always write an in-app notification (the bubble), regardless of push.
+    //    This is the single source of "someone joined" for free/paid/membership.
+    await db.collection("notifications").add({
+      userId: hostId,
+      type: "event_joined",
+      title,
+      message: body,
+      icon: eventPrice && eventPrice > 0 ? "💰" : "👋",
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: {eventId, eventTitle},
+    });
+    console.log("✅ In-app notification written for host:", hostId);
 
-    await sendBatchPushNotifications(notifications);
-    console.log(
-      `✅ Push notification sent for ${attendeeNames.length} new attendee(s)`,
-    );
+    // 2. Send a push too, if the host has a token.
+    if (pushToken) {
+      await sendBatchPushNotifications([
+        {
+          pushToken,
+          title,
+          body,
+          data: {type: "event_joined", eventId, eventTitle},
+        },
+      ]);
+      console.log(
+        `✅ Push sent for ${attendeeNames.length} new attendee(s)`,
+      );
+    } else {
+      console.log("ℹ️ Host has no push token; bubble written, push skipped");
+    }
   } catch (error) {
     console.error("❌ Error sending new attendee notification:", error);
   }

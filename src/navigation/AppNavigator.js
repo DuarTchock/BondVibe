@@ -49,6 +49,7 @@ import MembershipCheckoutScreen from "../screens/MembershipCheckoutScreen";
 import MyMembershipsScreen from "../screens/MyMembershipsScreen";
 import EventCheckInScreen from "../screens/EventCheckInScreen";
 import HostAnalyticsScreen from "../screens/HostAnalyticsScreen";
+import HowToAttendScreen from "../screens/HowToAttendScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -356,6 +357,10 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen
             name="HostAnalytics"
             component={HostAnalyticsScreen}
+          />
+          <Stack.Screen
+            name="HowToAttend"
+            component={HowToAttendScreen}
           />
         </Stack.Navigator>
       </NavigationContainer>

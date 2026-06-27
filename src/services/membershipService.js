@@ -70,6 +70,7 @@ export const createMembershipPlan = async (planData) => {
       hostId,
       name: planData.name.trim(),
       description: planData.description?.trim() || "",
+      terms: planData.terms?.trim() || "",
       type: planData.type,
       creditsIncluded: isCredits ? Number(planData.creditsIncluded) : null,
       validityDays: Number(planData.validityDays),
