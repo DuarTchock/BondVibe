@@ -24,6 +24,7 @@ import {
 import { savePaymentRecord } from "../../services/paymentService";
 import { createNotification } from "../../utils/notificationService";
 import { isUserAttending } from "../../utils/eventHelpers";
+import { estimateCheckout } from "../../utils/pricing";
 
 /**
  * Wait until the webhook adds the user to the event's attendees array.
@@ -65,10 +66,12 @@ export default function CheckoutScreen({ route, navigation }) {
 
   const { eventId, eventTitle, amount } = route.params;
 
-  // Calculate fee breakdown (mirrors pricing.js on the backend)
-  const platformFee = Math.ceil(amount * 0.05);
-  const stripeFee = Math.ceil((amount + platformFee) * 0.029) + 300;
-  const totalAmount = amount + platformFee + stripeFee;
+  // Estimated fee breakdown (server is the source of truth for the real charge).
+  const {
+    platformFeeCentavos: platformFee,
+    stripeFeeCentavos: stripeFee,
+    totalCentavos: totalAmount,
+  } = estimateCheckout(amount);
 
   const [cardComplete, setCardComplete] = useState(false);
   const [processing, setProcessing] = useState(false);

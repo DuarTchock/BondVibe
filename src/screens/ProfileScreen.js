@@ -36,6 +36,7 @@ import {
   Trash2,
   Sparkles,
   Ticket,
+  BarChart3,
 } from "lucide-react-native";
 
 export default function ProfileScreen({ navigation }) {
@@ -829,6 +830,56 @@ export default function ProfileScreen({ navigation }) {
                       </Text>
                       <Text style={[styles.infoValue, { color: colors.text }]}>
                         Manage membership plans
+                      </Text>
+                    </View>
+                    <ChevronRight
+                      size={20}
+                      color={colors.textTertiary}
+                      strokeWidth={2}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* Host Analytics — paid hosts only */}
+              {isPaidHost && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("HostAnalytics")}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.infoCard,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.infoIconCircle,
+                        {
+                          backgroundColor: isDark
+                            ? `${colors.primary}20`
+                            : `${colors.primary}15`,
+                        },
+                      ]}
+                    >
+                      <BarChart3 size={22} color={colors.primary} strokeWidth={1.8} />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
+                        style={[styles.infoLabel, { color: colors.textSecondary }]}
+                      >
+                        Analytics
+                      </Text>
+                      <Text style={[styles.infoValue, { color: colors.text }]}>
+                        Revenue & members
                       </Text>
                     </View>
                     <ChevronRight

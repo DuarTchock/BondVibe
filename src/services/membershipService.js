@@ -28,36 +28,26 @@ import {
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "./firebase";
 import { logger } from "../utils/logger";
+import {
+  MEMBERSHIP_PLAN_TYPES,
+  validatePlanInput,
+  getMembershipState,
+  getMembershipExpiryDate,
+  formatPlanPrice,
+  describePlan,
+  toMillis,
+} from "../utils/membershipUtils";
 
 const FUNCTIONS_BASE_URL =
   "https://us-central1-bondvibe-dev.cloudfunctions.net";
 
-export const MEMBERSHIP_PLAN_TYPES = {
-  CREDITS: "credits",
-  UNLIMITED: "unlimited",
-};
-
-/**
- * Validate plan input before writing.
- * @param {object} data
- * @returns {string|null} error message, or null if valid
- */
-const validatePlanInput = (data) => {
-  if (!data.name || !data.name.trim()) return "Plan name is required.";
-  if (!data.priceCentavos || data.priceCentavos <= 0) {
-    return "Price must be greater than zero.";
-  }
-  if (!data.validityDays || data.validityDays <= 0) {
-    return "Validity (in days) must be greater than zero.";
-  }
-  if (data.type === MEMBERSHIP_PLAN_TYPES.CREDITS) {
-    if (!data.creditsIncluded || data.creditsIncluded <= 0) {
-      return "A credit pack must include at least one credit.";
-    }
-  } else if (data.type !== MEMBERSHIP_PLAN_TYPES.UNLIMITED) {
-    return "Invalid plan type.";
-  }
-  return null;
+// Re-export pure helpers so existing imports from this service keep working.
+export {
+  MEMBERSHIP_PLAN_TYPES,
+  getMembershipState,
+  getMembershipExpiryDate,
+  formatPlanPrice,
+  describePlan,
 };
 
 /**
@@ -277,37 +267,6 @@ export const getUsableMembershipForHost = async (hostId, userId = null) => {
   }
 };
 
-const toMillis = (ts) => {
-  if (!ts) return 0;
-  if (ts.toMillis) return ts.toMillis();
-  if (ts.seconds) return ts.seconds * 1000;
-  return new Date(ts).getTime();
-};
-
-/**
- * Derive a membership's usable state from its data.
- * @param {object} m membership
- * @returns {"active"|"expired"|"depleted"}
- */
-export const getMembershipState = (m) => {
-  if (!m) return "expired";
-  if (toMillis(m.expiresAt) < Date.now()) return "expired";
-  if (m.type === MEMBERSHIP_PLAN_TYPES.CREDITS && (m.creditsRemaining || 0) <= 0) {
-    return "depleted";
-  }
-  return "active";
-};
-
-/**
- * Convert a membership's expiry to a JS Date.
- * @param {object} m
- * @returns {Date|null}
- */
-export const getMembershipExpiryDate = (m) => {
-  const ms = toMillis(m?.expiresAt);
-  return ms ? new Date(ms) : null;
-};
-
 /**
  * Reserve a membership credit for an event (places a hold; deducted at check-in).
  * @param {string} eventId
@@ -404,29 +363,68 @@ export const getEventReservations = async (eventId) => {
 };
 
 /**
- * Format centavos as a MXN price string.
- * @param {number} centavos
- * @returns {string}
+ * Aggregate analytics for a host across their memberships, payments and
+ * attendance. Read-only; computed client-side from indexed (hostId ==) queries.
+ * For very high volumes this can be replaced by trigger-maintained counters.
+ * @param {string} [hostId] defaults to current user
+ * @returns {Promise<object>}
  */
-export const formatPlanPrice = (centavos) => {
-  const pesos = (Number(centavos) || 0) / 100;
-  return `$${pesos.toLocaleString("es-MX", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} MXN`;
+export const getHostAnalytics = async (hostId = null) => {
+  try {
+    const uid = hostId || auth.currentUser?.uid;
+    if (!uid) return null;
+
+    const [membershipsSnap, paymentsSnap, redemptionsSnap] = await Promise.all([
+      getDocs(query(collection(db, "memberships"), where("hostId", "==", uid))),
+      getDocs(query(collection(db, "payments"), where("hostId", "==", uid))),
+      getDocs(
+        query(collection(db, "membershipRedemptions"), where("hostId", "==", uid))
+      ),
+    ]);
+
+    const memberships = membershipsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const sevenDays = now.getTime() + 7 * 86400000;
+
+    // Revenue: what the host actually receives (price, not fees).
+    let revenueTotal = 0;
+    let revenueMonth = 0;
+    paymentsSnap.forEach((d) => {
+      const p = d.data();
+      const received = Number(p.metadata?.hostReceives);
+      const cents = Number.isFinite(received) ? received : p.amount || 0;
+      revenueTotal += cents;
+      const createdMs = p.createdAt?.toMillis ? p.createdAt.toMillis() : 0;
+      if (createdMs >= monthStart) revenueMonth += cents;
+    });
+
+    const activeUserIds = new Set();
+    const expiringSoon = [];
+    memberships.forEach((m) => {
+      if (getMembershipState(m) === "active") {
+        activeUserIds.add(m.userId);
+        const expMs = m.expiresAt?.toMillis ? m.expiresAt.toMillis() : 0;
+        if (expMs && expMs <= sevenDays) expiringSoon.push(m);
+      }
+    });
+    expiringSoon.sort(
+      (a, b) =>
+        (a.expiresAt?.toMillis?.() || 0) - (b.expiresAt?.toMillis?.() || 0)
+    );
+
+    return {
+      revenueTotalCentavos: revenueTotal,
+      revenueMonthCentavos: revenueMonth,
+      membershipsSold: memberships.length,
+      activeMembers: activeUserIds.size,
+      classesAttended: redemptionsSnap.size,
+      expiringSoonCount: expiringSoon.length,
+      expiringSoon,
+    };
+  } catch (e) {
+    console.error("❌ Error computing host analytics:", e);
+    return null;
+  }
 };
 
-/**
- * Human summary of what a plan includes.
- * @param {object} plan
- * @returns {string}
- */
-export const describePlan = (plan) => {
-  if (!plan) return "";
-  const validity = `${plan.validityDays} days`;
-  if (plan.type === MEMBERSHIP_PLAN_TYPES.UNLIMITED) {
-    return `Unlimited classes · valid ${validity}`;
-  }
-  const credits = plan.creditsIncluded;
-  return `${credits} class${credits === 1 ? "" : "es"} · valid ${validity}`;
-};
