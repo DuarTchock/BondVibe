@@ -24,6 +24,14 @@ service cloud.firestore {
       return request.auth.uid == eventData.creatorId ||
              (eventData.attendees != null && request.auth.uid in eventData.attendees);
     }
+
+    // An attendee who is NOT the creator — only these users may rate an event.
+    function isEventAttendeeNotCreator(eventId) {
+      let eventData = get(/databases/$(database)/documents/events/$(eventId)).data;
+      return request.auth.uid != eventData.creatorId &&
+             eventData.attendees != null &&
+             request.auth.uid in eventData.attendees;
+    }
     
     function onlyUpdating(allowedFields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
@@ -91,8 +99,11 @@ service cloud.firestore {
     // ============================================
     match /ratings/{ratingId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && 
-                       request.resource.data.userId == request.auth.uid;
+      // Only an attendee (not the host) of the rated event may create a rating,
+      // and only as themselves. Enforced server-side, not just in the client.
+      allow create: if isSignedIn() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       isEventAttendeeNotCreator(request.resource.data.eventId);
       allow update, delete: if false;
     }
     
