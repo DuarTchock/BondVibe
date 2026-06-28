@@ -20,12 +20,22 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   arrayUnion,
   arrayRemove,
   serverTimestamp,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "./firebase";
+
+// Invite code: short, unambiguous (no 0/O/1/I).
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const genCode = () =>
+  Array.from(
+    { length: 6 },
+    () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]
+  ).join("");
 
 /** Create a group owned by the current host. */
 export const createGroup = async (name, description, memberIds = []) => {
@@ -39,6 +49,7 @@ export const createGroup = async (name, description, memberIds = []) => {
       name: name.trim(),
       description: description?.trim() || "",
       memberIds: members,
+      inviteCode: genCode(),
       lastMessage: "",
       lastMessageAt: null,
       createdAt: serverTimestamp(),
@@ -156,6 +167,60 @@ export const subscribeGroupMessages = (groupId, cb) =>
     ),
     (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() })))
   );
+
+/**
+ * Ensure a group has an invite code (older groups created before codes existed).
+ * Host only. Returns the code.
+ */
+export const ensureInviteCode = async (group) => {
+  if (group.inviteCode) return group.inviteCode;
+  const code = genCode();
+  await updateDoc(doc(db, "hostGroups", group.id), { inviteCode: code });
+  return code;
+};
+
+/** Host regenerates the invite code (invalidates the old link). */
+export const regenerateInviteCode = async (groupId) => {
+  const code = genCode();
+  await updateDoc(doc(db, "hostGroups", groupId), { inviteCode: code });
+  return code;
+};
+
+/**
+ * Join a group by its invite code (any signed-in user). Runs server-side
+ * because members can't write the group doc directly.
+ * @param {string} code
+ * @returns {Promise<{success:boolean, groupId?:string, error?:string}>}
+ */
+export const joinGroupByCode = async (code) => {
+  try {
+    const fn = httpsCallable(getFunctions(), "joinGroupByCode");
+    const res = await fn({ code: (code || "").trim().toUpperCase() });
+    return { success: true, ...res.data };
+  } catch (e) {
+    console.error("❌ joinGroupByCode:", e);
+    return { success: false, error: e.message };
+  }
+};
+
+/**
+ * Find a user by exact email (for adding to a group).
+ * @param {string} email
+ * @returns {Promise<object|null>}
+ */
+export const findUserByEmail = async (email) => {
+  try {
+    const e = (email || "").trim().toLowerCase();
+    if (!e) return null;
+    const snap = await getDocs(
+      query(collection(db, "users"), where("email", "==", e), limit(1))
+    );
+    return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
+  } catch (err) {
+    console.error("❌ findUserByEmail:", err);
+    return null;
+  }
+};
 
 /**
  * Candidate members for a host: unique attendees across the host's events.

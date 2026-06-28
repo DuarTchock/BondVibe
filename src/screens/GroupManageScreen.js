@@ -8,9 +8,10 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Share,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Check, UserMinus, Trash2 } from "lucide-react-native";
+import { Check, Trash2, Share2, RotateCcw } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { AvatarDisplay } from "../components/AvatarPicker";
@@ -21,6 +22,9 @@ import {
   removeMember,
   deleteGroup,
   getHostAttendeeCandidates,
+  ensureInviteCode,
+  regenerateInviteCode,
+  findUserByEmail,
 } from "../services/hostGroupService";
 
 const normAvatar = (a) =>
@@ -34,6 +38,9 @@ export default function GroupManageScreen({ route, navigation }) {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [addingEmail, setAddingEmail] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -44,9 +51,58 @@ export default function GroupManageScreen({ route, navigation }) {
       setGroup(g);
       setName(g?.name || "");
       setCandidates(c);
+      if (g) setInviteCode(await ensureInviteCode(g));
       setLoading(false);
     })();
   }, [groupId]);
+
+  const inviteLink = (code) => `bondvibe://join-group/${code}`;
+
+  const handleShareInvite = async () => {
+    try {
+      await Share.share({
+        message: `Join my group "${name}" on BondVibe.\nOpen: ${inviteLink(
+          inviteCode
+        )}\nor enter code: ${inviteCode}`,
+      });
+    } catch (e) {
+      // user cancelled
+    }
+  };
+
+  const handleRegenerate = () => {
+    Alert.alert(
+      "New invite code?",
+      "The current link/code will stop working.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Generate",
+          onPress: async () => setInviteCode(await regenerateInviteCode(groupId)),
+        },
+      ]
+    );
+  };
+
+  const handleAddByEmail = async () => {
+    const target = email.trim().toLowerCase();
+    if (!target) return;
+    setAddingEmail(true);
+    const user = await findUserByEmail(target);
+    setAddingEmail(false);
+    if (!user) {
+      Alert.alert("Not found", "No BondVibe user with that email.");
+      return;
+    }
+    if ((group.memberIds || []).includes(user.id)) {
+      Alert.alert("Already a member", `${user.fullName || target} is already in the group.`);
+      return;
+    }
+    await addMembers(groupId, [user.id]);
+    setGroup((g) => ({ ...g, memberIds: [...(g.memberIds || []), user.id] }));
+    setEmail("");
+    Alert.alert("Added", `${user.fullName || target} was added to the group.`);
+  };
 
   const memberIds = group?.memberIds || [];
 
@@ -121,6 +177,49 @@ export default function GroupManageScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
+        {/* Invite link / code */}
+        <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
+          INVITE
+        </Text>
+        <View style={styles.inviteBox}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.codeText, { color: colors.text }]}>{inviteCode}</Text>
+            <Text style={[styles.hint, { color: colors.textTertiary }]}>
+              Share this code or link to let anyone join.
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleRegenerate} style={styles.inviteIcon}>
+            <RotateCcw size={18} color={colors.textSecondary} strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.shareBtn} onPress={handleShareInvite} activeOpacity={0.85}>
+          <View style={[styles.shareGlass, { backgroundColor: `${colors.primary}33`, borderColor: `${colors.primary}66` }]}>
+            <Share2 size={18} color={colors.primary} strokeWidth={2} />
+            <Text style={[styles.shareText, { color: colors.primary }]}>Share invite</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Add by email */}
+        <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
+          ADD BY EMAIL
+        </Text>
+        <View style={styles.nameRow}>
+          <TextInput
+            style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+            placeholder="person@email.com"
+            placeholderTextColor={colors.textTertiary}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <TouchableOpacity onPress={handleAddByEmail} disabled={addingEmail}>
+            <Text style={{ color: colors.primary, fontWeight: "700" }}>
+              {addingEmail ? "…" : "Add"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
           MEMBERS ({memberIds.length})
         </Text>
@@ -187,6 +286,29 @@ function createStyles(colors, isDark) {
     label: { fontSize: 12, fontWeight: "700", letterSpacing: 1, marginBottom: 8 },
     hint: { fontSize: 13, lineHeight: 18 },
     nameRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+    inviteBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: cardBorder,
+      backgroundColor: cardBg,
+      padding: 14,
+      marginBottom: 10,
+    },
+    codeText: { fontSize: 22, fontWeight: "800", letterSpacing: 3 },
+    inviteIcon: { padding: 6 },
+    shareBtn: { borderRadius: 12, overflow: "hidden" },
+    shareGlass: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderWidth: 1,
+      paddingVertical: 12,
+    },
+    shareText: { fontSize: 15, fontWeight: "700" },
     input: {
       flex: 1,
       borderWidth: 1,

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { Platform } from "react-native";
+import { Platform, Linking } from "react-native";
+import { joinGroupByCode } from "./src/services/hostGroupService";
 import { AuthProvider } from "./src/contexts/AuthContext";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { ThemeProvider } from "./src/contexts/ThemeContext";
@@ -79,11 +80,40 @@ export default function App() {
     // ✅ Check if app was opened from a notification (cold start)
     checkInitialNotification();
 
+    // ✅ Deep links — group invites: bondvibe://join-group/<code>
+    Linking.getInitialURL().then((url) => url && handleDeepLink(url));
+    const linkSub = Linking.addEventListener("url", ({ url }) =>
+      handleDeepLink(url)
+    );
+
     return () => {
       notificationListener.current?.remove();
       responseListener.current?.remove();
+      linkSub?.remove();
     };
   }, []);
+
+  // Handle group-invite deep links.
+  const handleDeepLink = async (url) => {
+    try {
+      const match = url.match(/join-group\/([A-Za-z0-9]+)/);
+      if (!match) return;
+      const code = match[1];
+      const result = await joinGroupByCode(code);
+      if (result.success) {
+        const go = (left) => {
+          if (navigationRef.current?.isReady()) {
+            navigate("GroupChat", { groupId: result.groupId });
+          } else if (left > 0) {
+            setTimeout(() => go(left - 1), 300);
+          }
+        };
+        go(15);
+      }
+    } catch (e) {
+      console.warn("Deep link handling failed:", e.message);
+    }
+  };
 
   // ✅ NEW: Check if app was opened from a notification when closed
   const checkInitialNotification = async () => {

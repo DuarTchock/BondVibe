@@ -1195,6 +1195,33 @@ exports.onGroupMessage = onDocumentCreated(
 );
 
 /**
+ * Join a host group via its invite code. Runs server-side because members
+ * can't write the group doc directly (rules allow only the host to edit it).
+ */
+exports.joinGroupByCode = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const code = (request.data?.code || "").trim().toUpperCase();
+  if (!code) throw new HttpsError("invalid-argument", "Missing invite code.");
+
+  const snap = await db
+    .collection("hostGroups")
+    .where("inviteCode", "==", code)
+    .limit(1)
+    .get();
+  if (snap.empty) {
+    throw new HttpsError("not-found", "That invite code is invalid.");
+  }
+
+  const groupDoc = snap.docs[0];
+  await groupDoc.ref.update({
+    memberIds: admin.firestore.FieldValue.arrayUnion(uid),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return {groupId: groupDoc.id, groupName: groupDoc.data().name || ""};
+});
+
+/**
  * Get pricing info
  */
 exports.getPricingInfo = onRequest({cors: true}, (req, res) => {

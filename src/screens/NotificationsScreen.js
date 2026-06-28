@@ -8,12 +8,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { auth, db } from "../services/firebase";
-import { subscribeUserGroups } from "../services/hostGroupService";
+import { subscribeUserGroups, joinGroupByCode } from "../services/hostGroupService";
 import { Users } from "lucide-react-native";
 import {
   getUserNotifications,
@@ -34,12 +36,29 @@ export default function NotificationsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [groups, setGroups] = useState([]);
+  const [joinVisible, setJoinVisible] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [joining, setJoining] = useState(false);
 
   // Member inbox: groups the user belongs to.
   useEffect(() => {
     const unsub = subscribeUserGroups(setGroups);
     return () => unsub();
   }, []);
+
+  const handleJoinByCode = async () => {
+    if (!joinCode.trim()) return;
+    setJoining(true);
+    const r = await joinGroupByCode(joinCode);
+    setJoining(false);
+    if (r.success) {
+      setJoinVisible(false);
+      setJoinCode("");
+      navigation.navigate("GroupChat", { groupId: r.groupId });
+    } else {
+      Alert.alert("Couldn't join", r.error || "Check the code and try again.");
+    }
+  };
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -445,11 +464,23 @@ export default function NotificationsScreen({ navigation }) {
           }
         >
           {/* Groups inbox */}
+          <View style={styles.groupsHeaderRow}>
+            <Text style={[styles.groupsHeading, { color: colors.textTertiary }]}>
+              GROUPS
+            </Text>
+            <TouchableOpacity onPress={() => setJoinVisible(true)}>
+              <Text style={[styles.joinLink, { color: colors.primary }]}>
+                + Join with code
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {groups.length === 0 && (
+            <Text style={[styles.groupMeta, { color: colors.textTertiary, marginBottom: 16 }]}>
+              No groups yet. Join one with an invite code.
+            </Text>
+          )}
           {groups.length > 0 && (
             <>
-              <Text style={[styles.groupsHeading, { color: colors.textTertiary }]}>
-                GROUPS
-              </Text>
               {groups.map((g) => (
                 <TouchableOpacity
                   key={g.id}
@@ -480,11 +511,12 @@ export default function NotificationsScreen({ navigation }) {
                   </View>
                 </TouchableOpacity>
               ))}
-              <Text style={[styles.groupsHeading, { color: colors.textTertiary, marginTop: 16 }]}>
-                NOTIFICATIONS
-              </Text>
             </>
           )}
+
+          <Text style={[styles.groupsHeading, { color: colors.textTertiary, marginTop: 16 }]}>
+            NOTIFICATIONS
+          </Text>
 
           {notifications.length === 0 ? (
             <View style={styles.emptyInline}>
@@ -502,6 +534,41 @@ export default function NotificationsScreen({ navigation }) {
           )}
         </ScrollView>
       )}
+
+      {/* Join group by code */}
+      <Modal visible={joinVisible} transparent animationType="slide">
+        <View style={styles.joinOverlay}>
+          <View style={[styles.joinCard, { backgroundColor: colors.background }]}>
+            <Text style={[styles.joinTitle, { color: colors.text }]}>
+              Join a group
+            </Text>
+            <Text style={[styles.joinHint, { color: colors.textSecondary }]}>
+              Enter the invite code the host shared with you.
+            </Text>
+            <TextInput
+              style={[styles.joinInput, { color: colors.text, borderColor: colors.border }]}
+              placeholder="e.g. AB3K77"
+              placeholderTextColor={colors.textTertiary}
+              value={joinCode}
+              onChangeText={(v) => setJoinCode(v.toUpperCase())}
+              autoCapitalize="characters"
+              maxLength={6}
+            />
+            <View style={styles.joinActions}>
+              <TouchableOpacity onPress={() => setJoinVisible(false)}>
+                <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleJoinByCode} disabled={joining}>
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                  {joining ? "Joining…" : "Join"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </GradientBackground>
   );
 }
@@ -552,6 +619,28 @@ function createStyles(colors) {
     groupName: { fontSize: 15, fontWeight: "700" },
     groupMeta: { fontSize: 13, marginTop: 2 },
     emptyInline: { alignItems: "center", paddingVertical: 30 },
+    groupsHeaderRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    joinLink: { fontSize: 13, fontWeight: "700" },
+    joinOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" },
+    joinCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
+    joinTitle: { fontSize: 20, fontWeight: "700", marginBottom: 6 },
+    joinHint: { fontSize: 14, marginBottom: 16 },
+    joinInput: {
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 18,
+      fontWeight: "700",
+      letterSpacing: 4,
+      textAlign: "center",
+    },
+    joinActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 16 },
     notificationCard: {
       marginBottom: 12,
       borderRadius: 16,
