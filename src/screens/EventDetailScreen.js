@@ -645,8 +645,8 @@ export default function EventDetailScreen({ route, navigation }) {
             style={[
               styles.headerButton,
               {
-                backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
               },
             ]}
           >
@@ -667,8 +667,8 @@ export default function EventDetailScreen({ route, navigation }) {
                 style={[
                   styles.headerButton,
                   {
-                    backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                    backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
                   },
                 ]}
               >
@@ -684,8 +684,8 @@ export default function EventDetailScreen({ route, navigation }) {
                 style={[
                   styles.headerButton,
                   {
-                    backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                    backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
                   },
                 ]}
               >
@@ -835,8 +835,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.infoGlass,
                 {
-                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                  backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
                 },
               ]}
             >
@@ -883,8 +883,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.infoGlass,
                 {
-                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                  backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
                 },
               ]}
             >
@@ -913,8 +913,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.infoGlass,
                 {
-                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                  backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
                 },
               ]}
             >
@@ -1003,8 +1003,8 @@ export default function EventDetailScreen({ route, navigation }) {
             style={[
               styles.descriptionGlass,
               {
-                backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
               },
             ]}
           >
@@ -1229,8 +1229,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.policyGlass,
                 {
-                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                  backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
                 },
               ]}
             >
@@ -1293,8 +1293,8 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[
                 styles.attendeesGlass,
                 {
-                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.08)",
+                  backgroundColor: colors.surface,
+                  borderColor: colors.borderStrong,
                 },
               ]}
             >
@@ -1568,7 +1568,7 @@ function createStyles(colors) {
       borderRadius: 16,
       overflow: "hidden",
     },
-    descriptionGlass: { borderWidth: 1, padding: 20 },
+    descriptionGlass: { borderWidth: 2, padding: 20 },
     sectionTitle: {
       fontSize: 16,
       fontWeight: "700",
@@ -1577,7 +1577,7 @@ function createStyles(colors) {
     },
     descriptionText: { fontSize: 15, lineHeight: 24 },
     policySection: { marginBottom: 24, borderRadius: 16, overflow: "hidden" },
-    policyGlass: { borderWidth: 1, padding: 20 },
+    policyGlass: { borderWidth: 2, padding: 20 },
     policyItem: {
       flexDirection: "row",
       alignItems: "flex-start",
@@ -1591,7 +1591,7 @@ function createStyles(colors) {
       borderRadius: 16,
       overflow: "hidden",
     },
-    attendeesGlass: { borderWidth: 1, padding: 20 },
+    attendeesGlass: { borderWidth: 2, padding: 20 },
     attendeeRow: {
       flexDirection: "row",
       alignItems: "center",
