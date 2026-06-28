@@ -5,7 +5,7 @@
  */
 
 const PRICING_CONFIG = {
-  version: "2.0.0",
+  version: "2.1.0",
   currency: "mxn",
   platformFeePercent: 0.05,
   stripeFeePercent: 0.029,
@@ -18,28 +18,50 @@ const PRICING_CONFIG = {
   },
 };
 
+// Processing fee per payout processor (the buyer pays this on top so the host
+// receives 100%). Rates are approximate — confirm current rates per processor;
+// IVA may apply on the commission in Mexico.
+const PROCESSOR_FEES = {
+  stripe: {percent: 0.029, fixedCentavos: 300},
+  mercadopago: {percent: 0.0349, fixedCentavos: 0},
+};
+
 /**
- * Calculate total amount user pays (event price + fees)
+ * Processing fee for a subtotal under a given processor.
+ * @param {number} subtotalCentavos - price + platform fee
+ * @param {string} processor - "stripe" | "mercadopago"
+ * @return {number} processing fee in centavos
+ */
+function processorFeeFor(subtotalCentavos, processor) {
+  const fee = PROCESSOR_FEES[processor] || PROCESSOR_FEES.stripe;
+  return Math.ceil(subtotalCentavos * fee.percent) + fee.fixedCentavos;
+}
+
+/**
+ * Calculate total amount user pays (event price + fees), processor-aware.
  * @param {number} eventPriceCentavos - Event price set by host in centavos
+ * @param {string} [processor="stripe"] - Host payout processor
  * @return {object} Complete breakdown
  */
-function calculateCheckoutAmount(eventPriceCentavos) {
+function calculateCheckoutAmount(eventPriceCentavos, processor = "stripe") {
   const eventPrice = eventPriceCentavos;
   const platformFee = Math.ceil(eventPrice * PRICING_CONFIG.platformFeePercent);
   const subtotal = eventPrice + platformFee;
-  const stripeFee = Math.ceil(subtotal * PRICING_CONFIG.stripeFeePercent) +
-    PRICING_CONFIG.stripeFeeFixed;
-  const totalAmount = eventPrice + platformFee + stripeFee;
+  const processorFee = processorFeeFor(subtotal, processor);
+  const totalAmount = eventPrice + platformFee + processorFee;
   const hostReceives = eventPrice;
 
   return {
     eventPrice: eventPrice,
     platformFee: platformFee,
-    stripeFee: stripeFee,
+    processor: processor,
+    processorFee: processorFee,
+    // Alias kept so existing callers reading stripeFee keep working.
+    stripeFee: processorFee,
     totalAmount: totalAmount,
     hostReceives: hostReceives,
     refundableAmount: eventPrice,
-    nonRefundableFees: platformFee + stripeFee,
+    nonRefundableFees: platformFee + processorFee,
     currency: PRICING_CONFIG.currency,
     feeModel: PRICING_CONFIG.feeModel,
   };
@@ -48,19 +70,22 @@ function calculateCheckoutAmount(eventPriceCentavos) {
 /**
  * Calculate payment split for event tickets (for Stripe Connect)
  * @param {number} eventPriceCentavos - Event price in centavos
+ * @param {string} [processor="stripe"] - Host payout processor
  * @return {object} Breakdown for payment intent
  */
-function calculateEventSplit(eventPriceCentavos) {
-  const breakdown = calculateCheckoutAmount(eventPriceCentavos);
+function calculateEventSplit(eventPriceCentavos, processor = "stripe") {
+  const breakdown = calculateCheckoutAmount(eventPriceCentavos, processor);
 
   return {
     eventPrice: (breakdown.eventPrice / 100).toFixed(2),
     platformFee: (breakdown.platformFee / 100).toFixed(2),
+    processor: breakdown.processor,
+    processorFee: (breakdown.processorFee / 100).toFixed(2),
     stripeFee: (breakdown.stripeFee / 100).toFixed(2),
     totalAmount: (breakdown.totalAmount / 100).toFixed(2),
     hostReceives: (breakdown.hostReceives / 100).toFixed(2),
     totalAmountCentavos: breakdown.totalAmount,
-    applicationFee: breakdown.platformFee + breakdown.stripeFee,
+    applicationFee: breakdown.platformFee + breakdown.processorFee,
     transferAmount: breakdown.hostReceives,
     refundableAmount: (breakdown.refundableAmount / 100).toFixed(2),
     nonRefundableFees: (breakdown.nonRefundableFees / 100).toFixed(2),
@@ -106,6 +131,7 @@ function getPremiumSubscriptionPrice() {
 
 module.exports = {
   PRICING_CONFIG,
+  PROCESSOR_FEES,
   calculateCheckoutAmount,
   calculateEventSplit,
   calculateTipSplit,

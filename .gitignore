@@ -42,3 +42,6 @@ bondvibe-dev-firebase-adminsdk-*.json
 bondvibe-app-firebase-adminsdk.json
 cleanup-firebase.js
 *.swp
+
+# Local archives
+*.zip

@@ -18,6 +18,24 @@ describe("estimateCheckout", () => {
     expect(PRICING.stripeFeeFixedCentavos).toBe(300);
   });
 
+  it("defaults to the Stripe processor", () => {
+    expect(estimateCheckout(100000).stripeFeeCentavos).toBe(3345);
+    expect(estimateCheckout(100000).processor).toBe("stripe");
+  });
+
+  it("uses Mercado Pago's fee when that processor is chosen", () => {
+    // base = 100000, platform = 5000, subtotal = 105000
+    // mercadopago: ceil(105000 * 0.0349) + 0 = ceil(3664.5) = 3665
+    const r = estimateCheckout(100000, "mercadopago");
+    expect(r.processor).toBe("mercadopago");
+    expect(r.processorFeeCentavos).toBe(3665);
+    expect(r.totalCentavos).toBe(100000 + 5000 + 3665);
+  });
+
+  it("falls back to Stripe for an unknown processor", () => {
+    expect(estimateCheckout(100000, "bogus").processorFeeCentavos).toBe(3345);
+  });
+
   it("handles zero and invalid input safely", () => {
     expect(estimateCheckout(0).totalCentavos).toBe(300); // only fixed fee
     expect(estimateCheckout(undefined).baseCentavos).toBe(0);
