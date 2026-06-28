@@ -301,18 +301,16 @@ export default function HomeScreen({ navigation }) {
                   onPress={() => handleRateEvent(event)}
                   activeOpacity={0.8}
                 >
-                  <View
-                    style={[
-                      styles.cardGlass,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(255, 215, 0, 0.08)"
-                          : "rgba(255, 215, 0, 0.12)",
-                        borderColor: isDark
-                          ? "rgba(255, 215, 0, 0.20)"
-                          : "rgba(255, 215, 0, 0.35)",
-                      },
-                    ]}
+                  <BVCard
+                    shadowColor="#FFD700"
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      padding: 16,
+                      backgroundColor: isDark
+                        ? "rgba(255, 215, 0, 0.10)"
+                        : "rgba(255, 215, 0, 0.14)",
+                    }}
                   >
                     <View
                       style={[
@@ -344,7 +342,7 @@ export default function HomeScreen({ navigation }) {
                       </Text>
                     </View>
                     <ChevronRight size={18} color="#FFD700" strokeWidth={2} />
-                  </View>
+                  </BVCard>
                 </TouchableOpacity>
               );
             })}
@@ -436,10 +434,8 @@ export default function HomeScreen({ navigation }) {
                     style={[
                       styles.featuredCard,
                       {
-                        backgroundColor: isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(255,255,255,0.9)",
-                        borderColor: `${colors.primary}40`,
+                        backgroundColor: colors.surface,
+                        borderColor: colors.borderStrong,
                       },
                     ]}
                   >
@@ -487,18 +483,16 @@ export default function HomeScreen({ navigation }) {
               onPress={() => navigation.navigate("AdminDashboard")}
               activeOpacity={0.8}
             >
-              <View
-                style={[
-                  styles.cardGlass,
-                  {
-                    backgroundColor: isDark
-                      ? "rgba(255, 215, 0, 0.10)"
-                      : "rgba(255, 215, 0, 0.15)",
-                    borderColor: isDark
-                      ? "rgba(255, 215, 0, 0.25)"
-                      : "rgba(255, 215, 0, 0.40)",
-                  },
-                ]}
+              <BVCard
+                shadowColor="#FFD700"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  padding: 16,
+                  backgroundColor: isDark
+                    ? "rgba(255, 215, 0, 0.12)"
+                    : "rgba(255, 215, 0, 0.16)",
+                }}
               >
                 <View style={styles.adminIconContainer}>
                   <Crown size={36} color="#FFD700" strokeWidth={1.8} />
@@ -531,7 +525,7 @@ export default function HomeScreen({ navigation }) {
                   </Text>
                 </View>
                 <ChevronRight size={24} color="#FFD700" strokeWidth={2} />
-              </View>
+              </BVCard>
             </TouchableOpacity>
           </View>
         )}
@@ -569,19 +563,7 @@ export default function HomeScreen({ navigation }) {
                   }
                   activeOpacity={0.7}
                 >
-                  <View
-                    style={[
-                      styles.categoryCardInner,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(255, 255, 255, 0.04)"
-                          : "rgba(255, 255, 255, 0.85)",
-                        borderColor: isDark
-                          ? "rgba(255, 255, 255, 0.10)"
-                          : "rgba(0, 0, 0, 0.08)",
-                      },
-                    ]}
-                  >
+                  <BVCard style={{ alignItems: "center", padding: 16 }}>
                     <View
                       style={[
                         styles.categoryIconCircle,
@@ -601,7 +583,7 @@ export default function HomeScreen({ navigation }) {
                     <Text style={[styles.categoryName, { color: colors.text }]}>
                       {category.label}
                     </Text>
-                  </View>
+                  </BVCard>
                 </TouchableOpacity>
               );
             })}
@@ -740,8 +722,8 @@ function createStyles(colors, isDark) {
     // Admin Card
     featuredCard: {
       width: 240,
-      borderRadius: 16,
-      borderWidth: 1,
+      borderRadius: 20,
+      borderWidth: 2,
       overflow: "hidden",
     },
     featuredImage: { width: "100%", height: 120 },
