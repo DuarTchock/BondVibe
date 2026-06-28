@@ -37,6 +37,7 @@ import { getPendingRatings } from "../services/ratingService";
 import { getFeaturedEvents } from "../services/promotionService";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import GradientBackground from "../components/GradientBackground";
+import { BVCard } from "../components/BoldPop";
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -365,18 +366,8 @@ export default function HomeScreen({ navigation }) {
                   onPress={() => navigation.navigate(action.screen)}
                   activeOpacity={0.7}
                 >
-                  <View
-                    style={[
-                      styles.quickActionCard,
-                      {
-                        backgroundColor: isDark
-                          ? "rgba(255, 255, 255, 0.04)"
-                          : "rgba(255, 255, 255, 0.85)",
-                        borderColor: isDark
-                          ? "rgba(255, 255, 255, 0.10)"
-                          : "rgba(0, 0, 0, 0.08)",
-                      },
-                    ]}
+                  <BVCard
+                    style={{ alignItems: "center", paddingVertical: 22, width: "100%" }}
                   >
                     <View style={styles.quickActionIconContainer}>
                       <View
@@ -413,7 +404,7 @@ export default function HomeScreen({ navigation }) {
                     >
                       {action.label}
                     </Text>
-                  </View>
+                  </BVCard>
                 </TouchableOpacity>
               );
             })}
