@@ -98,12 +98,18 @@ const runQuery = async (structuredQuery, h) => {
   chk("user CANNOT CREATE doc with hostStats", await createDoc(`users?documentId=${stranger.uid}`, {
     email: s("s@x.com"), hostStats: { mapValue: { fields: { averageRating: { doubleValue: 5 } } } },
   }, stranger.headers), 403);
+  chk("user CANNOT CREATE doc with isPremium", await createDoc(`users?documentId=${stranger.uid}`, {
+    email: s("s@x.com"), isPremium: b(true),
+  }, stranger.headers), 403);
   chk("host CANNOT UPDATE own hostStats", await patchDoc(`users/${host.uid}?updateMask.fieldPaths=hostStats`, {
     hostStats: { mapValue: { fields: { averageRating: { doubleValue: 5 } } } },
   }, host.headers), 403);
   chk("user CANNOT UPDATE own carpoolStats", await patchDoc(`users/${member.uid}?updateMask.fieldPaths=carpoolStats`, {
     carpoolStats: { mapValue: { fields: { seatsShared: i(99) } } },
   }, member.headers), 403);
+  chk("host CANNOT self-grant isPremium", await patchDoc(`users/${host.uid}?updateMask.fieldPaths=isPremium`, {
+    isPremium: b(true),
+  }, host.headers), 403);
 
   // ---- MEMBERSHIP PLANS / money-sensitive collections ----
   section("Memberships & money-sensitive");

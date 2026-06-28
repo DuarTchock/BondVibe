@@ -47,20 +47,22 @@ service cloud.firestore {
     // ============================================
     match /users/{userId} {
       allow read: if isSignedIn();
-      // Server-computed reputation fields can't be set by the user, not even
-      // at account creation.
+      // Server-computed reputation fields + the premium entitlement can't be
+      // set by the user, not even at account creation.
       allow create: if isSignedIn() && isOwner(userId) &&
                        !request.resource.data.keys()
-                          .hasAny(['hostStats', 'carpoolStats']);
-      
-      // The owner can edit their profile but NOT hostStats — host ratings are
-      // computed server-side (onRatingCreated) and must not be manipulable.
-      // Any signed-in user may (un)set a pushToken on any doc, so the
-      // login/logout de-dupe can clear stale device tokens.
+                          .hasAny(['hostStats', 'carpoolStats', 'isPremium']);
+
+      // The owner can edit their profile but NOT hostStats/carpoolStats (host
+      // ratings + loyalty are computed server-side) nor isPremium (the premium
+      // entitlement is granted server-side only). Any signed-in user may
+      // (un)set a pushToken on any doc, so the login/logout de-dupe can clear
+      // stale device tokens.
       allow update: if isAdmin() ||
                        (isOwner(userId) &&
                         !request.resource.data.diff(resource.data)
-                          .affectedKeys().hasAny(['hostStats', 'carpoolStats'])) ||
+                          .affectedKeys()
+                          .hasAny(['hostStats', 'carpoolStats', 'isPremium'])) ||
                        onlyUpdating(['pushToken', 'pushTokenUpdatedAt']);
       
       allow delete: if isOwner(userId) || isAdmin();

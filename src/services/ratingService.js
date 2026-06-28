@@ -11,9 +11,25 @@ import {
   increment,
   serverTimestamp,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "./firebase";
 import { createNotification } from "../utils/notificationService";
 import { getEventCreatorId } from "../utils/eventHelpers";
+
+/**
+ * Premium AI coaching: actionable recommendations from the host's reviews.
+ * Returns { success, enough?, reviewCount?, insights?, code?, error? }.
+ * code "functions/permission-denied" + message "premium_required" → not premium.
+ */
+export const getHostFeedbackInsights = async () => {
+  try {
+    const fn = httpsCallable(getFunctions(), "getHostFeedbackInsights");
+    const res = await fn();
+    return { success: true, ...res.data };
+  } catch (e) {
+    return { success: false, code: e.code, error: e.message };
+  }
+};
 
 /**
  * Convert rating number to stars string

@@ -13,6 +13,7 @@ const {defineSecret} = require("firebase-functions/params");
 
 // Define secrets
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
+const anthropicKey = defineSecret("ANTHROPIC_API_KEY");
 
 // Initialize Stripe (will be done inside functions)
 let stripe;
@@ -1261,6 +1262,101 @@ exports.onEventWritten = onDocumentWritten("events/{eventId}", async (event) => 
   if (same) return;
   await after.ref.update({searchKeywords: desired});
 });
+
+/**
+ * Premium AI coaching: analyze a host's attendee reviews and return concise,
+ * actionable advice to improve future events. Gated behind users/{uid}.isPremium
+ * (set server-side, never by the client).
+ */
+exports.getHostFeedbackInsights = onCall(
+  {secrets: [anthropicKey]},
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+
+    const userDoc = await db.collection("users").doc(uid).get();
+    if (!userDoc.exists || userDoc.data().isPremium !== true) {
+      throw new HttpsError("permission-denied", "premium_required");
+    }
+
+    const snap = await db
+      .collection("ratings")
+      .where("hostId", "==", uid)
+      .orderBy("createdAt", "desc")
+      .limit(80)
+      .get();
+    const reviews = snap.docs
+      .map((d) => d.data())
+      .filter((r) => (r.comment || "").trim().length > 0)
+      .map((r) => ({
+        rating: r.rating,
+        comment: r.comment,
+        event: r.eventTitle || "",
+      }));
+
+    if (reviews.length < 3) {
+      return {enough: false, reviewCount: reviews.length};
+    }
+
+    const reviewText = reviews
+      .map((r, idx) =>
+        `${idx + 1}. [${r.rating}★]${r.event ? ` (${r.event})` : ""} ` +
+        `${r.comment}`,
+      )
+      .join("\n");
+
+    const system =
+      "You are an expert event-hosting coach. Given attendee reviews of a " +
+      "host's events, give concise, specific, actionable advice to improve " +
+      "future events. Base everything ONLY on the reviews. Respond in the " +
+      "language the reviews are mostly written in. Return ONLY valid JSON, no " +
+      "markdown fences, with this shape: {\"summary\": string, \"strengths\": " +
+      "string[], \"improvements\": string[], \"suggestions\": string[]}. Keep " +
+      "each array to 3-5 short items.";
+
+    let resp;
+    try {
+      resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": anthropicKey.value(),
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1024,
+          system,
+          messages: [{
+            role: "user",
+            content:
+              `Here are ${reviews.length} reviews (rating + comment):\n\n` +
+              reviewText,
+          }],
+        }),
+      });
+    } catch (e) {
+      console.error("Anthropic fetch failed:", e);
+      throw new HttpsError("internal", "AI service unavailable.");
+    }
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error("Anthropic error:", resp.status, errText);
+      throw new HttpsError("internal", "AI service error.");
+    }
+
+    const data = await resp.json();
+    const raw = data.content?.[0]?.text || "";
+    let insights;
+    try {
+      insights = JSON.parse(raw);
+    } catch (e) {
+      insights = {summary: raw, strengths: [], improvements: [], suggestions: []};
+    }
+    return {enough: true, reviewCount: reviews.length, insights};
+  },
+);
 
 /**
  * Get pricing info
