@@ -45,3 +45,6 @@ cleanup-firebase.js
 
 # Local archives
 *.zip
+
+# Design handoff (reference only)
+design_handoff_bondvibe_theme/

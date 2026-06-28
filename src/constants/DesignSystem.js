@@ -1,85 +1,20 @@
 // BondVibe Design System 2025-2026
-// Ultra-modern palette with Magenta + Cyan
+// Palette derived from the single source of truth (theme-tokens): Warmth (day)
+// + Aurora (night). No duplicate hardcoded palettes — legacy keys that aren't
+// in the tokens (secondaryDark, gradientHero) are added on top.
+import { WARMTH, AURORA } from './theme-tokens';
 
 export const Colors = {
-  // Dark Mode (Primary)
   dark: {
-    // Backgrounds
-    background: '#0B0F1A',        // Deep Cosmos
-    surface: '#111827',           // Midnight Glass
-    surfaceElevated: '#1A1F3A',
-    surfaceGlass: 'rgba(17, 24, 39, 0.6)',
-    
-    // Text
-    text: '#F1F5F9',              // Soft Cloud
-    textSecondary: '#94A3B8',     // Slate Mist
-    textTertiary: '#64748B',
-    
-    // Accents - NEW VIBRANT PALETTE
-    primary: '#FF3EA5',           // Electric Magenta ⚡
-    primaryLight: '#FF6BC0',
-    primaryDark: '#E6007A',
-    
-    secondary: '#00F2FE',         // Cyan Glow 🌊
-    secondaryLight: '#4FFCFF',
-    secondaryDark: '#00D4E0',
-    
-    accent: '#A6FF96',            // Lime Pop ✨
-    
-    // Gradients
-    gradientPrimary: ['#FF3EA5', '#00F2FE'],  // Cosmic Sunset
-    gradientHero: ['#FF3EA5', '#8B5CF6', '#00F2FE'],
-    
-    // Status
-    success: '#A6FF96',
-    successBg: '#1A3C34',         // Emerald Night
-    warning: '#FFA726',
-    error: '#FF6B6B',             // Coral Alert
-    
-    // UI Elements
-    border: 'rgba(255, 255, 255, 0.1)',
-    borderLight: 'rgba(255, 255, 255, 0.05)',
-    
-    // Effects
-    glow: 'rgba(255, 62, 165, 0.4)',
-    glowCyan: 'rgba(0, 242, 254, 0.4)',
-    shadow: 'rgba(0, 0, 0, 0.5)',
+    ...AURORA,
+    secondaryDark: AURORA.secondary,
+    gradientHero: AURORA.gradientPrimary,
   },
-  
-  // Light Mode
   light: {
-    background: '#FAFAFC',        // Porcelain
-    surface: '#FFFFFF',           // Pure White
-    surfaceElevated: '#FFFFFF',
-    surfaceGlass: 'rgba(255, 255, 255, 0.7)',
-    
-    text: '#1E293B',              // Slate Night
-    textSecondary: '#64748B',
-    textTertiary: '#94A3B8',
-    
-    primary: '#FF2E95',           // Hot Magenta
-    primaryLight: '#FF5CAA',
-    primaryDark: '#E6007A',
-    
-    secondary: '#00E5FF',         // Sky Cyan
-    secondaryLight: '#4FFCFF',
-    
-    accent: '#8FDB70',
-    
-    gradientPrimary: ['#FF2E95', '#00E5FF'],  // Miami Vice 2025
-    
-    success: '#10B981',
-    successBg: '#D1FAE5',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    
-    border: 'rgba(0, 0, 0, 0.1)',
-    borderLight: 'rgba(0, 0, 0, 0.05)',
-    
-    glow: 'rgba(255, 46, 149, 0.3)',
-    glowCyan: 'rgba(0, 229, 255, 0.3)',
-    shadow: 'rgba(0, 0, 0, 0.1)',
-  }
+    ...WARMTH,
+    secondaryDark: WARMTH.secondary,
+    gradientHero: WARMTH.gradientPrimary,
+  },
 };
 
 // Simple shadow presets (sin shadowColor para compatibilidad web)
