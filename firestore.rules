@@ -121,6 +121,14 @@ service cloud.firestore {
         allow write: if isSignedIn() && isEventParticipant(eventId);
       }
 
+      // QR check-in — only the event host writes a check-in (scans attendee QR);
+      // participants can read (e.g. to see they're checked in). This keeps
+      // attendance host-authorized — attendees can't self-check-in.
+      match /checkins/{userId} {
+        allow read: if isSignedIn() && isEventParticipant(eventId);
+        allow write: if isSignedIn() && isEventHost(eventId);
+      }
+
       // Polls — only the host creates/closes; any participant votes (own vote).
       match /polls/{pollId} {
         allow read: if isSignedIn() && isEventParticipant(eventId);

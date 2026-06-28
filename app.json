@@ -33,7 +33,8 @@
         {
           "enableGooglePay": false
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCLaUcFpX5KcemGsCCMHSfCz49CauUKjGc",

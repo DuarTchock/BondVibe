@@ -197,6 +197,19 @@ const runQuery = async (structuredQuery, h) => {
   }
   chk("trigger incremented member unreadCount", unread >= 1, true);
 
+  // ---- QR CHECK-IN (host-authorized attendance) ----
+  section("QR check-in");
+  chk("host checks in an attendee", await patchDoc(`events/${ev}/checkins/${member.uid}`, {
+    userId: s(member.uid), checkedInAt: s(new Date().toISOString()),
+  }, host.headers), 200);
+  chk("attendee CANNOT self check-in", await patchDoc(`events/${ev}/checkins/${member.uid}`, {
+    userId: s(member.uid),
+  }, member.headers), 403);
+  chk("outsider CANNOT check in", await patchDoc(`events/${ev}/checkins/${outsider.uid}`, {
+    userId: s(outsider.uid),
+  }, outsider.headers), 403);
+  chk("attendee can read own check-in", await readDoc(`events/${ev}/checkins/${member.uid}`, member.headers), 200);
+
   // ---- PREMIUM AI GATE (getHostFeedbackInsights) ----
   section("Premium AI gate");
   const aiCall = await callFn("getHostFeedbackInsights", {}, host.headers);
