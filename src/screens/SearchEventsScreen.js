@@ -9,7 +9,15 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+} from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -21,7 +29,7 @@ import {
 } from "../utils/eventCategories";
 import { LOCATIONS, locationMatchesFilter } from "../utils/locations";
 import { EVENT_LANGUAGES } from "../utils/eventCategories";
-import { filterUpcomingEvents, isEventPast } from "../utils/eventFilters";
+import { isEventPast } from "../utils/eventFilters";
 import { useFocusEffect } from "@react-navigation/native";
 import Icon, { getCategoryIcon } from "../components/Icon";
 import FilterChips from "../components/FilterChips";
@@ -41,12 +49,24 @@ const PRICE_OPTIONS = [
   { id: "paid", label: "Paid" },
 ];
 
+const PAGE_SIZE = 20;
+const mapEventDocs = (docs) =>
+  docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((e) => e.status !== "cancelled");
+
 export default function SearchEventsScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [events, setEvents] = useState([]);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Pagination cursor over the server-side base query.
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Debounced server-side search token (longest word/prefix of the query).
+  const [searchToken, setSearchToken] = useState(null);
 
   // ✅ FIX: Properly handle category from route params
   // route.params?.category comes as label (e.g., "Social", "Sports")
@@ -88,14 +108,90 @@ export default function SearchEventsScreen({ navigation, route }) {
   // Create categories array with "All" option
   const categoryOptions = [{ id: "all", label: "All" }, ...EVENT_CATEGORIES];
 
-  // Reload events on focus
+  // Sort events by date (soonest first)
+  const sortEventsByDate = (eventsArray) => {
+    return [...eventsArray].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateA - dateB;
+    });
+  };
+
+  // Server-side base query: upcoming events (or within the chosen date range),
+  // ordered by date. Date filtering is server-side here; the remaining filters
+  // (category/price/language/location/text) run client-side over loaded pages.
+  const baseConstraints = useCallback(() => {
+    const dayStart = (d) => {
+      const x = new Date(d);
+      x.setHours(0, 0, 0, 0);
+      return x;
+    };
+    const todayStart = dayStart(new Date());
+    const lower =
+      dateFrom && dayStart(dateFrom) > todayStart
+        ? dayStart(dateFrom)
+        : todayStart;
+    const constraints = [];
+    if (searchToken) {
+      constraints.push(where("searchKeywords", "array-contains", searchToken));
+    }
+    constraints.push(where("date", ">=", lower.toISOString()));
+    if (dateTo) {
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59, 999);
+      constraints.push(where("date", "<=", end.toISOString()));
+    }
+    constraints.push(orderBy("date", "asc"));
+    return constraints;
+  }, [dateFrom, dateTo, searchToken]);
+
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, "events"), ...baseConstraints(), limit(PAGE_SIZE)),
+      );
+      setEvents(mapEventDocs(snap.docs));
+      setLastDoc(snap.docs[snap.docs.length - 1] || null);
+      setHasMore(snap.docs.length === PAGE_SIZE);
+    } catch (error) {
+      console.error("Error loading events:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [baseConstraints]);
+
+  const loadMore = async () => {
+    if (loadingMore || loading || !hasMore || !lastDoc) return;
+    setLoadingMore(true);
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, "events"),
+          ...baseConstraints(),
+          startAfter(lastDoc),
+          limit(PAGE_SIZE),
+        ),
+      );
+      setEvents((prev) => [...prev, ...mapEventDocs(snap.docs)]);
+      setLastDoc(snap.docs[snap.docs.length - 1] || lastDoc);
+      setHasMore(snap.docs.length === PAGE_SIZE);
+    } catch (error) {
+      console.error("Error loading more events:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Reload first page on focus and whenever the date range changes
+  // (loadEvents identity changes with the date bounds).
   useFocusEffect(
     useCallback(() => {
-      console.log("📱 SearchEventsScreen focused - reloading events...");
       loadEvents();
-    }, []),
+    }, [loadEvents]),
   );
 
+  // Apply client-side filters over the loaded pages.
   useEffect(() => {
     filterEvents();
   }, [
@@ -109,37 +205,26 @@ export default function SearchEventsScreen({ navigation, route }) {
     events,
   ]);
 
-  // Sort events by date (soonest first)
-  const sortEventsByDate = (eventsArray) => {
-    return [...eventsArray].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateA - dateB;
-    });
-  };
+  // Debounce the text query into a server-side search token (longest prefix).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const tokens = searchQuery
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter((w) => w.length >= 2)
+        .sort((a, b) => b.length - a.length);
+      setSearchToken(tokens[0] || null);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
-  const loadEvents = async () => {
-    setLoading(true);
-    try {
-      const eventsSnapshot = await getDocs(collection(db, "events"));
-      const realEvents = eventsSnapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((event) => event.status !== "cancelled");
-
-      const upcomingEvents = filterUpcomingEvents(realEvents);
-      const sortedEvents = sortEventsByDate(upcomingEvents);
-
-      console.log("📊 Total events:", realEvents.length);
-      console.log("📅 Upcoming events:", sortedEvents.length);
-
-      setEvents(sortedEvents);
-      setFilteredEvents(sortedEvents);
-    } catch (error) {
-      console.error("Error loading events:", error);
-    } finally {
-      setLoading(false);
+  // Auto-load more when an active filter leaves the visible list sparse.
+  useEffect(() => {
+    if (!loading && !loadingMore && hasMore && filteredEvents.length < 8) {
+      loadMore();
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredEvents.length, hasMore, loading, loadingMore]);
 
   const filterEvents = () => {
     let filtered = events;
@@ -373,6 +458,16 @@ export default function SearchEventsScreen({ navigation, route }) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={400}
+        onScroll={({ nativeEvent }) => {
+          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+          if (
+            layoutMeasurement.height + contentOffset.y >=
+            contentSize.height - 400
+          ) {
+            loadMore();
+          }
+        }}
       >
         {/* Search Bar */}
         <View
@@ -528,9 +623,16 @@ export default function SearchEventsScreen({ navigation, route }) {
             </Text>
           </View>
         ) : (
-          filteredEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))
+          <>
+            {filteredEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+            {loadingMore && (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
     </GradientBackground>
@@ -575,6 +677,7 @@ function createStyles(colors) {
       letterSpacing: 0.5,
     },
     loadingContainer: { paddingVertical: 60, alignItems: "center" },
+    footerLoader: { paddingVertical: 20, alignItems: "center" },
     eventCard: { marginBottom: 16, borderRadius: 16, overflow: "hidden" },
     eventGlass: { borderWidth: 1, padding: 16 },
     eventHeader: {

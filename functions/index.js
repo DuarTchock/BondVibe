@@ -1222,6 +1222,47 @@ exports.joinGroupByCode = onCall(async (request) => {
 });
 
 /**
+ * Build search keyword tokens from an event's text fields: lowercase word
+ * tokens (>= 2 chars), deduped. Mirrored by the client query tokenizer in
+ * SearchEventsScreen so server-side keyword search and client refine agree.
+ * Each word is expanded into its prefixes (>= 2 chars) so the client can match
+ * partial typing (e.g. "yog" → "yoga") via array-contains.
+ * @param {object} data - Event document data.
+ * @return {string[]} Deduped lowercase keyword/prefix tokens.
+ */
+function eventSearchKeywords(data) {
+  const text = [data.title, data.location, data.city, data.category]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const words = text.split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2);
+  const set = new Set();
+  for (const w of words) {
+    const max = Math.min(w.length, 14);
+    for (let n = 2; n <= max; n++) set.add(w.slice(0, n));
+  }
+  return Array.from(set).slice(0, 80);
+}
+
+/**
+ * Maintain events/{id}.searchKeywords so the client can run server-side,
+ * paginated keyword search (where searchKeywords array-contains token).
+ * Loop-guarded: only writes when the keyword set actually changes.
+ */
+exports.onEventWritten = onDocumentWritten("events/{eventId}", async (event) => {
+  const after = event.data?.after;
+  if (!after || !after.exists) return; // deleted
+  const data = after.data();
+  const desired = eventSearchKeywords(data);
+  const current = Array.isArray(data.searchKeywords) ? data.searchKeywords : [];
+  const same =
+    current.length === desired.length &&
+    desired.every((k) => current.includes(k));
+  if (same) return;
+  await after.ref.update({searchKeywords: desired});
+});
+
+/**
  * Get pricing info
  */
 exports.getPricingInfo = onRequest({cors: true}, (req, res) => {
