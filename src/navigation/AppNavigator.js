@@ -49,6 +49,7 @@ import MembershipCheckoutScreen from "../screens/MembershipCheckoutScreen";
 import MyMembershipsScreen from "../screens/MyMembershipsScreen";
 import EventCheckInScreen from "../screens/EventCheckInScreen";
 import HostAnalyticsScreen from "../screens/HostAnalyticsScreen";
+import BondVibeProScreen from "../screens/BondVibeProScreen";
 import HowToAttendScreen from "../screens/HowToAttendScreen";
 import PromoteEventScreen from "../screens/PromoteEventScreen";
 import RatingDetailScreen from "../screens/RatingDetailScreen";
@@ -322,6 +323,7 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="EditEvent" component={EditEventScreen} />
           <Stack.Screen name="MyEvents" component={MyEventsScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="BondVibePro" component={BondVibeProScreen} />
           <Stack.Screen
             name="PersonalityQuiz"
             component={PersonalityQuizScreen}

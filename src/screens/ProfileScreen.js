@@ -854,6 +854,56 @@ export default function ProfileScreen({ navigation }) {
                 </TouchableOpacity>
               )}
 
+              {/* BondVibe Pro — any host (free or paid) */}
+              {canManageStripe && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("BondVibePro")}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.infoCard,
+                      {
+                        backgroundColor: isDark
+                          ? "rgba(255, 255, 255, 0.04)"
+                          : "rgba(255, 255, 255, 0.85)",
+                        borderColor: isDark
+                          ? "rgba(255, 255, 255, 0.10)"
+                          : "rgba(0, 0, 0, 0.08)",
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.infoIconCircle,
+                        {
+                          backgroundColor: isDark
+                            ? `${colors.primary}20`
+                            : `${colors.primary}15`,
+                        },
+                      ]}
+                    >
+                      <Crown size={22} color={colors.primary} strokeWidth={1.8} />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
+                        style={[styles.infoLabel, { color: colors.textSecondary }]}
+                      >
+                        BondVibe Pro
+                      </Text>
+                      <Text style={[styles.infoValue, { color: colors.text }]}>
+                        IA, QR, CRM y más
+                      </Text>
+                    </View>
+                    <ChevronRight
+                      size={20}
+                      color={colors.textTertiary}
+                      strokeWidth={2}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
+
               {/* Host Analytics — paid hosts only */}
               {isPaidHost && (
                 <TouchableOpacity

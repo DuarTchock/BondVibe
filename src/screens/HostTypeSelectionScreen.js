@@ -26,6 +26,7 @@ const STRIPE_RETURN_URL = "bondvibe://stripe/return";
 export default function HostTypeSelectionScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
   const [selectedType, setSelectedType] = useState(null);
+  const [payoutProcessor, setPayoutProcessor] = useState("stripe");
   const [loading, setLoading] = useState(false);
 
   const { userEmail, fullName, fromProfile } = route.params || {};
@@ -86,6 +87,25 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
 
         console.log("✅ User set as Free Host");
         goAfterSelection();
+      } else if (selectedType === "paid" && payoutProcessor === "mercadopago") {
+        // Mercado Pago payout (for hosts without an RFC). The MP account
+        // connection is wired separately; for now we record the preference and
+        // activate the paid host. canCreatePaidEvents stays false until the MP
+        // account is connected/verified.
+        await updateDoc(doc(db, "users", auth.currentUser.uid), {
+          role: "host",
+          "hostConfig.type": "paid",
+          "hostConfig.payoutProcessor": "mercadopago",
+          "hostConfig.canCreatePaidEvents": false,
+          "hostConfig.createdAt": new Date().toISOString(),
+          "hostConfig.updatedAt": new Date().toISOString(),
+        });
+        console.log("✅ User set as Paid Host (Mercado Pago, connection pending)");
+        Alert.alert(
+          "Mercado Pago",
+          "Te registramos como host de pago con Mercado Pago. La conexión de tu cuenta de Mercado Pago estará disponible muy pronto; mientras tanto ya puedes crear eventos gratis."
+        );
+        goAfterSelection();
       } else if (selectedType === "paid") {
         // Create Stripe Connect account
         console.log("📤 Creating Stripe Connect account...");
@@ -118,6 +138,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
         await updateDoc(doc(db, "users", auth.currentUser.uid), {
           role: "host",
           "hostConfig.type": "paid",
+          "hostConfig.payoutProcessor": "stripe",
           "hostConfig.canCreatePaidEvents": false,
           "hostConfig.createdAt": new Date().toISOString(),
           "hostConfig.updatedAt": new Date().toISOString(),
@@ -336,6 +357,64 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
           </View>
         </TouchableOpacity>
 
+        {/* Payout processor — only when "paid" is selected */}
+        {selectedType === "paid" && (
+          <View style={styles.processorSection}>
+            <Text style={[styles.processorLabel, { color: colors.textSecondary }]}>
+              ¿Cómo quieres recibir los pagos?
+            </Text>
+            {[
+              {
+                id: "stripe",
+                title: "Stripe",
+                subtitle: "Depósito a tu banco · requiere RFC",
+              },
+              {
+                id: "mercadopago",
+                title: "Mercado Pago",
+                subtitle: "Sin RFC · ideal para extranjeros en México",
+              },
+            ].map((opt) => (
+              <TouchableOpacity
+                key={opt.id}
+                onPress={() => setPayoutProcessor(opt.id)}
+                activeOpacity={0.8}
+                disabled={loading}
+                style={[
+                  styles.processorOption,
+                  {
+                    backgroundColor:
+                      payoutProcessor === opt.id
+                        ? `${colors.primary}1F`
+                        : colors.surfaceGlass,
+                    borderColor:
+                      payoutProcessor === opt.id
+                        ? `${colors.primary}66`
+                        : colors.border,
+                  },
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.processorTitle, { color: colors.text }]}>
+                    {opt.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.processorSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {opt.subtitle}
+                  </Text>
+                </View>
+                {payoutProcessor === opt.id && (
+                  <Text style={[styles.checkmark, { color: colors.primary }]}>✓</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         <TouchableOpacity
           style={styles.continueButton}
           onPress={handleContinue}
@@ -458,6 +537,18 @@ function createStyles(colors) {
       alignItems: "center",
     },
     infoText: { fontSize: 13, fontWeight: "600" },
+    processorSection: { marginBottom: 16 },
+    processorLabel: { fontSize: 14, fontWeight: "700", marginBottom: 10 },
+    processorOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 10,
+    },
+    processorTitle: { fontSize: 16, fontWeight: "700" },
+    processorSubtitle: { fontSize: 13, marginTop: 2 },
     continueButton: { borderRadius: 16, overflow: "hidden", marginTop: 8 },
     continueGlass: {
       borderWidth: 1,

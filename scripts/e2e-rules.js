@@ -110,6 +110,9 @@ const runQuery = async (structuredQuery, h) => {
   chk("host CANNOT self-grant isPremium", await patchDoc(`users/${host.uid}?updateMask.fieldPaths=isPremium`, {
     isPremium: b(true),
   }, host.headers), 403);
+  chk("host CAN set own hostConfig.payoutProcessor", await patchDoc(`users/${host.uid}?updateMask.fieldPaths=hostConfig.payoutProcessor`, {
+    hostConfig: { mapValue: { fields: { payoutProcessor: s("mercadopago") } } },
+  }, host.headers), 200);
 
   // ---- MEMBERSHIP PLANS / money-sensitive collections ----
   section("Memberships & money-sensitive");
