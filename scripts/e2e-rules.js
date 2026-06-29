@@ -228,6 +228,29 @@ const runQuery = async (structuredQuery, h) => {
     title: s("hacked"),
   }, outsider.headers), 403);
 
+  // ---- joinEvent (atomic free join + capacity) ----
+  section("joinEvent (atomic)");
+  const evJoin = `e2ejoin_${Date.now()}`;
+  const evPaid = `e2epaid_${Date.now()}`;
+  await createDoc(`events?documentId=${evJoin}`, {
+    title: s("Free 1-seat"), creatorId: s(host.uid), price: i(0), status: s("active"),
+    maxAttendees: i(1), attendees: arr([]), date: s(new Date(Date.now() + 7 * 864e5).toISOString()),
+  }, host.headers);
+  await createDoc(`events?documentId=${evPaid}`, {
+    title: s("Paid"), creatorId: s(host.uid), price: i(100), status: s("active"),
+    attendees: arr([]), date: s(new Date(Date.now() + 7 * 864e5).toISOString()),
+  }, host.headers);
+  const j1 = await callFn("joinEvent", { eventId: evJoin }, member.headers);
+  chk("joinEvent adds first attendee", j1.body?.result?.success, true);
+  const j2 = await callFn("joinEvent", { eventId: evJoin }, member.headers);
+  chk("joinEvent idempotent (already in)", j2.body?.result?.already, true);
+  const j3 = await callFn("joinEvent", { eventId: evJoin }, outsider.headers);
+  chk("joinEvent blocks when full", j3.body?.error?.message, "event_full");
+  const j4 = await callFn("joinEvent", { eventId: evPaid }, member.headers);
+  chk("joinEvent rejects paid event", j4.body?.error?.message, "paid_event");
+  await del(`events/${evJoin}`, host.headers);
+  await del(`events/${evPaid}`, host.headers);
+
   // ---- PREMIUM AI GATE (getHostFeedbackInsights) ----
   section("Premium AI gate");
   const aiCall = await callFn("getHostFeedbackInsights", {}, host.headers);

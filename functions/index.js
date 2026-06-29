@@ -1223,6 +1223,49 @@ exports.joinGroupByCode = onCall(async (request) => {
 });
 
 /**
+ * Atomic join for FREE events — enforces capacity inside a transaction so two
+ * users can't both pass a stale capacity check and overbook. Paid events go
+ * through checkout; membership joins go through reserveMembershipCredit.
+ */
+exports.joinEvent = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const {eventId} = request.data || {};
+  if (!eventId) throw new HttpsError("invalid-argument", "Missing eventId.");
+
+  return db.runTransaction(async (tx) => {
+    const ref = db.collection("events").doc(eventId);
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new HttpsError("not-found", "Event not found.");
+    const e = snap.data();
+
+    if (e.status === "cancelled") {
+      throw new HttpsError("failed-precondition", "This event was cancelled.");
+    }
+    if ((e.price || 0) > 0) {
+      throw new HttpsError("failed-precondition", "paid_event");
+    }
+    if (e.date && new Date(e.date).getTime() < Date.now()) {
+      throw new HttpsError("failed-precondition", "This event has already happened.");
+    }
+
+    const attendees = Array.isArray(e.attendees) ? e.attendees : [];
+    const ids = attendees
+      .map((a) => (typeof a === "string" ? a : a && a.userId))
+      .filter(Boolean);
+    if (ids.includes(uid)) return {success: true, already: true};
+
+    const max = e.maxAttendees || e.maxPeople || 0;
+    if (max && ids.length >= max) {
+      throw new HttpsError("resource-exhausted", "event_full");
+    }
+
+    tx.update(ref, {attendees: admin.firestore.FieldValue.arrayUnion(uid)});
+    return {success: true};
+  });
+});
+
+/**
  * Build search keyword tokens from an event's text fields: lowercase word
  * tokens (>= 2 chars), deduped. Mirrored by the client query tokenizer in
  * SearchEventsScreen so server-side keyword search and client refine agree.

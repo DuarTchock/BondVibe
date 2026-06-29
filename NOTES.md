@@ -1,6 +1,18 @@
 # BondVibe — Notas de trabajo
 
-## Pendiente: `joinEvent` Cloud Function (join atómico de eventos) — NO implementado aún
+## `joinEvent` — Deploy 1 HECHO ✅ · Deploy 2 (regla) PENDIENTE
+
+**Estado:** la función `joinEvent` está construida + desplegada, y los 2 call-sites
+de cliente (EventDetailScreen + HowToAttendScreen) ya la usan. E2E 59/59 (cupo
+atómico, idempotente, rechaza evento de pago). La regla sigue **permisiva** a
+propósito → **Deploy 2 (endurecer attendees) NO se ha hecho**: hacerlo ahora
+rompería el TestFlight actual (que aún usa arrayUnion directo). Desplegar la regla
+endurecida (diff abajo) **solo después** de que un build nuevo con joinEvent esté
+adoptado por los testers.
+
+---
+
+## (Original) Diseño de `joinEvent` — referencia
 
 ### Problema
 El cupo de eventos se valida **solo en cliente y NO de forma atómica** →

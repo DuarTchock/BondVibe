@@ -61,6 +61,7 @@ import {
 } from "lucide-react-native";
 import { usePremium } from "../hooks/usePremium";
 import { buildCheckinPayload } from "../services/checkinService";
+import { joinFreeEvent } from "../services/eventJoinService";
 
 export default function EventDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
@@ -267,10 +268,11 @@ export default function EventDetailScreen({ route, navigation }) {
     }
     setJoining(true);
     try {
-      const eventRef = doc(db, "events", eventId);
-      await updateDoc(eventRef, {
-        attendees: arrayUnion(auth.currentUser.uid),
-      });
+      const r = await joinFreeEvent(eventId);
+      if (!r.success) {
+        Alert.alert("Couldn't join", r.error);
+        return;
+      }
       setIsJoined(true);
       // The host's "new attendee" notification (in-app bubble + push) is sent
       // by the onEventAttendeesChanged Cloud Function for all join paths.

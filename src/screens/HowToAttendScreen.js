@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import { auth, db } from "../services/firebase";
+import { joinFreeEvent } from "../services/eventJoinService";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import {
@@ -86,12 +87,14 @@ export default function HowToAttendScreen({ route, navigation }) {
       });
       return;
     }
-    // Free event: join directly.
+    // Free event: join atomically via the joinEvent function.
     setWorking(true);
     try {
-      await updateDoc(doc(db, "events", eventId), {
-        attendees: arrayUnion(auth.currentUser.uid),
-      });
+      const r = await joinFreeEvent(eventId);
+      if (!r.success) {
+        Alert.alert("Couldn't join", r.error);
+        return;
+      }
       Alert.alert("Joined! 🎉", "You're going to this event.", [
         { text: "Done", onPress: () => navigation.goBack() },
       ]);
