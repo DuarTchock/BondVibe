@@ -56,8 +56,8 @@ export default function CreateEventScreen({ navigation }) {
     const idea = (description || title).trim();
     if (!idea) {
       Alert.alert(
-        "Escribe una idea",
-        "Pon una frase sobre tu evento (o un título) y la IA generará un título y descripción atractivos."
+        "Write an idea first",
+        "Add a sentence about your event (or a title) and AI will generate a catchy title and description."
       );
       return;
     }
@@ -68,12 +68,12 @@ export default function CreateEventScreen({ navigation }) {
       if (Array.isArray(r.titles) && r.titles[0]) setTitle(r.titles[0]);
       if (r.description) setDescription(r.description);
     } else if (isPremiumRequired(r)) {
-      Alert.alert("Función Pro ✨", "El generador con IA es parte de BondVibe Pro.", [
-        { text: "Ahora no", style: "cancel" },
-        { text: "Ver Pro", onPress: () => navigation.navigate("BondVibePro") },
+      Alert.alert("Pro feature ✨", "The AI generator is part of BondVibe Pro.", [
+        { text: "Not now", style: "cancel" },
+        { text: "See Pro", onPress: () => navigation.navigate("BondVibePro") },
       ]);
     } else {
-      Alert.alert("No se pudo generar", r.error || "Intenta de nuevo.");
+      Alert.alert("Couldn't generate", r.error || "Please try again.");
     }
   };
   const [selectedLanguages, setSelectedLanguages] = useState(["es", "en"]);
@@ -733,7 +733,7 @@ export default function CreateEventScreen({ navigation }) {
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Text style={[styles.aiGenText, { color: colors.primary }]}>
-                ✨ Generar título y descripción con IA
+                ✨ Generate title & description with AI
               </Text>
             )}
           </TouchableOpacity>

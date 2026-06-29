@@ -26,16 +26,16 @@ import { usePremium } from "../hooks/usePremium";
 // TODO: replace with the real hosted Stripe checkout + Customer Portal URLs
 // once the Pro Product/Price and the web page exist. The uid is passed so the
 // web page can tie the subscription to this user; the webhook sets isPremium.
-const PRO_PRICE_LABEL = "$199 MXN / mes";
+const PRO_PRICE_LABEL = "$199 MXN / mo";
 const CHECKOUT_BASE_URL = "https://bondvibe.app/pro"; // placeholder
 const PORTAL_BASE_URL = "https://bondvibe.app/pro/manage"; // placeholder
 
 const PRO_FEATURES = [
-  { icon: Sparkles, title: "Coaching con IA", desc: "Recomendaciones para mejorar tus eventos según tus reseñas" },
-  { icon: BarChart3, title: "Insights avanzados", desc: "Tendencias, sentimiento y comparativa vs tu categoría" },
-  { icon: QrCode, title: "Check-in con QR", desc: "Registra asistencia en la entrada del evento" },
-  { icon: Users, title: "CRM de asistentes", desc: "Historial, recurrentes y avisos de quién necesita atención" },
-  { icon: MessageSquare, title: "Mensajería + grupos ilimitados", desc: "Anuncios masivos y grupos sin límite" },
+  { icon: Sparkles, title: "AI coaching", desc: "Recommendations to improve your events based on your reviews" },
+  { icon: BarChart3, title: "Advanced insights", desc: "Trends, sentiment and benchmark vs your category" },
+  { icon: QrCode, title: "QR check-in", desc: "Take attendance at the event door" },
+  { icon: Users, title: "Attendee CRM", desc: "History, regulars and alerts on who needs attention" },
+  { icon: MessageSquare, title: "Messaging + unlimited groups", desc: "Mass announcements and unlimited groups" },
 ];
 
 export default function BondVibeProScreen({ navigation }) {
@@ -72,12 +72,12 @@ export default function BondVibeProScreen({ navigation }) {
         <View style={[styles.hero, { borderColor: `${colors.primary}55`, backgroundColor: `${colors.primary}12` }]}>
           <Crown size={40} color={colors.primary} strokeWidth={1.8} />
           <Text style={[styles.heroTitle, { color: colors.text }]}>
-            {isPremium ? "Eres Pro ✓" : "Lleva tus eventos al siguiente nivel"}
+            {isPremium ? "You're Pro ✓" : "Take your events to the next level"}
           </Text>
           <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             {isPremium
-              ? "Tienes acceso a todas las funciones Pro."
-              : "Herramientas para hosts que quieren crecer y retener su comunidad."}
+              ? "You have access to all Pro features."
+              : "Tools for hosts who want to grow and retain their community."}
           </Text>
         </View>
 
@@ -100,17 +100,17 @@ export default function BondVibeProScreen({ navigation }) {
           <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
         ) : isPremium ? (
           <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={openPortal}>
-            <Text style={[styles.secondaryText, { color: colors.text }]}>Gestionar suscripción</Text>
+            <Text style={[styles.secondaryText, { color: colors.text }]}>Manage subscription</Text>
           </TouchableOpacity>
         ) : (
           <>
             <TouchableOpacity style={[styles.cta, { backgroundColor: colors.primary }]} onPress={openCheckout} activeOpacity={0.9}>
               <Crown size={18} color="#fff" strokeWidth={2} />
-              <Text style={styles.ctaText}>Hazte Pro · {PRO_PRICE_LABEL}</Text>
+              <Text style={styles.ctaText}>Go Pro · {PRO_PRICE_LABEL}</Text>
             </TouchableOpacity>
             <Text style={[styles.finePrint, { color: colors.textTertiary }]}>
-              El pago se realiza de forma segura en el navegador. Tu acceso Pro se
-              activa automáticamente al completar el pago.
+              Payment is processed securely in your browser. Your Pro access
+              activates automatically once payment completes.
             </Text>
           </>
         )}

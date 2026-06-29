@@ -30,9 +30,9 @@ const normAvatar = (a) =>
   !a ? null : typeof a === "string" ? { type: "emoji", value: a } : a;
 
 const SEGMENTS = [
-  { id: "risk", label: "En riesgo" },
-  { id: "recurring", label: "Recurrentes" },
-  { id: "all", label: "Todos" },
+  { id: "risk", label: "At risk" },
+  { id: "recurring", label: "Regulars" },
+  { id: "all", label: "All" },
 ];
 
 export default function HostCRMScreen({ navigation }) {
@@ -41,7 +41,7 @@ export default function HostCRMScreen({ navigation }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [segment, setSegment] = useState("risk");
-  const [hostName, setHostName] = useState("tu anfitrión");
+  const [hostName, setHostName] = useState("your host");
   const [sent, setSent] = useState({});
   const [announceVisible, setAnnounceVisible] = useState(false);
   const [announceText, setAnnounceText] = useState("");
@@ -90,7 +90,7 @@ export default function HostCRMScreen({ navigation }) {
     setAnnouncing(false);
     setAnnounceVisible(false);
     setAnnounceText("");
-    if (r.success) Alert.alert("Enviado", `Anuncio enviado a ${r.count} persona(s).`);
+    if (r.success) Alert.alert("Sent", `Announcement sent to ${r.count} ${r.count === 1 ? "person" : "people"}.`);
   };
 
   const Header = (
@@ -98,7 +98,7 @@ export default function HostCRMScreen({ navigation }) {
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={[styles.back, { color: colors.text }]}>←</Text>
       </TouchableOpacity>
-      <Text style={[styles.headerTitle, { color: colors.text }]}>Asistentes</Text>
+      <Text style={[styles.headerTitle, { color: colors.text }]}>Attendees</Text>
       <TouchableOpacity onPress={exportCSV}>
         <Text style={{ color: colors.primary, fontWeight: "700" }}>Export</Text>
       </TouchableOpacity>
@@ -111,15 +111,15 @@ export default function HostCRMScreen({ navigation }) {
         <StatusBar style={isDark ? "light" : "dark"} />
         {Header}
         <View style={styles.center}>
-          <Text style={[styles.upsellTitle, { color: colors.text }]}>CRM es Pro ✨</Text>
+          <Text style={[styles.upsellTitle, { color: colors.text }]}>CRM is Pro ✨</Text>
           <Text style={[styles.upsellText, { color: colors.textSecondary }]}>
-            Conoce a tus asistentes recurrentes y reactiva a quienes se alejan.
+            Know your regulars and re-engage the ones who drift away.
           </Text>
           <TouchableOpacity
             style={[styles.upsellBtn, { backgroundColor: colors.primary }]}
             onPress={() => navigation.navigate("BondVibePro")}
           >
-            <Text style={styles.upsellBtnText}>Conocer BondVibe Pro</Text>
+            <Text style={styles.upsellBtnText}>See BondVibe Pro</Text>
           </TouchableOpacity>
         </View>
       </GradientBackground>
@@ -167,7 +167,7 @@ export default function HostCRMScreen({ navigation }) {
           onPress={() => setAnnounceVisible(true)}
         >
           <Text style={[styles.announceBtnText, { color: colors.primary }]}>
-            📣 Enviar anuncio a {filtered.length}
+            📣 Send announcement to {filtered.length}
           </Text>
         </TouchableOpacity>
       )}
@@ -181,8 +181,8 @@ export default function HostCRMScreen({ navigation }) {
           {filtered.length === 0 ? (
             <Text style={[styles.empty, { color: colors.textSecondary }]}>
               {segment === "risk"
-                ? "Nadie en riesgo ahora mismo 🎉"
-                : "Aún no hay asistentes en este segmento."}
+                ? "Nobody at risk right now 🎉"
+                : "No attendees in this segment yet."}
             </Text>
           ) : (
             filtered.map((r) => (
@@ -194,8 +194,8 @@ export default function HostCRMScreen({ navigation }) {
                       {r.name}
                     </Text>
                     <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-                      {r.eventsCount} evento{r.eventsCount === 1 ? "" : "s"}
-                      {r.lastDate ? ` · último ${r.lastDate.toLocaleDateString()}` : ""}
+                      {r.eventsCount} event{r.eventsCount === 1 ? "" : "s"}
+                      {r.lastDate ? ` · last ${r.lastDate.toLocaleDateString()}` : ""}
                     </Text>
                   </View>
                 </View>
@@ -204,30 +204,30 @@ export default function HostCRMScreen({ navigation }) {
                   <View style={styles.flags}>
                     {r.flags.inactive && (
                       <View style={[styles.flag, { backgroundColor: "#FF9F0A22", borderColor: "#FF9F0A" }]}>
-                        <Text style={[styles.flagText, { color: "#FF9F0A" }]}>Rompió su racha</Text>
+                        <Text style={[styles.flagText, { color: "#FF9F0A" }]}>Broke their streak</Text>
                       </View>
                     )}
                     {r.flags.membershipExpiring && (
                       <View style={[styles.flag, { backgroundColor: "#E0413A22", borderColor: "#E0413A" }]}>
-                        <Text style={[styles.flagText, { color: "#E0413A" }]}>Membresía por vencer</Text>
+                        <Text style={[styles.flagText, { color: "#E0413A" }]}>Membership expiring</Text>
                       </View>
                     )}
                   </View>
                 )}
 
                 {sent[r.id] ? (
-                  <Text style={[styles.sentMsg, { color: colors.success }]}>Mensaje enviado ✓</Text>
+                  <Text style={[styles.sentMsg, { color: colors.success }]}>Message sent ✓</Text>
                 ) : (
                   <View style={styles.actions}>
                     <TouchableOpacity style={[styles.action, { borderColor: colors.borderStrong }]} onPress={() => act(r, "reminder")}>
-                      <Text style={[styles.actionText, { color: colors.text }]}>Recordatorio</Text>
+                      <Text style={[styles.actionText, { color: colors.text }]}>Reminder</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.action, { borderColor: colors.borderStrong }]} onPress={() => act(r, "checkin")}>
-                      <Text style={[styles.actionText, { color: colors.text }]}>¿Cómo estás?</Text>
+                      <Text style={[styles.actionText, { color: colors.text }]}>How are you?</Text>
                     </TouchableOpacity>
                     {r.flags.membershipExpiring && (
                       <TouchableOpacity style={[styles.action, { borderColor: colors.primary, backgroundColor: `${colors.primary}14` }]} onPress={() => act(r, "renew")}>
-                        <Text style={[styles.actionText, { color: colors.primary }]}>Renovar</Text>
+                        <Text style={[styles.actionText, { color: colors.primary }]}>Renew</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -242,14 +242,14 @@ export default function HostCRMScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.background }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Anuncio a {filtered.length} asistente{filtered.length === 1 ? "" : "s"}
+              Announcement to {filtered.length} attendee{filtered.length === 1 ? "" : "s"}
             </Text>
             <TextInput
               style={[
                 styles.modalInput,
                 { color: colors.text, borderColor: colors.borderStrong },
               ]}
-              placeholder="Escribe tu anuncio…"
+              placeholder="Write your announcement…"
               placeholderTextColor={colors.textTertiary}
               value={announceText}
               onChangeText={setAnnounceText}
@@ -258,11 +258,11 @@ export default function HostCRMScreen({ navigation }) {
             />
             <View style={styles.modalActions}>
               <TouchableOpacity onPress={() => setAnnounceVisible(false)}>
-                <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>Cancelar</Text>
+                <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={sendAnnounce} disabled={announcing || !announceText.trim()}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  {announcing ? "Enviando…" : "Enviar"}
+                  {announcing ? "Sending…" : "Send"}
                 </Text>
               </TouchableOpacity>
             </View>

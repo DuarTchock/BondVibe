@@ -56,15 +56,15 @@ export default function RatingDetailScreen({ route, navigation }) {
       setText(r.reply);
     } else if (isPremiumRequired(r)) {
       Alert.alert(
-        "Función Pro ✨",
-        "Las respuestas con IA son parte de BondVibe Pro.",
+        "Pro feature ✨",
+        "AI replies are part of BondVibe Pro.",
         [
-          { text: "Ahora no", style: "cancel" },
-          { text: "Ver Pro", onPress: () => navigation.navigate("BondVibePro") },
+          { text: "Not now", style: "cancel" },
+          { text: "See Pro", onPress: () => navigation.navigate("BondVibePro") },
         ]
       );
     } else {
-      Alert.alert("No se pudo generar", r.error || "Intenta de nuevo.");
+      Alert.alert("Couldn't generate", r.error || "Please try again.");
     }
   };
   const scrollRef = useRef(null);
@@ -249,7 +249,7 @@ export default function RatingDetailScreen({ route, navigation }) {
               <Sparkles size={15} color={colors.primary} strokeWidth={2} />
             )}
             <Text style={[styles.aiSuggestText, { color: colors.primary }]}>
-              {aiLoading ? "Generando…" : "Sugerir respuesta con IA"}
+              {aiLoading ? "Generating…" : "Suggest reply with AI"}
             </Text>
           </TouchableOpacity>
         )}

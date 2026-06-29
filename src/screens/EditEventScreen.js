@@ -282,17 +282,17 @@ export default function EditEventScreen({ route, navigation }) {
     const user = await findUserByEmail(email);
     setAddingCoHost(false);
     if (!user) {
-      Alert.alert("No encontrado", "Ningún usuario de BondVibe con ese email.");
+      Alert.alert("Not found", "No BondVibe user with that email.");
       return;
     }
     if (user.id === creatorId || coHosts.some((c) => c.id === user.id)) {
-      Alert.alert("Ya es co-host", "Esa persona ya gestiona el evento.");
+      Alert.alert("Already a co-host", "That person already manages this event.");
       return;
     }
     await updateDoc(doc(db, "events", eventId), { coHosts: arrayUnion(user.id) });
     setCoHosts((c) => [...c, { id: user.id, name: user.fullName || user.name || email }]);
     setCoHostEmail("");
-    Alert.alert("Co-host agregado", `${user.fullName || email} ahora puede gestionar el evento.`);
+    Alert.alert("Co-host added", `${user.fullName || email} can now manage this event.`);
   };
 
   const handleRemoveCoHost = async (id) => {
@@ -1005,9 +1005,9 @@ export default function EditEventScreen({ route, navigation }) {
         {/* Co-hosts — only the creator manages them */}
         {isCreator && (
           <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.text }]}>Co-anfitriones</Text>
+            <Text style={[styles.label, { color: colors.text }]}>Co-hosts</Text>
             <Text style={[styles.coHostHint, { color: colors.textSecondary }]}>
-              Pueden editar el evento y registrar asistencia (check-in).
+              They can edit the event and take attendance (check-in).
             </Text>
             {coHosts.map((c) => (
               <View
@@ -1018,7 +1018,7 @@ export default function EditEventScreen({ route, navigation }) {
                   {c.name}
                 </Text>
                 <TouchableOpacity onPress={() => handleRemoveCoHost(c.id)}>
-                  <Text style={{ color: "#E0413A", fontWeight: "700" }}>Quitar</Text>
+                  <Text style={{ color: "#E0413A", fontWeight: "700" }}>Remove</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -1028,7 +1028,7 @@ export default function EditEventScreen({ route, navigation }) {
                   styles.coHostInput,
                   { color: colors.text, borderColor: colors.borderStrong },
                 ]}
-                placeholder="email del co-anfitrión"
+                placeholder="co-host's email"
                 placeholderTextColor={colors.textTertiary}
                 value={coHostEmail}
                 onChangeText={setCoHostEmail}
@@ -1037,7 +1037,7 @@ export default function EditEventScreen({ route, navigation }) {
               />
               <TouchableOpacity onPress={handleAddCoHost} disabled={addingCoHost}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  {addingCoHost ? "…" : "Agregar"}
+                  {addingCoHost ? "…" : "Add"}
                 </Text>
               </TouchableOpacity>
             </View>

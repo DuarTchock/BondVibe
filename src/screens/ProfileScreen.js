@@ -915,7 +915,7 @@ export default function ProfileScreen({ navigation }) {
                         BondVibe Pro
                       </Text>
                       <Text style={[styles.infoValue, { color: colors.text }]}>
-                        IA, QR, CRM y más
+                        AI, QR, CRM & more
                       </Text>
                     </View>
                     <ChevronRight
@@ -1014,10 +1014,10 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                        Asistentes
+                        Attendees
                       </Text>
                       <Text style={[styles.infoValue, { color: colors.text }]}>
-                        CRM y reactivación
+                        CRM & re-engagement
                       </Text>
                     </View>
                     <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />

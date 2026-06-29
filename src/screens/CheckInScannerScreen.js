@@ -27,7 +27,7 @@ export default function CheckInScannerScreen({ route, navigation }) {
     const r = await checkInFromScan(eventId, data);
     setResult(
       r.success
-        ? { ok: true, msg: r.already ? `${r.name} ya estaba registrado` : `✓ ${r.name} registrado` }
+        ? { ok: true, msg: r.already ? `${r.name} already checked in` : `✓ ${r.name} checked in` }
         : { ok: false, msg: r.error }
     );
     setTimeout(() => {
@@ -64,16 +64,16 @@ export default function CheckInScannerScreen({ route, navigation }) {
         {Header}
         <View style={styles.center}>
           <Text style={[styles.permTitle, { color: colors.text }]}>
-            Necesitamos la cámara
+            We need the camera
           </Text>
           <Text style={[styles.permText, { color: colors.textSecondary }]}>
-            Para escanear el código QR de tus asistentes y registrar su entrada.
+            To scan your attendees' QR codes and check them in.
           </Text>
           <TouchableOpacity
             style={[styles.permBtn, { backgroundColor: colors.primary }]}
             onPress={requestPermission}
           >
-            <Text style={styles.permBtnText}>Permitir cámara</Text>
+            <Text style={styles.permBtnText}>Allow camera</Text>
           </TouchableOpacity>
         </View>
       </GradientBackground>
@@ -93,7 +93,7 @@ export default function CheckInScannerScreen({ route, navigation }) {
         />
         <View style={styles.reticle} pointerEvents="none" />
         <Text style={styles.hint}>
-          Apunta al código QR de tu asistente
+          Point at your attendee's QR code
         </Text>
         {eventTitle ? <Text style={styles.eventLabel}>{eventTitle}</Text> : null}
         {result && (

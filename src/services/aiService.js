@@ -18,9 +18,9 @@ export const isPremiumRequired = (r) =>
   (r?.code || "").includes("permission-denied") || r?.error === "premium_required";
 
 /** Generate catchy title options + a description from an idea + category. */
-export const generateEventListing = (idea, category, language = "es") =>
+export const generateEventListing = (idea, category, language = "en") =>
   call("generateEventListing", { idea, category, language });
 
 /** Suggest a gracious host reply to an attendee review. */
-export const generateReviewReply = (rating, comment, language = "es") =>
+export const generateReviewReply = (rating, comment, language = "en") =>
   call("generateReviewReply", { rating, comment, language });

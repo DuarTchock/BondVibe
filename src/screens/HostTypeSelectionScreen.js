@@ -103,7 +103,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
         console.log("✅ User set as Paid Host (Mercado Pago, connection pending)");
         Alert.alert(
           "Mercado Pago",
-          "Te registramos como host de pago con Mercado Pago. La conexión de tu cuenta de Mercado Pago estará disponible muy pronto; mientras tanto ya puedes crear eventos gratis."
+          "Connecting your Mercado Pago account isn't available yet — we're finishing that integration. You're set up as a host and can create free events for now; paid events unlock once your account is connected."
         );
         goAfterSelection();
       } else if (selectedType === "paid") {
@@ -361,18 +361,18 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
         {selectedType === "paid" && (
           <View style={styles.processorSection}>
             <Text style={[styles.processorLabel, { color: colors.textSecondary }]}>
-              ¿Cómo quieres recibir los pagos?
+              How do you want to get paid?
             </Text>
             {[
               {
                 id: "stripe",
                 title: "Stripe",
-                subtitle: "Depósito a tu banco · requiere RFC",
+                subtitle: "Direct to your bank · requires RFC (Mexico tax ID)",
               },
               {
                 id: "mercadopago",
                 title: "Mercado Pago",
-                subtitle: "Sin RFC · ideal para extranjeros en México",
+                subtitle: "No RFC needed · great for foreigners in Mexico",
               },
             ].map((opt) => (
               <TouchableOpacity

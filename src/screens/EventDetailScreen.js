@@ -1417,7 +1417,7 @@ export default function EventDetailScreen({ route, navigation }) {
               >
                 <QrCode size={16} color={colors.primary} strokeWidth={2} />
                 <Text style={[styles.qrLinkText, { color: colors.primary }]}>
-                  Mi QR de check-in
+                  My check-in QR
                 </Text>
               </TouchableOpacity>
             )}
@@ -1433,9 +1433,9 @@ export default function EventDetailScreen({ route, navigation }) {
               { backgroundColor: colors.surface, borderColor: colors.borderStrong },
             ]}
           >
-            <Text style={[styles.qrTitle, { color: colors.text }]}>Tu check-in</Text>
+            <Text style={[styles.qrTitle, { color: colors.text }]}>Your check-in</Text>
             <Text style={[styles.qrSub, { color: colors.textSecondary }]}>
-              Muestra este código al anfitrión en la entrada.
+              Show this code to the host at the door.
             </Text>
             <View style={styles.qrBox}>
               <QRCode
@@ -1447,7 +1447,7 @@ export default function EventDetailScreen({ route, navigation }) {
               style={[styles.qrClose, { backgroundColor: colors.primary }]}
               onPress={() => setQrVisible(false)}
             >
-              <Text style={styles.qrCloseText}>Listo</Text>
+              <Text style={styles.qrCloseText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
