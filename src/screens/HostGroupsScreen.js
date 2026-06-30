@@ -17,9 +17,13 @@ import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import KeyboardAccessory from "../components/KeyboardAccessory";
 import { getHostGroups, createGroup } from "../services/hostGroupService";
+import { usePremium } from "../hooks/usePremium";
+
+const FREE_GROUP_LIMIT = 1;
 
 export default function HostGroupsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { isPremium } = usePremium();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -36,6 +40,21 @@ export default function HostGroupsScreen({ navigation }) {
   const load = async () => {
     setGroups(await getHostGroups());
     setLoading(false);
+  };
+
+  const openCreate = () => {
+    if (!isPremium && groups.length >= FREE_GROUP_LIMIT) {
+      Alert.alert(
+        "Unlock unlimited groups",
+        "The free plan includes 1 group. Go Pro to create unlimited groups for your community.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Go Pro", onPress: () => navigation.navigate("BondVibePro") },
+        ]
+      );
+      return;
+    }
+    setModalVisible(true);
   };
 
   const handleCreate = async () => {
@@ -78,7 +97,7 @@ export default function HostGroupsScreen({ navigation }) {
             invite them to your events.
           </Text>
 
-          <TouchableOpacity style={styles.newBtn} onPress={() => setModalVisible(true)} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.newBtn} onPress={openCreate} activeOpacity={0.85}>
             <View style={[styles.newGlass, { backgroundColor: `${colors.primary}33`, borderColor: `${colors.primary}66` }]}>
               <Plus size={20} color={colors.primary} strokeWidth={2.4} />
               <Text style={[styles.newText, { color: colors.primary }]}>New group</Text>
