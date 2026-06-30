@@ -150,8 +150,39 @@ const arrVals = (f) => (f?.arrayValue?.values || []).map((v) => v.stringValue);
   section("Car pool");
   const cp = "ecp1";
   chk("member creates carpool", await createDoc(`events/${ev}/carpools?documentId=${cp}`, { driverId: s(member.uid), seatsTotal: i(3), from: s("Centro"), status: s("open") }, member.headers), 200);
+  chk("non-participant CANNOT request seat", await patchDoc(`events/${ev}/carpools/${cp}/riders/${stranger.uid}`, { status: s("requested"), name: s("X") }, stranger.headers), 403);
+  chk("rider CANNOT request as another user", await patchDoc(`events/${ev}/carpools/${cp}/riders/${member.uid}`, { status: s("requested"), name: s("fake") }, outsider.headers), 403);
   chk("host requests seat", await patchDoc(`events/${ev}/carpools/${cp}/riders/${host.uid}`, { status: s("requested"), name: s("Host") }, host.headers), 200);
+  chk("non-driver CANNOT approve a rider", await patchDoc(`events/${ev}/carpools/${cp}/riders/${host.uid}`, { status: s("approved"), name: s("Host") }, outsider.headers), 403);
   chk("driver approves", await patchDoc(`events/${ev}/carpools/${cp}/riders/${host.uid}`, { status: s("approved"), name: s("Host") }, member.headers), 200);
+
+  // ---- CARPOOL TRIGGER (loyalty reward + notifications) ----
+  section("Carpool trigger (reward + notifications)");
+  // onCarpoolRiderWritten: request → driver notified; approve → rider notified + driver seatsShared++.
+  let seatsShared = 0;
+  for (let k = 0; k < 12 && seatsShared < 1; k++) {
+    await sleep(1500);
+    const f = await getFields(`users/${member.uid}`, member.headers);
+    seatsShared = parseInt(
+      f?.carpoolStats?.mapValue?.fields?.seatsShared?.integerValue || "0", 10);
+  }
+  chk("approving a rider increments driver carpoolStats.seatsShared", seatsShared >= 1, true);
+  const reqNotif = await runQuery({
+    from: [{ collectionId: "notifications" }],
+    where: { compositeFilter: { op: "AND", filters: [
+      { fieldFilter: { field: { fieldPath: "userId" }, op: "EQUAL", value: s(member.uid) } },
+      { fieldFilter: { field: { fieldPath: "type" }, op: "EQUAL", value: s("carpool_request") } },
+    ] } },
+  }, member.headers);
+  chk("driver got a seat-request notification", reqNotif.rows.length >= 1, true);
+  const appNotif = await runQuery({
+    from: [{ collectionId: "notifications" }],
+    where: { compositeFilter: { op: "AND", filters: [
+      { fieldFilter: { field: { fieldPath: "userId" }, op: "EQUAL", value: s(host.uid) } },
+      { fieldFilter: { field: { fieldPath: "type" }, op: "EQUAL", value: s("carpool_approved") } },
+    ] } },
+  }, host.headers);
+  chk("rider got a ride-confirmed notification", appNotif.rows.length >= 1, true);
 
   // ---- HOST GROUPS ----
   section("Host groups");
