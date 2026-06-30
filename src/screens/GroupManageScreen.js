@@ -237,6 +237,7 @@ export default function GroupManageScreen({ route, navigation }) {
             return (
               <TouchableOpacity
                 key={u.id}
+                testID={`candidate-${u.id}`}
                 style={[
                   styles.row,
                   isMember && { borderColor: colors.primary, backgroundColor: `${colors.primary}14` },

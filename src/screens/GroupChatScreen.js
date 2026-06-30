@@ -65,16 +65,20 @@ export default function GroupChatScreen({ route, navigation }) {
     return [...all];
   }, [group, uid]);
 
-  const MessageTicks = ({ m }) => {
-    if (recipientIds.length === 0) {
-      return <Check size={14} color={colors.textTertiary} strokeWidth={2.5} />;
+  const tickStatus = (m) => {
+    if (recipientIds.length === 0) return "sent";
+    if (recipientIds.every((id) => (m.readBy || []).includes(id))) return "read";
+    if (recipientIds.every((id) => (m.deliveredTo || []).includes(id))) {
+      return "delivered";
     }
-    const read = recipientIds.every((id) => (m.readBy || []).includes(id));
-    if (read) return <CheckCheck size={14} color="#34B7F1" strokeWidth={2.5} />;
-    const delivered = recipientIds.every((id) =>
-      (m.deliveredTo || []).includes(id)
-    );
-    if (delivered) {
+    return "sent";
+  };
+
+  const TickIcon = ({ status }) => {
+    if (status === "read") {
+      return <CheckCheck size={14} color="#34B7F1" strokeWidth={2.5} />;
+    }
+    if (status === "delivered") {
       return <CheckCheck size={14} color={colors.textTertiary} strokeWidth={2.5} />;
     }
     return <Check size={14} color={colors.textTertiary} strokeWidth={2.5} />;
@@ -192,8 +196,8 @@ export default function GroupChatScreen({ route, navigation }) {
               >
                 <Text style={{ color: colors.text }}>{m.text}</Text>
                 {mine && (
-                  <View style={styles.tickRow}>
-                    <MessageTicks m={m} />
+                  <View style={styles.tickRow} testID={`tick-${tickStatus(m)}`}>
+                    <TickIcon status={tickStatus(m)} />
                   </View>
                 )}
               </View>
@@ -226,6 +230,7 @@ export default function GroupChatScreen({ route, navigation }) {
             multiline
           />
           <TouchableOpacity
+            testID="send-button"
             style={[styles.sendBtn, { backgroundColor: colors.primary, opacity: text.trim() ? 1 : 0.4 }]}
             onPress={handleSend}
             disabled={!text.trim()}
