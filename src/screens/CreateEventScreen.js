@@ -209,25 +209,6 @@ export default function CreateEventScreen({ navigation }) {
     setShowTimePicker(false);
   };
 
-  // End date picker handlers
-  const onEndDateChange = (event, selectedDate) => {
-    if (Platform.OS === "android") {
-      setShowEndDatePicker(false);
-      if (event.type === "set" && selectedDate) {
-        setRecurrenceEndDate(selectedDate);
-      }
-    } else {
-      if (selectedDate) {
-        setTempEndDate(selectedDate);
-      }
-    }
-  };
-
-  const confirmEndDateSelection = () => {
-    setRecurrenceEndDate(tempEndDate);
-    setShowEndDatePicker(false);
-  };
-
   // Toggle "accept membership credits". Requires the host to have at least one
   // active membership plan; otherwise invite them to create one first.
   const handleToggleMembership = async () => {
