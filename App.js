@@ -6,7 +6,11 @@ import { StripeProvider } from "@stripe/stripe-react-native";
 import { ThemeProvider } from "./src/contexts/ThemeContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import KeyboardAccessory from "./src/components/KeyboardAccessory";
+import { initSentry, Sentry } from "./src/services/sentry";
 import * as Notifications from "expo-notifications";
+
+// Initialize crash/error reporting as early as possible (no-op without a DSN).
+initSentry();
 import { useFonts } from "expo-font";
 import {
   SpaceGrotesk_600SemiBold,
@@ -50,7 +54,7 @@ export const navigate = (name, params) => {
   }
 };
 
-export default function App() {
+function App() {
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -321,3 +325,7 @@ export default function App() {
     </AuthProvider>
   );
 }
+
+// Sentry.wrap adds the error boundary + performance instrumentation. It is a
+// harmless pass-through when Sentry isn't initialized (no DSN).
+export default Sentry.wrap(App);
