@@ -96,14 +96,19 @@ export default function HostAnalyticsScreen({ navigation }) {
 
   const styles = createStyles(colors, isDark);
 
-  const StatCard = ({ icon: Icon, label, value, accent }) => (
-    <View style={styles.statCard}>
+  const StatCard = ({ icon: Icon, label, value, accent, onPress }) => (
+    <TouchableOpacity
+      style={styles.statCard}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.8 : 1}
+      disabled={!onPress}
+    >
       <View style={[styles.statIcon, { backgroundColor: `${accent}1F` }]}>
         <Icon size={20} color={accent} strokeWidth={2} />
       </View>
       <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -132,14 +137,18 @@ export default function HostAnalyticsScreen({ navigation }) {
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
             REVENUE
           </Text>
-          <View style={styles.revenueCard}>
+          <TouchableOpacity
+            style={styles.revenueCard}
+            onPress={() => navigation.navigate("Finance")}
+            activeOpacity={0.85}
+          >
             <Text style={[styles.revenueValue, { color: colors.text }]}>
               {formatPlanPrice(data.revenueTotalCentavos)}
             </Text>
             <Text style={[styles.revenueLabel, { color: colors.textSecondary }]}>
-              Total received · {formatPlanPrice(data.revenueMonthCentavos)} this month
+              Total received · {formatPlanPrice(data.revenueMonthCentavos)} this month · Tap for details
             </Text>
-          </View>
+          </TouchableOpacity>
 
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
             MEMBERS
@@ -150,24 +159,28 @@ export default function HostAnalyticsScreen({ navigation }) {
               label="Active members"
               value={data.activeMembers}
               accent="#34C759"
+              onPress={() => navigation.navigate("AnalyticsDetail", { metric: "members" })}
             />
             <StatCard
               icon={Ticket}
               label="Memberships sold"
               value={data.membershipsSold}
               accent={colors.primary}
+              onPress={() => navigation.navigate("AnalyticsDetail", { metric: "memberships" })}
             />
             <StatCard
               icon={CalendarCheck}
               label="Classes attended"
               value={data.classesAttended}
               accent="#0A84FF"
+              onPress={() => navigation.navigate("AnalyticsDetail", { metric: "attended" })}
             />
             <StatCard
               icon={Clock}
               label="Expiring (7 days)"
               value={data.expiringSoonCount}
               accent="#FF9F0A"
+              onPress={() => navigation.navigate("AnalyticsDetail", { metric: "expiring" })}
             />
             <StatCard
               icon={Star}
@@ -182,6 +195,7 @@ export default function HostAnalyticsScreen({ navigation }) {
                   : "—"
               }
               accent="#FFD700"
+              onPress={() => navigation.navigate("RatingsOverview")}
             />
           </View>
 

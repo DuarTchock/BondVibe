@@ -60,6 +60,9 @@ import GroupChatScreen from "../screens/GroupChatScreen";
 import GroupManageScreen from "../screens/GroupManageScreen";
 import PollVotesScreen from "../screens/PollVotesScreen";
 import MembershipSaleScreen from "../screens/MembershipSaleScreen";
+import FinanceScreen from "../screens/FinanceScreen";
+import AnalyticsDetailScreen from "../screens/AnalyticsDetailScreen";
+import RatingsOverviewScreen from "../screens/RatingsOverviewScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -388,6 +391,9 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="GroupManage" component={GroupManageScreen} />
           <Stack.Screen name="PollVotes" component={PollVotesScreen} />
           <Stack.Screen name="MembershipSale" component={MembershipSaleScreen} />
+          <Stack.Screen name="Finance" component={FinanceScreen} />
+          <Stack.Screen name="AnalyticsDetail" component={AnalyticsDetailScreen} />
+          <Stack.Screen name="RatingsOverview" component={RatingsOverviewScreen} />
         </Stack.Navigator>
       </NavigationContainer>
 
