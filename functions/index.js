@@ -9,6 +9,7 @@ const {onDocumentCreated, onDocumentWritten} =
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const {defineSecret} = require("firebase-functions/params");
+const {detectProhibitedContent} = require("./contentGuard");
 
 
 // Define secrets
@@ -1152,6 +1153,35 @@ exports.onGroupMessage = onDocumentCreated(
     const msg = snap.data();
     const {groupId} = event.params;
 
+    // Anti-circumvention: delete off-platform payment solicitations, report to
+    // admin, and notify the sender (never forward to members).
+    const guard = detectProhibitedContent(msg.text || "");
+    if (guard.flagged) {
+      await snap.ref.delete();
+      await db.collection("reports").add({
+        type: "prohibited_content",
+        reason: guard.reason,
+        reporterId: msg.senderId,
+        groupId,
+        content: String(msg.text || "").slice(0, 500),
+        status: "open",
+        source: "server",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await db.collection("notifications").add({
+        userId: msg.senderId,
+        type: "message_blocked",
+        title: "Message blocked 🚫",
+        message: "Sharing off-platform payment details isn't allowed on BondVibe.",
+        icon: "🚫",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        metadata: {groupId},
+      });
+      console.log("🚫 Blocked prohibited group message:", guard.reason);
+      return;
+    }
+
     const gSnap = await db.doc(`hostGroups/${groupId}`).get();
     if (!gSnap.exists) return;
     const group = gSnap.data();
@@ -1219,6 +1249,12 @@ exports.joinGroupByCode = onCall(async (request) => {
   }
 
   const groupDoc = snap.docs[0];
+  if ((groupDoc.data().blockedIds || []).includes(uid)) {
+    throw new HttpsError(
+      "permission-denied",
+      "You've been blocked from this group by the host.",
+    );
+  }
   await groupDoc.ref.update({
     memberIds: admin.firestore.FieldValue.arrayUnion(uid),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),

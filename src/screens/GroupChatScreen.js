@@ -11,6 +11,7 @@ import {
   Modal,
   ActivityIndicator,
   Switch,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -21,6 +22,8 @@ import GradientBackground from "../components/GradientBackground";
 import KeyboardAccessory from "../components/KeyboardAccessory";
 import PollCard from "../components/PollCard";
 import { createPoll } from "../services/pollService";
+import { detectProhibitedContent, PROHIBITED_MESSAGE } from "../utils/contentGuard";
+import { reportProhibitedContent } from "../services/reportService";
 import {
   getGroup,
   subscribeGroupMessages,
@@ -102,6 +105,13 @@ export default function GroupChatScreen({ route, navigation }) {
   const handleSend = async () => {
     const body = text.trim();
     if (!body) return;
+    const guard = detectProhibitedContent(body);
+    if (guard.flagged) {
+      setText("");
+      reportProhibitedContent({ reason: guard.reason, content: body, groupId });
+      Alert.alert("Message blocked", PROHIBITED_MESSAGE);
+      return;
+    }
     setText("");
     await sendGroupMessage(groupId, body);
   };
@@ -214,34 +224,42 @@ export default function GroupChatScreen({ route, navigation }) {
           )}
         </ScrollView>
 
-        <View style={[styles.inputBar, { borderTopColor: colors.border }]}>
-          {isHost && (
-            <TouchableOpacity style={styles.iconBtn} onPress={openInvite}>
-              <Text style={{ fontSize: 20 }}>🎟️</Text>
+        {group?.hostOnly && !isHost ? (
+          <View style={[styles.inputBar, { borderTopColor: colors.border, justifyContent: "center" }]}>
+            <Text style={{ color: colors.textTertiary, textAlign: "center" }}>
+              🔒 Only the host can post here. You can still read and vote in polls.
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.inputBar, { borderTopColor: colors.border }]}>
+            {isHost && (
+              <TouchableOpacity style={styles.iconBtn} onPress={openInvite}>
+                <Text style={{ fontSize: 20 }}>🎟️</Text>
+              </TouchableOpacity>
+            )}
+            {isHost && (
+              <TouchableOpacity style={styles.iconBtn} onPress={() => setPollVisible(true)}>
+                <Text style={{ fontSize: 20 }}>📊</Text>
+              </TouchableOpacity>
+            )}
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.surfaceGlass }]}
+              placeholder="Message…"
+              placeholderTextColor={colors.textTertiary}
+              value={text}
+              onChangeText={setText}
+              multiline
+            />
+            <TouchableOpacity
+              testID="send-button"
+              style={[styles.sendBtn, { backgroundColor: colors.primary, opacity: text.trim() ? 1 : 0.4 }]}
+              onPress={handleSend}
+              disabled={!text.trim()}
+            >
+              <Send size={20} color="#FFFFFF" strokeWidth={2} />
             </TouchableOpacity>
-          )}
-          {isHost && (
-            <TouchableOpacity style={styles.iconBtn} onPress={() => setPollVisible(true)}>
-              <Text style={{ fontSize: 20 }}>📊</Text>
-            </TouchableOpacity>
-          )}
-          <TextInput
-            style={[styles.input, { color: colors.text, backgroundColor: colors.surfaceGlass }]}
-            placeholder="Message…"
-            placeholderTextColor={colors.textTertiary}
-            value={text}
-            onChangeText={setText}
-            multiline
-          />
-          <TouchableOpacity
-            testID="send-button"
-            style={[styles.sendBtn, { backgroundColor: colors.primary, opacity: text.trim() ? 1 : 0.4 }]}
-            onPress={handleSend}
-            disabled={!text.trim()}
-          >
-            <Send size={20} color="#FFFFFF" strokeWidth={2} />
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
 
         {/* Event invite picker */}
         <Modal visible={inviteVisible} transparent animationType="slide">

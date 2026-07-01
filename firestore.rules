@@ -298,6 +298,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Moderation reports (off-platform payment attempts, host user blocks).
+    // Any signed-in user files them (reporterId must be theirs); admins read +
+    // resolve. The reporter can read their own.
+    match /reports/{reportId} {
+      allow create: if isSignedIn() &&
+                       request.resource.data.reporterId == request.auth.uid;
+      allow read: if isSignedIn() &&
+                     (resource.data.reporterId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && isAdmin();
+      allow delete: if false;
+    }
+
     // ============================================
     // CONVERSATIONS COLLECTION
     // ============================================
@@ -334,8 +346,15 @@ service cloud.firestore {
           return g.hostId == request.auth.uid ||
                  (g.memberIds != null && request.auth.uid in g.memberIds);
         }
+        // Host-only groups: only the host may post; members still read + vote.
+        function canPost() {
+          let g = get(/databases/$(database)/documents/hostGroups/$(groupId)).data;
+          return g.hostId == request.auth.uid ||
+                 (g.hostOnly != true &&
+                  g.memberIds != null && request.auth.uid in g.memberIds);
+        }
         allow read: if isSignedIn() && groupMembers();
-        allow create: if isSignedIn() && groupMembers() &&
+        allow create: if isSignedIn() && canPost() &&
                          request.resource.data.senderId == request.auth.uid;
         // Members may only add themselves to readBy (read receipts). deliveredTo
         // is written server-side (Admin SDK) and bypasses rules.

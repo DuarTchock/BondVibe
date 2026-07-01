@@ -29,6 +29,7 @@ import {
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "./firebase";
+import { reportUserBlock } from "./reportService";
 
 // Invite code: short, unambiguous (no 0/O/1/I).
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -80,6 +81,26 @@ export const addMembers = async (groupId, uids) => {
 export const removeMember = async (groupId, uid) => {
   await updateDoc(doc(db, "hostGroups", groupId), {
     memberIds: arrayRemove(uid),
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Host blocks a user from a group: removes them, adds to blockedIds (prevents
+ * rejoin via code), and files a report to the admin with reason + evidence.
+ */
+export const blockUserInGroup = async (groupId, userId, { reason, evidenceUrl } = {}) => {
+  await updateDoc(doc(db, "hostGroups", groupId), {
+    memberIds: arrayRemove(userId),
+    blockedIds: arrayUnion(userId),
+    updatedAt: serverTimestamp(),
+  });
+  await reportUserBlock({ groupId, targetUserId: userId, reason, evidenceUrl });
+};
+
+export const unblockUserInGroup = async (groupId, userId) => {
+  await updateDoc(doc(db, "hostGroups", groupId), {
+    blockedIds: arrayRemove(userId),
     updatedAt: serverTimestamp(),
   });
 };

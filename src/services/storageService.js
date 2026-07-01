@@ -85,6 +85,16 @@ export const uploadGroupPhoto = async (groupId, imageUri) => {
   return getDownloadURL(photoRef);
 };
 
+/** Upload a moderation-report evidence image; returns its URL. */
+export const uploadReportEvidence = async (groupId, imageUri) => {
+  const compressedUri = await compressImage(imageUri);
+  const response = await fetch(compressedUri);
+  const blob = await response.blob();
+  const evRef = ref(storage, `groups/${groupId}/evidence_${Date.now()}.jpg`);
+  await uploadBytes(evRef, blob);
+  return getDownloadURL(evRef);
+};
+
 /** Resolve a group avatar object for saving (uploads a local photo). */
 export const resolveGroupAvatar = async (avatar, groupId) => {
   if (!avatar || avatar.type !== "photo" || !avatar.uri) return avatar;

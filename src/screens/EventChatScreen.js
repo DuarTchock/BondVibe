@@ -19,6 +19,8 @@ import { StatusBar } from "expo-status-bar";
 import * as Location from "expo-location";
 import PollCard from "../components/PollCard";
 import { createPoll } from "../services/pollService";
+import { detectProhibitedContent, PROHIBITED_MESSAGE } from "../utils/contentGuard";
+import { reportProhibitedContent } from "../services/reportService";
 import CarpoolCard from "../components/CarpoolCard";
 import KeyboardAccessory from "../components/KeyboardAccessory";
 import { createCarpool } from "../services/carpoolService";
@@ -261,6 +263,13 @@ export default function EventChatScreen({ route, navigation }) {
     if (!inputText.trim() || sending) return;
 
     const text = inputText.trim();
+    const guard = detectProhibitedContent(text);
+    if (guard.flagged) {
+      setInputText("");
+      reportProhibitedContent({ reason: guard.reason, content: text, eventId });
+      Alert.alert("Message blocked", PROHIBITED_MESSAGE);
+      return;
+    }
     setInputText("");
     setSending(true);
 

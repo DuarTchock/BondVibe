@@ -9,9 +9,13 @@ import {
   TextInput,
   Alert,
   Share,
+  Switch,
+  Modal,
+  Image,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Check, Trash2, Share2, RotateCcw } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Check, Trash2, Share2, RotateCcw, Ban, ImagePlus } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import AvatarPicker, { AvatarDisplay } from "../components/AvatarPicker";
@@ -27,7 +31,9 @@ import {
   regenerateInviteCode,
   findUserByEmail,
   findUserByPhone,
+  blockUserInGroup,
 } from "../services/hostGroupService";
+import { uploadReportEvidence } from "../services/storageService";
 
 const normAvatar = (a) =>
   !a ? null : typeof a === "string" ? { type: "emoji", value: a } : a;
@@ -122,6 +128,58 @@ export default function GroupManageScreen({ route, navigation }) {
     setGroup((g) => ({ ...g, memberIds: [...(g.memberIds || []), user.id] }));
     setEmail("");
     Alert.alert("Added", `${user.fullName || target} was added to the group.`);
+  };
+
+  const [blockTarget, setBlockTarget] = useState(null);
+  const [blockReason, setBlockReason] = useState("");
+  const [blockEvidence, setBlockEvidence] = useState(null);
+  const [blocking, setBlocking] = useState(false);
+
+  const pickEvidence = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
+    if (!res.canceled && res.assets?.[0]) setBlockEvidence(res.assets[0].uri);
+  };
+
+  const confirmBlock = async () => {
+    if (!blockTarget) return;
+    setBlocking(true);
+    try {
+      let evidenceUrl = null;
+      if (blockEvidence) evidenceUrl = await uploadReportEvidence(groupId, blockEvidence);
+      await blockUserInGroup(groupId, blockTarget.id, {
+        reason: blockReason.trim(),
+        evidenceUrl,
+      });
+      setGroup((g) => ({
+        ...g,
+        memberIds: (g.memberIds || []).filter((m) => m !== blockTarget.id),
+        blockedIds: [...(g.blockedIds || []), blockTarget.id],
+      }));
+      setBlockTarget(null);
+      setBlockReason("");
+      setBlockEvidence(null);
+      Alert.alert(
+        "User blocked",
+        "They were removed and can't rejoin. The report was sent to BondVibe."
+      );
+    } catch (e) {
+      Alert.alert("Couldn't block", e.message || "Please try again.");
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  const handleToggleHostOnly = async (value) => {
+    setGroup((g) => ({ ...g, hostOnly: value }));
+    try {
+      await updateGroup(groupId, { hostOnly: value });
+    } catch (e) {
+      setGroup((g) => ({ ...g, hostOnly: !value }));
+      Alert.alert("Couldn't update", e.message || "Please try again.");
+    }
   };
 
   const handleAddByPhone = async () => {
@@ -251,6 +309,26 @@ export default function GroupManageScreen({ route, navigation }) {
           </View>
         </TouchableOpacity>
 
+        {/* Posting mode */}
+        <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
+          POSTING
+        </Text>
+        <View style={[styles.hostOnlyRow, { borderColor: colors.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontWeight: "600" }}>
+              Only host can post
+            </Text>
+            <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
+              Members can still read and vote in polls
+            </Text>
+          </View>
+          <Switch
+            value={!!group?.hostOnly}
+            onValueChange={handleToggleHostOnly}
+            trackColor={{ true: colors.primary }}
+          />
+        </View>
+
         {/* Add by email */}
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
           ADD BY EMAIL
@@ -322,7 +400,15 @@ export default function GroupManageScreen({ route, navigation }) {
                   {u.fullName || u.name || "Member"}
                 </Text>
                 {isMember ? (
-                  <Check size={20} color={colors.primary} strokeWidth={2.5} />
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                    <TouchableOpacity
+                      onPress={() => setBlockTarget(u)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ban size={18} color="#EF4444" strokeWidth={2} />
+                    </TouchableOpacity>
+                    <Check size={20} color={colors.primary} strokeWidth={2.5} />
+                  </View>
                 ) : (
                   <Text style={{ color: colors.primary, fontWeight: "700" }}>Add</Text>
                 )}
@@ -343,6 +429,60 @@ export default function GroupManageScreen({ route, navigation }) {
         currentAvatar={normAvatar(group?.avatar)}
         onAvatarChange={handleAvatarChange}
       />
+
+      <Modal
+        visible={!!blockTarget}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setBlockTarget(null)}
+      >
+        <View style={styles.blockOverlay}>
+          <View style={[styles.blockCard, { backgroundColor: colors.background }]}>
+            <Text style={[styles.blockTitle, { color: colors.text }]}>
+              Block {blockTarget?.fullName || blockTarget?.name || "user"}?
+            </Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 12 }}>
+              They'll be removed and can't rejoin. This is reported to BondVibe.
+            </Text>
+            <TextInput
+              style={[styles.input, { color: colors.text, borderColor: colors.border, minHeight: 70 }]}
+              placeholder="Reason (what happened?)"
+              placeholderTextColor={colors.textTertiary}
+              value={blockReason}
+              onChangeText={setBlockReason}
+              multiline
+              maxLength={300}
+            />
+            <TouchableOpacity style={styles.evidenceBtn} onPress={pickEvidence}>
+              <ImagePlus size={18} color={colors.primary} strokeWidth={2} />
+              <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                {blockEvidence ? "Change evidence" : "Add evidence (optional)"}
+              </Text>
+            </TouchableOpacity>
+            {blockEvidence && (
+              <Image source={{ uri: blockEvidence }} style={styles.evidencePreview} />
+            )}
+            <View style={styles.blockActions}>
+              <TouchableOpacity
+                onPress={() => {
+                  setBlockTarget(null);
+                  setBlockReason("");
+                  setBlockEvidence(null);
+                }}
+              >
+                <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={confirmBlock} disabled={blocking}>
+                <Text style={{ color: "#EF4444", fontWeight: "700" }}>
+                  {blocking ? "Blocking…" : "Block user"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </GradientBackground>
   );
 }
@@ -365,6 +505,14 @@ function createStyles(colors, isDark) {
     content: { paddingHorizontal: 24, paddingBottom: 40 },
     photoWrap: { alignItems: "center", marginBottom: 20, gap: 8 },
     photoText: { fontSize: 14, fontWeight: "700" },
+    hostOnlyRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: 14,
+    },
     label: { fontSize: 12, fontWeight: "700", letterSpacing: 1, marginBottom: 8 },
     hint: { fontSize: 13, lineHeight: 18 },
     nameRow: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -420,5 +568,25 @@ function createStyles(colors, isDark) {
       paddingVertical: 12,
     },
     deleteText: { color: "#EF4444", fontWeight: "700", fontSize: 15 },
+    blockOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" },
+    blockCard: {
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 24,
+      paddingBottom: 36,
+    },
+    blockTitle: { fontSize: 20, fontWeight: "800", marginBottom: 6 },
+    evidenceBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 12,
+    },
+    evidencePreview: { width: 120, height: 120, borderRadius: 12, marginBottom: 8 },
+    blockActions: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: 12,
+    },
   });
 }
