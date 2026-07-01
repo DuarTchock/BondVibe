@@ -20,6 +20,8 @@ import {
   doc,
   updateDoc,
   getDoc,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -51,6 +53,7 @@ export default function AdminDashboardScreen({ navigation }) {
 
   // User Management state
   const [users, setUsers] = useState([]);
+  const [crashes, setCrashes] = useState([]);
   const [roleFilter, setRoleFilter] = useState("all"); // all | admin | host | user
   const [searchQuery, setSearchQuery] = useState("");
   const [stats, setStats] = useState({
@@ -117,7 +120,21 @@ export default function AdminDashboardScreen({ navigation }) {
     if (authorized && activeTab === "users") {
       loadUsers(roleFilter);
     }
+    if (authorized && activeTab === "crashes") {
+      loadCrashes();
+    }
   }, [authorized, activeTab, roleFilter]);
+
+  const loadCrashes = async () => {
+    try {
+      const snap = await getDocs(
+        query(collection(db, "crashes"), orderBy("createdAt", "desc"), limit(50))
+      );
+      setCrashes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (e) {
+      console.error("Error loading crashes:", e);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -787,6 +804,29 @@ export default function AdminDashboardScreen({ navigation }) {
             </Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.tab} onPress={() => setActiveTab("crashes")}>
+          <View
+            style={[
+              styles.tabGlass,
+              {
+                backgroundColor:
+                  activeTab === "crashes" ? `${colors.primary}33` : colors.surfaceGlass,
+                borderColor:
+                  activeTab === "crashes" ? `${colors.primary}66` : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeTab === "crashes" ? colors.primary : colors.textSecondary },
+              ]}
+            >
+              Crashes
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -1021,6 +1061,42 @@ export default function AdminDashboardScreen({ navigation }) {
         )}
 
         {/* USERS TAB */}
+        {activeTab === "crashes" && (
+          <View style={styles.section}>
+            {crashes.length === 0 ? (
+              <Text style={{ color: colors.textSecondary, textAlign: "center", marginTop: 24 }}>
+                No crashes reported 🎉
+              </Text>
+            ) : (
+              crashes.map((c) => (
+                <View
+                  key={c.id}
+                  style={[
+                    styles.crashCard,
+                    { backgroundColor: colors.surfaceGlass, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={[styles.crashMsg, { color: colors.text }]} numberOfLines={2}>
+                    {c.message || "Unknown error"}
+                  </Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 4 }}>
+                    {(c.platform || "?")} · {c.screen || c.source || "js"}
+                    {c.createdAt?.toDate ? ` · ${c.createdAt.toDate().toLocaleString()}` : ""}
+                  </Text>
+                  {!!c.stack && (
+                    <Text
+                      style={{ color: colors.textTertiary, fontSize: 11, marginTop: 6 }}
+                      numberOfLines={4}
+                    >
+                      {c.stack}
+                    </Text>
+                  )}
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
         {activeTab === "users" && (
           <View style={styles.section}>
             {/* Search Bar */}
@@ -1203,6 +1279,13 @@ function createStyles(colors) {
       textAlign: "center",
     },
     section: { marginBottom: 28 },
+    crashCard: {
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 10,
+    },
+    crashMsg: { fontSize: 14, fontWeight: "700" },
     sectionTitle: {
       fontSize: 20,
       fontWeight: "700",
