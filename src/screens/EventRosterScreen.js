@@ -12,12 +12,9 @@ import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
-import { AvatarDisplay } from "../components/AvatarPicker";
+import { AttendeeRow, PaymentPill } from "../components/primitives";
 import { getEventReservations } from "../services/membershipService";
 import { getAttendeeIds } from "../utils/eventHelpers";
-
-const normAvatar = (a) =>
-  !a ? null : typeof a === "string" ? { type: "emoji", value: a } : a;
 
 export default function EventRosterScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
@@ -81,23 +78,16 @@ export default function EventRosterScreen({ route, navigation }) {
     going: { label: "Going", color: colors.textSecondary },
   };
 
+  const PAYMENT = ["Paid", "Membership", "Free"];
   const Row = ({ u }) => (
-    <View style={[styles.row, { borderColor: colors.border }]}>
-      <AvatarDisplay avatar={normAvatar(u.avatar)} size={38} />
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-          {u.name}
-        </Text>
-        {!!u.tag && (
-          <Text style={[styles.tag, { color: colors.textTertiary }]}>{u.tag}</Text>
-        )}
-      </View>
-      {u.status && (
-        <Text style={[styles.status, { color: STATUS[u.status].color }]}>
-          {STATUS[u.status].label}
-        </Text>
-      )}
-    </View>
+    <AttendeeRow
+      name={u.name}
+      avatar={u.avatar}
+      subtitle={u.tag && !PAYMENT.includes(u.tag) ? u.tag : undefined}
+      right={u.tag && PAYMENT.includes(u.tag) ? <PaymentPill status={u.tag} /> : undefined}
+      status={u.status ? STATUS[u.status].label : undefined}
+      statusColor={u.status ? STATUS[u.status].color : undefined}
+    />
   );
 
   return (
