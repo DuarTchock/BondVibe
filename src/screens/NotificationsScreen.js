@@ -234,6 +234,8 @@ export default function NotificationsScreen({ navigation }) {
       case "event_joined":
       case "event_paid_attendee":
       case "attendee_cancelled":
+      case "event_reminder":
+      case "waitlist_promoted":
         if (notification.metadata?.eventId) {
           navigation.navigate("EventDetail", {
             eventId: notification.metadata.eventId,

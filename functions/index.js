@@ -1022,6 +1022,67 @@ exports.sendMembershipReminders = onSchedule(
   },
 );
 
+/**
+ * Hourly: remind attendees ~24h and ~2h before an event starts (in-app + push).
+ * Flags on the event (`remindersSent.h24/h2`) prevent duplicates.
+ */
+exports.sendEventReminders = onSchedule(
+  {schedule: "every 60 minutes", timeZone: "America/Mexico_City"},
+  async () => {
+    const now = Date.now();
+    const snap = await db
+      .collection("events")
+      .where("status", "==", "active")
+      .get();
+    let sent = 0;
+    for (const docSnap of snap.docs) {
+      const e = docSnap.data();
+      const startMs = e.date?.toMillis ?
+        e.date.toMillis() :
+        (e.date ? new Date(e.date).getTime() : 0);
+      if (!startMs || startMs < now) continue;
+      const hours = (startMs - now) / 3600000;
+      const reminders = e.remindersSent || {};
+      let kind = null;
+      if (hours <= 2 && !reminders.h2) {
+        kind = {key: "h2", title: "Starting soon ⏰", suffix: "starts in about 2 hours."};
+      } else if (hours <= 24 && !reminders.h24) {
+        kind = {key: "h24", title: "Event tomorrow ⏰", suffix: "is happening within 24 hours."};
+      }
+      if (!kind) continue;
+
+      const title = e.title || "Your event";
+      const pushes = [];
+      for (const uid of getAttendeeIds(e.attendees)) {
+        await db.collection("notifications").add({
+          userId: uid,
+          type: "event_reminder",
+          title: kind.title,
+          message: `"${title}" ${kind.suffix}`,
+          icon: "⏰",
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          metadata: {eventId: docSnap.id, eventTitle: title},
+        });
+        const u = await db.collection("users").doc(uid).get();
+        if (u.exists && u.data().pushToken) {
+          pushes.push({
+            pushToken: u.data().pushToken,
+            title: kind.title,
+            body: `"${title}" ${kind.suffix}`,
+            data: {type: "event_reminder", eventId: docSnap.id},
+          });
+        }
+      }
+      if (pushes.length > 0) await sendBatchPushNotifications(pushes);
+      reminders[kind.key] = true;
+      await docSnap.ref.update({remindersSent: reminders});
+      sent++;
+    }
+    console.log(`⏰ Event reminders processed for ${sent} event(s)`);
+  },
+);
+
 // ============================================
 // RATINGS AGGREGATION (server-side, manipulation-proof)
 // Recomputes the event's and the host's average rating whenever a new rating
