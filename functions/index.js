@@ -287,9 +287,14 @@ exports.createEventPaymentIntent = onRequest(
       const hostData = hostDoc.data();
       const stripeAccountId = hostData.stripeConnect?.accountId;
 
-      // NEW: Calculate fees using new pricing model
-      const {calculateCheckoutAmount} = require("./stripe/pricing");
-      const pricing = calculateCheckoutAmount(eventPrice);
+      // NEW: Calculate fees using new pricing model (admin-configurable rates)
+      const {calculateCheckoutAmount, getPricingConfig} = require("./stripe/pricing");
+      const cfg = await getPricingConfig(db);
+      const pricing = calculateCheckoutAmount(eventPrice, "stripe", {
+        platformFeePercent: cfg.eventPlatformFeePercent,
+        processorPercent: cfg.stripeFeePercent,
+        processorFixed: cfg.stripeFixedCentavos,
+      });
 
       console.log("💰 NEW Payment breakdown:", {
         eventPrice: pricing.eventPrice,
@@ -518,8 +523,13 @@ exports.createMembershipPaymentIntent = onRequest(
         });
       }
 
-      const {calculateCheckoutAmount} = require("./stripe/pricing");
-      const pricing = calculateCheckoutAmount(plan.priceCentavos);
+      const {calculateCheckoutAmount, getPricingConfig} = require("./stripe/pricing");
+      const memCfg = await getPricingConfig(db);
+      const pricing = calculateCheckoutAmount(plan.priceCentavos, "stripe", {
+        platformFeePercent: memCfg.eventPlatformFeePercent,
+        processorPercent: memCfg.stripeFeePercent,
+        processorFixed: memCfg.stripeFixedCentavos,
+      });
 
       // Buyer email → Stripe sends an automatic receipt to it.
       const buyerEmail = await getUserEmail(userId);
@@ -1975,3 +1985,260 @@ exports.createProPortalSession = onCall({secrets: [stripeSecretKey]}, async (req
   });
   return {url: portal.url};
 });
+
+// ============================================
+// VEHICLE RENTAL MARKETPLACE (model A)
+// Mirrors reserveMembershipCredit (atomic tx) + createEventPaymentIntent
+// (Stripe Connect payout). No maps/geo — city-scoped list + static pickup.
+// ============================================
+const RENTAL_RESERVE_TTL_MS = 20 * 60 * 1000; // unpaid holds expire after 20 min
+
+/**
+ * Whether two [start,end) date ranges overlap.
+ * @param {string} aStart - first range start (ISO)
+ * @param {string} aEnd - first range end (ISO)
+ * @param {string} bStart - second range start (ISO)
+ * @param {string} bEnd - second range end (ISO)
+ * @return {boolean} true when the ranges overlap
+ */
+const rentalRangesOverlap = (aStart, aEnd, bStart, bEnd) =>
+  new Date(aStart).getTime() < new Date(bEnd).getTime() &&
+  new Date(aEnd).getTime() > new Date(bStart).getTime();
+
+/**
+ * Remove a booking's range from a vehicle's bookedRanges (frees those dates).
+ * @param {string} vehicleId - the vehicle to update
+ * @param {string} rentalId - the rental whose range should be released
+ * @return {Promise<void>}
+ */
+async function releaseVehicleRange(vehicleId, rentalId) {
+  if (!vehicleId) return;
+  const vRef = db.collection("vehicles").doc(vehicleId);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(vRef);
+      if (!snap.exists) return;
+      const ranges = Array.isArray(snap.data().bookedRanges) ?
+        snap.data().bookedRanges : [];
+      tx.update(vRef, {
+        bookedRanges: ranges.filter((r) => r.rentalId !== rentalId),
+      });
+    });
+  } catch (e) {
+    console.warn("releaseVehicleRange:", e.message);
+  }
+}
+
+/**
+ * Atomically reserve an available vehicle and open the payment.
+ *
+ * Marketplace stance: the rental payment is a Stripe Connect destination charge
+ * with `on_behalf_of` the HOST, so the host is the merchant of record and bears
+ * liability (disputes, refunds, damage/theft). BondVibe keeps only the
+ * commission (application_fee_amount). Any security deposit is arranged directly
+ * between renter and host on pickup — BondVibe never holds or captures it.
+ *
+ * data: { vehicleId, startAt (ISO), endAt (ISO), eventId? }
+ * Returns { rentalId, clientSecret } (or { free:true } for free vehicles).
+ */
+exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const {vehicleId, startAt, endAt, eventId} = request.data || {};
+  if (!vehicleId || !startAt || !endAt) {
+    throw new HttpsError("invalid-argument", "Missing rental details.");
+  }
+
+  // Rental duration in whole days (at least 1) — the fee is per-day.
+  const spanMs = new Date(endAt).getTime() - new Date(startAt).getTime();
+  const days = Math.max(1, Math.ceil((spanMs || 0) / 864e5)) || 1;
+
+  // Pre-read the vehicle to validate payability BEFORE reserving, so a host
+  // who can't receive payouts never leaves a vehicle stuck as "rented".
+  const preSnap = await db.collection("vehicles").doc(vehicleId).get();
+  if (!preSnap.exists) throw new HttpsError("not-found", "Vehicle not found.");
+  const pre = preSnap.data();
+  const perDay = pre.pricePerDayCentavos || (pre.specs && pre.specs.pricePerDayCentavos) || 0;
+  const price = perDay * days;
+  const deposit = pre.depositCentavos || (pre.specs && pre.specs.depositCentavos) || 0;
+  const isFree = price === 0;
+
+  // Resolve the host's Stripe Connect account (reused from their host payouts).
+  let hostAccount = null;
+  if (!isFree) {
+    const ownerSnap = pre.ownerId ?
+      await db.collection("users").doc(pre.ownerId).get() : null;
+    const sc = ownerSnap && ownerSnap.exists ? ownerSnap.data().stripeConnect : null;
+    hostAccount = sc && sc.accountId ? sc.accountId : null;
+    const canCharge = sc && (sc.chargesEnabled || sc.payoutsEnabled);
+    if (!hostAccount || !canCharge) {
+      throw new HttpsError("failed-precondition", "host_payouts_not_ready");
+    }
+  }
+
+  // Event-style pricing (USER_PAYS_FEES): the renter pays the rental fee plus
+  // the platform fee and the Stripe fee; the host receives 100% of the fee.
+  // Reuses the same pricing model as event tickets, with the admin-configurable
+  // RENTAL platform-fee rate.
+  const {calculateCheckoutAmount, getPricingConfig} = require("./stripe/pricing");
+  const rentCfg = isFree ? null : await getPricingConfig(db);
+  const pricing = isFree ? null : calculateCheckoutAmount(price, "stripe", {
+    platformFeePercent: rentCfg.rentalPlatformFeePercent,
+    processorPercent: rentCfg.stripeFeePercent,
+    processorFixed: rentCfg.stripeFixedCentavos,
+  });
+
+  // 1) Atomic reservation — the transaction is the source of truth against
+  //    double-booking. Availability is per date range: the vehicle keeps a
+  //    `bookedRanges` list (public-readable) and we reject any overlap.
+  const reserved = await db.runTransaction(async (tx) => {
+    const vRef = db.collection("vehicles").doc(vehicleId);
+    const vSnap = await tx.get(vRef);
+    if (!vSnap.exists) throw new HttpsError("not-found", "Vehicle not found.");
+    const v = vSnap.data();
+    if (v.status !== "available") {
+      throw new HttpsError("failed-precondition", "vehicle_unavailable");
+    }
+    // Requested range must fall inside the host's availability window.
+    if ((v.availableFrom && new Date(startAt) < new Date(v.availableFrom)) ||
+        (v.availableUntil && new Date(endAt) > new Date(v.availableUntil))) {
+      throw new HttpsError("failed-precondition", "outside_availability");
+    }
+    // Reject overlap with any existing reserved/active booking.
+    const ranges = Array.isArray(v.bookedRanges) ? v.bookedRanges : [];
+    const overlaps = ranges.some((r) => rentalRangesOverlap(startAt, endAt, r.start, r.end));
+    if (overlaps) {
+      throw new HttpsError("failed-precondition", "dates_unavailable");
+    }
+    const rentalRef = db.collection("rentals").doc();
+    tx.update(vRef, {
+      bookedRanges: [...ranges, {start: startAt, end: endAt, rentalId: rentalRef.id}],
+    });
+    tx.set(rentalRef, {
+      vehicleId,
+      providerId: v.providerId || null,
+      ownerId: v.ownerId || null,
+      renterId: uid,
+      eventId: eventId || null,
+      startAt,
+      endAt,
+      days,
+      priceCentavos: price,
+      // Deposit is informational only — settled directly with the host.
+      depositCentavos: deposit,
+      currency: "mxn",
+      ...(pricing ? {
+        platformFeeCentavos: pricing.platformFee,
+        stripeFeeCentavos: pricing.stripeFee,
+        totalCentavos: pricing.totalAmount,
+        hostReceivesCentavos: pricing.hostReceives,
+      } : {}),
+      // Free vehicles skip payment and confirm immediately.
+      status: isFree ? "active" : "reserved",
+      reservedAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...(isFree ? {paidAt: admin.firestore.FieldValue.serverTimestamp()} : {}),
+    });
+    return {rentalId: rentalRef.id};
+  });
+
+  // Free rental — no PaymentIntent needed.
+  if (isFree) {
+    return {success: true, rentalId: reserved.rentalId, free: true};
+  }
+
+  // 2) Rental-fee PaymentIntent — same as event tickets: destination charge to
+  //    the host (receives 100% of the fee), BondVibe keeps the platform fee via
+  //    application_fee. `on_behalf_of` makes the host the merchant of record and
+  //    liable for disputes; the deposit/damage/theft are settled off-platform.
+  if (!stripe) stripe = require("stripe")(stripeSecretKey.value());
+  const fee = await stripe.paymentIntents.create({
+    amount: pricing.totalAmount,
+    currency: "mxn",
+    on_behalf_of: hostAccount,
+    application_fee_amount: pricing.platformFee + pricing.stripeFee,
+    transfer_data: {destination: hostAccount},
+    metadata: {
+      type: "rental",
+      rentalId: reserved.rentalId,
+      vehicleId,
+      renterId: uid,
+    },
+  });
+
+  await db.collection("rentals").doc(reserved.rentalId).update({
+    paymentIntentId: fee.id,
+    stripeAccountId: hostAccount,
+  });
+
+  return {
+    success: true,
+    rentalId: reserved.rentalId,
+    clientSecret: fee.client_secret,
+  };
+});
+
+/**
+ * Complete (return) a rental: mark it returned and free the vehicle.
+ * data: { rentalId }. Callable by the renter or the vehicle owner.
+ *
+ * BondVibe does not hold a deposit, so there is nothing to release/capture —
+ * any deposit is settled directly between renter and host.
+ */
+exports.completeRental = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const {rentalId} = request.data || {};
+  if (!rentalId) throw new HttpsError("invalid-argument", "Missing rentalId.");
+
+  const rRef = db.collection("rentals").doc(rentalId);
+  const rSnap = await rRef.get();
+  if (!rSnap.exists) throw new HttpsError("not-found", "Rental not found.");
+  const r = rSnap.data();
+  if (r.renterId !== uid && r.ownerId !== uid) {
+    throw new HttpsError("permission-denied", "Not your rental.");
+  }
+  if (r.status === "completed" || r.status === "cancelled") {
+    return {success: true, already: true};
+  }
+
+  await rRef.update({
+    status: "completed",
+    completedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  await releaseVehicleRange(r.vehicleId, rentalId);
+  return {success: true};
+});
+
+/**
+ * Release vehicles whose reservation was never paid within the TTL.
+ * Runs every 15 minutes; mirrors the membership reminder scheduler pattern.
+ */
+exports.expireVehicleReservations = onSchedule(
+  {schedule: "every 15 minutes", secrets: [stripeSecretKey]},
+  async () => {
+    const cutoff = Date.now() - RENTAL_RESERVE_TTL_MS;
+    const snap = await db.collection("rentals")
+      .where("status", "==", "reserved").get();
+    let expired = 0;
+    for (const docSnap of snap.docs) {
+      const r = docSnap.data();
+      const ms = r.reservedAt && r.reservedAt.toMillis ? r.reservedAt.toMillis() : 0;
+      if (!ms || ms > cutoff) continue;
+      if (r.paymentIntentId) {
+        if (!stripe) stripe = require("stripe")(stripeSecretKey.value());
+        try {
+          await stripe.paymentIntents.cancel(r.paymentIntentId);
+        } catch (e) {
+          // already captured/cancelled — ignore
+        }
+      }
+      await docSnap.ref.update({
+        status: "cancelled",
+        cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await releaseVehicleRange(r.vehicleId, docSnap.id);
+      expired++;
+    }
+    console.log(`🛴 Expired ${expired} unpaid vehicle reservations`);
+  },
+);

@@ -165,6 +165,42 @@ export const uploadEventImages = async (eventId, imageUris) => {
 };
 
 /**
+ * Upload a single vehicle photo to Firebase Storage; returns its download URL.
+ * @param {string} vehicleId
+ * @param {string} imageUri - local image URI from the picker
+ * @param {number} index
+ * @returns {Promise<string>}
+ */
+export const uploadVehicleImage = async (vehicleId, imageUri, index) => {
+  const compressedUri = await compressImage(imageUri);
+  const response = await fetch(compressedUri);
+  const blob = await response.blob();
+  const imageRef = ref(storage, `vehicles/${vehicleId}/image_${index}.jpg`);
+  await uploadBytes(imageRef, blob);
+  return getDownloadURL(imageRef);
+};
+
+/**
+ * Resolve a vehicle's photo list for saving: upload any local URIs, keep any
+ * already-remote URLs. Preserves order.
+ * @param {string} vehicleId
+ * @param {string[]} photoUris - mix of local URIs and remote URLs
+ * @returns {Promise<string[]>} array of remote URLs
+ */
+export const uploadVehiclePhotos = async (vehicleId, photoUris) => {
+  const out = [];
+  for (let i = 0; i < photoUris.length; i++) {
+    const uri = photoUris[i];
+    if (isRemoteUrl(uri)) {
+      out.push(uri);
+    } else {
+      out.push(await uploadVehicleImage(vehicleId, uri, i));
+    }
+  }
+  return out;
+};
+
+/**
  * Extract storage path from Firebase Storage URL
  * @param {string} url - Firebase Storage download URL
  * @returns {string|null} - Storage path or null if invalid

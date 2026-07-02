@@ -372,6 +372,80 @@ const arrVals = (f) => (f?.arrayValue?.values || []).map((v) => v.stringValue);
   const aiReply = await callFn("generateReviewReply", { rating: 5, comment: "great" }, host.headers);
   chk("non-premium blocked from AI review reply", aiReply.body?.error?.message, "premium_required");
 
+  // ---- VEHICLE RENTALS (marketplace model A) ----
+  section("Vehicle rentals");
+  const provId = `e2eprov_${Date.now()}`;
+  const vehId = `e2eveh_${Date.now()}`;
+  // Provider (partner) rules
+  chk("owner creates provider", await createDoc(`vehicleProviders?documentId=${provId}`, {
+    ownerId: s(host.uid), name: s("E2E Rides"), city: s("E2ECity"), verified: b(false),
+  }, host.headers), 200);
+  chk("cannot create provider spoofing owner", await createDoc(`vehicleProviders?documentId=${provId}x`, {
+    ownerId: s(host.uid), name: s("spoof"),
+  }, member.headers), 403);
+  chk("provider readable by signed-in user", await readDoc(`vehicleProviders/${provId}`, member.headers), 200);
+  // Vehicle rules (free vehicle → happy path needs no Stripe)
+  chk("owner publishes a vehicle", await createDoc(`vehicles?documentId=${vehId}`, {
+    ownerId: s(host.uid), providerId: s(provId), type: s("scooter"), title: s("E2E Scooter"),
+    city: s("E2ECity"), status: s("available"), pricePerDayCentavos: i(0), depositCentavos: i(0),
+  }, host.headers), 200);
+  chk("cannot publish vehicle spoofing owner", await createDoc(`vehicles?documentId=${vehId}x`, {
+    ownerId: s(host.uid), title: s("spoof"), status: s("available"),
+  }, member.headers), 403);
+  chk("vehicle readable by any signed-in user (browse)", await readDoc(`vehicles/${vehId}`, member.headers), 200);
+  chk("non-owner CANNOT edit a vehicle", await patchDoc(`vehicles/${vehId}?updateMask.fieldPaths=title`, { title: s("hacked") }, member.headers), 403);
+  chk("owner CAN set maintenance", await patchDoc(`vehicles/${vehId}?updateMask.fieldPaths=status`, { status: s("maintenance") }, host.headers), 200);
+  // Rentals are server-only
+  chk("client CANNOT create a rental doc directly", await createDoc(`rentals?documentId=e2erent_${Date.now()}`, {
+    vehicleId: s(vehId), renterId: s(member.uid), status: s("active"),
+  }, member.headers), 403);
+  // reserveVehicle guards (both throw before any Stripe call)
+  const rsvMaint = await callFn("reserveVehicle", { vehicleId: vehId, startAt: "2026-01-01", endAt: "2026-01-02" }, member.headers);
+  chk("reserveVehicle rejects unavailable vehicle", rsvMaint.body?.error?.message, "vehicle_unavailable");
+  const rsvMissing = await callFn("reserveVehicle", { vehicleId: `nope_${Date.now()}`, startAt: "2026-01-01", endAt: "2026-01-02" }, member.headers);
+  chk("reserveVehicle rejects missing vehicle", rsvMissing.body?.error?.message, "Vehicle not found.");
+  // Paid vehicle whose host has no Stripe payouts → blocked BEFORE reserving.
+  const vehPaid = `e2evehp_${Date.now()}`;
+  await createDoc(`vehicles?documentId=${vehPaid}`, {
+    ownerId: s(host.uid), providerId: s(provId), type: s("scooter"), title: s("Paid Scooter"),
+    city: s("E2ECity"), status: s("available"), pricePerDayCentavos: i(25000), depositCentavos: i(0),
+  }, host.headers);
+  const rsvNoPayout = await callFn("reserveVehicle", { vehicleId: vehPaid, startAt: "2026-01-01", endAt: "2026-01-02" }, member.headers);
+  chk("reserveVehicle blocks paid rental when host payouts not ready", rsvNoPayout.body?.error?.message, "host_payouts_not_ready");
+  const vPaidAfter = await getFields(`vehicles/${vehPaid}`, host.headers);
+  chk("paid vehicle stays available after blocked reserve", vPaidAfter?.status?.stringValue, "available");
+  await del(`vehicles/${vehPaid}`, host.headers);
+  // Back to available → happy path (free vehicle: no PaymentIntent created)
+  await patchDoc(`vehicles/${vehId}?updateMask.fieldPaths=status`, { status: s("available") }, host.headers);
+  const rsv = await callFn("reserveVehicle", { vehicleId: vehId, startAt: "2026-01-01", endAt: "2026-01-02" }, member.headers);
+  chk("reserveVehicle reserves a free vehicle", rsv.body?.result?.success, true);
+  const rentalId = rsv.body?.result?.rentalId;
+  const vAfter = await getFields(`vehicles/${vehId}`, host.headers);
+  chk("vehicle records a booked date range", (vAfter?.bookedRanges?.arrayValue?.values || []).length, 1);
+  chk("renter can read own rental", await readDoc(`rentals/${rentalId}`, member.headers), 200);
+  chk("owner can read the rental", await readDoc(`rentals/${rentalId}`, host.headers), 200);
+  chk("stranger CANNOT read the rental", await readDoc(`rentals/${rentalId}`, stranger.headers), 403);
+  const rsvDouble = await callFn("reserveVehicle", { vehicleId: vehId, startAt: "2026-01-01", endAt: "2026-01-02" }, outsider.headers);
+  chk("reserveVehicle blocks overlapping dates", rsvDouble.body?.error?.message, "dates_unavailable");
+  const rsvOther = await callFn("reserveVehicle", { vehicleId: vehId, startAt: "2026-03-01", endAt: "2026-03-02" }, outsider.headers);
+  chk("reserveVehicle allows non-overlapping dates", rsvOther.body?.result?.success, true);
+  const compBad = await callFn("completeRental", { rentalId }, stranger.headers);
+  chk("stranger CANNOT complete a rental", compBad.body?.error?.message, "Not your rental.");
+  const comp = await callFn("completeRental", { rentalId }, member.headers);
+  chk("completeRental succeeds", comp.body?.result?.success, true);
+  const rsvReuse = await callFn("reserveVehicle", { vehicleId: vehId, startAt: "2026-01-01", endAt: "2026-01-02" }, member.headers);
+  chk("dates free up after completion", rsvReuse.body?.result?.success, true);
+  // cleanup
+  await del(`vehicles/${vehId}`, host.headers);
+  await del(`vehicleProviders/${provId}`, host.headers);
+
+  // ---- APP CONFIG (admin-only pricing knobs) ----
+  section("App config (pricing)");
+  chk("non-admin CANNOT write pricing config", await patchDoc(`config/pricing?updateMask.fieldPaths=eventPlatformFeePercent`, {
+    eventPlatformFeePercent: { doubleValue: 0.99 },
+  }, member.headers), 403);
+  chk("signed-in can read pricing config", await readDoc(`config/pricing`, member.headers), [200, 404]);
+
   // ---- CLEANUP ----
   await del(`notifications/event_msg_${ev}_${member.uid}`, member.headers);
   await del(`notifications/event_msg_${ev}_${outsider.uid}`, outsider.headers);
