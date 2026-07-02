@@ -54,12 +54,12 @@ const create = (p, fields, h) =>
   const providerId = provRes.body.name?.split("/").pop();
   console.log("  provider:", providerId, provRes.status);
 
-  // 3) Vehicles — mostly scooters (the primary use case)
+  // 3) Vehicles — scooters (the primary use case). All paid: rentals require the
+  //    host's Stripe Connect payouts, exactly like events.
   const vehicles = [
     { type: "scooter", title: "City scooter", pickupLabel: "Insurgentes metro", rangeKm: 35, day: 25000, deposit: 50000, license: false },
     { type: "scooter", title: "Long-range scooter", pickupLabel: "Condesa", rangeKm: 55, day: 32000, deposit: 60000, license: false },
     { type: "scooter", title: "Compact scooter", pickupLabel: "Roma Norte", rangeKm: 30, day: 22000, deposit: 40000, license: false },
-    { type: "scooter", title: "Free demo scooter", pickupLabel: "Roma Norte", rangeKm: 20, day: 0, deposit: 0, license: false },
   ];
   for (const v of vehicles) {
     const res = await create(`vehicles`, {

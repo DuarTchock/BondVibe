@@ -103,6 +103,22 @@ If you attend events, you agree to:
 - All attendees will be notified automatically
 - Refunds will be processed according to our Refund Policy
 
+### 4.5 Vehicle Rentals (Marketplace)
+
+BondVibe operates a **peer-to-peer vehicle rental marketplace** where independent hosts list vehicles (scooters, bikes, cars) for rent. **BondVibe only facilitates the introduction and payment between renters and hosts and is NOT a party to the rental agreement.**
+
+You expressly acknowledge and agree that:
+
+- The rental agreement is **solely between the renter and the host**. BondVibe does not own, operate, inspect, insure, or control any listed vehicle.
+- The **host is responsible** for the vehicle's condition, roadworthiness, insurance, licensing, and legal compliance, and is the merchant of record for the rental payment.
+- Any **security deposit is arranged and settled directly between the renter and the host**. BondVibe does not hold, collect, or refund deposits.
+- **BondVibe is not liable for any loss, theft, damage, injury, death, fines, accidents, or disputes** arising from any rental, use, or condition of a vehicle. Any such matters are resolved directly between the renter and the host.
+- The renter is responsible for operating any vehicle **safely and legally**, holding any required license, wearing appropriate safety gear, and complying with all local traffic laws.
+- BondVibe's only role is to facilitate the booking and to charge a service fee; hosts receive the rental price they set.
+- To the maximum extent permitted by law, you **release BondVibe from any and all claims, demands, and damages** arising out of or connected to any vehicle rental.
+
+If you are a host, you further represent that you have the legal right to rent the vehicle, that it is safe and properly insured, and you agree to **indemnify and hold BondVibe harmless** from any claim arising from your listing or the rental of your vehicle.
+
 ## 5. Payments & Refunds
 
 ### 5.1 Payment Processing
