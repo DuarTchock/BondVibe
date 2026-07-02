@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Dimensions,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../contexts/ThemeContext";
@@ -15,7 +16,7 @@ import { HostBadge } from "../components/primitives";
 import { getVehicle, getProvider } from "../services/rentalService";
 import { formatCentavos } from "../utils/pricing";
 
-const TYPE_EMOJI = { scooter: "🛴", bike: "🚲", car: "🚗" };
+const HERO_W = Dimensions.get("window").width - 48;
 
 export default function VehicleDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
@@ -82,13 +83,22 @@ export default function VehicleDetailScreen({ route, navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          {vehicle.photos[0] ? (
-            <Image source={{ uri: vehicle.photos[0] }} style={styles.heroImg} />
-          ) : (
-            <Text style={styles.heroEmoji}>{TYPE_EMOJI[vehicle.type] || "🛴"}</Text>
-          )}
-        </View>
+        {vehicle.photos.length > 0 ? (
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            style={styles.hero}
+          >
+            {vehicle.photos.map((uri) => (
+              <Image key={uri} source={{ uri }} style={styles.heroImg} />
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.hero}>
+            <Text style={[styles.heroPlaceholder, { color: colors.textTertiary }]}>No photo</Text>
+          </View>
+        )}
 
         <Text style={[styles.title, { color: colors.text }]}>{vehicle.title}</Text>
         <Text style={[styles.sub, { color: colors.textSecondary }]}>
@@ -188,12 +198,12 @@ function createStyles(colors, isDark) {
     back: { fontSize: 28 },
     content: { paddingHorizontal: 24, paddingBottom: 140 },
     hero: {
-      height: 180, borderRadius: 20, marginBottom: 18, overflow: "hidden",
+      height: 200, borderRadius: 20, marginBottom: 18, overflow: "hidden",
       backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
       alignItems: "center", justifyContent: "center",
     },
-    heroImg: { width: "100%", height: 180 },
-    heroEmoji: { fontSize: 80 },
+    heroImg: { width: HERO_W, height: 200, borderRadius: 20 },
+    heroPlaceholder: { fontSize: 13, fontWeight: "600" },
     title: { fontSize: 24, fontWeight: "800" },
     sub: { fontSize: 15, marginTop: 4 },
     providerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 },

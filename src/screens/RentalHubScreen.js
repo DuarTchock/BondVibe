@@ -15,7 +15,6 @@ import GradientBackground from "../components/GradientBackground";
 import { getAvailableVehicles, VEHICLE_TYPES } from "../services/rentalService";
 import { formatCentavos } from "../utils/pricing";
 
-const TYPE_EMOJI = { scooter: "🛴", bike: "🚲", car: "🚗" };
 const TYPE_LABEL = { scooter: "Scooters", bike: "Bikes", car: "Cars" };
 
 export default function RentalHubScreen({ route, navigation }) {
@@ -108,7 +107,7 @@ export default function RentalHubScreen({ route, navigation }) {
                   {v.photos[0] ? (
                     <Image source={{ uri: v.photos[0] }} style={styles.thumbImg} />
                   ) : (
-                    <Text style={styles.thumbEmoji}>{TYPE_EMOJI[v.type] || "🛴"}</Text>
+                    <Text style={[styles.thumbPlaceholder, { color: colors.textTertiary }]}>No photo</Text>
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
@@ -189,7 +188,7 @@ function createStyles(colors, isDark) {
       alignItems: "center", justifyContent: "center", overflow: "hidden",
     },
     thumbImg: { width: 56, height: 56 },
-    thumbEmoji: { fontSize: 30 },
+    thumbPlaceholder: { fontSize: 10, fontWeight: "600" },
     title: { fontSize: 16, fontWeight: "800" },
     meta: { fontSize: 13, marginTop: 2 },
     tagRow: { flexDirection: "row", gap: 6, marginTop: 6 },

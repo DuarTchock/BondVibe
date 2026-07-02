@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
@@ -16,7 +17,6 @@ import GradientBackground from "../components/GradientBackground";
 import { getMyFleet } from "../services/rentalService";
 import { formatCentavos } from "../utils/pricing";
 
-const TYPE_EMOJI = { scooter: "🛴", bike: "🚲", car: "🚗" };
 const STATUS_META = {
   available: { label: "Available", color: "#34C759" },
   rented: { label: "Rented", color: "#FF9F0A" },
@@ -113,7 +113,13 @@ export default function MyFleetScreen({ navigation }) {
                   activeOpacity={0.85}
                   onPress={() => navigation.navigate("PublishVehicle", { vehicleId: v.id })}
                 >
-                  <Text style={styles.thumbEmoji}>{TYPE_EMOJI[v.type] || "🛴"}</Text>
+                  <View style={styles.thumb}>
+                    {v.photos[0] ? (
+                      <Image source={{ uri: v.photos[0] }} style={styles.thumbImg} />
+                    ) : (
+                      <Text style={[styles.thumbPlaceholder, { color: colors.textTertiary }]}>No photo</Text>
+                    )}
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{v.title}</Text>
                     <Text style={[styles.meta, { color: colors.textSecondary }]}>
@@ -158,7 +164,13 @@ function createStyles(colors, isDark) {
       flexDirection: "row", alignItems: "center", gap: 14,
       borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12,
     },
-    thumbEmoji: { fontSize: 30 },
+    thumb: {
+      width: 52, height: 52, borderRadius: 10, overflow: "hidden",
+      backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+      alignItems: "center", justifyContent: "center",
+    },
+    thumbImg: { width: 52, height: 52 },
+    thumbPlaceholder: { fontSize: 9, fontWeight: "600" },
     title: { fontSize: 16, fontWeight: "800" },
     meta: { fontSize: 13, marginTop: 2 },
     pill: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
