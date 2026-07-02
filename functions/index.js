@@ -1981,7 +1981,6 @@ exports.createProPortalSession = onCall({secrets: [stripeSecretKey]}, async (req
 // Mirrors reserveMembershipCredit (atomic tx) + createEventPaymentIntent
 // (Stripe Connect payout). No maps/geo — city-scoped list + static pickup.
 // ============================================
-const RENTAL_COMMISSION_RATE = 0.15; // BondVibe platform fee on the rental fee
 const RENTAL_RESERVE_TTL_MS = 20 * 60 * 1000; // unpaid holds expire after 20 min
 
 /**
@@ -2031,6 +2030,12 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
     }
   }
 
+  // Event-style pricing (USER_PAYS_FEES): the renter pays the rental fee plus
+  // the platform fee and the Stripe fee; the host receives 100% of the fee.
+  // Reuses the exact same pricing model as event tickets.
+  const {calculateCheckoutAmount} = require("./stripe/pricing");
+  const pricing = isFree ? null : calculateCheckoutAmount(price);
+
   // 1) Atomic reservation — the transaction is the source of truth against
   //    double-booking (serializes concurrent reserveVehicle calls).
   const reserved = await db.runTransaction(async (tx) => {
@@ -2056,6 +2061,12 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
       // Deposit is informational only — settled directly with the host.
       depositCentavos: deposit,
       currency: "mxn",
+      ...(pricing ? {
+        platformFeeCentavos: pricing.platformFee,
+        stripeFeeCentavos: pricing.stripeFee,
+        totalCentavos: pricing.totalAmount,
+        hostReceivesCentavos: pricing.hostReceives,
+      } : {}),
       // Free vehicles skip payment and confirm immediately.
       status: isFree ? "active" : "reserved",
       reservedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -2069,15 +2080,16 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
     return {success: true, rentalId: reserved.rentalId, free: true};
   }
 
-  // 2) Rental-fee PaymentIntent — destination charge on_behalf_of the host
-  //    (host = merchant of record + liable); BondVibe keeps the commission.
+  // 2) Rental-fee PaymentIntent — same as event tickets: destination charge to
+  //    the host (receives 100% of the fee), BondVibe keeps the platform fee via
+  //    application_fee. `on_behalf_of` makes the host the merchant of record and
+  //    liable for disputes; the deposit/damage/theft are settled off-platform.
   if (!stripe) stripe = require("stripe")(stripeSecretKey.value());
-  const commission = Math.round(price * RENTAL_COMMISSION_RATE);
   const fee = await stripe.paymentIntents.create({
-    amount: price,
+    amount: pricing.totalAmount,
     currency: "mxn",
     on_behalf_of: hostAccount,
-    application_fee_amount: commission,
+    application_fee_amount: pricing.platformFee + pricing.stripeFee,
     transfer_data: {destination: hostAccount},
     metadata: {
       type: "rental",
@@ -2090,7 +2102,6 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
   await db.collection("rentals").doc(reserved.rentalId).update({
     paymentIntentId: fee.id,
     stripeAccountId: hostAccount,
-    commissionCentavos: commission,
   });
 
   return {

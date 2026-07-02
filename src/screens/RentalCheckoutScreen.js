@@ -16,7 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { reserveVehicle } from "../services/rentalService";
-import { formatCentavos } from "../utils/pricing";
+import { formatCentavos, estimateCheckout } from "../utils/pricing";
 
 export default function RentalCheckoutScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
@@ -25,7 +25,10 @@ export default function RentalCheckoutScreen({ route, navigation }) {
 
   const fee = (vehicle?.pricePerDayCentavos || 0) * days;
   const deposit = vehicle?.depositCentavos || 0;
-  const isFree = fee === 0 && deposit === 0;
+  const isFree = fee === 0;
+  // Renter pays the rental fee + platform fee + Stripe fee (host gets 100%).
+  const breakdown = isFree ? null : estimateCheckout(fee);
+  const total = breakdown ? breakdown.totalCentavos : 0;
 
   const [cardComplete, setCardComplete] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -121,6 +124,12 @@ export default function RentalCheckoutScreen({ route, navigation }) {
 
             <View style={styles.breakdown}>
               <Row label="Rental fee" value={fee ? formatCentavos(fee) : "Free"} />
+              {breakdown && (
+                <>
+                  <Row label="Service fee" value={formatCentavos(breakdown.platformFeeCentavos)} />
+                  <Row label="Processing fee" value={formatCentavos(breakdown.stripeFeeCentavos)} />
+                </>
+              )}
               {deposit > 0 && (
                 <Row
                   label="Deposit"
@@ -129,7 +138,7 @@ export default function RentalCheckoutScreen({ route, navigation }) {
                 />
               )}
               <View style={styles.divider} />
-              <Row label="Charged now" value={fee ? formatCentavos(fee) : "Free"} strong />
+              <Row label="Charged now" value={total ? formatCentavos(total) : "Free"} strong />
             </View>
 
             {!isFree && (
@@ -159,13 +168,13 @@ export default function RentalCheckoutScreen({ route, navigation }) {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <Text style={styles.payText}>
-                  {isFree ? "Reserve for free" : `Pay ${formatCentavos(fee)}`}
+                  {isFree ? "Reserve for free" : `Pay ${formatCentavos(total)}`}
                 </Text>
               )}
             </TouchableOpacity>
             <Text style={[styles.disclaimer, { color: colors.textTertiary }]}>
               The rental agreement, deposit, and any damage or theft are handled directly with the host.
-              BondVibe only facilitates the booking and charges a service commission.
+              BondVibe only facilitates the booking and charges a small service fee.
             </Text>
           </ScrollView>
         </View>

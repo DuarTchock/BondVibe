@@ -198,8 +198,8 @@ export default function PublishVehicleScreen({ route, navigation }) {
         </View>
 
         <Text style={[styles.note, { color: colors.textTertiary }]}>
-          You rent directly to riders. BondVibe charges the rider and keeps a 15% commission; the
-          deposit, damage and theft are handled between you and the rider.
+          You rent directly to riders and receive the full price you set. BondVibe adds a small
+          service fee for the rider; the deposit, damage and theft are handled between you and the rider.
         </Text>
 
         <TouchableOpacity
