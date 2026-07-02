@@ -287,9 +287,14 @@ exports.createEventPaymentIntent = onRequest(
       const hostData = hostDoc.data();
       const stripeAccountId = hostData.stripeConnect?.accountId;
 
-      // NEW: Calculate fees using new pricing model
-      const {calculateCheckoutAmount} = require("./stripe/pricing");
-      const pricing = calculateCheckoutAmount(eventPrice);
+      // NEW: Calculate fees using new pricing model (admin-configurable rates)
+      const {calculateCheckoutAmount, getPricingConfig} = require("./stripe/pricing");
+      const cfg = await getPricingConfig(db);
+      const pricing = calculateCheckoutAmount(eventPrice, "stripe", {
+        platformFeePercent: cfg.eventPlatformFeePercent,
+        processorPercent: cfg.stripeFeePercent,
+        processorFixed: cfg.stripeFixedCentavos,
+      });
 
       console.log("💰 NEW Payment breakdown:", {
         eventPrice: pricing.eventPrice,
@@ -518,8 +523,13 @@ exports.createMembershipPaymentIntent = onRequest(
         });
       }
 
-      const {calculateCheckoutAmount} = require("./stripe/pricing");
-      const pricing = calculateCheckoutAmount(plan.priceCentavos);
+      const {calculateCheckoutAmount, getPricingConfig} = require("./stripe/pricing");
+      const memCfg = await getPricingConfig(db);
+      const pricing = calculateCheckoutAmount(plan.priceCentavos, "stripe", {
+        platformFeePercent: memCfg.eventPlatformFeePercent,
+        processorPercent: memCfg.stripeFeePercent,
+        processorFixed: memCfg.stripeFixedCentavos,
+      });
 
       // Buyer email → Stripe sends an automatic receipt to it.
       const buyerEmail = await getUserEmail(userId);
@@ -2032,9 +2042,15 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
 
   // Event-style pricing (USER_PAYS_FEES): the renter pays the rental fee plus
   // the platform fee and the Stripe fee; the host receives 100% of the fee.
-  // Reuses the exact same pricing model as event tickets.
-  const {calculateCheckoutAmount} = require("./stripe/pricing");
-  const pricing = isFree ? null : calculateCheckoutAmount(price);
+  // Reuses the same pricing model as event tickets, with the admin-configurable
+  // RENTAL platform-fee rate.
+  const {calculateCheckoutAmount, getPricingConfig} = require("./stripe/pricing");
+  const rentCfg = isFree ? null : await getPricingConfig(db);
+  const pricing = isFree ? null : calculateCheckoutAmount(price, "stripe", {
+    platformFeePercent: rentCfg.rentalPlatformFeePercent,
+    processorPercent: rentCfg.stripeFeePercent,
+    processorFixed: rentCfg.stripeFixedCentavos,
+  });
 
   // 1) Atomic reservation — the transaction is the source of truth against
   //    double-booking (serializes concurrent reserveVehicle calls).

@@ -39,6 +39,7 @@ import {
   unsuspendUser,
   canPerformAdminAction,
 } from "../utils/adminService";
+import { getPricingConfig, updatePricingConfig } from "../services/configService";
 
 export default function AdminDashboardScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -74,6 +75,11 @@ export default function AdminDashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   // null = still checking; false = denied; true = admin
   const [authorized, setAuthorized] = useState(null);
+
+  // Pricing config (admin-tunable fees). Percents shown as whole numbers (5 = 5%),
+  // Stripe fixed fee shown in pesos.
+  const [pricingForm, setPricingForm] = useState(null);
+  const [pricingSaving, setPricingSaving] = useState(false);
 
   // ✅ HELPER: Get user display name (handles both fullName and name fields)
   const getUserDisplayName = (user) => {
@@ -123,7 +129,38 @@ export default function AdminDashboardScreen({ navigation }) {
     if (authorized && activeTab === "crashes") {
       loadCrashes();
     }
+    if (authorized && activeTab === "pricing" && !pricingForm) {
+      loadPricing();
+    }
   }, [authorized, activeTab, roleFilter]);
+
+  const loadPricing = async () => {
+    const c = await getPricingConfig();
+    setPricingForm({
+      eventPct: String(+(c.eventPlatformFeePercent * 100).toFixed(4)),
+      rentalPct: String(+(c.rentalPlatformFeePercent * 100).toFixed(4)),
+      stripePct: String(+(c.stripeFeePercent * 100).toFixed(4)),
+      stripeFixed: String(+(c.stripeFixedCentavos / 100).toFixed(2)),
+    });
+  };
+
+  const savePricing = async () => {
+    const pct = (v) => (Number(v) || 0) / 100;
+    setPricingSaving(true);
+    try {
+      await updatePricingConfig({
+        eventPlatformFeePercent: pct(pricingForm.eventPct),
+        rentalPlatformFeePercent: pct(pricingForm.rentalPct),
+        stripeFeePercent: pct(pricingForm.stripePct),
+        stripeFixedCentavos: Math.round((Number(pricingForm.stripeFixed) || 0) * 100),
+      });
+      Alert.alert("Saved", "Pricing updated. New checkouts use these rates.");
+    } catch (e) {
+      Alert.alert("Error", e.message || "Could not save pricing.");
+    } finally {
+      setPricingSaving(false);
+    }
+  };
 
   const loadCrashes = async () => {
     try {
@@ -827,6 +864,29 @@ export default function AdminDashboardScreen({ navigation }) {
             </Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.tab} onPress={() => setActiveTab("pricing")}>
+          <View
+            style={[
+              styles.tabGlass,
+              {
+                backgroundColor:
+                  activeTab === "pricing" ? `${colors.primary}33` : colors.surfaceGlass,
+                borderColor:
+                  activeTab === "pricing" ? `${colors.primary}66` : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeTab === "pricing" ? colors.primary : colors.textSecondary },
+              ]}
+            >
+              Pricing
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -835,6 +895,7 @@ export default function AdminDashboardScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Stats Row */}
+        {activeTab !== "pricing" && (
         <View style={styles.statsRow}>
           <View
             style={[
@@ -896,6 +957,7 @@ export default function AdminDashboardScreen({ navigation }) {
             </Text>
           </View>
         </View>
+        )}
 
         {/* HOST REQUESTS TAB */}
         {activeTab === "requests" && (
@@ -1184,6 +1246,86 @@ export default function AdminDashboardScreen({ navigation }) {
             )}
           </View>
         )}
+
+        {/* PRICING TAB */}
+        {activeTab === "pricing" && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Fees & pricing
+            </Text>
+            {!pricingForm ? (
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+            ) : (
+              <>
+                <Text style={[styles.feeHint, { color: colors.textSecondary }]}>
+                  Percentages are whole numbers (5 = 5%). Buyers pay these fees on
+                  top; hosts receive 100% of their price. Changes apply to new checkouts.
+                </Text>
+
+                <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
+                  Event platform fee (%)
+                </Text>
+                <TextInput
+                  style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
+                  keyboardType="numeric"
+                  value={pricingForm.eventPct}
+                  onChangeText={(v) => setPricingForm((p) => ({ ...p, eventPct: v }))}
+                  placeholder="5"
+                  placeholderTextColor={colors.textTertiary}
+                />
+
+                <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
+                  Rental platform fee (%)
+                </Text>
+                <TextInput
+                  style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
+                  keyboardType="numeric"
+                  value={pricingForm.rentalPct}
+                  onChangeText={(v) => setPricingForm((p) => ({ ...p, rentalPct: v }))}
+                  placeholder="5"
+                  placeholderTextColor={colors.textTertiary}
+                />
+
+                <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
+                  Stripe fee (%)
+                </Text>
+                <TextInput
+                  style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
+                  keyboardType="numeric"
+                  value={pricingForm.stripePct}
+                  onChangeText={(v) => setPricingForm((p) => ({ ...p, stripePct: v }))}
+                  placeholder="2.9"
+                  placeholderTextColor={colors.textTertiary}
+                />
+
+                <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
+                  Stripe fixed fee (MXN per transaction)
+                </Text>
+                <TextInput
+                  style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
+                  keyboardType="numeric"
+                  value={pricingForm.stripeFixed}
+                  onChangeText={(v) => setPricingForm((p) => ({ ...p, stripeFixed: v }))}
+                  placeholder="3"
+                  placeholderTextColor={colors.textTertiary}
+                />
+
+                <TouchableOpacity
+                  style={[styles.saveFeeBtn, { backgroundColor: colors.primary, opacity: pricingSaving ? 0.6 : 1 }]}
+                  onPress={savePricing}
+                  disabled={pricingSaving}
+                  activeOpacity={0.85}
+                >
+                  {pricingSaving ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.saveFeeTxt}>Save pricing</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* Host Request Modal */}
@@ -1415,5 +1557,25 @@ function createStyles(colors) {
     emptyState: { alignItems: "center", paddingVertical: 40 },
     emptyEmoji: { fontSize: 64, marginBottom: 12 },
     emptyText: { fontSize: 14 },
+    // Pricing form
+    feeHint: { fontSize: 13, lineHeight: 19, marginBottom: 20 },
+    feeLabel: { fontSize: 13, fontWeight: "600", marginBottom: 8 },
+    feeInput: {
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 15,
+      marginBottom: 16,
+    },
+    saveFeeBtn: {
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 54,
+      marginTop: 4,
+    },
+    saveFeeTxt: { color: "#fff", fontSize: 16, fontWeight: "800" },
   });
 }

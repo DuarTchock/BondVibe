@@ -25,6 +25,7 @@ import { savePaymentRecord } from "../../services/paymentService";
 import { createNotification } from "../../utils/notificationService";
 import { isUserAttending } from "../../utils/eventHelpers";
 import { estimateCheckout } from "../../utils/pricing";
+import { getPricingConfig } from "../../services/configService";
 import { startMercadoPagoCheckout } from "../../services/mercadoPagoService";
 
 /**
@@ -70,13 +71,26 @@ export default function CheckoutScreen({ route, navigation }) {
   const [processor, setProcessor] = useState("stripe");
   const [cardComplete, setCardComplete] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [cfg, setCfg] = useState(null);
+
+  useEffect(() => {
+    getPricingConfig().then(setCfg);
+  }, []);
 
   // Estimated fee breakdown (server is the source of truth for the real charge).
+  const feeOverrides = cfg
+    ? {
+        platformFeePercent: cfg.eventPlatformFeePercent,
+        ...(processor === "stripe"
+          ? { processorPercent: cfg.stripeFeePercent, processorFixed: cfg.stripeFixedCentavos }
+          : {}),
+      }
+    : {};
   const {
     platformFeeCentavos: platformFee,
     stripeFeeCentavos: stripeFee,
     totalCentavos: totalAmount,
-  } = estimateCheckout(amount, processor);
+  } = estimateCheckout(amount, processor, feeOverrides);
 
   // Detect the host's payout processor (Stripe vs Mercado Pago).
   useEffect(() => {

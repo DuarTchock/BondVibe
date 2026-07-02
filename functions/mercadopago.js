@@ -41,7 +41,11 @@ exports.createMercadoPagoPreference = onRequest(
       if (!eventSnap.exists) return res.status(404).json({error: "Event not found"});
       const eventData = eventSnap.data();
 
-      const pricing = calculateCheckoutAmount(eventPrice, "mercadopago");
+      const {getPricingConfig} = require("./stripe/pricing");
+      const mpCfg = await getPricingConfig(db);
+      const pricing = calculateCheckoutAmount(eventPrice, "mercadopago", {
+        platformFeePercent: mpCfg.eventPlatformFeePercent,
+      });
       const unitPrice = Math.round(pricing.totalAmount) / 100; // MP uses decimal pesos
 
       const preference = {

@@ -30,16 +30,26 @@ export const PRICING = {
  * Estimate the fee breakdown for a given base price and payout processor.
  * @param {number} baseCentavos - price set by the host, in centavos
  * @param {"stripe"|"mercadopago"} [processor="stripe"] - host payout processor
+ * @param {object} [overrides] - admin-configurable rate overrides:
+ *   { platformFeePercent, processorPercent, processorFixed }
  * @returns {{baseCentavos:number, platformFeeCentavos:number,
  *            processorFeeCentavos:number, stripeFeeCentavos:number,
  *            processor:string, totalCentavos:number}}
  */
-export const estimateCheckout = (baseCentavos, processor = "stripe") => {
+export const estimateCheckout = (baseCentavos, processor = "stripe", overrides = {}) => {
   const base = Math.max(0, Math.round(Number(baseCentavos) || 0));
-  const platformFee = Math.ceil(base * PRICING.platformFeePercent);
+  const platformFeePercent = Number.isFinite(overrides.platformFeePercent)
+    ? overrides.platformFeePercent
+    : PRICING.platformFeePercent;
+  const platformFee = Math.ceil(base * platformFeePercent);
   const fee = PROCESSOR_FEES[processor] || PROCESSOR_FEES.stripe;
-  const processorFee =
-    Math.ceil((base + platformFee) * fee.percent) + fee.fixedCentavos;
+  const pPercent = Number.isFinite(overrides.processorPercent)
+    ? overrides.processorPercent
+    : fee.percent;
+  const pFixed = Number.isFinite(overrides.processorFixed)
+    ? overrides.processorFixed
+    : fee.fixedCentavos;
+  const processorFee = Math.ceil((base + platformFee) * pPercent) + pFixed;
   return {
     baseCentavos: base,
     platformFeeCentavos: platformFee,

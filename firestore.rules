@@ -462,6 +462,15 @@ service cloud.firestore {
     }
 
     // ============================================
+    // APP CONFIG (pricing knobs) — admin-writable, world-readable so clients
+    // can show accurate fee estimates that match what the server charges.
+    // ============================================
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ============================================
     // DEFAULT DENY ALL
     // ============================================
     match /{document=**} {

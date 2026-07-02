@@ -437,6 +437,13 @@ const arrVals = (f) => (f?.arrayValue?.values || []).map((v) => v.stringValue);
   await del(`vehicles/${vehId}`, host.headers);
   await del(`vehicleProviders/${provId}`, host.headers);
 
+  // ---- APP CONFIG (admin-only pricing knobs) ----
+  section("App config (pricing)");
+  chk("non-admin CANNOT write pricing config", await patchDoc(`config/pricing?updateMask.fieldPaths=eventPlatformFeePercent`, {
+    eventPlatformFeePercent: { doubleValue: 0.99 },
+  }, member.headers), 403);
+  chk("signed-in can read pricing config", await readDoc(`config/pricing`, member.headers), [200, 404]);
+
   // ---- CLEANUP ----
   await del(`notifications/event_msg_${ev}_${member.uid}`, member.headers);
   await del(`notifications/event_msg_${ev}_${outsider.uid}`, outsider.headers);

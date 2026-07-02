@@ -27,27 +27,59 @@ const PROCESSOR_FEES = {
 };
 
 /**
- * Processing fee for a subtotal under a given processor.
- * @param {number} subtotalCentavos - price + platform fee
- * @param {string} processor - "stripe" | "mercadopago"
- * @return {number} processing fee in centavos
+ * Read admin-configurable pricing knobs from Firestore (config/pricing),
+ * falling back to the built-in defaults. One cheap read per checkout.
+ * @param {object} db - admin.firestore() instance
+ * @return {Promise<{eventPlatformFeePercent:number,
+ *   rentalPlatformFeePercent:number, stripeFeePercent:number,
+ *   stripeFixedCentavos:number}>}
  */
-function processorFeeFor(subtotalCentavos, processor) {
-  const fee = PROCESSOR_FEES[processor] || PROCESSOR_FEES.stripe;
-  return Math.ceil(subtotalCentavos * fee.percent) + fee.fixedCentavos;
+async function getPricingConfig(db) {
+  const defaults = {
+    eventPlatformFeePercent: PRICING_CONFIG.platformFeePercent,
+    rentalPlatformFeePercent: PRICING_CONFIG.platformFeePercent,
+    stripeFeePercent: PROCESSOR_FEES.stripe.percent,
+    stripeFixedCentavos: PROCESSOR_FEES.stripe.fixedCentavos,
+  };
+  try {
+    const snap = await db.collection("config").doc("pricing").get();
+    if (!snap.exists) return defaults;
+    const d = snap.data() || {};
+    return {
+      eventPlatformFeePercent: Number.isFinite(d.eventPlatformFeePercent) ?
+        d.eventPlatformFeePercent : defaults.eventPlatformFeePercent,
+      rentalPlatformFeePercent: Number.isFinite(d.rentalPlatformFeePercent) ?
+        d.rentalPlatformFeePercent : defaults.rentalPlatformFeePercent,
+      stripeFeePercent: Number.isFinite(d.stripeFeePercent) ?
+        d.stripeFeePercent : defaults.stripeFeePercent,
+      stripeFixedCentavos: Number.isFinite(d.stripeFixedCentavos) ?
+        d.stripeFixedCentavos : defaults.stripeFixedCentavos,
+    };
+  } catch (e) {
+    return defaults;
+  }
 }
 
 /**
  * Calculate total amount user pays (event price + fees), processor-aware.
  * @param {number} eventPriceCentavos - Event price set by host in centavos
  * @param {string} [processor="stripe"] - Host payout processor
+ * @param {object} [overrides] - Admin-configurable rate overrides:
+ *   { platformFeePercent, processorPercent, processorFixed }
  * @return {object} Complete breakdown
  */
-function calculateCheckoutAmount(eventPriceCentavos, processor = "stripe") {
+function calculateCheckoutAmount(eventPriceCentavos, processor = "stripe", overrides = {}) {
   const eventPrice = eventPriceCentavos;
-  const platformFee = Math.ceil(eventPrice * PRICING_CONFIG.platformFeePercent);
+  const platformFeePercent = Number.isFinite(overrides.platformFeePercent) ?
+    overrides.platformFeePercent : PRICING_CONFIG.platformFeePercent;
+  const platformFee = Math.ceil(eventPrice * platformFeePercent);
   const subtotal = eventPrice + platformFee;
-  const processorFee = processorFeeFor(subtotal, processor);
+  const base = PROCESSOR_FEES[processor] || PROCESSOR_FEES.stripe;
+  const pPercent = Number.isFinite(overrides.processorPercent) ?
+    overrides.processorPercent : base.percent;
+  const pFixed = Number.isFinite(overrides.processorFixed) ?
+    overrides.processorFixed : base.fixedCentavos;
+  const processorFee = Math.ceil(subtotal * pPercent) + pFixed;
   const totalAmount = eventPrice + platformFee + processorFee;
   const hostReceives = eventPrice;
 
@@ -136,4 +168,5 @@ module.exports = {
   calculateEventSplit,
   calculateTipSplit,
   getPremiumSubscriptionPrice,
+  getPricingConfig,
 };

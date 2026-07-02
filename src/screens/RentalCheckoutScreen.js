@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -17,17 +17,23 @@ import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { reserveVehicle } from "../services/rentalService";
 import { formatCentavos, estimateCheckout } from "../utils/pricing";
+import { getPricingConfig, overridesFor } from "../services/configService";
 
 export default function RentalCheckoutScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
   const { confirmPayment } = useConfirmPayment();
   const { vehicle, days = 1, startAt, endAt, eventId, eventTitle } = route.params || {};
 
+  const [cfg, setCfg] = useState(null);
+  useEffect(() => {
+    getPricingConfig().then(setCfg);
+  }, []);
+
   const fee = (vehicle?.pricePerDayCentavos || 0) * days;
   const deposit = vehicle?.depositCentavos || 0;
   const isFree = fee === 0;
   // Renter pays the rental fee + platform fee + Stripe fee (host gets 100%).
-  const breakdown = isFree ? null : estimateCheckout(fee);
+  const breakdown = isFree ? null : estimateCheckout(fee, "stripe", overridesFor(cfg, "rental"));
   const total = breakdown ? breakdown.totalCentavos : 0;
 
   const [cardComplete, setCardComplete] = useState(false);

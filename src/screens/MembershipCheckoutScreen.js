@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -21,11 +21,17 @@ import {
   describePlan,
 } from "../services/membershipService";
 import { estimateCheckout } from "../utils/pricing";
+import { getPricingConfig, overridesFor } from "../services/configService";
 
 export default function MembershipCheckoutScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
   const { confirmPayment } = useConfirmPayment();
   const { plan } = route.params;
+
+  const [cfg, setCfg] = useState(null);
+  useEffect(() => {
+    getPricingConfig().then(setCfg);
+  }, []);
 
   // Estimated fee breakdown (server is the source of truth for the real charge).
   const amount = plan.priceCentavos;
@@ -33,7 +39,7 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
     platformFeeCentavos: platformFee,
     stripeFeeCentavos: stripeFee,
     totalCentavos: totalAmount,
-  } = estimateCheckout(amount);
+  } = estimateCheckout(amount, "stripe", overridesFor(cfg, "event"));
 
   const [cardComplete, setCardComplete] = useState(false);
   const [processing, setProcessing] = useState(false);
