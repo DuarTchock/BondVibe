@@ -52,7 +52,26 @@ const shapeVehicle = (d) => {
     pricePerHourCentavos: v.pricePerHourCentavos || specs.pricePerHourCentavos || 0,
     pricePerDayCentavos: v.pricePerDayCentavos || specs.pricePerDayCentavos || 0,
     depositCentavos: v.depositCentavos || specs.depositCentavos || 0,
+    availableFrom: v.availableFrom || null,
+    availableUntil: v.availableUntil || null,
+    bookedRanges: Array.isArray(v.bookedRanges) ? v.bookedRanges : [],
   };
+};
+
+/**
+ * Whether a vehicle is free for [startAt, endAt): inside the host's availability
+ * window and not overlapping any existing booking. Uses the vehicle's public
+ * `bookedRanges` (no need to read other users' rentals).
+ */
+export const isRangeFree = (vehicle, startAt, endAt) => {
+  if (!startAt || !endAt) return true;
+  const s = new Date(startAt).getTime();
+  const e = new Date(endAt).getTime();
+  if (vehicle.availableFrom && new Date(vehicle.availableFrom).getTime() > s) return false;
+  if (vehicle.availableUntil && new Date(vehicle.availableUntil).getTime() < e) return false;
+  return !(vehicle.bookedRanges || []).some(
+    (r) => new Date(r.start).getTime() < e && new Date(r.end).getTime() > s
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -64,16 +83,51 @@ const shapeVehicle = (d) => {
  * @param {{ city?:string, type?:string, max?:number }} opts
  * @returns {Promise<Array>}
  */
-export const getAvailableVehicles = async ({ city, type, max = 50 } = {}) => {
+export const getAvailableVehicles = async ({
+  city,
+  type,
+  maxPriceCentavos,
+  noLicense,
+  startAt,
+  endAt,
+  max = 50,
+} = {}) => {
   try {
     const clauses = [where("status", "==", "available")];
     if (city) clauses.push(where("city", "==", city));
     if (type) clauses.push(where("type", "==", type));
     const q = query(collection(db, "vehicles"), ...clauses, qLimit(max));
     const snap = await getDocs(q);
-    return snap.docs.map(shapeVehicle);
+    let list = snap.docs.map(shapeVehicle);
+    if (Number.isFinite(maxPriceCentavos) && maxPriceCentavos > 0) {
+      list = list.filter((v) => v.pricePerDayCentavos <= maxPriceCentavos);
+    }
+    if (noLicense) list = list.filter((v) => !v.requiresLicense);
+    if (startAt && endAt) list = list.filter((v) => isRangeFree(v, startAt, endAt));
+    return list;
   } catch (e) {
     logger.error("getAvailableVehicles:", e);
+    return [];
+  }
+};
+
+/** Distinct cities that currently have available vehicles (for the filter UI). */
+export const getRentalCities = async () => {
+  try {
+    const q = query(
+      collection(db, "vehicles"),
+      where("status", "==", "available"),
+      qLimit(200)
+    );
+    const snap = await getDocs(q);
+    const cities = new Set();
+    snap.docs.forEach((d) => {
+      const c = d.data().city;
+      if (c) cities.add(c);
+    });
+    return Array.from(cities).sort();
+  } catch (e) {
+    logger.error("getRentalCities:", e);
     return [];
   }
 };
@@ -264,6 +318,9 @@ export const createVehicle = async (data) => {
     pricePerHourCentavos: data.pricePerHourCentavos || 0,
     pricePerDayCentavos: data.pricePerDayCentavos || 0,
     depositCentavos: data.depositCentavos || 0,
+    availableFrom: data.availableFrom || null,
+    availableUntil: data.availableUntil || null,
+    bookedRanges: [],
     status: "available",
     createdAt: serverTimestamp(),
   });

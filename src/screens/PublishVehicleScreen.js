@@ -17,6 +17,7 @@ import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
+import DateField from "../components/DateField";
 import {
   VEHICLE_TYPES,
   getVehicle,
@@ -58,6 +59,8 @@ export default function PublishVehicleScreen({ route, navigation }) {
   const [deposit, setDeposit] = useState("");
   const [rangeKm, setRangeKm] = useState("");
   const [requiresLicense, setRequiresLicense] = useState(false);
+  const [availFrom, setAvailFrom] = useState(null);
+  const [availUntil, setAvailUntil] = useState(null);
   const [photos, setPhotos] = useState([]); // mix of remote URLs + local URIs
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
@@ -76,6 +79,8 @@ export default function PublishVehicleScreen({ route, navigation }) {
         setRangeKm(v.rangeKm ? String(v.rangeKm) : "");
         setRequiresLicense(!!v.requiresLicense);
         setPhotos(Array.isArray(v.photos) ? v.photos : []);
+        setAvailFrom(v.availableFrom ? new Date(v.availableFrom) : null);
+        setAvailUntil(v.availableUntil ? new Date(v.availableUntil) : null);
       }
       setLoading(false);
     })();
@@ -119,6 +124,8 @@ export default function PublishVehicleScreen({ route, navigation }) {
         depositCentavos: toCentavos(deposit),
         rangeKm: parseInt(rangeKm, 10) || 0,
         requiresLicense,
+        availableFrom: availFrom ? availFrom.toISOString() : null,
+        availableUntil: availUntil ? availUntil.toISOString() : null,
       };
       // Need the vehicle id to key the photo uploads.
       let id = vehicleId;
@@ -256,6 +263,28 @@ export default function PublishVehicleScreen({ route, navigation }) {
           />
         </View>
 
+        <Text style={[styles.label, { color: colors.textSecondary }]}>Availability window (optional)</Text>
+        <View style={styles.datesRow}>
+          <DateField
+            label="Available from"
+            value={availFrom}
+            onChange={setAvailFrom}
+            onClear={() => setAvailFrom(null)}
+            placeholder="Any"
+          />
+          <DateField
+            label="Available until"
+            value={availUntil}
+            onChange={setAvailUntil}
+            onClear={() => setAvailUntil(null)}
+            minimumDate={availFrom || undefined}
+            placeholder="Any"
+          />
+        </View>
+        <Text style={[styles.photoHint, { color: colors.textTertiary }]}>
+          Leave blank to keep it always available. Riders can only book dates inside this window.
+        </Text>
+
         <Text style={[styles.note, { color: colors.textTertiary }]}>
           You rent directly to riders and receive the full price you set. BondVibe adds a small
           service fee for the rider; the deposit, damage and theft are handled between you and the rider.
@@ -319,6 +348,7 @@ function createStyles(colors, isDark) {
     photoAddTxt: { fontSize: 11, marginTop: 2 },
     photoHint: { fontSize: 12, marginBottom: 16 },
     switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, marginBottom: 8 },
+    datesRow: { flexDirection: "row", gap: 12, marginBottom: 8 },
     note: { fontSize: 12, lineHeight: 17, marginTop: 8, marginBottom: 20 },
     saveBtn: { borderRadius: 26, paddingVertical: 16, alignItems: "center", justifyContent: "center", minHeight: 54 },
     saveTxt: { color: "#fff", fontSize: 16, fontWeight: "800" },

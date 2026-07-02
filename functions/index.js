@@ -1994,6 +1994,42 @@ exports.createProPortalSession = onCall({secrets: [stripeSecretKey]}, async (req
 const RENTAL_RESERVE_TTL_MS = 20 * 60 * 1000; // unpaid holds expire after 20 min
 
 /**
+ * Whether two [start,end) date ranges overlap.
+ * @param {string} aStart - first range start (ISO)
+ * @param {string} aEnd - first range end (ISO)
+ * @param {string} bStart - second range start (ISO)
+ * @param {string} bEnd - second range end (ISO)
+ * @return {boolean} true when the ranges overlap
+ */
+const rentalRangesOverlap = (aStart, aEnd, bStart, bEnd) =>
+  new Date(aStart).getTime() < new Date(bEnd).getTime() &&
+  new Date(aEnd).getTime() > new Date(bStart).getTime();
+
+/**
+ * Remove a booking's range from a vehicle's bookedRanges (frees those dates).
+ * @param {string} vehicleId - the vehicle to update
+ * @param {string} rentalId - the rental whose range should be released
+ * @return {Promise<void>}
+ */
+async function releaseVehicleRange(vehicleId, rentalId) {
+  if (!vehicleId) return;
+  const vRef = db.collection("vehicles").doc(vehicleId);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(vRef);
+      if (!snap.exists) return;
+      const ranges = Array.isArray(snap.data().bookedRanges) ?
+        snap.data().bookedRanges : [];
+      tx.update(vRef, {
+        bookedRanges: ranges.filter((r) => r.rentalId !== rentalId),
+      });
+    });
+  } catch (e) {
+    console.warn("releaseVehicleRange:", e.message);
+  }
+}
+
+/**
  * Atomically reserve an available vehicle and open the payment.
  *
  * Marketplace stance: the rental payment is a Stripe Connect destination charge
@@ -2053,7 +2089,8 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
   });
 
   // 1) Atomic reservation — the transaction is the source of truth against
-  //    double-booking (serializes concurrent reserveVehicle calls).
+  //    double-booking. Availability is per date range: the vehicle keeps a
+  //    `bookedRanges` list (public-readable) and we reject any overlap.
   const reserved = await db.runTransaction(async (tx) => {
     const vRef = db.collection("vehicles").doc(vehicleId);
     const vSnap = await tx.get(vRef);
@@ -2062,8 +2099,21 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
     if (v.status !== "available") {
       throw new HttpsError("failed-precondition", "vehicle_unavailable");
     }
-    tx.update(vRef, {status: "rented"});
+    // Requested range must fall inside the host's availability window.
+    if ((v.availableFrom && new Date(startAt) < new Date(v.availableFrom)) ||
+        (v.availableUntil && new Date(endAt) > new Date(v.availableUntil))) {
+      throw new HttpsError("failed-precondition", "outside_availability");
+    }
+    // Reject overlap with any existing reserved/active booking.
+    const ranges = Array.isArray(v.bookedRanges) ? v.bookedRanges : [];
+    const overlaps = ranges.some((r) => rentalRangesOverlap(startAt, endAt, r.start, r.end));
+    if (overlaps) {
+      throw new HttpsError("failed-precondition", "dates_unavailable");
+    }
     const rentalRef = db.collection("rentals").doc();
+    tx.update(vRef, {
+      bookedRanges: [...ranges, {start: startAt, end: endAt, rentalId: rentalRef.id}],
+    });
     tx.set(rentalRef, {
       vehicleId,
       providerId: v.providerId || null,
@@ -2155,10 +2205,7 @@ exports.completeRental = onCall(async (request) => {
     status: "completed",
     completedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
-  if (r.vehicleId) {
-    await db.collection("vehicles").doc(r.vehicleId)
-      .update({status: "available"}).catch(() => {});
-  }
+  await releaseVehicleRange(r.vehicleId, rentalId);
   return {success: true};
 });
 
@@ -2189,10 +2236,7 @@ exports.expireVehicleReservations = onSchedule(
         status: "cancelled",
         cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      if (r.vehicleId) {
-        await db.collection("vehicles").doc(r.vehicleId)
-          .update({status: "available"}).catch(() => {});
-      }
+      await releaseVehicleRange(r.vehicleId, docSnap.id);
       expired++;
     }
     console.log(`🛴 Expired ${expired} unpaid vehicle reservations`);

@@ -12,18 +12,25 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
+import DateField from "../components/DateField";
 import { HostBadge } from "../components/primitives";
-import { getVehicle, getProvider } from "../services/rentalService";
-import { formatCentavos } from "../utils/pricing";
+import { getVehicle, getProvider, isRangeFree } from "../services/rentalService";
+import { formatCentavos, estimateCheckout } from "../utils/pricing";
+import { getPricingConfig, overridesFor } from "../services/configService";
 
 const HERO_W = Dimensions.get("window").width - 48;
+const DAY = 864e5;
 
 export default function VehicleDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
-  const { vehicleId, eventId, eventTitle } = route.params || {};
+  const { vehicleId, eventId, eventTitle, startAt, endAt } = route.params || {};
   const [vehicle, setVehicle] = useState(null);
   const [provider, setProvider] = useState(null);
-  const [days, setDays] = useState(1);
+  const [cfg, setCfg] = useState(null);
+  const [startDate, setStartDate] = useState(startAt ? new Date(startAt) : new Date());
+  const [endDate, setEndDate] = useState(
+    endAt ? new Date(endAt) : new Date(Date.now() + DAY)
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,6 +38,7 @@ export default function VehicleDetailScreen({ route, navigation }) {
       const v = await getVehicle(vehicleId);
       setVehicle(v);
       if (v?.providerId) setProvider(await getProvider(v.providerId));
+      getPricingConfig().then(setCfg);
       setLoading(false);
     })();
   }, [vehicleId]);
@@ -56,17 +64,23 @@ export default function VehicleDetailScreen({ route, navigation }) {
     );
   }
 
-  const available = vehicle.status === "available";
-  const feeTotal = vehicle.pricePerDayCentavos * days;
+  const startISO = startDate.toISOString();
+  const endISO = endDate.toISOString();
+  const days = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / DAY));
+  const feeBase = vehicle.pricePerDayCentavos * days;
+  const isFree = feeBase === 0;
+  const breakdown = isFree ? null : estimateCheckout(feeBase, "stripe", overridesFor(cfg, "rental"));
+  const total = breakdown ? breakdown.totalCentavos : 0;
+  const datesValid = endDate.getTime() > startDate.getTime();
+  const available =
+    vehicle.status === "available" && datesValid && isRangeFree(vehicle, startISO, endISO);
 
   const onRent = () => {
-    const startAt = new Date().toISOString();
-    const endAt = new Date(Date.now() + days * 864e5).toISOString();
     navigation.navigate("RentalCheckout", {
       vehicle,
       days,
-      startAt,
-      endAt,
+      startAt: startISO,
+      endAt: endISO,
       eventId,
       eventTitle,
     });
@@ -132,24 +146,37 @@ export default function VehicleDetailScreen({ route, navigation }) {
           </View>
         )}
 
-        {vehicle.pricePerDayCentavos > 0 && (
-          <View style={styles.daysRow}>
-            <Text style={[styles.daysLabel, { color: colors.text }]}>Days</Text>
-            <View style={styles.stepper}>
-              <TouchableOpacity
-                style={[styles.stepBtn, { borderColor: colors.border }]}
-                onPress={() => setDays((d) => Math.max(1, d - 1))}
-              >
-                <Text style={[styles.stepTxt, { color: colors.text }]}>−</Text>
-              </TouchableOpacity>
-              <Text style={[styles.daysVal, { color: colors.text }]}>{days}</Text>
-              <TouchableOpacity
-                style={[styles.stepBtn, { borderColor: colors.border }]}
-                onPress={() => setDays((d) => Math.min(30, d + 1))}
-              >
-                <Text style={[styles.stepTxt, { color: colors.text }]}>+</Text>
-              </TouchableOpacity>
-            </View>
+        <Text style={[styles.datesTitle, { color: colors.text }]}>Choose your dates</Text>
+        <View style={styles.datesRow}>
+          <DateField
+            label="From"
+            value={startDate}
+            onChange={(d) => {
+              setStartDate(d);
+              if (endDate.getTime() <= d.getTime()) setEndDate(new Date(d.getTime() + DAY));
+            }}
+            minimumDate={new Date()}
+          />
+          <DateField
+            label="Until"
+            value={endDate}
+            onChange={setEndDate}
+            minimumDate={new Date(startDate.getTime() + DAY)}
+          />
+        </View>
+        {!available && (
+          <Text style={[styles.unavailable, { color: "#EF4444" }]}>
+            {vehicle.status !== "available"
+              ? "This vehicle isn't available right now."
+              : "Not available for these dates — try different dates."}
+          </Text>
+        )}
+
+        {!isFree && breakdown && (
+          <View style={[styles.feeBox, { borderColor: colors.border }]}>
+            <FeeRow label={`Rental · ${days} day${days > 1 ? "s" : ""}`} value={formatCentavos(feeBase)} colors={colors} />
+            <FeeRow label="Service fee" value={formatCentavos(breakdown.platformFeeCentavos)} colors={colors} />
+            <FeeRow label="Processing fee" value={formatCentavos(breakdown.stripeFeeCentavos)} colors={colors} />
           </View>
         )}
       </ScrollView>
@@ -157,10 +184,10 @@ export default function VehicleDetailScreen({ route, navigation }) {
       <View style={[styles.footer, { borderColor: colors.border, backgroundColor: colors.background }]}>
         <View>
           <Text style={[styles.footerPrice, { color: colors.text }]}>
-            {vehicle.pricePerDayCentavos ? formatCentavos(feeTotal) : "Free"}
+            {isFree ? "Free" : formatCentavos(total)}
           </Text>
           <Text style={[styles.footerUnit, { color: colors.textTertiary }]}>
-            {vehicle.pricePerDayCentavos ? `${days} day${days > 1 ? "s" : ""}` : "no charge"}
+            {isFree ? "no charge" : `${days} day${days > 1 ? "s" : ""} · incl. fees`}
           </Text>
         </View>
         <TouchableOpacity
@@ -175,6 +202,21 @@ export default function VehicleDetailScreen({ route, navigation }) {
     </GradientBackground>
   );
 }
+
+function FeeRow({ label, value, colors }) {
+  return (
+    <View style={feeStyles.row}>
+      <Text style={[feeStyles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[feeStyles.value, { color: colors.text }]}>{value}</Text>
+    </View>
+  );
+}
+
+const feeStyles = StyleSheet.create({
+  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 5 },
+  label: { fontSize: 14 },
+  value: { fontSize: 14, fontWeight: "600" },
+});
 
 function Spec({ label, value, colors }) {
   return (
@@ -211,12 +253,10 @@ function createStyles(colors, isDark) {
     specs: { borderWidth: 1, borderRadius: 16, padding: 16, marginTop: 20 },
     eventBanner: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 16 },
     eventBannerText: { fontSize: 13, lineHeight: 18 },
-    daysRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 24 },
-    daysLabel: { fontSize: 16, fontWeight: "700" },
-    stepper: { flexDirection: "row", alignItems: "center", gap: 18 },
-    stepBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
-    stepTxt: { fontSize: 22, fontWeight: "700" },
-    daysVal: { fontSize: 18, fontWeight: "800", minWidth: 24, textAlign: "center" },
+    datesTitle: { fontSize: 16, fontWeight: "800", marginTop: 24, marginBottom: 12 },
+    datesRow: { flexDirection: "row", gap: 12 },
+    unavailable: { fontSize: 13, fontWeight: "600", marginTop: 12 },
+    feeBox: { borderWidth: 1, borderRadius: 14, padding: 14, marginTop: 20 },
     footer: {
       position: "absolute", bottom: 0, left: 0, right: 0,
       flexDirection: "row", alignItems: "center", justifyContent: "space-between",
