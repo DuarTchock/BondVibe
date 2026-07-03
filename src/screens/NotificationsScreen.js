@@ -594,7 +594,7 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
+    headerTitle: { fontSize: 20, fontWeight: "700" },
     markAllRead: { fontSize: 13, fontWeight: "600" },
     loadingContainer: {
       flex: 1,

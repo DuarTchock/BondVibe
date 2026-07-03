@@ -631,16 +631,16 @@ function createStyles(colors, isDark) {
       marginBottom: 16,
     },
     sectionTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: "700",
       paddingHorizontal: 24,
-      marginBottom: 16,
-      letterSpacing: -0.3,
+      marginBottom: 14,
+      letterSpacing: 0,
     },
     sectionTitleInline: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: "700",
-      letterSpacing: -0.3,
+      letterSpacing: 0,
     },
     seeAll: { fontSize: 14, fontWeight: "600" },
 

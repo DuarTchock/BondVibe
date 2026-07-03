@@ -251,6 +251,11 @@ function createStyles(colors) {
       marginBottom: 12,
       borderRadius: 16,
       overflow: "hidden",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 1,
     },
     conversationGlass: {
       borderWidth: 1,

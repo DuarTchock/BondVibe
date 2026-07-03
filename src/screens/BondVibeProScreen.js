@@ -80,7 +80,7 @@ export default function BondVibeProScreen({ navigation }) {
         <View style={styles.features}>
           {PRO_FEATURES.map(({ icon, title, desc }) => (
             <View key={title} style={styles.featureRow}>
-              <View style={[styles.featureIcon, { backgroundColor: `${colors.primary}1F` }]}>
+              <View style={[styles.featureIcon, { backgroundColor: colors.brandSoft }]}>
                 <Icon name={icon} size={20} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
@@ -163,16 +163,21 @@ function createStyles(colors, isDark) {
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
-      borderRadius: 14,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: cardBorder,
       backgroundColor: cardBg,
       padding: 14,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 1,
     },
     featureIcon: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: 36,
+      height: 36,
+      borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",
     },
