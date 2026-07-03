@@ -11,9 +11,18 @@ import {
   Switch,
   Alert,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  getCountFromServer,
+} from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { resolveAvatarForSave } from "../services/storageService";
 import { clearPushToken } from "../utils/messageService";
@@ -22,18 +31,17 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useFocusEffect } from "@react-navigation/native";
 import AvatarPicker, { AvatarDisplay } from "../components/AvatarPicker";
 import GradientBackground from "../components/GradientBackground";
-import { BVBadge } from "../components/BoldPop";
 import { AvatarFrame } from "../components/CategoryIcon";
 import { usePremium } from "../hooks/usePremium";
-import ConnectSpotifyButton from "../components/ConnectSpotifyButton";
-import { getFollowers, getFollowing } from "../services/followService";
+import { getFollowers } from "../services/followService";
+import { BRAND } from "../constants/theme-tokens";
 
 export default function ProfileScreen({ navigation }) {
   const { colors, isDark, toggleTheme } = useTheme();
   const { isPremium } = usePremium();
   const [profile, setProfile] = useState(null);
   const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
+  const [eventsCount, setEventsCount] = useState(0);
   const [editing, setEditing] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -56,28 +64,25 @@ export default function ProfileScreen({ navigation }) {
   const loadProfile = async () => {
     try {
       const uid = auth.currentUser.uid;
-      const [userDoc, followerIds, followingIds] = await Promise.all([
+      const [userDoc, followerIds, evSnap] = await Promise.all([
         getDoc(doc(db, "users", uid)),
         getFollowers(uid),
-        getFollowing(uid),
+        getCountFromServer(
+          query(collection(db, "events"), where("creatorId", "==", uid))
+        ).catch(() => ({ data: () => ({ count: 0 }) })),
       ]);
       setFollowersCount(followerIds.length);
-      setFollowingCount(followingIds.length);
+      setEventsCount(evSnap.data().count || 0);
       if (userDoc.exists()) {
         const data = userDoc.data();
         setProfile(data);
-
         let avatarData = data.avatar;
         if (typeof data.avatar === "string" && !data.avatar.startsWith("{")) {
           avatarData = { type: "emoji", value: data.avatar };
         } else if (typeof data.avatar === "string") {
-          try {
-            avatarData = JSON.parse(data.avatar);
-          } catch (e) {
-            avatarData = { type: "emoji", value: "😊" };
-          }
+          try { avatarData = JSON.parse(data.avatar); }
+          catch { avatarData = { type: "emoji", value: "😊" }; }
         }
-
         setEditForm({
           fullName: data.fullName || "",
           avatar: avatarData || { type: "emoji", value: "😊" },
@@ -92,11 +97,7 @@ export default function ProfileScreen({ navigation }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Upload the avatar photo to Storage if it's a local picker image.
-      const avatar = await resolveAvatarForSave(
-        editForm.avatar,
-        auth.currentUser.uid
-      );
+      const avatar = await resolveAvatarForSave(editForm.avatar, auth.currentUser.uid);
       await updateDoc(doc(db, "users", auth.currentUser.uid), {
         fullName: editForm.fullName.trim(),
         avatar,
@@ -107,7 +108,7 @@ export default function ProfileScreen({ navigation }) {
       setEditing(false);
     } catch (error) {
       console.error("Error updating profile:", error);
-      Alert.alert("Error", "Could not save your profile. Please try again.");
+      Alert.alert("Error", "No se pudo guardar el perfil. Inténtalo de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -116,11 +117,8 @@ export default function ProfileScreen({ navigation }) {
   const performDeleteAccount = async () => {
     setDeleting(true);
     try {
-      // Set flag to prevent "user not found" modal
       await AsyncStorage.setItem("@account_deleting", "true");
       const userId = auth.currentUser.uid;
-      
-      // Call cloud function to delete all user data
       const response = await fetch(
         "https://us-central1-bondvibe-dev.cloudfunctions.net/deleteUserAccount",
         {
@@ -129,20 +127,12 @@ export default function ProfileScreen({ navigation }) {
           body: JSON.stringify({ userId }),
         }
       );
-      
       const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to delete account");
-      }
-      
-      console.log("✅ Account deleted:", result);
-      
-      // Sign out after deletion
+      if (!response.ok) throw new Error(result.error || "Failed to delete account");
       await signOut(auth);
     } catch (error) {
       console.error("Delete account error:", error);
-      alert("Error deleting account: " + error.message);
+      alert("Error al eliminar cuenta: " + error.message);
     } finally {
       setDeleting(false);
       setShowDeleteModal(false);
@@ -152,8 +142,6 @@ export default function ProfileScreen({ navigation }) {
   const performLogout = async () => {
     setShowLogoutModal(false);
     try {
-      // Detach this device's push token from the account BEFORE signing out so
-      // its notifications don't reach whoever logs in next on this device.
       await clearPushToken(auth.currentUser?.uid);
       await signOut(auth);
     } catch (error) {
@@ -161,1266 +149,381 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  const handleAvatarChange = (newAvatar) => {
-    setEditForm({ ...editForm, avatar: newAvatar });
-  };
-
-  const styles = createStyles(colors, isDark);
+  const s = createStyles(colors, isDark);
 
   if (!profile) {
     return (
       <GradientBackground>
-        <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading...
-          </Text>
+        <View style={s.loader}>
+          <Text style={{ color: colors.textSecondary }}>Cargando…</Text>
         </View>
       </GradientBackground>
     );
   }
 
   const canManageStripe = profile.role === "host" || profile.role === "admin";
-  // Approved as host but hasn't activated hosting yet (deferred the choice).
-  const isApprovedPendingHostType =
-    profile.hostApproved &&
-    profile.role !== "host" &&
-    profile.role !== "admin";
-  // Only paid hosts can sell memberships.
-  const isPaidHost =
-    profile.role === "host" && profile.hostConfig?.type === "paid";
+  const isPaidHost = profile.role === "host" && profile.hostConfig?.type === "paid";
+  const ratingValue = profile.hostStats?.averageRating
+    ? profile.hostStats.averageRating.toFixed(1)
+    : "–";
+  const hasPersonality =
+    profile.personality && Object.keys(profile.personality).length > 0;
 
   return (
     <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* Logout Modal */}
-      <Modal
-        visible={showLogoutModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowLogoutModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View
-              style={[
-                styles.modalGlass,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(17, 24, 39, 0.95)"
-                    : "rgba(255, 255, 255, 0.95)",
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.modalIconCircle,
-                  { backgroundColor: "rgba(239, 68, 68, 0.15)" },
-                ]}
-              >
-                <Icon name="logout" size={32} color="#EF4444" />
-              </View>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Logout
-              </Text>
-              <Text style={[styles.modalText, { color: colors.textSecondary }]}>
-                Are you sure you want to logout?
-              </Text>
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.modalCancelButton}
-                  onPress={() => setShowLogoutModal(false)}
-                >
-                  <View
-                    style={[
-                      styles.modalButtonGlass,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderStrong,
-                        borderWidth: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.modalCancelText, { color: colors.text }]}
-                    >
-                      Cancel
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalLogoutButton}
-                  onPress={performLogout}
-                >
-                  <View style={styles.modalLogoutGlass}>
-                    <Text style={styles.modalLogoutText}>Logout</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
+      {/* ── Logout Modal ─────────────────────────────────── */}
+      <Modal visible={showLogoutModal} transparent animationType="fade" onRequestClose={() => setShowLogoutModal(false)}>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={s.modalIconCircle}>
+              <Icon name="logout" size={32} color={colors.error} />
+            </View>
+            <Text style={[s.modalTitle, { color: colors.text }]}>Cerrar sesión</Text>
+            <Text style={[s.modalBody, { color: colors.textSecondary }]}>¿Seguro que quieres cerrar sesión?</Text>
+            <View style={s.modalBtns}>
+              <TouchableOpacity style={[s.modalBtn, { backgroundColor: colors.sunken, borderColor: colors.border }]} onPress={() => setShowLogoutModal(false)}>
+                <Text style={[s.modalBtnText, { color: colors.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.modalBtn, { backgroundColor: "rgba(194,91,91,0.12)", borderColor: "rgba(194,91,91,0.3)" }]} onPress={performLogout}>
+                <Text style={[s.modalBtnText, { color: colors.error }]}>Salir</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Delete Account Modal */}
-      <Modal
-        visible={showDeleteModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowDeleteModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View
-              style={[
-                styles.modalGlass,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(17, 24, 39, 0.95)"
-                    : "rgba(255, 255, 255, 0.95)",
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.modalIconCircle,
-                  { backgroundColor: "rgba(239, 68, 68, 0.15)" },
-                ]}
-              >
-                <Icon name="delete" size={32} color="#EF4444" />
-              </View>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Delete Account
-              </Text>
-              <Text style={[styles.modalText, { color: colors.textSecondary }]}>
-                This action is permanent and cannot be undone. All your data, events, and messages will be deleted.
-              </Text>
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.modalCancelButton}
-                  onPress={() => setShowDeleteModal(false)}
-                  disabled={deleting}
-                >
-                  <View
-                    style={[
-                      styles.modalButtonGlass,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderStrong,
-                        borderWidth: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.modalCancelText, { color: colors.text }]}
-                    >
-                      Cancel
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalLogoutButton}
-                  onPress={performDeleteAccount}
-                  disabled={deleting}
-                >
-                  <View style={styles.modalLogoutGlass}>
-                    <Text style={styles.modalLogoutText}>
-                      {deleting ? "Deleting..." : "Delete"}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
+      {/* ── Delete Modal ──────────────────────────────────── */}
+      <Modal visible={showDeleteModal} transparent animationType="fade" onRequestClose={() => setShowDeleteModal(false)}>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={s.modalIconCircle}>
+              <Icon name="delete" size={32} color={colors.error} />
+            </View>
+            <Text style={[s.modalTitle, { color: colors.text }]}>Eliminar cuenta</Text>
+            <Text style={[s.modalBody, { color: colors.textSecondary }]}>
+              Esta acción es permanente e irreversible. Se eliminarán todos tus datos, eventos y mensajes.
+            </Text>
+            <View style={s.modalBtns}>
+              <TouchableOpacity style={[s.modalBtn, { backgroundColor: colors.sunken, borderColor: colors.border }]} onPress={() => setShowDeleteModal(false)} disabled={deleting}>
+                <Text style={[s.modalBtnText, { color: colors.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.modalBtn, { backgroundColor: "rgba(194,91,91,0.12)", borderColor: "rgba(194,91,91,0.3)" }]} onPress={performDeleteAccount} disabled={deleting}>
+                <Text style={[s.modalBtnText, { color: colors.error }]}>{deleting ? "Eliminando…" : "Eliminar"}</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Avatar Picker */}
+      {/* ── Avatar Picker ─────────────────────────────────── */}
       <AvatarPicker
         visible={showAvatarPicker}
         onClose={() => setShowAvatarPicker(false)}
         currentAvatar={editForm.avatar}
-        onAvatarChange={handleAvatarChange}
+        onAvatarChange={(a) => setEditForm({ ...editForm, avatar: a })}
       />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="back" size={28} color={colors.text} />
+      {/* ── Header ───────────────────────────────────────── */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={hit}>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Profile
-        </Text>
+        <Text style={[s.headerTitle, { color: colors.text }]}>Perfil</Text>
         {!editing ? (
-          <TouchableOpacity onPress={() => setEditing(true)}>
-            <Text style={[styles.editButton, { color: colors.primary }]}>
-              Edit
-            </Text>
+          <TouchableOpacity
+            onPress={() => setEditing(true)}
+            style={[s.editPill, { backgroundColor: colors.brandSoft }]}
+          >
+            <Icon name="edit" size={13} color={colors.primary} />
+            <Text style={[s.editPillText, { color: colors.primary }]}>Editar</Text>
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 50 }} />
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={saving}
+            style={[s.editPill, { backgroundColor: colors.primary }]}
+          >
+            <Text style={[s.editPillText, { color: "#fff" }]}>
+              {saving ? "…" : "Guardar"}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {editing ? (
-          /* EDIT MODE */
+          /* ── EDIT MODE ───────────────────────────────── */
           <>
-            <TouchableOpacity
-              style={styles.avatarEditContainer}
-              onPress={() => setShowAvatarPicker(true)}
-            >
-              <View
-                style={[
-                  styles.avatarGlass,
-                  {
-                    backgroundColor: isDark
-                      ? "rgba(255, 255, 255, 0.04)"
-                      : "rgba(255, 255, 255, 0.85)",
-                    borderColor: `${colors.primary}66`,
-                  },
-                ]}
-              >
+            <TouchableOpacity style={s.avatarEditWrap} onPress={() => setShowAvatarPicker(true)}>
+              <AvatarFrame size={96}>
                 <AvatarDisplay avatar={editForm.avatar} size={80} />
-              </View>
-              <Text style={[styles.avatarEditText, { color: colors.primary }]}>
-                Tap to change
-              </Text>
+              </AvatarFrame>
+              <Text style={[s.avatarEditHint, { color: colors.primary }]}>Toca para cambiar</Text>
             </TouchableOpacity>
 
-            <View style={styles.formSection}>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Full Name
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDark
-                        ? "rgba(255, 255, 255, 0.04)"
-                        : "rgba(255, 255, 255, 0.85)",
-                      borderColor: isDark
-                        ? "rgba(255, 255, 255, 0.10)"
-                        : "rgba(0, 0, 0, 0.08)",
-                      color: colors.text,
-                    },
-                  ]}
-                  value={editForm.fullName}
-                  onChangeText={(text) =>
-                    setEditForm({ ...editForm, fullName: text })
-                  }
-                  placeholder="Your name"
-                  placeholderTextColor={colors.textTertiary}
-                  maxLength={50}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Location
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: isDark
-                        ? "rgba(255, 255, 255, 0.04)"
-                        : "rgba(255, 255, 255, 0.85)",
-                      borderColor: isDark
-                        ? "rgba(255, 255, 255, 0.10)"
-                        : "rgba(0, 0, 0, 0.08)",
-                      color: colors.text,
-                    },
-                  ]}
-                  value={editForm.location}
-                  onChangeText={(text) =>
-                    setEditForm({ ...editForm, location: text })
-                  }
-                  placeholder="City, Country"
-                  placeholderTextColor={colors.textTertiary}
-                  maxLength={50}
-                />
-              </View>
+            <View style={s.formGroup}>
+              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Nombre completo</Text>
+              <TextInput
+                style={[s.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                value={editForm.fullName}
+                onChangeText={(t) => setEditForm({ ...editForm, fullName: t })}
+                placeholder="Tu nombre"
+                placeholderTextColor={colors.textTertiary}
+                maxLength={50}
+              />
             </View>
-
-            <View style={styles.formActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setEditing(false);
-                  loadProfile();
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionButtonGlass,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.borderStrong,
-                      borderWidth: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 3,
-                      elevation: 2,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[styles.cancelButtonText, { color: colors.text }]}
-                  >
-                    Cancel
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                <View
-                  style={[
-                    styles.actionButtonGlass,
-                    {
-                      backgroundColor: `${colors.primary}33`,
-                      borderColor: `${colors.primary}66`,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[styles.saveButtonText, { color: colors.primary }]}
-                  >
-                    {saving ? "Saving..." : "Save"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+            <View style={s.formGroup}>
+              <Text style={[s.inputLabel, { color: colors.textSecondary }]}>Ciudad</Text>
+              <TextInput
+                style={[s.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                value={editForm.location}
+                onChangeText={(t) => setEditForm({ ...editForm, location: t })}
+                placeholder="Ciudad, País"
+                placeholderTextColor={colors.textTertiary}
+                maxLength={50}
+              />
             </View>
+            <TouchableOpacity
+              style={[s.cancelRow]}
+              onPress={() => { setEditing(false); loadProfile(); }}
+            >
+              <Text style={[s.cancelText, { color: colors.textSecondary }]}>Cancelar</Text>
+            </TouchableOpacity>
           </>
         ) : (
-          /* VIEW MODE */
+          /* ── VIEW MODE ───────────────────────────────── */
           <>
-            <View style={styles.profileHeader}>
-              <AvatarFrame size={96}>
-                <AvatarDisplay avatar={profile.avatar} size={80} />
+            {/* ── User info ── */}
+            <View style={s.userSection}>
+              <AvatarFrame size={80}>
+                <AvatarDisplay avatar={profile.avatar} size={66} />
               </AvatarFrame>
-              <Text style={[styles.profileName, { color: colors.text }]}>
-                {profile.fullName}
-              </Text>
-              <Text
-                style={[styles.profileEmail, { color: colors.textSecondary }]}
-              >
-                {auth.currentUser?.email}
-              </Text>
+              <Text style={[s.name, { color: colors.text }]}>{profile.fullName}</Text>
+              <Text style={[s.email, { color: colors.textSecondary }]}>{auth.currentUser?.email}</Text>
 
-              {profile.role === "admin" && (
-                <View style={styles.roleBadge}>
-                  <BVBadge
-                    label="Admin"
-                    tone="ink"
-                    icon={<Icon name="pro" size={13} color={colors.onInk} />}
-                  />
-                </View>
-              )}
               {profile.role === "host" && (
-                <View style={styles.roleBadge}>
-                  <BVBadge
-                    label="Verified Host"
-                    tone="success"
-                    icon={<Icon name="verified" size={13} color={colors.onPrimary} />}
-                  />
+                <View style={[s.badge, { backgroundColor: "#E1F5EC" }]}>
+                  <Icon name="verified" size={13} color="#1F8A6E" />
+                  <Text style={[s.badgeText, { color: "#1F8A6E" }]}>Host verificado</Text>
                 </View>
               )}
-              {isPremium && (
-                <View style={styles.roleBadge}>
-                  <BVBadge
-                    label="Pro"
-                    tone="primary"
-                    icon={<Icon name="pro" size={13} color={colors.onPrimary} />}
-                  />
+              {profile.role === "admin" && (
+                <View style={[s.badge, { backgroundColor: colors.brandSoft }]}>
+                  <Icon name="pro" size={13} color={colors.primary} />
+                  <Text style={[s.badgeText, { color: colors.primary }]}>Admin</Text>
                 </View>
               )}
-
-              {/* Followers / Following counts */}
-              <View style={styles.statsRow}>
-                <TouchableOpacity
-                  style={styles.stat}
-                  onPress={() =>
-                    navigation.navigate("FollowList", {
-                      userId: auth.currentUser.uid,
-                      type: "followers",
-                    })
-                  }
-                >
-                  <Text style={[styles.statNumber, { color: colors.text }]}>
-                    {followersCount}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                    Followers
-                  </Text>
-                </TouchableOpacity>
-                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-                <TouchableOpacity
-                  style={styles.stat}
-                  onPress={() =>
-                    navigation.navigate("FollowList", {
-                      userId: auth.currentUser.uid,
-                      type: "following",
-                    })
-                  }
-                >
-                  <Text style={[styles.statNumber, { color: colors.text }]}>
-                    {followingCount}
-                  </Text>
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                    Following
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </View>
 
-            {profile.bio && (
-              <View
-                style={[
-                  styles.bioCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.borderStrong,
-                    borderWidth: 2,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.06,
-                    shadowRadius: 3,
-                    elevation: 2,
-                  },
-                ]}
-              >
-                <Text style={[styles.bioText, { color: colors.text }]}>
-                  {profile.bio}
+            {/* ── Identity card (hosts) ── */}
+            {canManageStripe && (
+              <View style={[s.identityCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Icon name="lock" size={18} color={colors.primary} />
+                <Text style={[s.identityText, { color: colors.textSecondary }]}>
+                  <Text style={{ fontWeight: "700", color: colors.text }}>Identidad y pagos verificados.</Text>
+                  {profile.location ? ` · ${profile.location}` : ""}
                 </Text>
               </View>
             )}
 
-            {/* Music taste — Spotify import (top artists/genres) */}
-            <View
-              style={[
-                styles.bioCard,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.borderStrong,
-                  borderWidth: 2,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.06,
-                  shadowRadius: 3,
-                  elevation: 2,
-                },
-              ]}
-            >
-              <ConnectSpotifyButton
-                music={profile.music}
-                onChange={(music) =>
-                  setProfile((prev) => ({ ...prev, music }))
-                }
-              />
-            </View>
-
-              <View style={styles.infoSection}>
-              {/* Location Card */}
-              <View
-                style={[
-                  styles.infoCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.borderStrong,
-                    borderWidth: 2,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.06,
-                    shadowRadius: 3,
-                    elevation: 2,
-                  },
-                ]}
+            {/* ── Stats row ── */}
+            <View style={[s.statsRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={s.stat}
+                onPress={() => navigation.navigate("FollowList", { userId: auth.currentUser.uid, type: "followers" })}
               >
-                <View
-                  style={[
-                    styles.infoIconCircle,
-                    {
-                      backgroundColor: isDark
-                        ? `${colors.primary}20`
-                        : `${colors.primary}15`,
-                    },
-                  ]}
-                >
-                  <Icon name="location" size={22} color={colors.primary} />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text
-                    style={[styles.infoLabel, { color: colors.textSecondary }]}
-                  >
-                    Location
-                  </Text>
-                  <Text style={[styles.infoValue, { color: colors.text }]}>
-                    {profile.location || "Not set"}
-                  </Text>
-                </View>
+                <Text style={[s.statNumber, { color: colors.text }]}>{eventsCount}</Text>
+                <Text style={[s.statLabel, { color: colors.textSecondary }]}>Eventos</Text>
+              </TouchableOpacity>
+
+              <View style={s.statCenter}>
+                <LinearGradient colors={BRAND.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.statCenterGrad}>
+                  <Text style={s.statCenterNumber}>{ratingValue}★</Text>
+                  <Text style={s.statCenterLabel}>Rating</Text>
+                </LinearGradient>
               </View>
 
-              {/* Host Type Card */}
-              {canManageStripe && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("StripeConnect")}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.infoCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderStrong,
-                        borderWidth: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.infoIconCircle,
-                        {
-                          backgroundColor: isDark
-                            ? `${colors.primary}20`
-                            : `${colors.primary}15`,
-                        },
-                      ]}
-                    >
-                      {profile.hostConfig?.type === "paid" ? (
-                        <Icon name="payment"
-                          size={22}
-                          color={colors.primary}
-                        />
-                      ) : profile.hostConfig?.type === "free" ? (
-                        <Icon name="gift"
-                          size={22}
-                          color={colors.primary}
-                        />
-                      ) : (
-                        <Icon name="wallet"
-                          size={22}
-                          color={colors.primary}
-                        />
+              <TouchableOpacity
+                style={s.stat}
+                onPress={() => navigation.navigate("FollowList", { userId: auth.currentUser.uid, type: "followers" })}
+              >
+                <Text style={[s.statNumber, { color: colors.text }]}>{followersCount}</Text>
+                <Text style={[s.statLabel, { color: colors.textSecondary }]}>Miembros</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Kinlo Pro banner ── */}
+            {canManageStripe && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate("BondVibePro")}
+                activeOpacity={0.85}
+              >
+                <View style={s.proBanner}>
+                  <View style={[s.proIconCircle, { backgroundColor: "rgba(148,97,247,0.2)" }]}>
+                    <Icon name="pro" size={22} color="#b48dff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={s.proTitle}>Kinlo Pro</Text>
+                      {isPremium && (
+                        <View style={s.proActiveBadge}>
+                          <Text style={s.proActiveBadgeText}>ACTIVO</Text>
+                        </View>
                       )}
                     </View>
-                    <View style={styles.infoContent}>
-                      <Text
-                        style={[
-                          styles.infoLabel,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Host Type
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.text }]}>
-                        {profile.hostConfig?.type === "paid"
-                          ? "Paid Host"
-                          : profile.hostConfig?.type === "free"
-                          ? "Free Host"
-                          : "Not configured"}
-                        {profile.stripeConnect?.status === "active" && " ✓"}
-                      </Text>
-                    </View>
-                    <Icon name="forward"
-                      size={20}
-                      color={colors.textTertiary}
-                    />
+                    <Text style={s.proSub}>Community Matching incluido</Text>
                   </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Choose Host Type — for users approved as host who deferred */}
-              {isApprovedPendingHostType && (
-                <TouchableOpacity
-                  onPress={() =>
-                    navigation.navigate("HostTypeSelection", {
-                      fromProfile: true,
-                      userEmail: profile.email || auth.currentUser?.email,
-                      fullName: profile.fullName || "Host",
-                    })
-                  }
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.infoCard,
-                      {
-                        backgroundColor: isDark
-                          ? `${colors.primary}15`
-                          : `${colors.primary}10`,
-                        borderColor: `${colors.primary}40`,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.infoIconCircle,
-                        {
-                          backgroundColor: isDark
-                            ? `${colors.primary}20`
-                            : `${colors.primary}15`,
-                        },
-                      ]}
-                    >
-                      <Icon name="ai"
-                        size={22}
-                        color={colors.primary}
-                      />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text
-                        style={[
-                          styles.infoLabel,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Hosting
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.text }]}>
-                        Choose your host type
-                      </Text>
-                    </View>
-                    <Icon name="forward"
-                      size={20}
-                      color={colors.primary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* My Memberships — any user (attendee view) */}
-              <TouchableOpacity
-                onPress={() => navigation.navigate("MyMemberships")}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.infoCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.borderStrong,
-                      borderWidth: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 3,
-                      elevation: 2,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.infoIconCircle,
-                      {
-                        backgroundColor: isDark
-                          ? `${colors.primary}20`
-                          : `${colors.primary}15`,
-                      },
-                    ]}
-                  >
-                    <Icon name="ticket" size={22} color={colors.primary} />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text
-                      style={[styles.infoLabel, { color: colors.textSecondary }]}
-                    >
-                      Memberships
-                    </Text>
-                    <Text style={[styles.infoValue, { color: colors.text }]}>
-                      My memberships
-                    </Text>
-                  </View>
-                  <Icon name="forward"
-                    size={20}
-                    color={colors.textTertiary}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* My Rentals — any user (vehicle rental marketplace) */}
-              <TouchableOpacity
-                onPress={() => navigation.navigate("MyRentals")}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.infoCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.borderStrong,
-                      borderWidth: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 3,
-                      elevation: 2,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.infoIconCircle,
-                      {
-                        backgroundColor: isDark
-                          ? `${colors.primary}20`
-                          : `${colors.primary}15`,
-                      },
-                    ]}
-                  >
-                    <Icon name="bike" size={22} color={colors.primary} />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text
-                      style={[styles.infoLabel, { color: colors.textSecondary }]}
-                    >
-                      Rentals
-                    </Text>
-                    <Text style={[styles.infoValue, { color: colors.text }]}>
-                      My rentals
-                    </Text>
-                  </View>
-                  <Icon name="forward"
-                    size={20}
-                    color={colors.textTertiary}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* My Fleet — publish scooters/vehicles to rent out */}
-              <TouchableOpacity
-                onPress={() => navigation.navigate("MyFleet")}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.infoCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.borderStrong,
-                      borderWidth: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 3,
-                      elevation: 2,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.infoIconCircle,
-                      {
-                        backgroundColor: isDark
-                          ? `${colors.primary}20`
-                          : `${colors.primary}15`,
-                      },
-                    ]}
-                  >
-                    <Icon name="bike" size={22} color={colors.primary} />
-                  </View>
-                  <View style={styles.infoContent}>
-                    <Text
-                      style={[styles.infoLabel, { color: colors.textSecondary }]}
-                    >
-                      Earn
-                    </Text>
-                    <Text style={[styles.infoValue, { color: colors.text }]}>
-                      My fleet — rent out my scooter
-                    </Text>
-                  </View>
-                  <Icon name="forward"
-                    size={20}
-                    color={colors.textTertiary}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* Membership Plans — paid hosts + admin (to create/sell plans) */}
-              {(isPaidHost || profile.role === "admin") && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("MembershipPlans")}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.infoCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderStrong,
-                        borderWidth: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.infoIconCircle,
-                        {
-                          backgroundColor: isDark
-                            ? `${colors.primary}20`
-                            : `${colors.primary}15`,
-                        },
-                      ]}
-                    >
-                      <Icon name="ticket" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text
-                        style={[
-                          styles.infoLabel,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Memberships
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.text }]}>
-                        Manage membership plans
-                      </Text>
-                    </View>
-                    <Icon name="forward"
-                      size={20}
-                      color={colors.textTertiary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Kinlo Pro — any host (free or paid) */}
-              {canManageStripe && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("BondVibePro")}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.infoCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderStrong,
-                        borderWidth: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.infoIconCircle,
-                        {
-                          backgroundColor: isDark
-                            ? `${colors.primary}20`
-                            : `${colors.primary}15`,
-                        },
-                      ]}
-                    >
-                      <Icon name="pro" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text
-                        style={[styles.infoLabel, { color: colors.textSecondary }]}
-                      >
-                        Kinlo Pro
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.text }]}>
-                        AI, QR, CRM & more
-                      </Text>
-                    </View>
-                    <Icon name="forward"
-                      size={20}
-                      color={colors.textTertiary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Host Analytics — paid hosts only */}
-              {isPaidHost && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("HostAnalytics")}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.infoCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderStrong,
-                        borderWidth: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.infoIconCircle,
-                        {
-                          backgroundColor: isDark
-                            ? `${colors.primary}20`
-                            : `${colors.primary}15`,
-                        },
-                      ]}
-                    >
-                      <Icon name="chart" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text
-                        style={[styles.infoLabel, { color: colors.textSecondary }]}
-                      >
-                        Analytics
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.text }]}>
-                        Revenue & members
-                      </Text>
-                    </View>
-                    <Icon name="forward"
-                      size={20}
-                      color={colors.textTertiary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Attendee CRM — any host (Pro feature; screen upsells if not) */}
-              {canManageStripe && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("HostCRM")}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.infoCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderStrong,
-                        borderWidth: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.infoIconCircle,
-                        {
-                          backgroundColor: isDark
-                            ? `${colors.primary}20`
-                            : `${colors.primary}15`,
-                        },
-                      ]}
-                    >
-                      <Icon name="users" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
-                        Attendees
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.text }]}>
-                        CRM & re-engagement
-                      </Text>
-                    </View>
-                    <Icon name="forward" size={20} color={colors.textTertiary} />
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Groups — any host can manage attendee groups */}
-              {canManageStripe && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("HostGroups")}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.infoCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.borderStrong,
-                        borderWidth: 2,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.06,
-                        shadowRadius: 3,
-                        elevation: 2,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.infoIconCircle,
-                        {
-                          backgroundColor: isDark
-                            ? `${colors.primary}20`
-                            : `${colors.primary}15`,
-                        },
-                      ]}
-                    >
-                      <Icon name="users" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.infoContent}>
-                      <Text
-                        style={[styles.infoLabel, { color: colors.textSecondary }]}
-                      >
-                        Community
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.text }]}>
-                        My community groups
-                      </Text>
-                    </View>
-                    <Icon name="forward"
-                      size={20}
-                      color={colors.textTertiary}
-                    />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* PERSONALITY QUIZ SECTION */}
-            {!profile.personality ||
-            Object.keys(profile.personality).length === 0 ? (
-              <TouchableOpacity
-                style={styles.quizPromptCard}
-                onPress={() => navigation.navigate("PersonalityQuiz")}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[
-                    styles.quizPromptGlass,
-                    {
-                      backgroundColor: isDark
-                        ? `${colors.primary}15`
-                        : `${colors.primary}10`,
-                      borderColor: isDark
-                        ? `${colors.primary}40`
-                        : `${colors.primary}30`,
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.quizIconCircle,
-                      {
-                        backgroundColor: isDark
-                          ? `${colors.primary}25`
-                          : `${colors.primary}20`,
-                      },
-                    ]}
-                  >
-                    <Icon name="brain" size={28} color={colors.primary} />
-                  </View>
-                  <View style={styles.quizPromptContent}>
-                    <Text
-                      style={[styles.quizPromptTitle, { color: colors.text }]}
-                    >
-                      Discover Your Personality
-                    </Text>
-                    <Text
-                      style={[
-                        styles.quizPromptText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Take our Big Five quiz to get matched with compatible
-                      groups
-                    </Text>
-                  </View>
-                  <Icon name="forward"
-                    size={24}
-                    color={colors.primary}
-                  />
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.quizRetakeButton}
-                onPress={() => navigation.navigate("PersonalityQuiz")}
-              >
-                <View
-                  style={[
-                    styles.quizRetakeGlass,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.borderStrong,
-                      borderWidth: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 3,
-                      elevation: 2,
-                    },
-                  ]}
-                >
-                  <Icon name="refresh" size={20} color={colors.text} />
-                  <Text style={[styles.quizRetakeText, { color: colors.text }]}>
-                    Retake Personality Quiz
-                  </Text>
+                  <Icon name="forward" size={18} color="rgba(255,255,255,0.4)" />
                 </View>
               </TouchableOpacity>
             )}
 
-            {/* THEME TOGGLE SECTION */}
-            <View
-              style={[
-                styles.themeCard,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(255, 255, 255, 0.04)"
-                    : "rgba(255, 255, 255, 0.85)",
-                  borderColor: isDark
-                    ? "rgba(255, 255, 255, 0.10)"
-                    : "rgba(0, 0, 0, 0.08)",
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.themeIconCircle,
-                  {
-                    backgroundColor: isDark
-                      ? `${colors.primary}20`
-                      : `${colors.primary}15`,
-                  },
-                ]}
-              >
-                {isDark ? (
-                  <Icon name="moon" size={24} color={colors.primary} />
-                ) : (
-                  <Icon name="sun" size={24} color={colors.primary} />
-                )}
-              </View>
-              <View style={styles.themeInfo}>
-                <Text style={[styles.themeTitle, { color: colors.text }]}>
-                  {isDark ? "Dark Mode" : "Light Mode"}
-                </Text>
-                <Text
-                  style={[styles.themeSubtitle, { color: colors.textSecondary }]}
-                >
-                  {isDark ? "Easier on the eyes" : "Bright and clear"}
-                </Text>
-              </View>
-              <Switch
-                value={isDark}
-                onValueChange={toggleTheme}
-                trackColor={{ false: "#E5E7EB", true: colors.primary }}
-                thumbColor={isDark ? "#FFFFFF" : "#F3F4F6"}
-              />
-            </View>
+            {/* ── Herramientas de anfitrión (host tools 2×2 grid) ── */}
+            {canManageStripe && (
+              <>
+                <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>HERRAMIENTAS DE ANFITRIÓN</Text>
+                <View style={s.toolGrid}>
+                  <TouchableOpacity style={[s.toolCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate("StripeConnect")}>
+                    <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                      <Icon name="payment" size={20} color={colors.primary} />
+                    </View>
+                    <Text style={[s.toolTitle, { color: colors.text }]}>Pagos</Text>
+                    <Text style={[s.toolSub, { color: colors.textTertiary }]}>Stripe · Host pagado</Text>
+                    {profile.stripeConnect?.status === "active" && (
+                      <View style={s.activeDot}>
+                        <Text style={s.activeDotText}>● ACTIVO</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
 
-            {/* Personality Results */}
-            {profile.personality &&
-              Object.keys(profile.personality).length > 0 && (
-                <View
-                  style={[
-                    styles.personalityCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.borderStrong,
-                      borderWidth: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 3,
-                      elevation: 2,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                    Personality
-                  </Text>
+                  {isPaidHost && (
+                    <TouchableOpacity style={[s.toolCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate("MembershipPlans")}>
+                      <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                        <Icon name="ticket" size={20} color={colors.primary} />
+                      </View>
+                      <Text style={[s.toolTitle, { color: colors.text }]}>Planes</Text>
+                      <Text style={[s.toolSub, { color: colors.textTertiary }]}>Membresías activas</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity style={[s.toolCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate("HostAnalytics")}>
+                    <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                      <Icon name="chart" size={20} color={colors.primary} />
+                    </View>
+                    <Text style={[s.toolTitle, { color: colors.text }]}>Analíticas</Text>
+                    <Text style={[s.toolSub, { color: colors.textTertiary }]}>Ingresos y miembros</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={[s.toolCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate("HostGroups")}>
+                    <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                      <Icon name="users" size={20} color={colors.primary} />
+                    </View>
+                    <Text style={[s.toolTitle, { color: colors.text }]}>Grupos</Text>
+                    <Text style={[s.toolSub, { color: colors.textTertiary }]}>Comunidad</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* ── Personalidad ── */}
+            {hasPersonality && (
+              <>
+                <View style={s.sectionRow}>
+                  <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>PERSONALIDAD</Text>
+                  <TouchableOpacity onPress={() => navigation.navigate("PersonalityQuiz")}>
+                    <Text style={[s.sectionAction, { color: colors.primary }]}>Rehacer</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={[s.personalityCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   {Object.entries(profile.personality).map(([trait, score]) => (
-                    <View key={trait} style={styles.traitRow}>
-                      <Text style={[styles.traitName, { color: colors.text }]}>
+                    <View key={trait} style={s.traitRow}>
+                      <Text style={[s.traitName, { color: colors.text }]}>
                         {trait.charAt(0).toUpperCase() + trait.slice(1)}
                       </Text>
-                      <View style={styles.traitBarContainer}>
-                        <View
-                          style={[
-                            styles.traitBar,
-                            { backgroundColor: `${colors.border}` },
-                          ]}
-                        >
-                          <View
-                            style={[
-                              styles.traitFill,
-                              {
-                                width: `${score}%`,
-                                backgroundColor: colors.primary,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <Text
-                          style={[styles.traitScore, { color: colors.primary }]}
-                        >
-                          {score}%
-                        </Text>
+                      <View style={[s.traitBar, { backgroundColor: colors.sunken }]}>
+                        <LinearGradient
+                          colors={BRAND.gradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[s.traitFill, { width: `${score}%` }]}
+                        />
                       </View>
+                      <Text style={[s.traitScore, { color: colors.primary }]}>{score}</Text>
                     </View>
                   ))}
                 </View>
-              )}
+              </>
+            )}
 
-            {/* Logout Button */}
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={() => setShowLogoutModal(true)}
-            >
-              <View style={styles.logoutGlass}>
-                <Icon name="logout" size={20} color="#EF4444" />
-                <Text style={styles.logoutButtonText}>Logout</Text>
+            {!hasPersonality && (
+              <>
+                <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>PERSONALIDAD</Text>
+                <TouchableOpacity
+                  style={[s.personalityPrompt, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => navigation.navigate("PersonalityQuiz")}
+                >
+                  <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                    <Icon name="brain" size={20} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.toolTitle, { color: colors.text }]}>Descubre tu personalidad</Text>
+                    <Text style={[s.toolSub, { color: colors.textTertiary }]}>Quiz de los 5 grandes factores</Text>
+                  </View>
+                  <Icon name="forward" size={18} color={colors.textTertiary} />
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* ── Ajustes ── */}
+            <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>AJUSTES</Text>
+            <View style={[s.ajustesCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <TouchableOpacity style={s.ajustesRow} onPress={() => navigation.navigate("MyMemberships")}>
+                <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                  <Icon name="ticket" size={18} color={colors.primary} />
+                </View>
+                <Text style={[s.ajustesLabel, { color: colors.text }]}>Mis membresías</Text>
+                <Icon name="forward" size={16} color={colors.textTertiary} />
+              </TouchableOpacity>
+
+              <View style={[s.separator, { backgroundColor: colors.border }]} />
+
+              <View style={s.ajustesRow}>
+                <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                  <Icon name={isDark ? "moon" : "sun"} size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.ajustesLabel, { color: colors.text }]}>Apariencia</Text>
+                  <Text style={[s.ajustesSub, { color: colors.textTertiary }]}>{isDark ? "Tema Aurora" : "Tema Clean"}</Text>
+                </View>
+                <Switch
+                  value={isDark}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="#FFFFFF"
+                />
               </View>
+
+              <View style={[s.separator, { backgroundColor: colors.border }]} />
+
+              <TouchableOpacity style={s.ajustesRow} onPress={() => navigation.navigate("SafetyCenter")}>
+                <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                  <Icon name="verified" size={18} color={colors.primary} />
+                </View>
+                <Text style={[s.ajustesLabel, { color: colors.text }]}>Centro de seguridad</Text>
+                <Icon name="forward" size={16} color={colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Logout / Delete ── */}
+            <TouchableOpacity style={s.logoutRow} onPress={() => setShowLogoutModal(true)}>
+              <Icon name="logout" size={18} color={colors.error} />
+              <Text style={[s.logoutText, { color: colors.error }]}>Cerrar sesión</Text>
             </TouchableOpacity>
 
-            {/* Delete Account - Subtle link at bottom */}
-            <TouchableOpacity
-              style={styles.deleteAccountLink}
-              onPress={() => setShowDeleteModal(true)}
-            >
-              <Text style={[styles.deleteAccountText, { color: colors.textTertiary }]}>
-                Delete Account
-              </Text>
+            <TouchableOpacity style={s.deleteRow} onPress={() => setShowDeleteModal(true)}>
+              <Text style={[s.deleteText, { color: colors.textTertiary }]}>Eliminar cuenta</Text>
             </TouchableOpacity>
           </>
         )}
@@ -1429,323 +532,238 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
+const hit = { top: 10, bottom: 10, left: 10, right: 10 };
+
 function createStyles(colors, isDark) {
   return StyleSheet.create({
-    loadingContainer: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    loadingText: { fontSize: 15 },
+    loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+    // Header
     header: {
       flexDirection: "row",
+      alignItems: "center",
       justifyContent: "space-between",
-      alignItems: "center",
-      paddingHorizontal: 24,
+      paddingHorizontal: 20,
       paddingTop: 60,
-      paddingBottom: 20,
+      paddingBottom: 16,
     },
-    headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
-    editButton: { fontSize: 15, fontWeight: "600" },
-    scrollView: { flex: 1 },
-    scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
-
-    // Avatar
-    avatarGlass: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      borderWidth: 2,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 16,
-      overflow: "hidden",
-    },
-    avatarEditContainer: { alignItems: "center", marginBottom: 28 },
-    avatarEditText: { fontSize: 13, fontWeight: "600" },
-
-    // Profile Header
-    profileHeader: { alignItems: "center", marginBottom: 24 },
-    profileName: {
-      fontSize: 24,
-      fontWeight: "700",
-      marginBottom: 6,
-      letterSpacing: -0.5,
-    },
-    profileEmail: { fontSize: 13, marginBottom: 12 },
-    roleBadge: { borderRadius: 10, overflow: "hidden" },
-    roleBadgeAdmin: {
-      backgroundColor: "rgba(255, 215, 0, 0.15)",
-      borderWidth: 1,
-      borderColor: "rgba(255, 215, 0, 0.3)",
-      paddingVertical: 6,
-      paddingHorizontal: 14,
+    headerTitle: { fontSize: 20, fontWeight: "800", letterSpacing: -0.4 },
+    editPill: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      borderRadius: 10,
-    },
-    roleBadgeTextAdmin: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: "#FFD700",
-      letterSpacing: 0.3,
-    },
-    roleBadgeHost: {
-      backgroundColor: "rgba(52, 199, 89, 0.15)",
-      borderWidth: 1,
-      borderColor: "rgba(52, 199, 89, 0.3)",
-      paddingVertical: 6,
+      gap: 5,
       paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 20,
+    },
+    editPillText: { fontSize: 14, fontWeight: "700" },
+
+    // Scroll
+    scroll: { paddingHorizontal: 20, paddingBottom: 48 },
+
+    // User section
+    userSection: { alignItems: "center", marginBottom: 16, gap: 6 },
+    name: { fontSize: 22, fontWeight: "800", letterSpacing: -0.5, marginTop: 8 },
+    email: { fontSize: 13 },
+    badge: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      borderRadius: 10,
+      gap: 5,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+      borderRadius: 20,
+      marginTop: 2,
     },
-    roleBadgeTextHost: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: "#34C759",
-      letterSpacing: 0.3,
-    },
+    badgeText: { fontSize: 12, fontWeight: "700" },
 
-    // Stats row (followers / following)
+    // Identity card
+    identityCard: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 14,
+    },
+    identityText: { flex: 1, fontSize: 13, lineHeight: 19 },
+
+    // Stats row
     statsRow: {
       flexDirection: "row",
       alignItems: "center",
-      marginTop: 16,
-    },
-    stat: { alignItems: "center", paddingHorizontal: 24 },
-    statNumber: { fontSize: 20, fontWeight: "700", letterSpacing: -0.4 },
-    statLabel: { fontSize: 12, marginTop: 2 },
-    statDivider: { width: 1, height: 28 },
-
-    // Bio
-    bioCard: {
+      justifyContent: "space-between",
       borderWidth: 1,
-      borderRadius: 16,
-      padding: 18,
+      borderRadius: 20,
+      marginBottom: 14,
+      overflow: "hidden",
+    },
+    stat: { flex: 1, alignItems: "center", paddingVertical: 18 },
+    statNumber: { fontSize: 22, fontWeight: "800", letterSpacing: -0.5 },
+    statLabel: { fontSize: 12, marginTop: 3, fontWeight: "500" },
+    statCenter: { flex: 1.1 },
+    statCenterGrad: { alignItems: "center", paddingVertical: 18, borderRadius: 0 },
+    statCenterNumber: { fontSize: 22, fontWeight: "800", color: "#fff", letterSpacing: -0.5 },
+    statCenterLabel: { fontSize: 12, marginTop: 3, color: "rgba(255,255,255,0.8)", fontWeight: "500" },
+
+    // Kinlo Pro banner
+    proBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      backgroundColor: "#160F22",
+      borderRadius: 20,
+      padding: 16,
       marginBottom: 20,
     },
-    bioText: { fontSize: 14, lineHeight: 22, textAlign: "center" },
+    proIconCircle: {
+      width: 44, height: 44, borderRadius: 22,
+      justifyContent: "center", alignItems: "center",
+    },
+    proTitle: { fontSize: 16, fontWeight: "800", color: "#F0EEFB", letterSpacing: -0.3 },
+    proSub: { fontSize: 12, color: "rgba(240,238,251,0.55)", marginTop: 2 },
+    proActiveBadge: {
+      backgroundColor: "rgba(52,199,89,0.2)",
+      borderRadius: 6,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+    },
+    proActiveBadgeText: { fontSize: 10, fontWeight: "800", color: "#34C759", letterSpacing: 0.4 },
 
-    // Info Cards
-    infoSection: { gap: 12, marginBottom: 20 },
-    infoCard: {
-      borderWidth: 2,
-      borderRadius: 18,
-      padding: 16,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    infoIconCircle: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      justifyContent: "center",
-      alignItems: "center",
-      marginRight: 14,
-    },
-    infoContent: { flex: 1 },
-    infoLabel: { fontSize: 12, marginBottom: 4 },
-    infoValue: { fontSize: 16, fontWeight: "600", letterSpacing: -0.2 },
-
-    // Quiz Prompt
-    quizPromptCard: { marginBottom: 20 },
-    quizPromptGlass: {
-      borderWidth: 1,
-      borderRadius: 16,
-      padding: 20,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    quizIconCircle: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      justifyContent: "center",
-      alignItems: "center",
-      marginRight: 14,
-    },
-    quizPromptContent: { flex: 1 },
-    quizPromptTitle: {
-      fontSize: 16,
+    // Section labels
+    sectionLabel: {
+      fontSize: 11,
       fontWeight: "700",
-      marginBottom: 4,
-      letterSpacing: -0.2,
+      letterSpacing: 0.8,
+      marginBottom: 10,
+      marginTop: 4,
     },
-    quizPromptText: { fontSize: 13, lineHeight: 19 },
-    quizRetakeButton: { marginBottom: 20 },
-    quizRetakeGlass: {
-      borderWidth: 1,
-      borderRadius: 16,
-      padding: 16,
+    sectionRow: {
       flexDirection: "row",
+      justifyContent: "space-between",
       alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
+      marginBottom: 10,
+      marginTop: 4,
     },
-    quizRetakeText: { fontSize: 15, fontWeight: "600", letterSpacing: -0.1 },
+    sectionAction: { fontSize: 13, fontWeight: "600" },
 
-    // Theme Card
-    themeCard: {
-      borderRadius: 16,
-      borderWidth: 1,
-      padding: 18,
+    // Tool grid
+    toolGrid: {
       flexDirection: "row",
-      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 10,
       marginBottom: 20,
     },
-    themeIconCircle: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      justifyContent: "center",
-      alignItems: "center",
-      marginRight: 14,
+    toolCard: {
+      width: "47.5%",
+      borderWidth: 1,
+      borderRadius: 18,
+      padding: 14,
+      gap: 6,
     },
-    themeInfo: { flex: 1 },
-    themeTitle: {
-      fontSize: 16,
-      fontWeight: "600",
-      marginBottom: 4,
-      letterSpacing: -0.2,
+    toolIcon: {
+      width: 36, height: 36, borderRadius: 10,
+      justifyContent: "center", alignItems: "center",
+      marginBottom: 2,
     },
-    themeSubtitle: { fontSize: 13 },
+    toolTitle: { fontSize: 14, fontWeight: "700" },
+    toolSub: { fontSize: 12, lineHeight: 16 },
+    activeDot: { marginTop: 4 },
+    activeDotText: { fontSize: 11, fontWeight: "700", color: "#1F8A6E" },
 
-    // Personality Card
+    // Personality
     personalityCard: {
       borderWidth: 1,
-      borderRadius: 16,
-      padding: 18,
+      borderRadius: 18,
+      padding: 16,
       marginBottom: 20,
+      gap: 14,
     },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: "700",
-      marginBottom: 16,
-      letterSpacing: -0.2,
-    },
-    traitRow: { marginBottom: 14 },
-    traitName: {
-      fontSize: 13,
-      fontWeight: "600",
-      marginBottom: 8,
-      letterSpacing: -0.1,
-    },
-    traitBarContainer: { flexDirection: "row", alignItems: "center", gap: 10 },
-    traitBar: { flex: 1, height: 8, borderRadius: 4, overflow: "hidden" },
+    traitRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    traitName: { fontSize: 13, fontWeight: "600", width: 72 },
+    traitBar: { flex: 1, height: 7, borderRadius: 4, overflow: "hidden" },
     traitFill: { height: "100%", borderRadius: 4 },
-    traitScore: {
-      fontSize: 13,
-      fontWeight: "600",
-      width: 40,
-      textAlign: "right",
+    traitScore: { fontSize: 13, fontWeight: "700", width: 28, textAlign: "right" },
+    personalityPrompt: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1,
+      borderRadius: 18,
+      padding: 16,
+      marginBottom: 20,
     },
 
-    // Logout
-    logoutButton: { marginBottom: 32 },
-    deleteAccountLink: {
-      alignItems: "center",
-      paddingVertical: 16,
+    // Ajustes
+    ajustesCard: {
+      borderWidth: 1,
+      borderRadius: 18,
+      overflow: "hidden",
       marginBottom: 20,
     },
-    deleteAccountText: {
-      fontSize: 14,
-      fontWeight: "500",
+    ajustesRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 14,
     },
-    logoutGlass: {
-      backgroundColor: "rgba(239, 68, 68, 0.15)",
-      borderWidth: 1,
-      borderColor: "rgba(239, 68, 68, 0.3)",
-      borderRadius: 16,
-      paddingVertical: 16,
+    ajustesLabel: { flex: 1, fontSize: 15, fontWeight: "600" },
+    ajustesSub: { fontSize: 12 },
+    separator: { height: 1, marginLeft: 58 },
+
+    // Logout / delete
+    logoutRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
+      paddingVertical: 16,
     },
-    logoutButtonText: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: "#EF4444",
-      letterSpacing: -0.1,
-    },
+    logoutText: { fontSize: 15, fontWeight: "700" },
+    deleteRow: { alignItems: "center", paddingVertical: 12, marginBottom: 8 },
+    deleteText: { fontSize: 13 },
 
-    // Edit Mode
-    formSection: { gap: 16, marginBottom: 24 },
-    inputGroup: { gap: 8 },
-    inputLabel: { fontSize: 13, fontWeight: "600", letterSpacing: -0.1 },
+    // Edit mode
+    avatarEditWrap: { alignItems: "center", marginBottom: 28, gap: 8 },
+    avatarEditHint: { fontSize: 13, fontWeight: "600" },
+    formGroup: { marginBottom: 16 },
+    inputLabel: { fontSize: 13, fontWeight: "600", marginBottom: 6 },
     input: {
-      borderWidth: 1,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
+      borderWidth: 1, borderRadius: 12,
+      paddingHorizontal: 16, paddingVertical: 14,
       fontSize: 15,
-      borderRadius: 12,
     },
-    textArea: { minHeight: 100, textAlignVertical: "top" },
-    charCount: { fontSize: 11, textAlign: "right" },
-    inputRow: { flexDirection: "row" },
-    formActions: { flexDirection: "row", gap: 12 },
-    cancelButton: { flex: 1 },
-    saveButton: { flex: 1 },
-    actionButtonGlass: {
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingVertical: 14,
-      alignItems: "center",
-    },
-    cancelButtonText: { fontSize: 15, fontWeight: "600" },
-    saveButtonText: { fontSize: 15, fontWeight: "600" },
+    cancelRow: { alignItems: "center", paddingVertical: 16 },
+    cancelText: { fontSize: 15, fontWeight: "600" },
 
-    // Modal
+    // Modals
     modalOverlay: {
       flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.7)",
+      backgroundColor: "rgba(0,0,0,0.6)",
       justifyContent: "center",
       alignItems: "center",
       padding: 24,
     },
-    modalContent: {
+    modalCard: {
       width: "100%",
-      maxWidth: 400,
-      borderRadius: 20,
-      overflow: "hidden",
-    },
-    modalGlass: { borderWidth: 1, padding: 28, alignItems: "center" },
-    modalIconCircle: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      justifyContent: "center",
+      borderRadius: 24,
+      borderWidth: 1,
+      padding: 28,
       alignItems: "center",
+    },
+    modalIconCircle: {
+      width: 60, height: 60, borderRadius: 30,
+      backgroundColor: "rgba(194,91,91,0.12)",
+      justifyContent: "center", alignItems: "center",
       marginBottom: 16,
     },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: "700",
-      marginBottom: 8,
-      letterSpacing: -0.3,
+    modalTitle: { fontSize: 20, fontWeight: "800", marginBottom: 8, letterSpacing: -0.3 },
+    modalBody: { fontSize: 14, textAlign: "center", marginBottom: 24, lineHeight: 20 },
+    modalBtns: { flexDirection: "row", gap: 12, width: "100%" },
+    modalBtn: {
+      flex: 1, borderWidth: 1, borderRadius: 14,
+      paddingVertical: 13, alignItems: "center",
     },
-    modalText: { fontSize: 14, textAlign: "center", marginBottom: 24 },
-    modalButtons: { flexDirection: "row", gap: 12, width: "100%" },
-    modalCancelButton: { flex: 1 },
-    modalLogoutButton: { flex: 1 },
-    modalButtonGlass: {
-      borderWidth: 1,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-    },
-    modalCancelText: { fontSize: 15, fontWeight: "600" },
-    modalLogoutGlass: {
-      backgroundColor: "rgba(239, 68, 68, 0.2)",
-      borderWidth: 1,
-      borderColor: "rgba(239, 68, 68, 0.4)",
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-    },
-    modalLogoutText: { fontSize: 15, fontWeight: "600", color: "#EF4444" },
+    modalBtnText: { fontSize: 15, fontWeight: "700" },
   });
 }

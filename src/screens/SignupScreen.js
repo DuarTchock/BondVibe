@@ -176,7 +176,7 @@ export default function SignupScreen({ navigation }) {
 
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+            <Icon name="back" size={26} color={colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -499,7 +499,6 @@ function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
     header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
-    backButton: { fontSize: 28 },
     scrollContent: {
       flexGrow: 1,
       justifyContent: "center",

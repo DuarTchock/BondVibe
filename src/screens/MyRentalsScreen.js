@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useCallback, useState } from "react";
 import {
   View,
@@ -45,7 +46,7 @@ export default function MyRentalsScreen({ navigation }) {
       <StatusBar style={isDark ? "light" : "dark"} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.back, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>My rentals</Text>
         <TouchableOpacity onPress={() => navigation.navigate("RentalHub")}>
@@ -112,7 +113,6 @@ function createStyles(colors, isDark) {
       flexDirection: "row", justifyContent: "space-between", alignItems: "center",
       paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12,
     },
-    back: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "800" },
     link: { fontSize: 14, fontWeight: "700" },
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },

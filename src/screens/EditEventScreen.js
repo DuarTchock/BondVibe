@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -643,7 +644,7 @@ export default function EditEventScreen({ route, navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
@@ -1293,7 +1294,7 @@ function createStyles(colors) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 12,
       paddingVertical: 12,
       paddingHorizontal: 14,
@@ -1303,7 +1304,7 @@ function createStyles(colors) {
     coHostAddRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4 },
     coHostInput: {
       flex: 1,
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 12,
       paddingHorizontal: 14,
       paddingVertical: 12,

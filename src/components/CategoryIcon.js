@@ -21,7 +21,7 @@ export function AvatarFrame({ children, size = 84 }) {
     <View style={{
       width: size, height: size, borderRadius: size * 0.26,
       backgroundColor: colors.surfaceElevated,
-      borderWidth: 2, borderColor: colors.borderStrong,
+      borderWidth: 1, borderColor: colors.borderStrong,
       alignItems: 'center', justifyContent: 'center',
       shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.06, shadowRadius: 3, elevation: 2,

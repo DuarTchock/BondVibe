@@ -113,7 +113,7 @@ function createStyles(colors) {
       gap: 14,
       backgroundColor: colors.surface,
       borderColor: colors.borderStrong,
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 16,
       padding: 12,
       marginBottom: 10,

@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useState } from "react";
 import {
   View,
@@ -93,7 +94,7 @@ export default function LegalScreen({ navigation }) {
       {/* Header con botón de regreso */}
       <View style={styles.topHeader}>
         <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
-          <Text style={[styles.backButtonText, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -324,7 +325,7 @@ function createStyles(colors) {
       width: 28,
       height: 28,
       borderRadius: 8,
-      borderWidth: 2,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },

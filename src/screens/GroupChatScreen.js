@@ -149,7 +149,7 @@ export default function GroupChatScreen({ route, navigation }) {
         <StatusBar style={isDark ? "light" : "dark"} />
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={[styles.back, { color: colors.text }]}>←</Text>
+            <Icon name="back" size={26} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
             {group?.name || "Group"}
@@ -395,7 +395,6 @@ function createStyles(colors, isDark) {
       gap: 12,
     },
     headerRight: { flexDirection: "row", alignItems: "center", gap: 16 },
-    back: { fontSize: 28 },
     headerTitle: { fontSize: 18, fontWeight: "700", flex: 1, textAlign: "center" },
     messages: { paddingHorizontal: 16, paddingVertical: 12 },
     bubble: {

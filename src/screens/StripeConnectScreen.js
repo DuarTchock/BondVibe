@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useState, useCallback } from "react";
 import {
   View,
@@ -158,7 +159,7 @@ export default function StripeConnectScreen({ navigation }) {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Stripe Connect
@@ -517,7 +518,6 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     scrollView: { flex: 1 },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
@@ -527,7 +527,7 @@ function createStyles(colors) {
       marginBottom: 20,
     },
     statusGlass: {
-      borderWidth: 2,
+      borderWidth: 1,
       padding: 24,
       alignItems: "center",
     },

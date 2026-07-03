@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -109,7 +110,7 @@ export default function RentalCheckoutScreen({ route, navigation }) {
         <View style={{ flex: 1 }}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={[styles.back, { color: colors.text }]}>←</Text>
+              <Icon name="back" size={26} color={colors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Checkout</Text>
             <View style={{ width: 28 }} />
@@ -195,7 +196,6 @@ function createStyles(colors, isDark) {
       flexDirection: "row", justifyContent: "space-between", alignItems: "center",
       paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20,
     },
-    back: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "800" },
     content: { paddingHorizontal: 24, paddingBottom: 40 },
     card: {

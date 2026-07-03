@@ -450,7 +450,7 @@ export default function NotificationsScreen({ navigation }) {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Notifications
@@ -594,7 +594,6 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     markAllRead: { fontSize: 13, fontWeight: "600" },
     loadingContainer: {
@@ -615,7 +614,7 @@ function createStyles(colors) {
       alignItems: "center",
       gap: 12,
       borderRadius: 16,
-      borderWidth: 2,
+      borderWidth: 1,
       padding: 14,
       marginBottom: 10,
     },
@@ -656,7 +655,7 @@ function createStyles(colors) {
       borderRadius: 16,
       overflow: "hidden",
     },
-    notificationGlass: { borderWidth: 2, padding: 16, flexDirection: "row", borderRadius: 18 },
+    notificationGlass: { borderWidth: 1, padding: 16, flexDirection: "row", borderRadius: 18 },
     notificationIcon: {
       width: 44,
       height: 44,

@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF3F3',
     padding: 20,
     borderRadius: Sizes.borderRadius,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: Colors.error,
   },
   emergencyText: {

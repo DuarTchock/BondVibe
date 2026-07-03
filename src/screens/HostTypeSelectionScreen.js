@@ -485,7 +485,6 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     skipButton: {
       fontSize: 15,
@@ -508,7 +507,7 @@ function createStyles(colors) {
       paddingHorizontal: 20,
     },
     optionCard: { borderRadius: 20, overflow: "hidden", marginBottom: 20 },
-    optionGlass: { borderWidth: 2, padding: 20 },
+    optionGlass: { borderWidth: 1, padding: 20 },
     optionHeader: {
       flexDirection: "row",
       alignItems: "center",

@@ -1,4 +1,5 @@
 import React from 'react';
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -61,9 +62,7 @@ export default function PersonalityResultsScreen({ route, navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.primary }]}>
-            ← Back
-          </Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.text }]}>Your Profile</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Home')}>

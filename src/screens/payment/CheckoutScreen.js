@@ -1,3 +1,4 @@
+import Icon from "../../components/Icon";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -238,7 +239,7 @@ export default function CheckoutScreen({ route, navigation }) {
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+            <Icon name="back" size={26} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             Checkout

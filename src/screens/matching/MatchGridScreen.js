@@ -127,7 +127,7 @@ function createStyles(colors) {
       margin: 6,
       backgroundColor: colors.surface,
       borderColor: colors.borderStrong,
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 18,
       padding: 12,
       alignItems: "center",

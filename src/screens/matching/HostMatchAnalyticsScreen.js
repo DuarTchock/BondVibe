@@ -71,7 +71,7 @@ function createStyles(colors) {
       width: "48%",
       backgroundColor: colors.surface,
       borderColor: colors.borderStrong,
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 18,
       paddingVertical: 26,
       alignItems: "center",

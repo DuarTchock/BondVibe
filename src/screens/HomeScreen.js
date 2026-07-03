@@ -615,7 +615,7 @@ function createStyles(colors, isDark) {
       width: 48,
       height: 48,
       borderRadius: 24,
-      borderWidth: 2,
+      borderWidth: 1,
       justifyContent: "center",
       alignItems: "center",
       overflow: "hidden",
@@ -717,7 +717,7 @@ function createStyles(colors, isDark) {
     featuredCard: {
       width: 240,
       borderRadius: 20,
-      borderWidth: 2,
+      borderWidth: 1,
       overflow: "hidden",
     },
     featuredImage: { width: "100%", height: 120 },

@@ -250,7 +250,7 @@ function createStyles(colors, isDark) {
     statLabel: { fontSize: 12, marginTop: 2 },
     statDivider: { width: 1, height: 32, marginHorizontal: 12 },
     followBtn: {
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 14,
       paddingVertical: 12,
       alignItems: "center",

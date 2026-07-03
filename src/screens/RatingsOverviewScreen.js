@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -49,7 +50,7 @@ export default function RatingsOverviewScreen({ navigation }) {
       <StatusBar style={isDark ? "light" : "dark"} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.back, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Ratings & reviews</Text>
         <View style={{ width: 28 }} />
@@ -164,7 +165,6 @@ function createStyles(colors, isDark) {
       paddingTop: 60,
       paddingBottom: 16,
     },
-    back: { fontSize: 28 },
     headerTitle: { fontSize: 18, fontWeight: "700" },
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
     content: { paddingHorizontal: 20, paddingBottom: 20 },

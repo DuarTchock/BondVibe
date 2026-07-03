@@ -149,7 +149,7 @@ function createStyles(colors) {
       alignItems: "center",
       backgroundColor: colors.surface,
       borderColor: colors.borderStrong,
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 18,
       padding: 16,
       shadowColor: '#000',

@@ -362,7 +362,7 @@ function createStyles(colors) {
     checkbox: {
       width: 24,
       height: 24,
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 6,
       justifyContent: "center",
       alignItems: "center",

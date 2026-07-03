@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Icon from '../components/Icon';
 import {
   View,
   Text,
@@ -12,6 +13,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { collection, addDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
+import { useTheme } from '../contexts/ThemeContext';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
@@ -26,6 +28,7 @@ const REPORT_REASONS = [
 ];
 
 export default function ReportScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { type, targetId, targetName } = route.params;
   const [selectedReason, setSelectedReason] = useState('');
   const [details, setDetails] = useState('');
@@ -74,7 +77,7 @@ export default function ReportScreen({ route, navigation }) {
       
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Cancel</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Report {type === 'user' ? 'User' : 'Event'}</Text>
         <View style={{ width: 60 }} />
@@ -210,7 +213,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: Colors.border,
     marginRight: 12,
     justifyContent: 'center',

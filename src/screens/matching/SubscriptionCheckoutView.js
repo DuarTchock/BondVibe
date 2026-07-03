@@ -69,7 +69,7 @@ function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
     content: { flex: 1, paddingHorizontal: 24, paddingTop: 8 },
-    summary: { borderWidth: 2, borderRadius: 20, padding: 20 },
+    summary: { borderWidth: 1, borderRadius: 20, padding: 20 },
     rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     plan: { fontSize: 18, fontWeight: "800" },
     amount: { fontSize: 18, fontWeight: "800" },

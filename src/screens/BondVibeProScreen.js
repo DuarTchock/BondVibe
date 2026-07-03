@@ -58,7 +58,7 @@ export default function BondVibeProScreen({ navigation }) {
       <StatusBar style={isDark ? "light" : "dark"} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.back, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Kinlo Pro</Text>
         <View style={{ width: 28 }} />
@@ -146,7 +146,6 @@ function createStyles(colors, isDark) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    back: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700" },
     content: { paddingHorizontal: 24, paddingBottom: 40 },
     hero: {

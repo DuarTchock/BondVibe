@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -92,7 +93,7 @@ export default function VehicleDetailScreen({ route, navigation }) {
       <StatusBar style={isDark ? "light" : "dark"} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.back, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <View style={{ width: 28 }} />
       </View>
@@ -247,7 +248,6 @@ function createStyles(colors, isDark) {
   return StyleSheet.create({
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
     header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 60, paddingBottom: 4 },
-    back: { fontSize: 28 },
     content: { paddingHorizontal: 24, paddingBottom: 140 },
     hero: {
       height: 200, borderRadius: 20, marginBottom: 18, overflow: "hidden",

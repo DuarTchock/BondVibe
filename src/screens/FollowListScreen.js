@@ -173,7 +173,7 @@ function createStyles(colors, isDark) {
     row: {
       flexDirection: "row",
       alignItems: "center",
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 18,
       padding: 14,
       gap: 12,
@@ -182,7 +182,7 @@ function createStyles(colors, isDark) {
     name: { fontSize: 15, fontWeight: "600" },
     location: { fontSize: 12, marginTop: 2 },
     followBtn: {
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 10,
       paddingVertical: 7,
       paddingHorizontal: 14,

@@ -270,7 +270,7 @@ export default function Icon({
       strokeWidth={strokeWidth}
       absoluteStrokeWidth
       style={style}
-      fill={fill}
+      fill={fill ?? "none"}
     />
   );
 }

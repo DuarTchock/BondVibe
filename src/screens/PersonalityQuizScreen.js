@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -127,9 +128,7 @@ export default function PersonalityQuizScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.primary }]}>
-            ← Back
-          </Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.text }]}>
           Personality Quiz
@@ -241,9 +240,10 @@ export default function PersonalityQuizScreen({ navigation }) {
             onPress={handlePrevious}
             disabled={currentQuestionIndex === 0}
           >
-            <Text style={[styles.navButtonText, { color: colors.text }]}>
-              ← Previous
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Icon name="back" size={14} color={colors.text} />
+              <Text style={[styles.navButtonText, { color: colors.text }]}>Previous</Text>
+            </View>
           </TouchableOpacity>
 
           {currentQuestionIndex === PERSONALITY_QUESTIONS.length - 1 ? (

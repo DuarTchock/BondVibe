@@ -703,7 +703,7 @@ function createStyles(colors) {
     searchBar: {
       flexDirection: "row",
       alignItems: "center",
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 18,
       paddingHorizontal: 16,
       paddingVertical: 14,
@@ -737,7 +737,7 @@ function createStyles(colors) {
       borderBottomColor: "rgba(127,127,127,0.3)",
     },
     eventCard: { marginBottom: 16, borderRadius: 20, overflow: "hidden" },
-    eventGlass: { borderWidth: 2, padding: 16, borderRadius: 20 },
+    eventGlass: { borderWidth: 1, padding: 16, borderRadius: 20 },
     eventHeader: {
       flexDirection: "row",
       justifyContent: "space-between",

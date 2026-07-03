@@ -195,7 +195,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Membership Plans
@@ -484,7 +484,6 @@ function createStyles(colors, isDark) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
     scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },

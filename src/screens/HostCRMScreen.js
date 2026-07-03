@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useState, useCallback } from "react";
 import {
   View,
@@ -97,7 +98,7 @@ export default function HostCRMScreen({ navigation }) {
   const Header = (
     <View style={styles.header}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={[styles.back, { color: colors.text }]}>←</Text>
+        <Icon name="back" size={26} color={colors.text} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: colors.text }]}>Attendees</Text>
       <TouchableOpacity onPress={exportCSV}>
@@ -286,7 +287,6 @@ function createStyles(colors, isDark) {
       paddingTop: 60,
       paddingBottom: 16,
     },
-    back: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700" },
     center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 12 },
     upsellTitle: { fontSize: 22, fontWeight: "800" },
@@ -294,11 +294,11 @@ function createStyles(colors, isDark) {
     upsellBtn: { borderRadius: 16, paddingVertical: 14, paddingHorizontal: 26, marginTop: 8 },
     upsellBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
     segments: { flexDirection: "row", gap: 8, paddingHorizontal: 24, marginBottom: 8 },
-    segment: { borderWidth: 2, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
+    segment: { borderWidth: 1, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
     content: { paddingHorizontal: 24, paddingBottom: 40 },
     empty: { fontSize: 14, textAlign: "center", marginTop: 40, lineHeight: 20 },
     card: {
-      borderWidth: 2,
+      borderWidth: 1,
       borderColor: colors.borderStrong,
       backgroundColor: cardBg,
       borderRadius: 18,
@@ -312,13 +312,13 @@ function createStyles(colors, isDark) {
     flag: { borderWidth: 1, borderRadius: 20, paddingVertical: 4, paddingHorizontal: 10 },
     flagText: { fontSize: 12, fontWeight: "700" },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
-    action: { borderWidth: 2, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
+    action: { borderWidth: 1, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14 },
     actionText: { fontSize: 13, fontWeight: "700" },
     sentMsg: { fontSize: 13, fontWeight: "700", marginTop: 12 },
     announceBtn: {
       marginHorizontal: 24,
       marginBottom: 10,
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 14,
       paddingVertical: 12,
       alignItems: "center",
@@ -328,7 +328,7 @@ function createStyles(colors, isDark) {
     modalCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
     modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 14 },
     modalInput: {
-      borderWidth: 2,
+      borderWidth: 1,
       borderRadius: 14,
       padding: 14,
       fontSize: 15,

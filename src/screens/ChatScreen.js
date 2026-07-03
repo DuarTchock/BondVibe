@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -91,7 +92,7 @@ export default function ChatScreen({ route, navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={[styles.headerAvatar, {
@@ -189,13 +190,12 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 16,
     },
-    backButton: { fontSize: 28 },
     headerInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, marginLeft: 16 },
     headerAvatar: {
       width: 36,
       height: 36,
       borderRadius: 18,
-      borderWidth: 2,
+      borderWidth: 1,
       justifyContent: 'center',
       alignItems: 'center',
       marginRight: 10,

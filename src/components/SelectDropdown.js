@@ -354,7 +354,7 @@ function createStyles(colors, isDark) {
       width: 22,
       height: 22,
       borderRadius: 6,
-      borderWidth: 2,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },

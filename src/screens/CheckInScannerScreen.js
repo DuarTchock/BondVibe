@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -39,7 +40,7 @@ export default function CheckInScannerScreen({ route, navigation }) {
   const Header = (
     <View style={styles.header}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={[styles.back, { color: colors.text }]}>←</Text>
+        <Icon name="back" size={26} color={colors.text} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
         Check-in · {count}
@@ -121,7 +122,6 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 16,
     },
-    back: { fontSize: 28 },
     headerTitle: { fontSize: 18, fontWeight: "700", flex: 1, textAlign: "center" },
     center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 12 },
     permTitle: { fontSize: 20, fontWeight: "700" },
@@ -133,7 +133,7 @@ function createStyles(colors) {
       margin: 20,
       borderRadius: 24,
       overflow: "hidden",
-      borderWidth: 2,
+      borderWidth: 1,
       borderColor: colors.borderStrong,
       alignItems: "center",
       justifyContent: "center",

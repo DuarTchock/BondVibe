@@ -1,3 +1,4 @@
+import Icon from "../components/Icon";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -180,7 +181,7 @@ export default function ConversationsScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[styles.backButton, { color: colors.text }]}>←</Text>
+          <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Messages
@@ -238,7 +239,6 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 20,
     },
-    backButton: { fontSize: 28 },
     headerTitle: { fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
     loadingContainer: {
       flex: 1,
@@ -262,7 +262,7 @@ function createStyles(colors) {
       width: 52,
       height: 52,
       borderRadius: 26,
-      borderWidth: 2,
+      borderWidth: 1,
       justifyContent: "center",
       alignItems: "center",
       marginRight: 14,
