@@ -32,7 +32,11 @@ import SelectDropdown from "../components/SelectDropdown";
 import PlaceAutocomplete from "../components/PlaceAutocomplete";
 import EventImagePicker from "../components/EventImagePicker";
 import Icon from "../components/Icon";
-import { EVENT_CATEGORIES, EVENT_LANGUAGES } from "../utils/eventCategories";
+import {
+  EVENT_CATEGORIES,
+  EVENT_LANGUAGES,
+  EVENT_DURATIONS,
+} from "../utils/eventCategories";
 import { LOCATIONS } from "../utils/locations";
 import { uploadEventImages } from "../services/storageService";
 import { getHostMembershipPlans } from "../services/membershipService";
@@ -123,6 +127,7 @@ export default function CreateEventScreen({ navigation }) {
   const [locationCoords, setLocationCoords] = useState(null); // { latitude, longitude }
   const [placeId, setPlaceId] = useState(null);
   const [maxPeople, setMaxPeople] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("180"); // 3h default
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
@@ -189,6 +194,7 @@ export default function CreateEventScreen({ navigation }) {
     if (typeof d.locationDetail === "string") setLocationDetail(d.locationDetail);
     if (d.locationCoords) setLocationCoords(d.locationCoords);
     if (d.placeId) setPlaceId(d.placeId);
+    if (typeof d.durationMinutes === "string") setDurationMinutes(d.durationMinutes);
     if (typeof d.maxPeople === "string") setMaxPeople(d.maxPeople);
     if (typeof d.isFree === "boolean") setIsFree(d.isFree);
     if (typeof d.price === "string") setPrice(d.price);
@@ -316,6 +322,7 @@ export default function CreateEventScreen({ navigation }) {
                       locationDetail,
                       locationCoords,
                       placeId,
+                      durationMinutes,
                       maxPeople,
                       isFree,
                       price,
@@ -498,6 +505,8 @@ export default function CreateEventScreen({ navigation }) {
         // Optional precise pin from the Places picker (null when typed free-text).
         locationCoords: locationCoords || null,
         placeId: placeId || null,
+        // Event length in minutes (drives the "after event" matching window).
+        durationMinutes: parseInt(durationMinutes, 10) || 180,
         maxPeople: parseInt(maxPeople),
         price: isFree ? 0 : parseFloat(price),
         currency: "MXN",
@@ -1102,6 +1111,16 @@ export default function CreateEventScreen({ navigation }) {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Event length — sets the end time; drives when Community Matching opens */}
+        <SelectDropdown
+          label="Event length"
+          value={durationMinutes}
+          onValueChange={setDurationMinutes}
+          options={EVENT_DURATIONS}
+          placeholder="Select duration"
+          type="default"
+        />
 
         {/* Max People and Price */}
         <View style={styles.row}>

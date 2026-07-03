@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -28,7 +29,6 @@ import {
 } from "../utils/eventFilters";
 import { getEventCreatorId } from "../utils/eventHelpers";
 import { useFocusEffect } from "@react-navigation/native";
-import { Star, MapPin } from "lucide-react-native";
 import RatingModal from "../components/RatingModal";
 import { getUserRatingForEvent } from "../services/ratingService";
 
@@ -274,7 +274,7 @@ export default function MyEventsScreen({ navigation, route }) {
           </Text>
 
           <View style={styles.eventMeta}>
-            <MapPin size={14} color={colors.textSecondary} strokeWidth={2} />
+            <Icon name="location" size={14} color={colors.textSecondary} />
             <Text
               style={[styles.metaText, { color: colors.textSecondary }]}
               numberOfLines={1}
@@ -316,7 +316,7 @@ export default function MyEventsScreen({ navigation, route }) {
                 <View style={styles.ratedContainer}>
                   <View style={styles.ratedStars}>
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
+                      <Icon name="star"
                         key={star}
                         size={16}
                         color={
@@ -327,7 +327,6 @@ export default function MyEventsScreen({ navigation, route }) {
                         fill={
                           star <= existingRating ? "#FFD700" : "transparent"
                         }
-                        strokeWidth={1.5}
                       />
                     ))}
                   </View>
@@ -354,11 +353,10 @@ export default function MyEventsScreen({ navigation, route }) {
                       },
                     ]}
                   >
-                    <Star
+                    <Icon name="star"
                       size={16}
                       color="#FFD700"
                       fill="#FFD700"
-                      strokeWidth={1.5}
                     />
                     <Text style={styles.rateButtonText}>Rate this event</Text>
                   </View>

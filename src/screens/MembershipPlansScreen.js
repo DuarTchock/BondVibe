@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -14,7 +15,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
-import { Plus, Pencil, Archive, RotateCcw, X } from "lucide-react-native";
 import { auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -162,7 +162,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
       )}
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.cardAction} onPress={() => openEdit(plan)}>
-          <Pencil size={16} color={colors.textSecondary} strokeWidth={2} />
+          <Icon name="edit" size={16} color={colors.textSecondary} />
           <Text style={[styles.cardActionText, { color: colors.textSecondary }]}>
             Edit
           </Text>
@@ -172,9 +172,9 @@ export default function MembershipPlansScreen({ navigation, route }) {
           onPress={() => handleArchiveToggle(plan)}
         >
           {plan.active ? (
-            <Archive size={16} color={colors.textSecondary} strokeWidth={2} />
+            <Icon name="archive" size={16} color={colors.textSecondary} />
           ) : (
-            <RotateCcw size={16} color={colors.primary} strokeWidth={2} />
+            <Icon name="rotate" size={16} color={colors.primary} />
           )}
           <Text
             style={[
@@ -224,7 +224,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
                 { backgroundColor: `${colors.primary}33`, borderColor: `${colors.primary}66` },
               ]}
             >
-              <Plus size={20} color={colors.primary} strokeWidth={2.4} />
+              <Icon name="plus" size={20} color={colors.primary} />
               <Text style={[styles.newButtonText, { color: colors.primary }]}>
                 New Plan
               </Text>
@@ -274,7 +274,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
                 {editingId ? "Edit Plan" : "New Plan"}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={24} color={colors.textSecondary} strokeWidth={2} />
+                <Icon name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 

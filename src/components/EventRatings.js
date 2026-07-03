@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Icon from "./Icon";
 import {
   View,
   Text,
@@ -7,7 +8,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
-import { Star, ChevronDown, ChevronUp } from "lucide-react-native";
 import { getEventRatings } from "../services/ratingService";
 import { AvatarDisplay } from "./AvatarPicker";
 
@@ -69,12 +69,11 @@ export default function EventRatings({ eventId, isHost }) {
     return (
       <View style={styles.starsRow}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <Star
+          <Icon name="star"
             key={star}
             size={14}
             color={star <= rating ? "#FFD700" : `${colors.text}30`}
             fill={star <= rating ? "#FFD700" : "transparent"}
-            strokeWidth={1.5}
           />
         ))}
       </View>
@@ -101,11 +100,10 @@ export default function EventRatings({ eventId, isHost }) {
             {!loading && ratings.length > 0 && (
               <View style={styles.summaryRow}>
                 <View style={styles.averageContainer}>
-                  <Star
+                  <Icon name="star"
                     size={20}
                     color="#FFD700"
                     fill="#FFD700"
-                    strokeWidth={1.5}
                   />
                   <Text style={[styles.averageText, { color: colors.text }]}>
                     {averageRating.toFixed(1)}
@@ -190,12 +188,11 @@ export default function EventRatings({ eventId, isHost }) {
                     : `Show all ${ratings.length} reviews`}
                 </Text>
                 {expanded ? (
-                  <ChevronUp size={18} color={colors.primary} strokeWidth={2} />
+                  <Icon name="up" size={18} color={colors.primary} />
                 ) : (
-                  <ChevronDown
+                  <Icon name="down"
                     size={18}
                     color={colors.primary}
-                    strokeWidth={2}
                   />
                 )}
               </TouchableOpacity>

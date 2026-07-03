@@ -48,6 +48,13 @@ service firebase.storage {
       allow write: if isSignedIn() && isImageUnder(10 * 1024 * 1024);
     }
 
+    // Social post images — a user uploads under their own uid.
+    match /posts/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId &&
+                      isImageUnder(10 * 1024 * 1024);
+    }
+
     // Everything else is denied by default.
     match /{allPaths=**} {
       allow read, write: if false;

@@ -21,18 +21,7 @@ import { auth, db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { EVENT_CATEGORIES } from "../utils/eventCategories";
-import { getCategoryIcon } from "../components/Icon";
-import {
-  Bell,
-  Search,
-  Calendar,
-  Sparkles,
-  Crown,
-  ChevronRight,
-  Tent,
-  Star,
-  Bike,
-} from "lucide-react-native";
+import Icon, { getCategoryIcon } from "../components/Icon";
 import RatingModal from "../components/RatingModal";
 import { getPendingRatings } from "../services/ratingService";
 import { getFeaturedEvents } from "../services/promotionService";
@@ -202,7 +191,7 @@ export default function HomeScreen({ navigation }) {
     ? {
         id: "create",
         label: "Create",
-        icon: Sparkles,
+        icon: "ai",
         screen: "CreateEvent",
         badge: 0,
       }
@@ -210,14 +199,14 @@ export default function HomeScreen({ navigation }) {
     ? {
         id: "choosehost",
         label: "Choose Type",
-        icon: Sparkles,
+        icon: "ai",
         screen: "HostTypeSelection",
         badge: 0,
       }
     : {
         id: "behost",
         label: "Be a Host",
-        icon: Tent,
+        icon: "tent",
         screen: "RequestHost",
         badge: 0,
       };
@@ -226,28 +215,35 @@ export default function HomeScreen({ navigation }) {
     {
       id: "explore",
       label: "Explore",
-      icon: Search,
+      icon: "search",
       screen: "SearchEvents",
+      badge: 0,
+    },
+    {
+      id: "feed",
+      label: "Feed",
+      icon: "community",
+      screen: "Feed",
       badge: 0,
     },
     {
       id: "myevents",
       label: "My Events",
-      icon: Calendar,
+      icon: "calendar",
       screen: "MyEvents",
       badge: 0,
     },
     {
       id: "notifications",
       label: "Notifications",
-      icon: Bell,
+      icon: "bell",
       screen: "Notifications",
       badge: unreadNotifications,
     },
     {
       id: "rentals",
       label: "Get around",
-      icon: Bike,
+      icon: "bike",
       screen: "RentalHub",
       badge: 0,
     },
@@ -326,12 +322,7 @@ export default function HomeScreen({ navigation }) {
                         { backgroundColor: "rgba(255, 215, 0, 0.15)" },
                       ]}
                     >
-                      <Star
-                        size={22}
-                        color="#FFD700"
-                        fill="#FFD700"
-                        strokeWidth={1.5}
-                      />
+                      <Icon name="star" size={22} color="#FFD700" fill="#FFD700" />
                     </View>
                     <View style={styles.cardContent}>
                       <Text
@@ -349,7 +340,7 @@ export default function HomeScreen({ navigation }) {
                         {dateStr}
                       </Text>
                     </View>
-                    <ChevronRight size={18} color="#FFD700" strokeWidth={2} />
+                    <Icon name="forward" size={18} color="#FFD700" />
                   </BVCard>
                 </TouchableOpacity>
               );
@@ -364,7 +355,6 @@ export default function HomeScreen({ navigation }) {
           </Text>
           <View style={styles.quickActionsGrid}>
             {quickActions.map((action) => {
-              const ActionIcon = action.icon;
               return (
                 <TouchableOpacity
                   key={action.id}
@@ -386,11 +376,7 @@ export default function HomeScreen({ navigation }) {
                           },
                         ]}
                       >
-                        <ActionIcon
-                          size={28}
-                          color={colors.primary}
-                          strokeWidth={1.8}
-                        />
+                        <Icon name={action.icon} size={28} color={colors.primary} />
                       </View>
                       {action.badge > 0 && (
                         <View
@@ -456,7 +442,7 @@ export default function HomeScreen({ navigation }) {
                           { backgroundColor: `${colors.primary}26`, alignItems: "center", justifyContent: "center" },
                         ]}
                       >
-                        <Sparkles size={28} color={colors.primary} strokeWidth={2} />
+                        <Icon name="ai" size={28} color={colors.primary} />
                       </View>
                     )}
                     <View style={styles.featuredBadge}>
@@ -503,7 +489,7 @@ export default function HomeScreen({ navigation }) {
                 }}
               >
                 <View style={styles.adminIconContainer}>
-                  <Crown size={36} color="#FFD700" strokeWidth={1.8} />
+                  <Icon name="pro" size={36} color="#FFD700" />
                   {pendingHostRequests > 0 && (
                     <View
                       style={[
@@ -532,7 +518,7 @@ export default function HomeScreen({ navigation }) {
                       : "Manage host requests and events"}
                   </Text>
                 </View>
-                <ChevronRight size={24} color="#FFD700" strokeWidth={2} />
+                <Icon name="forward" size={24} color="#FFD700" />
               </BVCard>
             </TouchableOpacity>
           </View>

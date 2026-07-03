@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Icon from "./Icon";
 import {
   Keyboard,
   Platform,
@@ -7,7 +8,6 @@ import {
   Text,
   StyleSheet,
 } from "react-native";
-import { ChevronDown } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 
 /**
@@ -57,7 +57,7 @@ export default function KeyboardAccessory() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Text style={[styles.txt, { color: colors.primary }]}>Done</Text>
-          <ChevronDown size={18} color={colors.primary} strokeWidth={2.5} />
+          <Icon name="down" size={18} color={colors.primary} />
         </TouchableOpacity>
       </View>
     </View>

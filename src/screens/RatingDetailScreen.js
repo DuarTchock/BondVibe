@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -22,7 +23,6 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { Star, Send, Sparkles } from "lucide-react-native";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { usePremium } from "../hooks/usePremium";
@@ -179,12 +179,11 @@ export default function RatingDetailScreen({ route, navigation }) {
                 </Text>
                 <View style={{ flexDirection: "row", marginTop: 4 }}>
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
+                    <Icon name="star"
                       key={s}
                       size={16}
                       color={s <= rating.rating ? "#FFD700" : colors.border}
                       fill={s <= rating.rating ? "#FFD700" : "transparent"}
-                      strokeWidth={2}
                     />
                   ))}
                 </View>
@@ -246,7 +245,7 @@ export default function RatingDetailScreen({ route, navigation }) {
             {aiLoading ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Sparkles size={15} color={colors.primary} strokeWidth={2} />
+              <Icon name="ai" size={15} color={colors.primary} />
             )}
             <Text style={[styles.aiSuggestText, { color: colors.primary }]}>
               {aiLoading ? "Generating…" : "Suggest reply with AI"}
@@ -267,7 +266,7 @@ export default function RatingDetailScreen({ route, navigation }) {
             onPress={handleSend}
             disabled={!text.trim() || sending}
           >
-            <Send size={20} color="#FFFFFF" strokeWidth={2} />
+            <Icon name="send" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </GradientBackground>

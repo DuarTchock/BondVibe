@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -9,7 +10,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ticket, Infinity as InfinityIcon } from "lucide-react-native";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -68,7 +68,7 @@ export default function HostMembershipsScreen({ route, navigation }) {
         </View>
       ) : plans.length === 0 ? (
         <View style={styles.empty}>
-          <Ticket size={48} color={colors.textTertiary} strokeWidth={1.6} />
+          <Icon name="ticket" size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             No plans available
           </Text>
@@ -88,9 +88,9 @@ export default function HostMembershipsScreen({ route, navigation }) {
                 <View style={styles.cardHeader}>
                   <View style={styles.iconCircle}>
                     {isUnlimited ? (
-                      <InfinityIcon size={20} color={colors.primary} strokeWidth={2} />
+                      <Icon name="infinity" size={20} color={colors.primary} />
                     ) : (
-                      <Ticket size={20} color={colors.primary} strokeWidth={2} />
+                      <Icon name="ticket" size={20} color={colors.primary} />
                     )}
                   </View>
                   <Text style={[styles.planName, { color: colors.text }]} numberOfLines={1}>

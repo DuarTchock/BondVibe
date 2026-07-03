@@ -1,4 +1,5 @@
 import React from "react";
+import Icon from "./Icon";
 import {
   View,
   Text,
@@ -10,7 +11,6 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useTheme } from "../contexts/ThemeContext";
-import { Camera, X, Plus, Image as ImageIcon } from "lucide-react-native";
 
 const MAX_IMAGES = 3;
 
@@ -131,7 +131,7 @@ export default function EventImagePicker({ images, onImagesChange }) {
               style={[styles.removeButton, { backgroundColor: colors.error }]}
               onPress={() => removeImage(index)}
             >
-              <X size={16} color="#FFFFFF" strokeWidth={2.5} />
+              <Icon name="close" size={16} color="#FFFFFF" />
             </TouchableOpacity>
             {index === 0 && (
               <View
@@ -161,7 +161,7 @@ export default function EventImagePicker({ images, onImagesChange }) {
                 { backgroundColor: `${colors.primary}20` },
               ]}
             >
-              <Plus size={24} color={colors.primary} strokeWidth={2} />
+              <Icon name="plus" size={24} color={colors.primary} />
             </View>
             <Text style={[styles.addText, { color: colors.textSecondary }]}>
               Add Photo
@@ -180,7 +180,7 @@ export default function EventImagePicker({ images, onImagesChange }) {
             },
           ]}
         >
-          <ImageIcon size={32} color={colors.textTertiary} strokeWidth={1.5} />
+          <Icon name="image" size={32} color={colors.textTertiary} />
           <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
             Add photos to make your event more appealing
           </Text>
@@ -192,7 +192,7 @@ export default function EventImagePicker({ images, onImagesChange }) {
               ]}
               onPress={takePhoto}
             >
-              <Camera size={18} color={colors.primary} strokeWidth={2} />
+              <Icon name="camera" size={18} color={colors.primary} />
               <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
                 Camera
               </Text>
@@ -204,7 +204,7 @@ export default function EventImagePicker({ images, onImagesChange }) {
               ]}
               onPress={pickImage}
             >
-              <ImageIcon size={18} color={colors.primary} strokeWidth={2} />
+              <Icon name="image" size={18} color={colors.primary} />
               <Text style={[styles.emptyButtonText, { color: colors.primary }]}>
                 Gallery
               </Text>

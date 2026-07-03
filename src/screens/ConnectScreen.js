@@ -12,6 +12,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
+import Icon from "../components/Icon";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import { getAttendeeIds } from "../utils/eventHelpers";
 import { getFollowing, followUser, unfollowUser } from "../services/followService";
@@ -108,6 +109,15 @@ export default function ConnectScreen({ route, navigation }) {
                   )}
                 </View>
                 <TouchableOpacity
+                  onPress={() =>
+                    navigation.navigate("DMChat", { otherUid: p.id, name: p.name })
+                  }
+                  style={styles.msgBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name="chat" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+                <TouchableOpacity
                   onPress={() => toggle(p)}
                   style={[
                     styles.followBtn,
@@ -171,5 +181,6 @@ function createStyles(colors, isDark) {
       paddingVertical: 8,
     },
     followText: { fontSize: 13, fontWeight: "700" },
+    msgBtn: { padding: 6, marginRight: 4 },
   });
 }

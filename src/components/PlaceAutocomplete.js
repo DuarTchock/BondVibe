@@ -14,6 +14,7 @@
  * plain free-text entry (onSelect with only { description }).
  */
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import Icon from "./Icon";
 import {
   View,
   Text,
@@ -27,7 +28,6 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import Constants from "expo-constants";
-import { MapPin, Search, X } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 
 const PLACES_KEY =
@@ -164,7 +164,7 @@ export default function PlaceAutocomplete({
         onPress={openModal}
         activeOpacity={0.7}
       >
-        <MapPin
+        <Icon name="location"
           size={20}
           color={colors.textSecondary}
           style={{ marginRight: 12 }}
@@ -192,14 +192,14 @@ export default function PlaceAutocomplete({
         >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
-              <X size={24} color={colors.text} />
+              <Icon name="close" size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Search venue</Text>
             <View style={{ width: 40 }} />
           </View>
 
           <View style={styles.searchWrapper}>
-            <Search size={18} color={colors.textSecondary} />
+            <Icon name="search" size={18} color={colors.textSecondary} />
             <TextInput
               style={styles.searchInput}
               placeholder={placeholder}
@@ -227,7 +227,7 @@ export default function PlaceAutocomplete({
                 style={styles.row}
                 onPress={() => handlePick(item)}
               >
-                <MapPin
+                <Icon name="location"
                   size={18}
                   color={colors.primary}
                   style={{ marginRight: 12, marginTop: 2 }}

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -12,7 +13,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
-import { Plus, Users, ChevronRight } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import KeyboardAccessory from "../components/KeyboardAccessory";
@@ -103,14 +103,14 @@ export default function HostGroupsScreen({ navigation }) {
 
           <TouchableOpacity style={styles.newBtn} onPress={openCreate} activeOpacity={0.85}>
             <View style={[styles.newGlass, { backgroundColor: `${colors.primary}33`, borderColor: `${colors.primary}66` }]}>
-              <Plus size={20} color={colors.primary} strokeWidth={2.4} />
+              <Icon name="plus" size={20} color={colors.primary} />
               <Text style={[styles.newText, { color: colors.primary }]}>New group</Text>
             </View>
           </TouchableOpacity>
 
           {groups.length === 0 ? (
             <View style={styles.empty}>
-              <Users size={44} color={colors.textTertiary} strokeWidth={1.6} />
+              <Icon name="users" size={44} color={colors.textTertiary} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>No groups yet</Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 Create your first group to keep your community connected.
@@ -128,7 +128,7 @@ export default function HostGroupsScreen({ navigation }) {
                   <AvatarDisplay avatar={normAvatar(g.avatar)} size={40} />
                 ) : (
                   <View style={styles.iconCircle}>
-                    <Users size={20} color={colors.primary} strokeWidth={2} />
+                    <Icon name="users" size={20} color={colors.primary} />
                   </View>
                 )}
                 <View style={{ flex: 1 }}>
@@ -141,7 +141,7 @@ export default function HostGroupsScreen({ navigation }) {
                     {g.lastMessage ? ` · ${g.lastMessage}` : ""}
                   </Text>
                 </View>
-                <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />
+                <Icon name="forward" size={20} color={colors.textTertiary} />
               </TouchableOpacity>
             ))
           )}

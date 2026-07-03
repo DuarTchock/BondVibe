@@ -51,6 +51,58 @@ export const updatePricingConfig = async (values) => {
   );
 };
 
+// ---- Subscription pricing (Kinlo Pro + Kinlo Plus) -------------------------
+// Admin-editable amounts (major currency units). The checkout Cloud Functions
+// read the same config/subscriptions doc so the charge matches what's shown.
+export const SUBSCRIPTION_DEFAULTS = {
+  pro: { amount: 199, currency: "MXN", interval: "month" },
+  plus: { amount: 129, currency: "MXN", interval: "month" },
+};
+
+/** Read subscription pricing, falling back to defaults. */
+export const getSubscriptionConfig = async () => {
+  try {
+    const snap = await getDoc(doc(db, "config", "subscriptions"));
+    const d = snap.exists() ? snap.data() : {};
+    return {
+      pro: {
+        amount: num(d.pro?.amount, SUBSCRIPTION_DEFAULTS.pro.amount),
+        currency: d.pro?.currency || SUBSCRIPTION_DEFAULTS.pro.currency,
+        interval: d.pro?.interval || SUBSCRIPTION_DEFAULTS.pro.interval,
+      },
+      plus: {
+        amount: num(d.plus?.amount, SUBSCRIPTION_DEFAULTS.plus.amount),
+        currency: d.plus?.currency || SUBSCRIPTION_DEFAULTS.plus.currency,
+        interval: d.plus?.interval || SUBSCRIPTION_DEFAULTS.plus.interval,
+      },
+    };
+  } catch (e) {
+    logger.error("getSubscriptionConfig:", e);
+    return { ...SUBSCRIPTION_DEFAULTS };
+  }
+};
+
+/** Admin-only: persist subscription pricing (Firestore rules enforce admin). */
+export const updateSubscriptionConfig = async (values) => {
+  await setDoc(
+    doc(db, "config", "subscriptions"),
+    {
+      pro: {
+        amount: num(values.pro?.amount, SUBSCRIPTION_DEFAULTS.pro.amount),
+        currency: values.pro?.currency || SUBSCRIPTION_DEFAULTS.pro.currency,
+        interval: values.pro?.interval || SUBSCRIPTION_DEFAULTS.pro.interval,
+      },
+      plus: {
+        amount: num(values.plus?.amount, SUBSCRIPTION_DEFAULTS.plus.amount),
+        currency: values.plus?.currency || SUBSCRIPTION_DEFAULTS.plus.currency,
+        interval: values.plus?.interval || SUBSCRIPTION_DEFAULTS.plus.interval,
+      },
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+};
+
 /** Build the estimateCheckout overrides object for a given fee bucket. */
 export const overridesFor = (cfg, bucket) => {
   if (!cfg) return {};

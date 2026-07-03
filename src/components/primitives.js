@@ -4,8 +4,8 @@
  * warm attendee UI and the denser host dashboards share one system.
  */
 import React from "react";
+import Icon from "./Icon";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { ShieldCheck, ChevronRight } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { AvatarDisplay } from "./AvatarPicker";
 
@@ -34,7 +34,7 @@ export function HostBadge({ small }) {
   const { colors } = useTheme();
   return (
     <View style={[styles.hostBadge, { backgroundColor: `${colors.secondary || "#1F8A6E"}22` }]}>
-      <ShieldCheck size={small ? 12 : 14} color={colors.secondary || "#1F8A6E"} strokeWidth={2.5} />
+      <Icon name="privacy" size={small ? 12 : 14} color={colors.secondary || "#1F8A6E"} />
       <Text style={[styles.hostBadgeText, { color: colors.secondary || "#1F8A6E", fontSize: small ? 11 : 12 }]}>
         Verified host
       </Text>
@@ -100,7 +100,7 @@ export function CommunityHeader({ name, subtitle, avatar, onPress }) {
           </Text>
         )}
       </View>
-      {onPress && <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />}
+      {onPress && <Icon name="forward" size={20} color={colors.textTertiary} />}
     </Wrap>
   );
 }

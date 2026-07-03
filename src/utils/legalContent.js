@@ -119,6 +119,22 @@ You expressly acknowledge and agree that:
 
 If you are a host, you further represent that you have the legal right to rent the vehicle, that it is safe and properly insured, and you agree to **indemnify and hold Kinlo harmless** from any claim arising from your listing or the rental of your vehicle.
 
+### 4.6 Community Matching
+
+Community Matching is an **optional, opt-in** feature that lets attendees of the same event connect with each other for friendship, professional or social purposes. It is **not a dating or matchmaking service** and Kinlo does not promise any outcome. Participation is voluntary and recorded with your consent.
+
+You expressly acknowledge and agree that:
+
+- **Neutral platform.** Kinlo only provides a tool to help attendees of the same event discover and contact one another. Kinlo does **not** organize, sponsor, supervise, chaperone, or control any meeting, communication, or conduct between users, whether online or in person.
+- **No background checks or identity verification.** Kinlo does **not** verify the identity, age, background, criminal history, or intentions of any user. You interact and meet other people **at your own risk** and are solely responsible for your own safety, including deciding whether, when, and where to meet.
+- **Assumption of risk.** Meeting and communicating with people you don't know carries inherent risks — including the risk of dishonesty, harassment, unlawful conduct, injury, or harm — and you **knowingly and voluntarily assume all such risks**.
+- **"As is", no warranties.** The feature is provided "as is" and "as available", with no warranty of any kind as to compatibility, results, the accuracy of any profile or compatibility score, or the character, safety, or conduct of any other user.
+- **Privacy & consent.** Your match profile is shared **only** with checked-in attendees of the same event and is never public or searchable. Messaging is unlocked only after a **mutual match**. The event organizer **never** sees who you liked or matched with — only anonymous totals. You control your visibility and may report, block, hide, delete your matching data, or leave matching at any time.
+- **18+ and conduct.** You must be **18 or older** to use Community Matching. Harassment, threats, hate speech, sexual misconduct, solicitation, impersonation, sharing others' private information, and any illegal or non-consensual behavior are strictly prohibited and may result in removal, suspension, or reporting to authorities.
+- **Organizer responsibility.** The safety, logistics, conduct, and legality of an event remain the responsibility of its host, not Kinlo. Enabling Community Matching does not make Kinlo responsible for any event or any interaction between attendees.
+- **Moderation & reporting.** We provide tools to report, block, and hide other users. You agree to report abuse. We may review and retain messages for safety and moderation, and may suspend accounts that violate these terms.
+- **Limitation & release.** To the maximum extent permitted by law, **Kinlo is not liable for any loss, injury, death, emotional distress, harassment, assault, property damage, or any other harm** arising out of or connected to your use of Community Matching, any communication, or any meeting with another user. You **release Kinlo from any and all claims, demands, and damages** arising out of or connected to Community Matching, and you agree to **indemnify and hold Kinlo harmless** from any claim arising from your conduct, communications, or meetings with other users.
+
 ## 5. Payments & Refunds
 
 ### 5.1 Payment Processing
@@ -465,7 +481,18 @@ We may update this Privacy Policy periodically. We will notify you of significan
 
 Continued use after changes constitutes acceptance.
 
-## 14. Contact Us
+## 14. Community Matching Data
+
+If you opt in to Community Matching (an event feature), we process additional data with your consent:
+
+- **What we collect:** your match profile (photo, display name, optional age, bio, interests, profession, languages, what you're looking for, icebreaker), your visibility choice, a personality snapshot used to estimate compatibility, your likes, matches, and any messages you send to a match.
+- **Consent:** participation is opt-in and your consent is recorded with a timestamp. You can withdraw at any time.
+- **How it's shared:** your match profile is visible **only** to checked-in attendees of the **same event**, according to your visibility setting. It is **never public or searchable**. Messaging is available **only after a mutual match**, and contact details are not revealed until you choose to share them.
+- **Organizer access:** event organizers receive **only anonymous, aggregate statistics** (e.g., number of participants and matches). Organizers **never** see who you liked or matched with.
+- **Moderation:** we may review and retain match messages for safety and anti-harassment purposes.
+- **Your controls:** you can change your visibility, hide or block other users, delete your matching data, and leave matching for an event at any time — which removes your match profile for that event.
+
+## 15. Contact Us
 
 **For privacy questions, data requests, or concerns:**
 

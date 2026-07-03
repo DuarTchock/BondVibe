@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
+import Icon from "./Icon";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
-import { Star, ChevronRight } from "lucide-react-native";
 import { getPendingRatings } from "../services/ratingService";
 
 export default function PendingRatingsCard({ navigation, onRatePress }) {
@@ -60,11 +60,10 @@ export default function PendingRatingsCard({ navigation, onRatePress }) {
         >
           <View style={styles.iconContainer}>
             <View style={styles.iconCircle}>
-              <Star
+              <Icon name="star"
                 size={28}
                 color="#FFD700"
                 fill="#FFD700"
-                strokeWidth={1.5}
               />
             </View>
             {pendingEvents.length > 1 && (
@@ -87,7 +86,7 @@ export default function PendingRatingsCard({ navigation, onRatePress }) {
             </Text>
           </View>
 
-          <ChevronRight size={22} color="#FFD700" strokeWidth={2} />
+          <Icon name="forward" size={22} color="#FFD700" />
         </View>
       </TouchableOpacity>
     </View>

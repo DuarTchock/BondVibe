@@ -9,15 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import {
-  Crown,
-  Check,
-  Sparkles,
-  QrCode,
-  Users,
-  BarChart3,
-  MessageSquare,
-} from "lucide-react-native";
+import Icon from "../components/Icon";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { usePremium } from "../hooks/usePremium";
@@ -26,11 +18,11 @@ import { startProCheckout, openProPortal } from "../services/proService";
 const PRO_PRICE_LABEL = "$199 MXN / mo";
 
 const PRO_FEATURES = [
-  { icon: Sparkles, title: "AI coaching", desc: "Recommendations to improve your events based on your reviews" },
-  { icon: BarChart3, title: "Advanced insights", desc: "Trends, sentiment and benchmark vs your category" },
-  { icon: QrCode, title: "QR check-in", desc: "Take attendance at the event door" },
-  { icon: Users, title: "Attendee CRM", desc: "History, regulars and alerts on who needs attention" },
-  { icon: MessageSquare, title: "Messaging + unlimited groups", desc: "Mass announcements and unlimited groups" },
+  { icon: "ai", title: "AI coaching", desc: "Recommendations to improve your events based on your reviews" },
+  { icon: "chart", title: "Advanced insights", desc: "Trends, sentiment and benchmark vs your category" },
+  { icon: "qr", title: "QR check-in", desc: "Take attendance at the event door" },
+  { icon: "users", title: "Attendee CRM", desc: "History, regulars and alerts on who needs attention" },
+  { icon: "chat", title: "Messaging + unlimited groups", desc: "Mass announcements and unlimited groups" },
 ];
 
 export default function BondVibeProScreen({ navigation }) {
@@ -74,7 +66,7 @@ export default function BondVibeProScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.hero, { borderColor: `${colors.primary}55`, backgroundColor: `${colors.primary}12` }]}>
-          <Crown size={40} color={colors.primary} strokeWidth={1.8} />
+          <Icon name="pro" size={40} color={colors.primary} />
           <Text style={[styles.heroTitle, { color: colors.text }]}>
             {isPremium ? "You're Pro ✓" : "Take your events to the next level"}
           </Text>
@@ -86,16 +78,16 @@ export default function BondVibeProScreen({ navigation }) {
         </View>
 
         <View style={styles.features}>
-          {PRO_FEATURES.map(({ icon: Icon, title, desc }) => (
+          {PRO_FEATURES.map(({ icon, title, desc }) => (
             <View key={title} style={styles.featureRow}>
               <View style={[styles.featureIcon, { backgroundColor: `${colors.primary}1F` }]}>
-                <Icon size={20} color={colors.primary} strokeWidth={2} />
+                <Icon name={icon} size={20} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.featureTitle, { color: colors.text }]}>{title}</Text>
                 <Text style={[styles.featureDesc, { color: colors.textSecondary }]}>{desc}</Text>
               </View>
-              {isPremium && <Check size={18} color={colors.primary} strokeWidth={2.5} />}
+              {isPremium && <Icon name="check" size={18} color={colors.primary} />}
             </View>
           ))}
         </View>
@@ -126,7 +118,7 @@ export default function BondVibeProScreen({ navigation }) {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Crown size={18} color="#fff" strokeWidth={2} />
+                  <Icon name="pro" size={18} color="#fff" />
                   <Text style={styles.ctaText}>Go Pro · {PRO_PRICE_LABEL}</Text>
                 </>
               )}

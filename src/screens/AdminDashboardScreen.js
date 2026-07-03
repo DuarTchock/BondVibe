@@ -39,7 +39,12 @@ import {
   unsuspendUser,
   canPerformAdminAction,
 } from "../utils/adminService";
-import { getPricingConfig, updatePricingConfig } from "../services/configService";
+import {
+  getPricingConfig,
+  updatePricingConfig,
+  getSubscriptionConfig,
+  updateSubscriptionConfig,
+} from "../services/configService";
 
 export default function AdminDashboardScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -80,6 +85,10 @@ export default function AdminDashboardScreen({ navigation }) {
   // Stripe fixed fee shown in pesos.
   const [pricingForm, setPricingForm] = useState(null);
   const [pricingSaving, setPricingSaving] = useState(false);
+
+  // Subscription pricing (Kinlo Pro + Kinlo Plus), edited as major-unit amounts.
+  const [subForm, setSubForm] = useState(null);
+  const [subSaving, setSubSaving] = useState(false);
 
   // ✅ HELPER: Get user display name (handles both fullName and name fields)
   const getUserDisplayName = (user) => {
@@ -131,6 +140,7 @@ export default function AdminDashboardScreen({ navigation }) {
     }
     if (authorized && activeTab === "pricing" && !pricingForm) {
       loadPricing();
+      loadSubscriptions();
     }
   }, [authorized, activeTab, roleFilter]);
 
@@ -142,6 +152,31 @@ export default function AdminDashboardScreen({ navigation }) {
       stripePct: String(+(c.stripeFeePercent * 100).toFixed(4)),
       stripeFixed: String(+(c.stripeFixedCentavos / 100).toFixed(2)),
     });
+  };
+
+  const loadSubscriptions = async () => {
+    const c = await getSubscriptionConfig();
+    setSubForm({
+      proAmount: String(c.pro.amount),
+      proCurrency: c.pro.currency,
+      plusAmount: String(c.plus.amount),
+      plusCurrency: c.plus.currency,
+    });
+  };
+
+  const saveSubscriptions = async () => {
+    setSubSaving(true);
+    try {
+      await updateSubscriptionConfig({
+        pro: { amount: Number(subForm.proAmount) || 0, currency: subForm.proCurrency, interval: "month" },
+        plus: { amount: Number(subForm.plusAmount) || 0, currency: subForm.plusCurrency, interval: "month" },
+      });
+      Alert.alert("Saved", "Subscription prices updated. New checkouts use these.");
+    } catch (e) {
+      Alert.alert("Error", e.message || "Could not save subscription prices.");
+    } finally {
+      setSubSaving(false);
+    }
   };
 
   const savePricing = async () => {
@@ -1322,6 +1357,56 @@ export default function AdminDashboardScreen({ navigation }) {
                     <Text style={styles.saveFeeTxt}>Save pricing</Text>
                   )}
                 </TouchableOpacity>
+
+                {/* Subscriptions — Kinlo Pro (host) + Kinlo Plus (attendee) */}
+                <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 32 }]}>
+                  Subscriptions
+                </Text>
+                <Text style={[styles.feeHint, { color: colors.textSecondary }]}>
+                  Monthly prices (in the currency shown). Applied to new Kinlo Pro
+                  and Kinlo Plus checkouts.
+                </Text>
+
+                {subForm && (
+                  <>
+                    <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
+                      Kinlo Pro — amount / month ({subForm.proCurrency})
+                    </Text>
+                    <TextInput
+                      style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
+                      keyboardType="numeric"
+                      value={subForm.proAmount}
+                      onChangeText={(v) => setSubForm((p) => ({ ...p, proAmount: v }))}
+                      placeholder="199"
+                      placeholderTextColor={colors.textTertiary}
+                    />
+
+                    <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
+                      Kinlo Plus — amount / month ({subForm.plusCurrency})
+                    </Text>
+                    <TextInput
+                      style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
+                      keyboardType="numeric"
+                      value={subForm.plusAmount}
+                      onChangeText={(v) => setSubForm((p) => ({ ...p, plusAmount: v }))}
+                      placeholder="129"
+                      placeholderTextColor={colors.textTertiary}
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.saveFeeBtn, { backgroundColor: colors.primary, opacity: subSaving ? 0.6 : 1 }]}
+                      onPress={saveSubscriptions}
+                      disabled={subSaving}
+                      activeOpacity={0.85}
+                    >
+                      {subSaving ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.saveFeeTxt}>Save subscriptions</Text>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
               </>
             )}
           </View>

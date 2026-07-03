@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -42,25 +43,11 @@ import {
 } from "../services/membershipService";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
+import MatchingEntryCard from "../components/MatchingEntryCard";
 import EventImageGallery from "../components/EventImageGallery";
 import EventRatings from "../components/EventRatings";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useFocusEffect } from "@react-navigation/native";
-import {
-  ChevronLeft,
-  MessageCircle,
-  Pencil,
-  Trash2,
-  Calendar,
-  MapPin,
-  Users,
-  Bike,
-  ChevronRight,
-  Ticket,
-  Sparkles,
-  Star,
-  QrCode,
-} from "lucide-react-native";
 import { usePremium } from "../hooks/usePremium";
 import { buildCheckinPayload } from "../services/checkinService";
 import { joinFreeEvent } from "../services/eventJoinService";
@@ -721,7 +708,7 @@ export default function EventDetailScreen({ route, navigation }) {
               },
             ]}
           >
-            <ChevronLeft size={24} color={colors.text} strokeWidth={2} />
+            <Icon name="back" size={24} color={colors.text} />
           </View>
         </TouchableOpacity>
         <View style={styles.headerActions}>
@@ -743,7 +730,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <MessageCircle size={20} color={colors.text} strokeWidth={2} />
+                <Icon name="message" size={20} color={colors.text} />
               </View>
             </TouchableOpacity>
           )}
@@ -764,7 +751,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: colors.surface, borderColor: colors.borderStrong },
                 ]}
               >
-                <QrCode size={20} color={colors.text} strokeWidth={2} />
+                <Icon name="qr" size={20} color={colors.text} />
               </View>
             </TouchableOpacity>
           )}
@@ -781,7 +768,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <Pencil size={18} color={colors.text} strokeWidth={2} />
+                <Icon name="edit" size={18} color={colors.text} />
               </View>
             </TouchableOpacity>
           )}
@@ -796,7 +783,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   },
                 ]}
               >
-                <Trash2 size={18} color={colors.error} strokeWidth={2} />
+                <Icon name="delete" size={18} color={colors.error} />
               </View>
             </TouchableOpacity>
           )}
@@ -889,11 +876,10 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: "rgba(255, 215, 0, 0.15)" },
                 ]}
               >
-                <Star
+                <Icon name="star"
                   size={12}
                   color="#FFD700"
                   fill="#FFD700"
-                  strokeWidth={1.5}
                 />
                 <Text style={styles.ratingBadgeText}>
                   {event.averageRating.toFixed(1)}
@@ -938,7 +924,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: `${colors.primary}15` },
                 ]}
               >
-                <Calendar size={22} color={colors.primary} strokeWidth={1.8} />
+                <Icon name="calendar" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text
@@ -991,7 +977,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: `${colors.primary}15` },
                 ]}
               >
-                <MapPin size={22} color={colors.primary} strokeWidth={1.8} />
+                <Icon name="location" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text
@@ -1032,7 +1018,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: `${colors.primary}15` },
                 ]}
               >
-                <Bike size={22} color={colors.primary} strokeWidth={1.8} />
+                <Icon name="bike" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text
@@ -1044,7 +1030,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   Rent a scooter to get there
                 </Text>
               </View>
-              <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />
+              <Icon name="forward" size={20} color={colors.textTertiary} />
             </View>
           </TouchableOpacity>
           <View style={styles.infoCard}>
@@ -1063,7 +1049,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: `${colors.primary}15` },
                 ]}
               >
-                <Users size={22} color={colors.primary} strokeWidth={1.8} />
+                <Icon name="users" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text
@@ -1079,6 +1065,11 @@ export default function EventDetailScreen({ route, navigation }) {
               </View>
             </View>
           </View>
+        </View>
+
+        {/* Community Matching entry — §3 gating (locked → open → closed) */}
+        <View style={{ marginBottom: 16 }}>
+          <MatchingEntryCard event={event} isHost={isCreator} />
         </View>
 
         {(isJoined || isCreator) && (
@@ -1108,10 +1099,9 @@ export default function EventDetailScreen({ route, navigation }) {
                     { backgroundColor: `${colors.primary}25` },
                   ]}
                 >
-                  <MessageCircle
+                  <Icon name="message"
                     size={24}
                     color={colors.primary}
-                    strokeWidth={1.8}
                   />
                 </View>
                 <View style={styles.chatContent}>
@@ -1127,10 +1117,9 @@ export default function EventDetailScreen({ route, navigation }) {
                     Connect with other attendees
                   </Text>
                 </View>
-                <ChevronRight
+                <Icon name="forward"
                   size={24}
                   color={colors.primary}
-                  strokeWidth={2}
                 />
               </View>
             </TouchableOpacity>
@@ -1231,7 +1220,7 @@ export default function EventDetailScreen({ route, navigation }) {
               <View
                 style={[styles.infoIconCircle, { backgroundColor: "rgba(255, 215, 0, 0.2)" }]}
               >
-                <Star size={22} color="#FFD700" fill="#FFD700" strokeWidth={1.8} />
+                <Icon name="star" size={22} color="#FFD700" fill="#FFD700" />
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
@@ -1272,7 +1261,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: `${colors.primary}26` },
                 ]}
               >
-                <Ticket size={22} color={colors.primary} strokeWidth={1.8} />
+                <Icon name="ticket" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
@@ -1282,7 +1271,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   Plans available
                 </Text>
               </View>
-              <ChevronRight size={20} color={colors.primary} strokeWidth={2} />
+              <Icon name="forward" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -1311,7 +1300,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: `${colors.primary}26` },
                 ]}
               >
-                <Users size={22} color={colors.primary} strokeWidth={1.8} />
+                <Icon name="users" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
@@ -1321,7 +1310,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   Follow people you met here
                 </Text>
               </View>
-              <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />
+              <Icon name="forward" size={20} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
         )}
@@ -1350,7 +1339,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: `${colors.primary}26` },
                 ]}
               >
-                <Users size={22} color={colors.primary} strokeWidth={1.8} />
+                <Icon name="users" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
@@ -1360,7 +1349,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   Roster · paid, check-in, no-show, waitlist
                 </Text>
               </View>
-              <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />
+              <Icon name="forward" size={20} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
         )}
@@ -1394,7 +1383,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   { backgroundColor: `${colors.primary}15` },
                 ]}
               >
-                <Users size={22} color={colors.primary} strokeWidth={1.8} />
+                <Icon name="users" size={22} color={colors.primary} />
               </View>
               <View style={styles.infoContent}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
@@ -1404,7 +1393,7 @@ export default function EventDetailScreen({ route, navigation }) {
                   Take attendance / check-in
                 </Text>
               </View>
-              <ChevronRight size={20} color={colors.primary} strokeWidth={2} />
+              <Icon name="forward" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -1447,7 +1436,7 @@ export default function EventDetailScreen({ route, navigation }) {
                         { backgroundColor: `${colors.primary}26` },
                       ]}
                     >
-                      <Sparkles size={22} color={colors.primary} strokeWidth={1.8} />
+                      <Icon name="ai" size={22} color={colors.primary} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
@@ -1483,7 +1472,7 @@ export default function EventDetailScreen({ route, navigation }) {
                       { backgroundColor: `${colors.primary}26` },
                     ]}
                   >
-                    <Sparkles size={22} color={colors.primary} strokeWidth={1.8} />
+                    <Icon name="ai" size={22} color={colors.primary} />
                   </View>
                   <View style={styles.infoContent}>
                     <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
@@ -1493,7 +1482,7 @@ export default function EventDetailScreen({ route, navigation }) {
                       Feature this event
                     </Text>
                   </View>
-                  <ChevronRight size={20} color={colors.primary} strokeWidth={2} />
+                  <Icon name="forward" size={20} color={colors.primary} />
                 </TouchableOpacity>
               );
             })()}
@@ -1666,7 +1655,7 @@ export default function EventDetailScreen({ route, navigation }) {
                 style={styles.qrLinkBtn}
                 onPress={() => setQrVisible(true)}
               >
-                <QrCode size={16} color={colors.primary} strokeWidth={2} />
+                <Icon name="qr" size={16} color={colors.primary} />
                 <Text style={[styles.qrLinkText, { color: colors.primary }]}>
                   My check-in QR
                 </Text>

@@ -1,0 +1,182 @@
+/**
+ * Social posts — feed, likes and comments. The feed is posts from people you
+ * follow (plus yourself), newest first, with blocked users filtered out.
+ * likeCount/commentCount are maintained server-side (functions/social).
+ */
+import {
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  deleteDoc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  limit as qLimit,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db, auth } from "./firebase";
+import { getFollowing } from "./followService";
+import { getBlockedIds } from "./blockService";
+
+const uid = () => auth.currentUser?.uid || null;
+
+const chunk = (arr, n) => {
+  const out = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+};
+
+/** Create a post authored by the current user. */
+export const createPost = async ({ text, images = [] }) => {
+  const me = uid();
+  const body = (text || "").trim();
+  if (!me || (!body && images.length === 0)) return { success: false };
+  try {
+    const userSnap = await getDoc(doc(db, "users", me));
+    const u = userSnap.exists() ? userSnap.data() : {};
+    const ref = await addDoc(collection(db, "posts"), {
+      authorId: me,
+      authorName: u.fullName || u.name || "Someone",
+      authorAvatar: u.avatar ?? null,
+      text: body,
+      images,
+      likeCount: 0,
+      commentCount: 0,
+      createdAt: serverTimestamp(),
+    });
+    return { success: true, id: ref.id };
+  } catch (e) {
+    console.error("❌ createPost:", e);
+    return { success: false, error: e.message };
+  }
+};
+
+/** Feed = posts from people you follow (+ yourself), newest first. */
+export const getFeed = async (max = 50) => {
+  const me = uid();
+  if (!me) return [];
+  try {
+    const [following, blocked] = await Promise.all([getFollowing(), getBlockedIds()]);
+    const authorIds = Array.from(new Set([me, ...following])).filter(
+      (id) => !blocked.includes(id)
+    );
+    const groups = chunk(authorIds, 10);
+    const snaps = await Promise.all(
+      groups.map((g) =>
+        getDocs(
+          query(
+            collection(db, "posts"),
+            where("authorId", "in", g),
+            orderBy("createdAt", "desc"),
+            qLimit(max)
+          )
+        )
+      )
+    );
+    const posts = snaps
+      .flatMap((s) => s.docs.map((d) => ({ id: d.id, ...d.data() })))
+      .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    return posts.slice(0, max);
+  } catch (e) {
+    console.error("❌ getFeed:", e);
+    return [];
+  }
+};
+
+/** Posts by a single user (their profile grid). */
+export const getUserPosts = async (userId, max = 50) => {
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, "posts"),
+        where("authorId", "==", userId),
+        orderBy("createdAt", "desc"),
+        qLimit(max)
+      )
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error("❌ getUserPosts:", e);
+    return [];
+  }
+};
+
+export const getPost = async (postId) => {
+  const s = await getDoc(doc(db, "posts", postId));
+  return s.exists() ? { id: s.id, ...s.data() } : null;
+};
+
+export const deletePost = async (postId) => {
+  try {
+    await deleteDoc(doc(db, "posts", postId));
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+};
+
+// ---- Likes -----------------------------------------------------------------
+const likeRef = (postId, u) => doc(db, "posts", postId, "likes", u);
+
+export const hasLiked = async (postId) => {
+  const me = uid();
+  if (!me) return false;
+  const s = await getDoc(likeRef(postId, me));
+  return s.exists();
+};
+
+export const likePost = async (postId) => {
+  const me = uid();
+  if (!me) return { success: false };
+  await setDoc(likeRef(postId, me), { uid: me, createdAt: serverTimestamp() });
+  return { success: true };
+};
+
+export const unlikePost = async (postId) => {
+  const me = uid();
+  if (!me) return { success: false };
+  await deleteDoc(likeRef(postId, me));
+  return { success: true };
+};
+
+// ---- Comments --------------------------------------------------------------
+export const addComment = async (postId, text) => {
+  const me = uid();
+  const body = (text || "").trim();
+  if (!me || !body) return { success: false };
+  try {
+    const userSnap = await getDoc(doc(db, "users", me));
+    const u = userSnap.exists() ? userSnap.data() : {};
+    await addDoc(collection(db, "posts", postId, "comments"), {
+      authorId: me,
+      authorName: u.fullName || u.name || "Someone",
+      authorAvatar: u.avatar ?? null,
+      text: body,
+      createdAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (e) {
+    console.error("❌ addComment:", e);
+    return { success: false, error: e.message };
+  }
+};
+
+export const subscribeComments = (postId, cb) =>
+  onSnapshot(
+    query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc")),
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => console.error("❌ subscribeComments:", err)
+  );
+
+export const deleteComment = async (postId, commentId) => {
+  try {
+    await deleteDoc(doc(db, "posts", postId, "comments", commentId));
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+};

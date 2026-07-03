@@ -13,6 +13,7 @@ import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import DateField from "../components/DateField";
+import AvailabilityCalendar from "../components/AvailabilityCalendar";
 import { HostBadge } from "../components/primitives";
 import { getVehicle, getProvider, isRangeFree } from "../services/rentalService";
 import { formatCentavos, estimateCheckout } from "../utils/pricing";
@@ -145,6 +146,15 @@ export default function VehicleDetailScreen({ route, navigation }) {
             </Text>
           </View>
         )}
+
+        <Text style={[styles.datesTitle, { color: colors.text }]}>Availability</Text>
+        <AvailabilityCalendar
+          bookedRanges={vehicle.bookedRanges}
+          availableFrom={vehicle.availableFrom}
+          availableUntil={vehicle.availableUntil}
+          selectedStart={startDate}
+          selectedEnd={endDate}
+        />
 
         <Text style={[styles.datesTitle, { color: colors.text }]}>Choose your dates</Text>
         <View style={styles.datesRow}>

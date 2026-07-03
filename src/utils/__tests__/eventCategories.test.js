@@ -32,7 +32,7 @@ describe("eventCategories", () => {
     it("includes the core categories", () => {
       const ids = EVENT_CATEGORIES.map((c) => c.id);
       expect(ids).toEqual(
-        expect.arrayContaining(["social", "sports", "food", "arts", "learning"])
+        expect.arrayContaining(["social", "sports", "food", "arts", "learning", "kids"])
       );
     });
 
@@ -57,6 +57,9 @@ describe("eventCategories", () => {
       expect(normalizeCategory("sport")).toBe("sports");
       expect(normalizeCategory("education")).toBe("learning");
       expect(normalizeCategory("yoga")).toBe("wellness");
+      expect(normalizeCategory("children")).toBe("kids");
+      expect(normalizeCategory("family")).toBe("kids");
+      expect(normalizeCategory("parenting")).toBe("kids");
     });
 
     it("trims whitespace", () => {

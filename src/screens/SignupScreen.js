@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -27,7 +28,6 @@ import SocialAuthButtons from "../components/SocialAuthButtons";
 import { useAuthContext } from "../contexts/AuthContext";
 import SuccessModal from "../components/SuccessModal";
 import BondVibeLogo from "../components/BondVibeLogo";
-import { Eye, EyeOff } from "lucide-react-native";
 
 export default function SignupScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -246,9 +246,9 @@ export default function SignupScreen({ navigation }) {
                   style={styles.eyeButton}
                 >
                   {showPassword ? (
-                    <EyeOff size={20} color={colors.textTertiary} />
+                    <Icon name="hide" size={20} color={colors.textTertiary} />
                   ) : (
-                    <Eye size={20} color={colors.textTertiary} />
+                    <Icon name="view" size={20} color={colors.textTertiary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -414,9 +414,9 @@ export default function SignupScreen({ navigation }) {
                   style={styles.eyeButton}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff size={20} color={colors.textTertiary} />
+                    <Icon name="hide" size={20} color={colors.textTertiary} />
                   ) : (
-                    <Eye size={20} color={colors.textTertiary} />
+                    <Icon name="view" size={20} color={colors.textTertiary} />
                   )}
                 </TouchableOpacity>
               </View>

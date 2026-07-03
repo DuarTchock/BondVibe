@@ -31,11 +31,12 @@ import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import EventImagePicker from "../components/EventImagePicker";
+import SelectDropdown from "../components/SelectDropdown";
 import {
   uploadEventImages,
   deleteEventImage,
 } from "../services/storageService";
-import { EVENT_LANGUAGES } from "../utils/eventCategories";
+import { EVENT_LANGUAGES, EVENT_DURATIONS } from "../utils/eventCategories";
 
 const CATEGORIES = [
   "Social",
@@ -58,6 +59,7 @@ export default function EditEventScreen({ route, navigation }) {
     date: new Date(),
     time: "",
     location: "",
+    durationMinutes: "180",
     maxAttendees: "",
     price: "",
   });
@@ -110,6 +112,7 @@ export default function EditEventScreen({ route, navigation }) {
           date: eventDate,
           time: data.time || "",
           location: data.location || "",
+          durationMinutes: data.durationMinutes?.toString() || "180",
           maxAttendees:
             data.maxAttendees?.toString() || data.maxPeople?.toString() || "",
           price: data.price?.toString() || "",
@@ -370,6 +373,7 @@ export default function EditEventScreen({ route, navigation }) {
         category: form.category,
         language: form.language,
         location: form.location.trim(),
+        durationMinutes: parseInt(form.durationMinutes, 10) || 180,
         maxAttendees: parseInt(form.maxAttendees) || 10,
         maxPeople: parseInt(form.maxAttendees) || 10,
         price: parseFloat(form.price) || 0,
@@ -945,6 +949,16 @@ export default function EditEventScreen({ route, navigation }) {
             />
           </View>
         </View>
+
+        {/* Event length — sets end time; drives when Community Matching opens */}
+        <SelectDropdown
+          label="Event length"
+          value={form.durationMinutes}
+          onValueChange={(v) => setForm({ ...form, durationMinutes: v })}
+          options={EVENT_DURATIONS}
+          placeholder="Select duration"
+          type="default"
+        />
 
         {/* Max People & Price */}
         <View style={styles.rowSection}>

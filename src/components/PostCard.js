@@ -1,0 +1,157 @@
+/**
+ * PostCard — one feed post: author, text, images, like + comment actions, and
+ * an overflow menu (delete own / block author). Used by the feed and detail.
+ */
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from "react-native";
+import Icon from "./Icon";
+import { AvatarDisplay } from "./AvatarPicker";
+import { useTheme } from "../contexts/ThemeContext";
+import { auth } from "../services/firebase";
+import { hasLiked, likePost, unlikePost, deletePost } from "../services/postService";
+import { blockUser } from "../services/blockService";
+
+const normAvatar = (a) =>
+  !a ? null : typeof a === "string" ? { type: "emoji", value: a } : a;
+
+function timeAgo(ts) {
+  const ms = ts?.toMillis ? ts.toMillis() : ts ? new Date(ts).getTime() : 0;
+  if (!ms) return "";
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
+
+export default function PostCard({ post, navigation, onChanged }) {
+  const { colors } = useTheme();
+  const me = auth.currentUser?.uid;
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(post.likeCount || 0);
+
+  useEffect(() => {
+    hasLiked(post.id).then(setLiked);
+  }, [post.id]);
+
+  const toggleLike = async () => {
+    if (liked) {
+      setLiked(false);
+      setLikeCount((c) => Math.max(0, c - 1));
+      await unlikePost(post.id);
+    } else {
+      setLiked(true);
+      setLikeCount((c) => c + 1);
+      await likePost(post.id);
+    }
+  };
+
+  const menu = () => {
+    const opts = [];
+    if (post.authorId === me) {
+      opts.push({
+        text: "Delete post",
+        style: "destructive",
+        onPress: async () => {
+          await deletePost(post.id);
+          onChanged?.();
+        },
+      });
+    } else {
+      opts.push({
+        text: "Block user",
+        style: "destructive",
+        onPress: async () => {
+          await blockUser(post.authorId);
+          onChanged?.();
+        },
+      });
+      opts.push({
+        text: "Report",
+        onPress: () =>
+          navigation?.navigate("Report", { targetUserId: post.authorId }),
+      });
+    }
+    opts.push({ text: "Cancel", style: "cancel" });
+    Alert.alert(post.authorName || "Post", null, opts);
+  };
+
+  const styles = createStyles(colors);
+  return (
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <AvatarDisplay avatar={normAvatar(post.authorAvatar)} size={40} />
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={[styles.author, { color: colors.text }]}>{post.authorName}</Text>
+          <Text style={[styles.time, { color: colors.textTertiary }]}>
+            {timeAgo(post.createdAt)}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={menu} hitSlop={hit}>
+          <Icon name="more" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      {!!post.text && (
+        <Text style={[styles.text, { color: colors.text }]}>{post.text}</Text>
+      )}
+      {Array.isArray(post.images) && post.images.length > 0 && (
+        <Image source={{ uri: post.images[0] }} style={styles.image} />
+      )}
+
+      <View style={styles.actions}>
+        <TouchableOpacity style={styles.action} onPress={toggleLike} hitSlop={hit}>
+          <Icon
+            name="heart"
+            size={22}
+            color={liked ? colors.primary : colors.textSecondary}
+            fill={liked ? colors.primary : "none"}
+          />
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+            {likeCount}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.action}
+          onPress={() => navigation?.navigate("PostDetail", { postId: post.id })}
+          hitSlop={hit}
+        >
+          <Icon name="message" size={21} color={colors.textSecondary} />
+          <Text style={[styles.actionText, { color: colors.textSecondary }]}>
+            {post.commentCount || 0}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const hit = { top: 8, bottom: 8, left: 8, right: 8 };
+
+function createStyles(colors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.borderStrong,
+      borderWidth: 2,
+      borderRadius: 18,
+      padding: 14,
+      marginBottom: 14,
+    },
+    header: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+    author: { fontSize: 15, fontWeight: "700" },
+    time: { fontSize: 12, marginTop: 1 },
+    text: { fontSize: 15, lineHeight: 21, marginBottom: 10 },
+    image: { width: "100%", height: 240, borderRadius: 12, marginBottom: 10 },
+    actions: { flexDirection: "row", gap: 22, marginTop: 2 },
+    action: { flexDirection: "row", alignItems: "center", gap: 6 },
+    actionText: { fontSize: 14, fontWeight: "600" },
+  });
+}

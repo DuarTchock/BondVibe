@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -15,7 +16,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
-import { Check, Trash2, Share2, RotateCcw, Ban, ImagePlus } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import AvatarPicker, { AvatarDisplay } from "../components/AvatarPicker";
@@ -341,12 +341,12 @@ export default function GroupManageScreen({ route, navigation }) {
             </Text>
           </View>
           <TouchableOpacity onPress={handleRegenerate} style={styles.inviteIcon}>
-            <RotateCcw size={18} color={colors.textSecondary} strokeWidth={2} />
+            <Icon name="rotate" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.shareBtn} onPress={handleShareInvite} activeOpacity={0.85}>
           <View style={[styles.shareGlass, { backgroundColor: `${colors.primary}33`, borderColor: `${colors.primary}66` }]}>
-            <Share2 size={18} color={colors.primary} strokeWidth={2} />
+            <Icon name="share" size={18} color={colors.primary} />
             <Text style={[styles.shareText, { color: colors.primary }]}>Share invite</Text>
           </View>
         </TouchableOpacity>
@@ -464,9 +464,9 @@ export default function GroupManageScreen({ route, navigation }) {
                       onPress={() => setBlockTarget(u)}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ban size={18} color="#EF4444" strokeWidth={2} />
+                      <Icon name="block" size={18} color="#EF4444" />
                     </TouchableOpacity>
-                    <Check size={20} color={colors.primary} strokeWidth={2.5} />
+                    <Icon name="check" size={20} color={colors.primary} />
                   </View>
                 ) : (
                   <Text style={{ color: colors.primary, fontWeight: "700" }}>Add</Text>
@@ -477,7 +477,7 @@ export default function GroupManageScreen({ route, navigation }) {
         )}
 
         <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-          <Trash2 size={18} color="#EF4444" strokeWidth={2} />
+          <Icon name="delete" size={18} color="#EF4444" />
           <Text style={styles.deleteText}>Delete group</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -513,7 +513,7 @@ export default function GroupManageScreen({ route, navigation }) {
               maxLength={300}
             />
             <TouchableOpacity style={styles.evidenceBtn} onPress={pickEvidence}>
-              <ImagePlus size={18} color={colors.primary} strokeWidth={2} />
+              <Icon name="imagePlus" size={18} color={colors.primary} />
               <Text style={{ color: colors.primary, fontWeight: "700" }}>
                 {blockEvidence ? "Change evidence" : "Add evidence (optional)"}
               </Text>

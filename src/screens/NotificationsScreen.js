@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -17,7 +18,6 @@ import GradientBackground from "../components/GradientBackground";
 import KeyboardAccessory from "../components/KeyboardAccessory";
 import { auth, db } from "../services/firebase";
 import { subscribeUserGroups, joinGroupByCode } from "../services/hostGroupService";
-import { Users } from "lucide-react-native";
 import {
   getUserNotifications,
   markAsRead,
@@ -497,7 +497,7 @@ export default function NotificationsScreen({ navigation }) {
                   activeOpacity={0.85}
                 >
                   <View style={[styles.groupIcon, { backgroundColor: `${colors.primary}1F` }]}>
-                    <Users size={18} color={colors.primary} strokeWidth={2} />
+                    <Icon name="users" size={18} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.groupName, { color: colors.text }]} numberOfLines={1}>

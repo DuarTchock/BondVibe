@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import * as ImagePicker from "expo-image-picker";
-import { Camera, Image as ImageIcon, X, Check } from "lucide-react-native";
+import Icon from "./Icon";
 import Svg, {
   Circle,
   Rect,
@@ -357,7 +357,7 @@ const EMOJI_AVATARS = [
 ];
 
 const TAB_OPTIONS = [
-  { id: "photo", label: "Photo", icon: Camera },
+  { id: "photo", label: "Photo", icon: "camera" },
   { id: "avatars", label: "Avatars", icon: null },
   { id: "emojis", label: "Emojis", icon: null },
 ];
@@ -495,7 +495,7 @@ export default function AvatarPicker({
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <X size={24} color={colors.textSecondary} strokeWidth={2} />
+                <Icon name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
               <Text style={[styles.title, { color: colors.text }]}>
                 Choose Avatar
@@ -504,7 +504,7 @@ export default function AvatarPicker({
                 onPress={handleConfirm}
                 style={styles.confirmButton}
               >
-                <Check size={24} color={colors.primary} strokeWidth={2.5} />
+                <Icon name="check" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -580,11 +580,7 @@ export default function AvatarPicker({
                       <ActivityIndicator color={colors.primary} />
                     ) : (
                       <>
-                        <ImageIcon
-                          size={32}
-                          color={colors.primary}
-                          strokeWidth={1.5}
-                        />
+                        <Icon name="image" size={32} color={colors.primary} />
                         <Text
                           style={[
                             styles.photoButtonText,
@@ -608,7 +604,7 @@ export default function AvatarPicker({
                     onPress={() => handlePickImage(true)}
                     disabled={uploading}
                   >
-                    <Camera size={32} color={colors.text} strokeWidth={1.5} />
+                    <Icon name="camera" size={32} color={colors.text} />
                     <Text
                       style={[styles.photoButtonText, { color: colors.text }]}
                     >

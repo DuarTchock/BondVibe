@@ -1,33 +1,17 @@
-// Kinlo — Icon system
-// Replaces system emojis (☕ ⛰ 🎵 😊) with lucide-react-native icons the app
-// already depends on, so categories render identically on every device, in brand color.
+// Kinlo — category glyphs. Delegates to the central <Icon> (Notion style) so
+// categories render identically on every device, in brand color.
 
 import React from 'react';
 import { View } from 'react-native';
-import {
-  Coffee, Mountain, Music, UtensilsCrossed, Dumbbell, Palette,
-  Gamepad2, BookOpen, PartyPopper, Sparkles, ShieldCheck, User,
-} from 'lucide-react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import Icon from './Icon';
 
-// category id (as stored in Firestore) -> lucide icon. Extend as needed.
-const CATEGORY_ICON = {
-  coffee: Coffee,
-  outdoor: Mountain,
-  music: Music,
-  food: UtensilsCrossed,
-  sports: Dumbbell,
-  art: Palette,
-  games: Gamepad2,
-  books: BookOpen,
-  nightlife: PartyPopper,
-  other: Sparkles,
-};
-
+// Delegates to the central <Icon> (Notion style) so category glyphs share the
+// same stroke/color rules. The category taxonomy lives in Icon's NAME_TO_COMPONENT.
 export function CategoryIcon({ category, size = 22, color }) {
-  const { colors } = useTheme();
-  const Cmp = CATEGORY_ICON[category] || Sparkles;
-  return <Cmp size={size} color={color || colors.primary} strokeWidth={1.9} />;
+  return (
+    <Icon name={category || 'other'} size={size} color={color} tone="brand" />
+  );
 }
 
 // Keeps the user's chosen emoji, but inside a consistent branded tile.
@@ -47,4 +31,6 @@ export function AvatarFrame({ children, size = 84 }) {
   );
 }
 
-export { ShieldCheck as VerifiedIcon, User as ProfileIcon };
+// Convenience wrappers over the central <Icon> (kept for any external callers).
+export const VerifiedIcon = (props) => <Icon name="verified" {...props} />;
+export const ProfileIcon = (props) => <Icon name="profile" {...props} />;

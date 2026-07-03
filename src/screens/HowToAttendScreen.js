@@ -11,13 +11,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
-import {
-  Ticket,
-  CreditCard,
-  Sparkles,
-  Infinity as InfinityIcon,
-  ChevronRight,
-} from "lucide-react-native";
+import Icon from "../components/Icon";
 import { auth, db } from "../services/firebase";
 import { joinFreeEvent } from "../services/eventJoinService";
 import { useTheme } from "../contexts/ThemeContext";
@@ -113,7 +107,7 @@ export default function HowToAttendScreen({ route, navigation }) {
     membership?.type === MEMBERSHIP_PLAN_TYPES.UNLIMITED;
   const expiry = membership ? getMembershipExpiryDate(membership) : null;
 
-  const Option = ({ icon: Icon, iconColor, title, subtitle, onPress, primary }) => (
+  const Option = ({ icon, iconColor, title, subtitle, onPress, primary }) => (
     <TouchableOpacity
       style={[
         styles.option,
@@ -124,7 +118,7 @@ export default function HowToAttendScreen({ route, navigation }) {
       activeOpacity={0.85}
     >
       <View style={[styles.optionIcon, { backgroundColor: `${iconColor}1F` }]}>
-        <Icon size={22} color={iconColor} strokeWidth={2} />
+        <Icon name={icon} size={22} color={iconColor} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.optionTitle, { color: colors.text }]}>{title}</Text>
@@ -134,7 +128,7 @@ export default function HowToAttendScreen({ route, navigation }) {
           </Text>
         )}
       </View>
-      <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />
+      <Icon name="forward" size={20} color={colors.textTertiary} />
     </TouchableOpacity>
   );
 
@@ -173,7 +167,7 @@ export default function HowToAttendScreen({ route, navigation }) {
           {/* Use membership (active) */}
           {hasActiveMembership && (
             <Option
-              icon={isUnlimited ? InfinityIcon : Ticket}
+              icon={isUnlimited ? "infinity" : "ticket"}
               iconColor={colors.primary}
               primary
               title={isUnlimited ? "Use membership" : "Use 1 class credit"}
@@ -193,7 +187,7 @@ export default function HowToAttendScreen({ route, navigation }) {
           {/* Renew / buy membership (depleted, expired, or none but host sells) */}
           {hostHasPlans && !hasActiveMembership && (
             <Option
-              icon={Sparkles}
+              icon="ai"
               iconColor="#FF9F0A"
               title={
                 membership ? "Renew your membership" : "Get a membership"
@@ -213,7 +207,7 @@ export default function HowToAttendScreen({ route, navigation }) {
 
           {/* Pay with card / join free */}
           <Option
-            icon={CreditCard}
+            icon="payment"
             iconColor="#34C759"
             title={price > 0 ? `Pay $${price} MXN` : "Join for free"}
             subtitle={

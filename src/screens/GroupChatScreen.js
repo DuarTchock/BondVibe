@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -16,7 +17,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { Send, Settings, Ticket, Check, CheckCheck, Music2 } from "lucide-react-native";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -82,12 +82,12 @@ export default function GroupChatScreen({ route, navigation }) {
 
   const TickIcon = ({ status }) => {
     if (status === "read") {
-      return <CheckCheck size={14} color="#34B7F1" strokeWidth={2.5} />;
+      return <Icon name="checkAll" size={14} color="#34B7F1" />;
     }
     if (status === "delivered") {
-      return <CheckCheck size={14} color={colors.textTertiary} strokeWidth={2.5} />;
+      return <Icon name="checkAll" size={14} color={colors.textTertiary} />;
     }
-    return <Check size={14} color={colors.textTertiary} strokeWidth={2.5} />;
+    return <Icon name="check" size={14} color={colors.textTertiary} />;
   };
 
   const openInvite = async () => {
@@ -158,21 +158,21 @@ export default function GroupChatScreen({ route, navigation }) {
             {group?.spotifyUrl ? (
               // Everyone can open the host's playlist in Spotify.
               <TouchableOpacity onPress={() => Linking.openURL(group.spotifyUrl)}>
-                <Music2 size={22} color="#1DB954" strokeWidth={2} />
+                <Icon name="music2" size={22} color="#1DB954" />
               </TouchableOpacity>
             ) : isHost ? (
               // Host without a playlist yet: tap to add one in group settings.
               <TouchableOpacity
                 onPress={() => navigation.navigate("GroupManage", { groupId })}
               >
-                <Music2 size={22} color={colors.textTertiary} strokeWidth={2} />
+                <Icon name="music2" size={22} color={colors.textTertiary} />
               </TouchableOpacity>
             ) : null}
             {isHost ? (
               <TouchableOpacity
                 onPress={() => navigation.navigate("GroupManage", { groupId })}
               >
-                <Settings size={22} color={colors.text} strokeWidth={2} />
+                <Icon name="settings" size={22} color={colors.text} />
               </TouchableOpacity>
             ) : (
               !group?.spotifyUrl && <View style={{ width: 22 }} />
@@ -208,7 +208,7 @@ export default function GroupChatScreen({ route, navigation }) {
                   style={[styles.inviteCard, mine ? styles.mine : styles.theirs]}
                 >
                   <View style={styles.inviteRow}>
-                    <Ticket size={18} color={colors.primary} strokeWidth={2} />
+                    <Icon name="ticket" size={18} color={colors.primary} />
                     <Text style={[styles.inviteTitle, { color: colors.text }]} numberOfLines={2}>
                       {m.data.eventTitle || "Event"}
                     </Text>
@@ -272,7 +272,7 @@ export default function GroupChatScreen({ route, navigation }) {
               onPress={handleSend}
               disabled={!text.trim()}
             >
-              <Send size={20} color="#FFFFFF" strokeWidth={2} />
+              <Icon name="send" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         )}

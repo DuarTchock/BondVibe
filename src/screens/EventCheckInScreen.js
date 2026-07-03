@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -11,7 +12,6 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import { doc, getDoc } from "firebase/firestore";
-import { Check, Ticket, CreditCard } from "lucide-react-native";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -101,9 +101,9 @@ export default function EventCheckInScreen({ route, navigation }) {
           </Text>
           <View style={styles.metaRow}>
             {res ? (
-              <Ticket size={13} color={colors.primary} strokeWidth={2} />
+              <Icon name="ticket" size={13} color={colors.primary} />
             ) : (
-              <CreditCard size={13} color={colors.textTertiary} strokeWidth={2} />
+              <Icon name="payment" size={13} color={colors.textTertiary} />
             )}
             <Text style={[styles.meta, { color: colors.textSecondary }]}>
               {res ? "Membership" : "Paid / Free"}
@@ -129,7 +129,7 @@ export default function EventCheckInScreen({ route, navigation }) {
         )}
         {res && redeemed && (
           <View style={styles.doneBadge}>
-            <Check size={16} color="#34C759" strokeWidth={3} />
+            <Icon name="check" size={16} color="#34C759" />
             <Text style={styles.doneText}>In</Text>
           </View>
         )}

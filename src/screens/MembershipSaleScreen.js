@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Ticket, Calendar, Clock, DollarSign } from "lucide-react-native";
+import Icon from "../components/Icon";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -55,10 +55,10 @@ export default function MembershipSaleScreen({ route, navigation }) {
   const isCredits = m.type === "credits";
   const amount = typeof amountCentavos === "number" ? amountCentavos / 100 : null;
 
-  const Row = ({ icon: Icon, label, value }) => (
+  const Row = ({ icon, label, value }) => (
     <View style={[styles.row, { borderColor: colors.border }]}>
       <View style={[styles.rowIcon, { backgroundColor: `${colors.primary}1F` }]}>
-        <Icon size={18} color={colors.primary} strokeWidth={2} />
+        <Icon name={icon} size={18} color={colors.primary} />
       </View>
       <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{label}</Text>
       <Text style={[styles.rowValue, { color: colors.text }]}>{value}</Text>
@@ -91,24 +91,24 @@ export default function MembershipSaleScreen({ route, navigation }) {
           </View>
 
           <Row
-            icon={Ticket}
+            icon="ticket"
             label="Type"
             value={isCredits ? "Class credits" : "Unlimited"}
           />
           {isCredits && (
             <Row
-              icon={Ticket}
+              icon="ticket"
               label="Credits"
               value={`${m.creditsRemaining ?? m.creditsTotal ?? 0} of ${m.creditsTotal ?? 0} left`}
             />
           )}
           {amount != null && (
-            <Row icon={DollarSign} label="Paid" value={`$${amount.toFixed(2)} MXN`} />
+            <Row icon="dollar" label="Paid" value={`$${amount.toFixed(2)} MXN`} />
           )}
-          <Row icon={Calendar} label="Purchased" value={fmtDate(m.purchasedAt)} />
-          <Row icon={Clock} label="Expires" value={fmtDate(m.expiresAt)} />
+          <Row icon="calendar" label="Purchased" value={fmtDate(m.purchasedAt)} />
+          <Row icon="clock" label="Expires" value={fmtDate(m.expiresAt)} />
           <Row
-            icon={Ticket}
+            icon="ticket"
             label="Status"
             value={(m.status || "active").toUpperCase()}
           />

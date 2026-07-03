@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Icon from "./Icon";
 import {
   View,
   Text,
@@ -11,7 +12,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
-import { Star } from "lucide-react-native";
 import { submitRating } from "../services/ratingService";
 import { getEventCreatorId } from "../utils/eventHelpers";
 
@@ -117,13 +117,12 @@ export default function RatingModal({ visible, onClose, onSuccess, event }) {
                       activeOpacity={0.7}
                       style={styles.starButton}
                     >
-                      <Star
+                      <Icon name="star"
                         size={40}
                         color={
                           star <= displayRating ? "#FFD700" : `${colors.text}30`
                         }
                         fill={star <= displayRating ? "#FFD700" : "transparent"}
-                        strokeWidth={1.5}
                       />
                     </TouchableOpacity>
                   ))}

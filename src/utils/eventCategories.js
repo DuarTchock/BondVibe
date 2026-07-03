@@ -17,6 +17,7 @@ export const EVENT_CATEGORIES = [
   { id: "networking", emoji: "💼", label: "Networking" },
   { id: "pets", emoji: "🐕", label: "Pets" },
   { id: "travel", emoji: "✈️", label: "Travel" },
+  { id: "kids", emoji: "🧸", label: "Kids events" },
 ];
 
 // Simple string array for backwards compatibility
@@ -109,6 +110,14 @@ export const normalizeCategory = (category) => {
     trips: "travel",
     tour: "travel",
     tours: "travel",
+    // Kids events (for parents; the app stays 18+ for users)
+    kids: "kids",
+    kid: "kids",
+    children: "kids",
+    child: "kids",
+    family: "kids",
+    parenting: "kids",
+    "kids events": "kids",
   };
 
   return categoryMap[normalized] || normalized;
@@ -146,6 +155,19 @@ export const getCategoryId = (label) => {
   const category = EVENT_CATEGORIES.find((cat) => cat.label === label);
   return category?.id || label?.toLowerCase();
 };
+
+// Event length options (minutes, as string ids for SelectDropdown). Sets the
+// event end time, which drives the "after event" Community Matching window.
+export const EVENT_DURATIONS = [
+  { id: "60", label: "1 hour" },
+  { id: "90", label: "1.5 hours" },
+  { id: "120", label: "2 hours" },
+  { id: "180", label: "3 hours" },
+  { id: "240", label: "4 hours" },
+  { id: "360", label: "6 hours" },
+  { id: "480", label: "8 hours" },
+  { id: "720", label: "All day" },
+];
 
 // Event language options
 export const EVENT_LANGUAGES = [

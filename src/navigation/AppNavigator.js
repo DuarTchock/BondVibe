@@ -72,6 +72,30 @@ import ActiveRentalScreen from "../screens/ActiveRentalScreen";
 import MyRentalsScreen from "../screens/MyRentalsScreen";
 import MyFleetScreen from "../screens/MyFleetScreen";
 import PublishVehicleScreen from "../screens/PublishVehicleScreen";
+import VehicleBookingsScreen from "../screens/VehicleBookingsScreen";
+// Social layer (feed / posts / DMs)
+import FeedScreen from "../screens/FeedScreen";
+import CreatePostScreen from "../screens/CreatePostScreen";
+import PostDetailScreen from "../screens/PostDetailScreen";
+import DMListScreen from "../screens/DMListScreen";
+import DMChatScreen from "../screens/DMChatScreen";
+// Community Matching (A1–E4)
+import MatchOptInScreen from "../screens/matching/MatchOptInScreen";
+import MatchConsentScreen from "../screens/matching/MatchConsentScreen";
+import MatchProfileScreen from "../screens/matching/MatchProfileScreen";
+import MatchingLockedScreen from "../screens/matching/MatchingLockedScreen";
+import MatchGridScreen from "../screens/matching/MatchGridScreen";
+import MatchPersonScreen from "../screens/matching/MatchPersonScreen";
+import MatchChatScreen from "../screens/matching/MatchChatScreen";
+import PlusPaywallScreen from "../screens/matching/PlusPaywallScreen";
+import PeopleYouMetScreen from "../screens/matching/PeopleYouMetScreen";
+import HostMatchingControlsScreen from "../screens/matching/HostMatchingControlsScreen";
+import HostMatchAnalyticsScreen from "../screens/matching/HostMatchAnalyticsScreen";
+import MatchVisibilityScreen from "../screens/matching/MatchVisibilityScreen";
+import ProUpsellScreen from "../screens/matching/ProUpsellScreen";
+import ProCheckoutScreen from "../screens/matching/ProCheckoutScreen";
+import PlusCheckoutScreen from "../screens/matching/PlusCheckoutScreen";
+import PlusActivatedScreen from "../screens/matching/PlusActivatedScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -418,6 +442,30 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="MyRentals" component={MyRentalsScreen} />
           <Stack.Screen name="MyFleet" component={MyFleetScreen} />
           <Stack.Screen name="PublishVehicle" component={PublishVehicleScreen} />
+          <Stack.Screen name="VehicleBookings" component={VehicleBookingsScreen} />
+          {/* Social layer */}
+          <Stack.Screen name="Feed" component={FeedScreen} />
+          <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+          <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+          <Stack.Screen name="DMList" component={DMListScreen} />
+          <Stack.Screen name="DMChat" component={DMChatScreen} />
+          {/* Community Matching (A1–E4) */}
+          <Stack.Screen name="MatchOptIn" component={MatchOptInScreen} />
+          <Stack.Screen name="MatchConsent" component={MatchConsentScreen} />
+          <Stack.Screen name="MatchProfile" component={MatchProfileScreen} />
+          <Stack.Screen name="MatchingLocked" component={MatchingLockedScreen} />
+          <Stack.Screen name="MatchGrid" component={MatchGridScreen} />
+          <Stack.Screen name="MatchPerson" component={MatchPersonScreen} />
+          <Stack.Screen name="MatchChat" component={MatchChatScreen} />
+          <Stack.Screen name="PlusPaywall" component={PlusPaywallScreen} />
+          <Stack.Screen name="PeopleYouMet" component={PeopleYouMetScreen} />
+          <Stack.Screen name="HostMatchingControls" component={HostMatchingControlsScreen} />
+          <Stack.Screen name="HostMatchAnalytics" component={HostMatchAnalyticsScreen} />
+          <Stack.Screen name="MatchVisibility" component={MatchVisibilityScreen} />
+          <Stack.Screen name="ProUpsell" component={ProUpsellScreen} />
+          <Stack.Screen name="ProCheckout" component={ProCheckoutScreen} />
+          <Stack.Screen name="PlusCheckout" component={PlusCheckoutScreen} />
+          <Stack.Screen name="PlusActivated" component={PlusActivatedScreen} />
         </Stack.Navigator>
       </NavigationContainer>
 

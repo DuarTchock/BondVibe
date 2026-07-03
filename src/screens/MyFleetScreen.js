@@ -95,6 +95,18 @@ export default function MyFleetScreen({ navigation }) {
             <Text style={styles.publishTxt}>+ Publish a scooter</Text>
           </TouchableOpacity>
 
+          {fleet.length > 0 && (
+            <TouchableOpacity
+              style={[styles.bookingsBtn, { borderColor: colors.border }]}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate("VehicleBookings")}
+            >
+              <Text style={[styles.bookingsTxt, { color: colors.text }]}>
+                View bookings
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {fleet.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>🛴</Text>
@@ -158,8 +170,10 @@ function createStyles(colors, isDark) {
     payoutEmoji: { fontSize: 22 },
     payoutTitle: { fontSize: 15, fontWeight: "800" },
     payoutText: { fontSize: 12, marginTop: 2, lineHeight: 16 },
-    publishBtn: { borderRadius: 26, paddingVertical: 15, alignItems: "center", marginBottom: 20 },
+    publishBtn: { borderRadius: 26, paddingVertical: 15, alignItems: "center", marginBottom: 12 },
     publishTxt: { color: "#fff", fontSize: 16, fontWeight: "800" },
+    bookingsBtn: { borderRadius: 26, borderWidth: 1, paddingVertical: 14, alignItems: "center", marginBottom: 20 },
+    bookingsTxt: { fontSize: 15, fontWeight: "700" },
     card: {
       flexDirection: "row", alignItems: "center", gap: 14,
       borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12,

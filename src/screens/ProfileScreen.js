@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -25,28 +26,6 @@ import { BVBadge } from "../components/BoldPop";
 import { AvatarFrame } from "../components/CategoryIcon";
 import { usePremium } from "../hooks/usePremium";
 import ConnectSpotifyButton from "../components/ConnectSpotifyButton";
-import {
-  ChevronLeft,
-  
-  MapPin,
-  Wallet,
-  Gift,
-  CreditCard,
-  Brain,
-  RefreshCw,
-  Moon,
-  Sun,
-  LogOut,
-  ChevronRight,
-  Crown,
-  BadgeCheck,
-  Trash2,
-  Sparkles,
-  Ticket,
-  Bike,
-  BarChart3,
-  Users,
-} from "lucide-react-native";
 
 export default function ProfileScreen({ navigation }) {
   const { colors, isDark, toggleTheme } = useTheme();
@@ -230,7 +209,7 @@ export default function ProfileScreen({ navigation }) {
                   { backgroundColor: "rgba(239, 68, 68, 0.15)" },
                 ]}
               >
-                <LogOut size={32} color="#EF4444" strokeWidth={1.8} />
+                <Icon name="logout" size={32} color="#EF4444" />
               </View>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 Logout
@@ -305,7 +284,7 @@ export default function ProfileScreen({ navigation }) {
                   { backgroundColor: "rgba(239, 68, 68, 0.15)" },
                 ]}
               >
-                <Trash2 size={32} color="#EF4444" strokeWidth={1.8} />
+                <Icon name="delete" size={32} color="#EF4444" />
               </View>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 Delete Account
@@ -369,7 +348,7 @@ export default function ProfileScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ChevronLeft size={28} color={colors.text} strokeWidth={2} />
+          <Icon name="back" size={28} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           Profile
@@ -546,7 +525,7 @@ export default function ProfileScreen({ navigation }) {
                   <BVBadge
                     label="Admin"
                     tone="ink"
-                    icon={<Crown size={13} color={colors.onInk} strokeWidth={2.5} />}
+                    icon={<Icon name="pro" size={13} color={colors.onInk} />}
                   />
                 </View>
               )}
@@ -555,7 +534,7 @@ export default function ProfileScreen({ navigation }) {
                   <BVBadge
                     label="Verified Host"
                     tone="success"
-                    icon={<BadgeCheck size={13} color={colors.onPrimary} strokeWidth={2.5} />}
+                    icon={<Icon name="verified" size={13} color={colors.onPrimary} />}
                   />
                 </View>
               )}
@@ -564,7 +543,7 @@ export default function ProfileScreen({ navigation }) {
                   <BVBadge
                     label="Pro"
                     tone="primary"
-                    icon={<Crown size={13} color={colors.onPrimary} strokeWidth={2.5} />}
+                    icon={<Icon name="pro" size={13} color={colors.onPrimary} />}
                   />
                 </View>
               )}
@@ -643,7 +622,7 @@ export default function ProfileScreen({ navigation }) {
                     },
                   ]}
                 >
-                  <MapPin size={22} color={colors.primary} strokeWidth={1.8} />
+                  <Icon name="location" size={22} color={colors.primary} />
                 </View>
                 <View style={styles.infoContent}>
                   <Text
@@ -689,22 +668,19 @@ export default function ProfileScreen({ navigation }) {
                       ]}
                     >
                       {profile.hostConfig?.type === "paid" ? (
-                        <CreditCard
+                        <Icon name="payment"
                           size={22}
                           color={colors.primary}
-                          strokeWidth={1.8}
                         />
                       ) : profile.hostConfig?.type === "free" ? (
-                        <Gift
+                        <Icon name="gift"
                           size={22}
                           color={colors.primary}
-                          strokeWidth={1.8}
                         />
                       ) : (
-                        <Wallet
+                        <Icon name="wallet"
                           size={22}
                           color={colors.primary}
-                          strokeWidth={1.8}
                         />
                       )}
                     </View>
@@ -726,10 +702,9 @@ export default function ProfileScreen({ navigation }) {
                         {profile.stripeConnect?.status === "active" && " ✓"}
                       </Text>
                     </View>
-                    <ChevronRight
+                    <Icon name="forward"
                       size={20}
                       color={colors.textTertiary}
-                      strokeWidth={2}
                     />
                   </View>
                 </TouchableOpacity>
@@ -768,10 +743,9 @@ export default function ProfileScreen({ navigation }) {
                         },
                       ]}
                     >
-                      <Sparkles
+                      <Icon name="ai"
                         size={22}
                         color={colors.primary}
-                        strokeWidth={1.8}
                       />
                     </View>
                     <View style={styles.infoContent}>
@@ -787,10 +761,9 @@ export default function ProfileScreen({ navigation }) {
                         Choose your host type
                       </Text>
                     </View>
-                    <ChevronRight
+                    <Icon name="forward"
                       size={20}
                       color={colors.primary}
-                      strokeWidth={2}
                     />
                   </View>
                 </TouchableOpacity>
@@ -826,7 +799,7 @@ export default function ProfileScreen({ navigation }) {
                       },
                     ]}
                   >
-                    <Ticket size={22} color={colors.primary} strokeWidth={1.8} />
+                    <Icon name="ticket" size={22} color={colors.primary} />
                   </View>
                   <View style={styles.infoContent}>
                     <Text
@@ -838,10 +811,9 @@ export default function ProfileScreen({ navigation }) {
                       My memberships
                     </Text>
                   </View>
-                  <ChevronRight
+                  <Icon name="forward"
                     size={20}
                     color={colors.textTertiary}
-                    strokeWidth={2}
                   />
                 </View>
               </TouchableOpacity>
@@ -876,7 +848,7 @@ export default function ProfileScreen({ navigation }) {
                       },
                     ]}
                   >
-                    <Bike size={22} color={colors.primary} strokeWidth={1.8} />
+                    <Icon name="bike" size={22} color={colors.primary} />
                   </View>
                   <View style={styles.infoContent}>
                     <Text
@@ -888,10 +860,9 @@ export default function ProfileScreen({ navigation }) {
                       My rentals
                     </Text>
                   </View>
-                  <ChevronRight
+                  <Icon name="forward"
                     size={20}
                     color={colors.textTertiary}
-                    strokeWidth={2}
                   />
                 </View>
               </TouchableOpacity>
@@ -926,7 +897,7 @@ export default function ProfileScreen({ navigation }) {
                       },
                     ]}
                   >
-                    <Bike size={22} color={colors.primary} strokeWidth={1.8} />
+                    <Icon name="bike" size={22} color={colors.primary} />
                   </View>
                   <View style={styles.infoContent}>
                     <Text
@@ -938,10 +909,9 @@ export default function ProfileScreen({ navigation }) {
                       My fleet — rent out my scooter
                     </Text>
                   </View>
-                  <ChevronRight
+                  <Icon name="forward"
                     size={20}
                     color={colors.textTertiary}
-                    strokeWidth={2}
                   />
                 </View>
               </TouchableOpacity>
@@ -977,7 +947,7 @@ export default function ProfileScreen({ navigation }) {
                         },
                       ]}
                     >
-                      <Ticket size={22} color={colors.primary} strokeWidth={1.8} />
+                      <Icon name="ticket" size={22} color={colors.primary} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text
@@ -992,10 +962,9 @@ export default function ProfileScreen({ navigation }) {
                         Manage membership plans
                       </Text>
                     </View>
-                    <ChevronRight
+                    <Icon name="forward"
                       size={20}
                       color={colors.textTertiary}
-                      strokeWidth={2}
                     />
                   </View>
                 </TouchableOpacity>
@@ -1032,7 +1001,7 @@ export default function ProfileScreen({ navigation }) {
                         },
                       ]}
                     >
-                      <Crown size={22} color={colors.primary} strokeWidth={1.8} />
+                      <Icon name="pro" size={22} color={colors.primary} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text
@@ -1044,10 +1013,9 @@ export default function ProfileScreen({ navigation }) {
                         AI, QR, CRM & more
                       </Text>
                     </View>
-                    <ChevronRight
+                    <Icon name="forward"
                       size={20}
                       color={colors.textTertiary}
-                      strokeWidth={2}
                     />
                   </View>
                 </TouchableOpacity>
@@ -1084,7 +1052,7 @@ export default function ProfileScreen({ navigation }) {
                         },
                       ]}
                     >
-                      <BarChart3 size={22} color={colors.primary} strokeWidth={1.8} />
+                      <Icon name="chart" size={22} color={colors.primary} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text
@@ -1096,10 +1064,9 @@ export default function ProfileScreen({ navigation }) {
                         Revenue & members
                       </Text>
                     </View>
-                    <ChevronRight
+                    <Icon name="forward"
                       size={20}
                       color={colors.textTertiary}
-                      strokeWidth={2}
                     />
                   </View>
                 </TouchableOpacity>
@@ -1136,7 +1103,7 @@ export default function ProfileScreen({ navigation }) {
                         },
                       ]}
                     >
-                      <Users size={22} color={colors.primary} strokeWidth={1.8} />
+                      <Icon name="users" size={22} color={colors.primary} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
@@ -1146,7 +1113,7 @@ export default function ProfileScreen({ navigation }) {
                         CRM & re-engagement
                       </Text>
                     </View>
-                    <ChevronRight size={20} color={colors.textTertiary} strokeWidth={2} />
+                    <Icon name="forward" size={20} color={colors.textTertiary} />
                   </View>
                 </TouchableOpacity>
               )}
@@ -1182,7 +1149,7 @@ export default function ProfileScreen({ navigation }) {
                         },
                       ]}
                     >
-                      <Users size={22} color={colors.primary} strokeWidth={1.8} />
+                      <Icon name="users" size={22} color={colors.primary} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text
@@ -1194,10 +1161,9 @@ export default function ProfileScreen({ navigation }) {
                         My community groups
                       </Text>
                     </View>
-                    <ChevronRight
+                    <Icon name="forward"
                       size={20}
                       color={colors.textTertiary}
-                      strokeWidth={2}
                     />
                   </View>
                 </TouchableOpacity>
@@ -1235,7 +1201,7 @@ export default function ProfileScreen({ navigation }) {
                       },
                     ]}
                   >
-                    <Brain size={28} color={colors.primary} strokeWidth={1.8} />
+                    <Icon name="brain" size={28} color={colors.primary} />
                   </View>
                   <View style={styles.quizPromptContent}>
                     <Text
@@ -1253,10 +1219,9 @@ export default function ProfileScreen({ navigation }) {
                       groups
                     </Text>
                   </View>
-                  <ChevronRight
+                  <Icon name="forward"
                     size={24}
                     color={colors.primary}
-                    strokeWidth={2}
                   />
                 </View>
               </TouchableOpacity>
@@ -1280,7 +1245,7 @@ export default function ProfileScreen({ navigation }) {
                     },
                   ]}
                 >
-                  <RefreshCw size={20} color={colors.text} strokeWidth={2} />
+                  <Icon name="refresh" size={20} color={colors.text} />
                   <Text style={[styles.quizRetakeText, { color: colors.text }]}>
                     Retake Personality Quiz
                   </Text>
@@ -1313,9 +1278,9 @@ export default function ProfileScreen({ navigation }) {
                 ]}
               >
                 {isDark ? (
-                  <Moon size={24} color={colors.primary} strokeWidth={1.8} />
+                  <Icon name="moon" size={24} color={colors.primary} />
                 ) : (
-                  <Sun size={24} color={colors.primary} strokeWidth={1.8} />
+                  <Icon name="sun" size={24} color={colors.primary} />
                 )}
               </View>
               <View style={styles.themeInfo}>
@@ -1396,7 +1361,7 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => setShowLogoutModal(true)}
             >
               <View style={styles.logoutGlass}>
-                <LogOut size={20} color="#EF4444" strokeWidth={2} />
+                <Icon name="logout" size={20} color="#EF4444" />
                 <Text style={styles.logoutButtonText}>Logout</Text>
               </View>
             </TouchableOpacity>

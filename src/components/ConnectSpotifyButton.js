@@ -7,6 +7,7 @@
  * EXPO_PUBLIC_SPOTIFY_CLIENT_ID (see services/spotifyService.js for setup).
  */
 import React, { useState, useEffect } from "react";
+import Icon from "./Icon";
 import {
   View,
   Text,
@@ -19,7 +20,6 @@ import {
   useAuthRequest,
   exchangeCodeAsync,
 } from "expo-auth-session";
-import { Music2 } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import { auth } from "../services/firebase";
 import {
@@ -111,7 +111,7 @@ export default function ConnectSpotifyButton({ music, onChange }) {
   return (
     <View style={styles.wrapper}>
       <View style={styles.headerRow}>
-        <Music2 size={18} color="#1DB954" />
+        <Icon name="music2" size={18} color="#1DB954" />
         <Text style={styles.title}>Music taste</Text>
       </View>
 
@@ -159,7 +159,7 @@ export default function ConnectSpotifyButton({ music, onChange }) {
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Music2 size={18} color="#fff" />
+              <Icon name="music2" size={18} color="#fff" />
               <Text style={styles.connectText}>Connect Spotify</Text>
             </>
           )}

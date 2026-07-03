@@ -38,6 +38,18 @@ const {sendBatchPushNotifications} = require("./notifications/pushService");
 // Import event helpers (attendee/creator normalization)
 const {getAttendeeIds, getEventCreatorId} = require("./utils/eventHelpers");
 
+// Community Matching functions (defined in ./matching, re-exported below).
+const matching = require("./matching/matching");
+exports.setMatchingConfig = matching.setMatchingConfig;
+exports.advanceMatchingWindows = matching.advanceMatchingWindows;
+exports.createLikeAndMaybeMatch = matching.createLikeAndMaybeMatch;
+exports.getHostMatchAnalytics = matching.getHostMatchAnalytics;
+
+// Social layer — server-maintained post counts.
+const social = require("./social/social");
+exports.onPostLikeWritten = social.onPostLikeWritten;
+exports.onPostCommentWritten = social.onPostCommentWritten;
+
 /**
  * Look up a user's email (for Stripe receipts). Returns null if unavailable.
  * @param {string} userId
@@ -1573,6 +1585,55 @@ exports.generateEventListing = onCall(
 );
 
 /**
+ * AI icebreakers for a Community Matching pair. Available to either person in a
+ * match; generates a few opener lines from both public match profiles.
+ * data: { matchId, language? }
+ */
+exports.generateIcebreakers = onCall(
+  {secrets: [anthropicKey]},
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+    const {matchId} = request.data || {};
+    const language = (request.data?.language || "en").toString().slice(0, 5);
+    if (!matchId) throw new HttpsError("invalid-argument", "Missing matchId.");
+
+    const chatSnap = await db.collection("matchChats").doc(matchId).get();
+    if (!chatSnap.exists) throw new HttpsError("not-found", "Match not found.");
+    const chat = chatSnap.data();
+    if (!Array.isArray(chat.users) || !chat.users.includes(uid)) {
+      throw new HttpsError("permission-denied", "Not your match.");
+    }
+    const otherUid = chat.users.find((u) => u !== uid);
+
+    const load = async (who) => {
+      const s = await db
+        .collection("matchProfiles").doc(chat.eventId)
+        .collection("attendees").doc(who).get();
+      return s.exists ? s.data() : {};
+    };
+    const [me, them] = await Promise.all([load(uid), load(otherUid)]);
+    const brief = (p) => JSON.stringify({
+      interests: p.interests || [],
+      profession: p.profession || "",
+      lookingFor: p.lookingFor || [],
+      bio: (p.bio || "").slice(0, 200),
+    });
+
+    const system =
+      "You write friendly, non-cheesy icebreaker openers to help two people " +
+      "who matched at an event start a conversation. Return ONLY valid JSON " +
+      "(no markdown fences): {\"icebreakers\": string[]}. 3 short openers " +
+      "(max ~18 words each), specific to their shared interests, never " +
+      `romantic-forward. Write in language code: ${language}.`;
+
+    const result = await callClaudeJSON(
+      system, `Me: ${brief(me)}\nThem: ${brief(them)}`, 500);
+    return {success: true, ...result};
+  },
+);
+
+/**
  * Premium AI: suggest a gracious host reply to an attendee review.
  */
 exports.generateReviewReply = onCall(
@@ -1926,8 +1987,42 @@ exports.adminResetPassword = onCall(async (request) => {
 // BONDVIBE PRO — subscription checkout (Stripe)
 // ============================================
 
-const PRO_PRICE_CENTAVOS = 19900; // $199 MXN / month
 const PRO_RETURN_URL = `https://${process.env.GCLOUD_PROJECT || "bondvibe-dev"}.web.app/pro-return.html`;
+const PLUS_RETURN_URL = PRO_RETURN_URL; // shared neutral return page
+
+// Admin-editable subscription pricing (config/subscriptions). Amounts are in
+// major currency units in Firestore; converted to centavos for Stripe here.
+const SUBSCRIPTION_DEFAULTS = {
+  pro: {amountCentavos: 19900, currency: "mxn", interval: "month"},
+  plus: {amountCentavos: 12900, currency: "mxn", interval: "month"},
+};
+
+/**
+ * Read subscription pricing from config/subscriptions, with defaults.
+ * @return {Promise<{pro:object, plus:object}>} centavos-based pricing per tier
+ */
+async function getSubscriptionPricing() {
+  try {
+    const snap = await db.collection("config").doc("subscriptions").get();
+    if (!snap.exists) return SUBSCRIPTION_DEFAULTS;
+    const d = snap.data() || {};
+    const conv = (tier, def) => {
+      const amt = Number(d?.[tier]?.amount);
+      return {
+        amountCentavos: Number.isFinite(amt) ? Math.round(amt * 100) : def.amountCentavos,
+        currency: (d?.[tier]?.currency || def.currency).toLowerCase(),
+        interval: d?.[tier]?.interval || def.interval,
+      };
+    };
+    return {
+      pro: conv("pro", SUBSCRIPTION_DEFAULTS.pro),
+      plus: conv("plus", SUBSCRIPTION_DEFAULTS.plus),
+    };
+  } catch (e) {
+    console.warn("⚠️ getSubscriptionPricing:", e.message);
+    return SUBSCRIPTION_DEFAULTS;
+  }
+}
 
 /**
  * Create a Stripe Checkout Session (subscription) for BondVibe Pro. Returns the
@@ -1939,6 +2034,7 @@ exports.createProCheckoutSession = onCall({secrets: [stripeSecretKey]}, async (r
   if (!stripe) stripe = require("stripe")(stripeSecretKey.value());
 
   const email = await getUserEmail(uid);
+  const {pro} = await getSubscriptionPricing();
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     client_reference_id: uid,
@@ -1947,12 +2043,12 @@ exports.createProCheckoutSession = onCall({secrets: [stripeSecretKey]}, async (r
       {
         quantity: 1,
         price_data: {
-          currency: "mxn",
-          recurring: {interval: "month"},
-          unit_amount: PRO_PRICE_CENTAVOS,
+          currency: pro.currency,
+          recurring: {interval: pro.interval},
+          unit_amount: pro.amountCentavos,
           product_data: {
-            name: "BondVibe Pro",
-            description: "AI coaching, QR check-in, CRM, co-hosts and more",
+            name: "Kinlo Pro",
+            description: "Community Matching, AI coaching, QR check-in and more",
           },
         },
       },
@@ -1964,6 +2060,64 @@ exports.createProCheckoutSession = onCall({secrets: [stripeSecretKey]}, async (r
     cancel_url: `${PRO_RETURN_URL}?status=cancel`,
   });
   return {url: session.url};
+});
+
+/**
+ * Create a Stripe Checkout Session (subscription) for Kinlo Plus (attendee).
+ * The webhook flips users/{uid}.plan to "kinlo_plus" once payment completes.
+ */
+exports.createPlusCheckoutSession = onCall({secrets: [stripeSecretKey]}, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  if (!stripe) stripe = require("stripe")(stripeSecretKey.value());
+
+  const email = await getUserEmail(uid);
+  const {plus} = await getSubscriptionPricing();
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    client_reference_id: uid,
+    ...(email ? {customer_email: email} : {}),
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: plus.currency,
+          recurring: {interval: plus.interval},
+          unit_amount: plus.amountCentavos,
+          product_data: {
+            name: "Kinlo Plus",
+            description: "Unlimited matches at every event",
+          },
+        },
+      },
+    ],
+    metadata: {type: "plus_subscription", uid},
+    subscription_data: {metadata: {type: "plus_subscription", uid}},
+    allow_promotion_codes: true,
+    success_url: `${PLUS_RETURN_URL}?status=success`,
+    cancel_url: `${PLUS_RETURN_URL}?status=cancel`,
+  });
+  return {url: session.url};
+});
+
+/**
+ * Create a Stripe Billing Portal session so a Kinlo Plus member can manage/cancel.
+ */
+exports.createPlusPortalSession = onCall({secrets: [stripeSecretKey]}, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  if (!stripe) stripe = require("stripe")(stripeSecretKey.value());
+
+  const snap = await db.collection("users").doc(uid).get();
+  const customerId = snap.exists ? snap.data().stripePlusCustomerId : null;
+  if (!customerId) {
+    throw new HttpsError("failed-precondition", "No active subscription found.");
+  }
+  const portal = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: PLUS_RETURN_URL,
+  });
+  return {url: portal.url};
 });
 
 /**

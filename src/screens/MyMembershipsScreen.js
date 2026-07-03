@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -10,7 +11,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ticket } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import {
@@ -71,7 +71,7 @@ export default function MyMembershipsScreen({ navigation }) {
       <View key={m.id} style={styles.card}>
         <View style={styles.cardTop}>
           <View style={styles.iconCircle}>
-            <Ticket size={20} color={colors.primary} strokeWidth={2} />
+            <Icon name="ticket" size={20} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.planName, { color: colors.text }]} numberOfLines={1}>
@@ -143,7 +143,7 @@ export default function MyMembershipsScreen({ navigation }) {
         </View>
       ) : memberships.length === 0 ? (
         <View style={styles.empty}>
-          <Ticket size={48} color={colors.textTertiary} strokeWidth={1.6} />
+          <Icon name="ticket" size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             No memberships yet
           </Text>

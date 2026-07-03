@@ -44,9 +44,11 @@ exports.stripePaymentWebhook = onRequest(
         await handlePaymentSuccess(event.data.object);
         return res.json({received: true, handled: true});
       }
-      // BondVibe Pro subscription lifecycle
+      // Subscription lifecycle — Kinlo Pro (host) + Kinlo Plus (attendee).
+      // Each handler no-ops unless the session/subscription metadata is its tier.
       if (event.type === "checkout.session.completed") {
         await handleProCheckoutCompleted(event.data.object);
+        await handlePlusCheckoutCompleted(event.data.object);
         return res.json({received: true, handled: true});
       }
       if (
@@ -54,6 +56,7 @@ exports.stripePaymentWebhook = onRequest(
         event.type === "customer.subscription.updated"
       ) {
         await handleProSubscriptionChange(event.data.object);
+        await handlePlusSubscriptionChange(event.data.object);
         return res.json({received: true, handled: true});
       }
       return res.json({received: true, handled: false});
@@ -117,6 +120,53 @@ async function handleProSubscriptionChange(subscription) {
     "→ isPremium",
     active,
   );
+}
+
+/**
+ * Kinlo Plus checkout completed → set the attendee's plan to "kinlo_plus"
+ * (unlimited matches) and store the Stripe IDs.
+ * @param {Object} session - Stripe Checkout Session
+ * @return {Promise<void>}
+ */
+async function handlePlusCheckoutCompleted(session) {
+  if (session.mode !== "subscription") return;
+  const meta = session.metadata || {};
+  if (meta.type !== "plus_subscription") return;
+  const uid = meta.uid || session.client_reference_id;
+  if (!uid) return;
+  await db.collection("users").doc(uid).set(
+    {
+      plan: "kinlo_plus",
+      stripePlusCustomerId: session.customer || null,
+      stripePlusSubscriptionId: session.subscription || null,
+      plusSince: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    {merge: true},
+  );
+  console.log("✅ Kinlo Plus activated for", uid);
+}
+
+/**
+ * Kinlo Plus subscription updated/cancelled → keep the plan in sync.
+ * @param {Object} subscription - Stripe Subscription
+ * @return {Promise<void>}
+ */
+async function handlePlusSubscriptionChange(subscription) {
+  const meta = subscription.metadata || {};
+  if (meta.type !== "plus_subscription") return;
+  const uid = meta.uid;
+  if (!uid) return;
+  const active = ["active", "trialing", "past_due"].includes(
+    subscription.status,
+  );
+  await db.collection("users").doc(uid).set(
+    {
+      plan: active ? "kinlo_plus" : "free",
+      stripePlusSubscriptionStatus: subscription.status,
+    },
+    {merge: true},
+  );
+  console.log("🔁 Plus subscription", subscription.status, "for", uid);
 }
 
 /**

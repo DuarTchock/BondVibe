@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Icon from "./Icon";
 import {
   View,
   Text,
@@ -10,7 +11,6 @@ import {
   ScrollView,
 } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
-import { X, ChevronLeft, ChevronRight } from "lucide-react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const GALLERY_HEIGHT = 220;
@@ -123,7 +123,7 @@ export default function EventImageGallery({ images }) {
             style={styles.closeButton}
             onPress={() => setFullscreenVisible(false)}
           >
-            <X size={28} color="#FFFFFF" strokeWidth={2} />
+            <Icon name="close" size={28} color="#FFFFFF" />
           </TouchableOpacity>
 
           {/* Fullscreen Image */}
@@ -140,13 +140,13 @@ export default function EventImageGallery({ images }) {
                 style={[styles.navButton, styles.navLeft]}
                 onPress={goToPrevious}
               >
-                <ChevronLeft size={32} color="#FFFFFF" strokeWidth={2} />
+                <Icon name="back" size={32} color="#FFFFFF" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.navButton, styles.navRight]}
                 onPress={goToNext}
               >
-                <ChevronRight size={32} color="#FFFFFF" strokeWidth={2} />
+                <Icon name="forward" size={32} color="#FFFFFF" />
               </TouchableOpacity>
             </>
           )}

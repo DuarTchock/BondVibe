@@ -11,14 +11,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
-import {
-  Users,
-  Ticket,
-  CalendarCheck,
-  Clock,
-  Star,
-  Sparkles,
-} from "lucide-react-native";
+import Icon from "../components/Icon";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { AvatarDisplay } from "../components/AvatarPicker";
@@ -96,7 +89,7 @@ export default function HostAnalyticsScreen({ navigation }) {
 
   const styles = createStyles(colors, isDark);
 
-  const StatCard = ({ icon: Icon, label, value, accent, onPress }) => (
+  const StatCard = ({ icon, label, value, accent, onPress }) => (
     <TouchableOpacity
       style={styles.statCard}
       onPress={onPress}
@@ -104,7 +97,7 @@ export default function HostAnalyticsScreen({ navigation }) {
       disabled={!onPress}
     >
       <View style={[styles.statIcon, { backgroundColor: `${accent}1F` }]}>
-        <Icon size={20} color={accent} strokeWidth={2} />
+        <Icon name={icon} size={20} color={accent} />
       </View>
       <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
@@ -155,35 +148,35 @@ export default function HostAnalyticsScreen({ navigation }) {
           </Text>
           <View style={styles.statsGrid}>
             <StatCard
-              icon={Users}
+              icon="users"
               label="Active members"
               value={data.activeMembers}
               accent="#34C759"
               onPress={() => navigation.navigate("AnalyticsDetail", { metric: "members" })}
             />
             <StatCard
-              icon={Ticket}
+              icon="ticket"
               label="Memberships sold"
               value={data.membershipsSold}
               accent={colors.primary}
               onPress={() => navigation.navigate("AnalyticsDetail", { metric: "memberships" })}
             />
             <StatCard
-              icon={CalendarCheck}
+              icon="calendarCheck"
               label="Classes attended"
               value={data.classesAttended}
               accent="#0A84FF"
               onPress={() => navigation.navigate("AnalyticsDetail", { metric: "attended" })}
             />
             <StatCard
-              icon={Clock}
+              icon="clock"
               label="Expiring (7 days)"
               value={data.expiringSoonCount}
               accent="#FF9F0A"
               onPress={() => navigation.navigate("AnalyticsDetail", { metric: "expiring" })}
             />
             <StatCard
-              icon={Star}
+              icon="star"
               label={
                 data.hostTotalRatings > 0
                   ? `Rating (${data.hostTotalRatings})`
@@ -216,7 +209,7 @@ export default function HostAnalyticsScreen({ navigation }) {
               {aiLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Sparkles size={15} color={colors.primary} strokeWidth={2} />
+                <Icon name="ai" size={15} color={colors.primary} />
               )}
               <Text style={[styles.aiBtnText, { color: colors.primary }]}>
                 {aiLoading ? "Analyzing…" : "AI tips"}
@@ -305,7 +298,7 @@ export default function HostAnalyticsScreen({ navigation }) {
                         expires {exp ? exp.toLocaleDateString() : "—"}
                       </Text>
                     </View>
-                    <Clock size={16} color="#FF9F0A" strokeWidth={2} />
+                    <Icon name="clock" size={16} color="#FF9F0A" />
                   </View>
                 );
               })}
@@ -319,7 +312,7 @@ export default function HostAnalyticsScreen({ navigation }) {
         <View style={styles.aiOverlay}>
           <View style={[styles.aiCard, { backgroundColor: colors.background }]}>
             <View style={styles.aiCardHead}>
-              <Sparkles size={20} color={colors.primary} strokeWidth={2} />
+              <Icon name="ai" size={20} color={colors.primary} />
               <Text style={[styles.aiTitle, { color: colors.text }]}>
                 AI recommendations
               </Text>

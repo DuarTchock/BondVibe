@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -16,7 +17,6 @@ import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 import SuccessModal from '../components/SuccessModal';
-import { Sparkles } from 'lucide-react-native';
 
 export default function RequestHostScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -134,7 +134,7 @@ export default function RequestHostScreen({ navigation }) {
             backgroundColor: `${colors.primary}1A`,
             borderColor: `${colors.primary}40`,
           }]}>
-            <Sparkles size={40} color={colors.primary} strokeWidth={2} />
+            <Icon name="ai" size={40} color={colors.primary} />
           </View>
           <Text style={[styles.introTitle, { color: colors.text }]}>
             Share Your Passion

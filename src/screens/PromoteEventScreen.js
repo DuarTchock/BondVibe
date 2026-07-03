@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Icon from "../components/Icon";
 import {
   View,
   Text,
@@ -14,7 +15,6 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
-import { Sparkles } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import {
@@ -96,7 +96,7 @@ export default function PromoteEventScreen({ route, navigation }) {
             >
               <View style={styles.hero}>
                 <View style={styles.heroIcon}>
-                  <Sparkles size={26} color={colors.primary} strokeWidth={2} />
+                  <Icon name="ai" size={26} color={colors.primary} />
                 </View>
                 <Text style={[styles.heroTitle, { color: colors.text }]}>
                   Feature your event

@@ -85,6 +85,16 @@ export const uploadGroupPhoto = async (groupId, imageUri) => {
   return getDownloadURL(photoRef);
 };
 
+/** Upload a social post image; returns its URL. */
+export const uploadPostImage = async (userId, imageUri) => {
+  const compressedUri = await compressImage(imageUri);
+  const response = await fetch(compressedUri);
+  const blob = await response.blob();
+  const postRef = ref(storage, `posts/${userId}/${Date.now()}.jpg`);
+  await uploadBytes(postRef, blob);
+  return getDownloadURL(postRef);
+};
+
 /** Upload a moderation-report evidence image; returns its URL. */
 export const uploadReportEvidence = async (groupId, imageUri) => {
   const compressedUri = await compressImage(imageUri);

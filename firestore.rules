@@ -31,6 +31,13 @@ service cloud.firestore {
              (eventData.coHosts != null && request.auth.uid in eventData.coHosts);
     }
 
+    // Community Matching: a user is "checked in" to an event when the host has
+    // recorded their QR check-in. Gates who may read match profiles.
+    function isCheckedIn(eventId) {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/events/$(eventId)/checkins/$(request.auth.uid));
+    }
+
     // An attendee who is NOT the creator — only these users may rate an event.
     function isEventAttendeeNotCreator(eventId) {
       let eventData = get(/databases/$(database)/documents/events/$(eventId)).data;
@@ -52,7 +59,8 @@ service cloud.firestore {
       // set by the user, not even at account creation.
       allow create: if isSignedIn() && isOwner(userId) &&
                        !request.resource.data.keys()
-                          .hasAny(['hostStats', 'carpoolStats', 'isPremium']);
+                          .hasAny(['hostStats', 'carpoolStats', 'isPremium',
+                                   'plan', 'matchCountByEvent']);
 
       // The owner can edit their profile but NOT hostStats/carpoolStats (host
       // ratings + loyalty are computed server-side) nor isPremium (the premium
@@ -63,7 +71,8 @@ service cloud.firestore {
                        (isOwner(userId) &&
                         !request.resource.data.diff(resource.data)
                           .affectedKeys()
-                          .hasAny(['hostStats', 'carpoolStats', 'isPremium'])) ||
+                          .hasAny(['hostStats', 'carpoolStats', 'isPremium',
+                                   'plan', 'matchCountByEvent'])) ||
                        onlyUpdating(['pushToken', 'pushTokenUpdatedAt']);
       
       allow delete: if isOwner(userId) || isAdmin();
@@ -78,6 +87,11 @@ service cloud.firestore {
         allow update: if isSignedIn() && isOwner(userId);
         allow delete: if isSignedIn() && isOwner(userId);
         allow create: if false;
+      }
+
+      // User-to-user blocks — only the owner manages their own block list.
+      match /blocks/{blockedUid} {
+        allow read, write: if isSignedIn() && isOwner(userId);
       }
     }
     
@@ -102,7 +116,7 @@ service cloud.firestore {
                          !request.resource.data.diff(resource.data)
                            .affectedKeys()
                            .hasAny(['featured', 'featuredUntil', 'featuredTier',
-                                    'averageRating', 'totalRatings'])) ||
+                                    'averageRating', 'totalRatings', 'matching'])) ||
                         // Co-hosts can edit content, but not server-owned fields
                         // nor ownership (creatorId/coHosts stay creator-managed).
                         (resource.data.coHosts != null &&
@@ -111,7 +125,7 @@ service cloud.firestore {
                            .affectedKeys()
                            .hasAny(['featured', 'featuredUntil', 'featuredTier',
                                     'averageRating', 'totalRatings',
-                                    'creatorId', 'coHosts'])) ||
+                                    'creatorId', 'coHosts', 'matching'])) ||
                         onlyUpdating(['attendees']) ||
                         onlyUpdating(['attendees', 'waitlist']) ||
                         onlyUpdating(['waitlist']));
@@ -459,6 +473,128 @@ service cloud.firestore {
                       resource.data.ownerId == request.auth.uid ||
                       isAdmin());
       allow create, update, delete: if false;
+    }
+
+    // ============================================
+    // SOCIAL LAYER — posts / likes / comments / DMs / blocks
+    // ============================================
+    // Posts: readable by any signed-in user; authored as yourself. likeCount /
+    // commentCount are aggregates maintained by Cloud Functions (Admin SDK), so
+    // they can't be created/edited by clients.
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       request.resource.data.authorId == request.auth.uid &&
+                       request.resource.data.get('likeCount', 0) == 0 &&
+                       request.resource.data.get('commentCount', 0) == 0;
+      // Author edits only their own text/images (not the aggregate counts).
+      allow update: if isSignedIn() &&
+                       resource.data.authorId == request.auth.uid &&
+                       !request.resource.data.diff(resource.data)
+                         .affectedKeys().hasAny(['likeCount', 'commentCount', 'authorId']);
+      allow delete: if isSignedIn() &&
+                       (resource.data.authorId == request.auth.uid || isAdmin());
+
+      // Likes — one per user; you like/unlike only as yourself.
+      match /likes/{likeUid} {
+        allow read: if isSignedIn();
+        allow create, delete: if isSignedIn() && request.auth.uid == likeUid;
+        allow update: if false;
+      }
+
+      // Comments — authored as yourself; deletable by the comment author, the
+      // post author, or an admin.
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() &&
+                         request.resource.data.authorId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isSignedIn() &&
+                         (resource.data.authorId == request.auth.uid ||
+                          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid ||
+                          isAdmin());
+      }
+    }
+
+    // Direct messages — thread id is the sorted uid pair; only the two
+    // participants can read/write.
+    match /dms/{threadId} {
+      function participants() {
+        return get(/databases/$(database)/documents/dms/$(threadId)).data.users;
+      }
+      allow read: if isSignedIn() &&
+                     resource.data.users != null &&
+                     request.auth.uid in resource.data.users;
+      allow create: if isSignedIn() &&
+                       request.resource.data.users is list &&
+                       request.auth.uid in request.resource.data.users &&
+                       request.resource.data.users.size() == 2;
+      allow update: if isSignedIn() &&
+                       request.auth.uid in resource.data.users;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in participants();
+        allow create: if isSignedIn() &&
+                         request.auth.uid in participants() &&
+                         request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ============================================
+    // COMMUNITY MATCHING (Kinlo Pro feature)
+    // ============================================
+    // Opt-in match profiles per event. Readable only by attendees who checked
+    // in to the SAME event (finer same/opposite-gender visibility is applied in
+    // the grid query); each user writes only their own profile. Hidden or
+    // unavailable profiles aren't exposed to peers (owner still reads their own).
+    match /matchProfiles/{eventId}/attendees/{userId} {
+      allow read: if isSignedIn() &&
+                     (request.auth.uid == userId ||
+                      (isCheckedIn(eventId) &&
+                       resource.data.available == true &&
+                       resource.data.visibility != 'hidden'));
+      allow create, update: if isSignedIn() &&
+                               request.auth.uid == userId &&
+                               request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Likes are PRIVATE. Only Cloud Functions (Admin SDK) read/write them, so
+    // the host can NEVER see who liked whom and the per-event match cap is
+    // enforced atomically server-side (createLikeAndMaybeMatch).
+    match /likes/{eventId}/edges/{edgeId} {
+      allow read, write: if false;
+    }
+
+    // Matches are server-created; only the two people in the pair may read.
+    match /matches/{eventId}/pairs/{matchId} {
+      allow read: if isSignedIn() &&
+                     resource.data.users != null &&
+                     request.auth.uid in resource.data.users;
+      allow create, update, delete: if false;
+    }
+
+    // Match chat — the parent doc (server-created) holds the two members and the
+    // allowMessaging flag; messages are gated by both.
+    match /matchChats/{matchId} {
+      allow read: if isSignedIn() &&
+                     resource.data.users != null &&
+                     request.auth.uid in resource.data.users;
+      allow create, update, delete: if false;
+
+      match /messages/{messageId} {
+        function chat() {
+          return get(/databases/$(database)/documents/matchChats/$(matchId)).data;
+        }
+        allow read: if isSignedIn() && request.auth.uid in chat().users;
+        allow create: if isSignedIn() &&
+                         request.auth.uid in chat().users &&
+                         chat().get('allowMessaging', false) == true &&
+                         request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     // ============================================
