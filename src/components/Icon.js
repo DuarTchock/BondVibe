@@ -98,6 +98,7 @@ import {
   Sun,
   Tent,
   Wallet,
+  Car,
 } from "lucide-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -224,6 +225,8 @@ const NAME_TO_COMPONENT = {
   sun: Sun,
   tent: Tent,
   wallet: Wallet,
+  fleet: Car,
+  car: Car,
 };
 
 /**

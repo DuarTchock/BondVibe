@@ -1,235 +1,174 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import Colors from '../constants/Colors';
-import Sizes from '../constants/Sizes';
+  Linking,
+  Alert,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import GradientBackground from "../components/GradientBackground";
+import Icon from "../components/Icon";
+import { useTheme } from "../contexts/ThemeContext";
 
-export default function SafetyCenterScreen({ navigation }) {
-  return (
-    <ScrollView style={styles.container}>
-      <StatusBar style="dark" />
-      
-      <View style={styles.content}>
-        <Text style={styles.emoji}>🛡️</Text>
-        <Text style={styles.title}>Safety Center</Text>
-        <Text style={styles.subtitle}>
-          Your safety is our priority
-        </Text>
+const EMERGENCY_NUMBER = "911";
 
-        {/* Safety Tips */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Safety Tips</Text>
-          
-          <View style={styles.tip}>
-            <Text style={styles.tipIcon}>👥</Text>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Meet in Public Places</Text>
-              <Text style={styles.tipText}>
-                Always choose well-lit, public venues for first meetings.
-              </Text>
-            </View>
-          </View>
+const TIPS = [
+  { icon: "users", title: "Meet in public places", body: "Choose well-lit, public venues for first meetings with new contacts." },
+  { icon: "user",  title: "Tell someone your plans", body: "Let a trusted friend know where you're going and when to expect you back." },
+  { icon: "lock",  title: "Keep personal info private", body: "Don't share your address or financial details until you feel fully comfortable." },
+  { icon: "heart", title: "Trust your instincts", body: "If something feels off, leave. Your safety is always the priority." },
+];
 
-          <View style={styles.tip}>
-            <Text style={styles.tipIcon}>📱</Text>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Tell a Friend</Text>
-              <Text style={styles.tipText}>
-                Let someone know where you're going and when you'll be back.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.tip}>
-            <Text style={styles.tipIcon}>🚨</Text>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Trust Your Instincts</Text>
-              <Text style={styles.tipText}>
-                If something feels wrong, leave immediately. Your safety comes first.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.tip}>
-            <Text style={styles.tipIcon}>💳</Text>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Keep Personal Info Private</Text>
-              <Text style={styles.tipText}>
-                Don't share your address, financial info, or last name until you feel comfortable.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.tip}>
-            <Text style={styles.tipIcon}>🚗</Text>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Arrange Your Own Transport</Text>
-              <Text style={styles.tipText}>
-                Use your own transportation to and from events.
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Emergency */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>In Case of Emergency</Text>
-          <View style={styles.emergencyBox}>
-            <Text style={styles.emergencyText}>
-              If you feel unsafe or witness concerning behavior:
-            </Text>
-            <Text style={styles.emergencyNumber}>🚨 Call 911 (or local emergency)</Text>
-            <Text style={styles.emergencySubtext}>
-              Your safety is more important than any social situation.
-            </Text>
-          </View>
-        </View>
-
-        {/* Report */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Report Inappropriate Behavior</Text>
-          <Text style={styles.reportText}>
-            If you experience harassment, threats, or inappropriate behavior, please report it immediately.
-          </Text>
-          <TouchableOpacity style={styles.reportButton}>
-            <Text style={styles.reportButtonText}>Report a User</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Contact */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Us</Text>
-          <Text style={styles.contactText}>
-            For non-emergency safety concerns:
-          </Text>
-          <Text style={styles.contactEmail}>safety@bondvibe.com</Text>
-          <Text style={styles.contactNote}>
-            We respond to safety reports within 24 hours.
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
+function callEmergency() {
+  Alert.alert(
+    "Call Emergency Services",
+    `This will dial ${EMERGENCY_NUMBER}. Continue?`,
+    [
+      { text: "Cancel", style: "cancel" },
+      { text: "Call now", style: "destructive", onPress: () => Linking.openURL(`tel:${EMERGENCY_NUMBER}`) },
+    ]
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  content: {
-    padding: Sizes.padding * 2,
-  },
-  emoji: {
-    fontSize: 60,
-    textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: Sizes.fontSize.xlarge,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.textLight,
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  tip: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    backgroundColor: colors.sunken,
-    padding: 16,
-    borderRadius: Sizes.borderRadius,
-  },
-  tipIcon: {
-    fontSize: 32,
-    marginRight: 16,
-  },
-  tipContent: {
-    flex: 1,
-  },
-  tipTitle: {
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  tipText: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-    lineHeight: 20,
-  },
-  emergencyBox: {
-    backgroundColor: '#FFF3F3',
-    padding: 20,
-    borderRadius: Sizes.borderRadius,
-    borderWidth: 1,
-    borderColor: Colors.error,
-  },
-  emergencyText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    marginBottom: 12,
-  },
-  emergencyNumber: {
-    fontSize: Sizes.fontSize.large,
-    fontWeight: 'bold',
-    color: Colors.error,
-    marginBottom: 8,
-  },
-  emergencySubtext: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-  },
-  reportText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  reportButton: {
-    backgroundColor: Colors.error,
-    padding: Sizes.padding,
-    borderRadius: Sizes.borderRadius,
-    alignItems: 'center',
-  },
-  reportButtonText: {
-    color: '#FFFFFF',
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-  },
-  contactText: {
-    fontSize: Sizes.fontSize.medium,
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  contactEmail: {
-    fontSize: Sizes.fontSize.medium,
-    fontWeight: '600',
-    color: Colors.primary,
-    marginBottom: 8,
-  },
-  contactNote: {
-    fontSize: Sizes.fontSize.small,
-    color: Colors.textLight,
-  },
-});
+export default function SafetyCenterScreen({ navigation }) {
+  const { colors, isDark } = useTheme();
+  const s = createStyles(colors);
+
+  return (
+    <GradientBackground>
+      <StatusBar style={isDark ? "light" : "dark"} />
+
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Icon name="back" size={26} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[s.headerTitle, { color: colors.text }]}>Safety Center</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        {/* SOS button */}
+        <TouchableOpacity style={s.sosButton} onPress={callEmergency} activeOpacity={0.8}>
+          <Icon name="bell" size={28} color="#fff" />
+          <View>
+            <Text style={s.sosLabel}>Emergency — Call 911</Text>
+            <Text style={s.sosSub}>Tap to dial emergency services</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Quick actions */}
+        <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>QUICK ACTIONS</Text>
+        <View style={[s.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={s.actionRow}
+            onPress={() => navigation.navigate("Report", {})}
+          >
+            <View style={[s.actionIcon, { backgroundColor: colors.brandSoft }]}>
+              <Icon name="report" size={18} color={colors.primary} />
+            </View>
+            <Text style={[s.actionLabel, { color: colors.text }]}>Report a user</Text>
+            <Icon name="forward" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+          <View style={[s.divider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity
+            style={s.actionRow}
+            onPress={() => Linking.openURL("mailto:safety@kinlo.app")}
+          >
+            <View style={[s.actionIcon, { backgroundColor: colors.brandSoft }]}>
+              <Icon name="message" size={18} color={colors.primary} />
+            </View>
+            <Text style={[s.actionLabel, { color: colors.text }]}>Contact safety team</Text>
+            <Icon name="forward" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Safety tips */}
+        <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>SAFETY TIPS</Text>
+        <View style={[s.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {TIPS.map((tip, i) => (
+            <View key={tip.title}>
+              <View style={s.tipRow}>
+                <View style={[s.actionIcon, { backgroundColor: colors.brandSoft }]}>
+                  <Icon name={tip.icon} size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.tipTitle, { color: colors.text }]}>{tip.title}</Text>
+                  <Text style={[s.tipBody, { color: colors.textSecondary }]}>{tip.body}</Text>
+                </View>
+              </View>
+              {i < TIPS.length - 1 && <View style={[s.divider, { backgroundColor: colors.border }]} />}
+            </View>
+          ))}
+        </View>
+
+        <Text style={[s.footnote, { color: colors.textTertiary }]}>
+          We respond to safety reports within 24 hours.
+        </Text>
+      </ScrollView>
+    </GradientBackground>
+  );
+}
+
+function createStyles(colors) {
+  return StyleSheet.create({
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingTop: 60,
+      paddingBottom: 12,
+    },
+    headerTitle: { fontSize: 18, fontWeight: "700" },
+    content: { paddingHorizontal: 20, paddingBottom: 40, gap: 14 },
+    sosButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 16,
+      backgroundColor: "#D92B3A",
+      borderRadius: 18,
+      padding: 20,
+      marginBottom: 6,
+    },
+    sosLabel: { color: "#fff", fontSize: 17, fontWeight: "700" },
+    sosSub: { color: "rgba(255,255,255,0.75)", fontSize: 13, marginTop: 2 },
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      letterSpacing: 0.8,
+      marginTop: 4,
+    },
+    card: {
+      borderRadius: 16,
+      borderWidth: 1,
+      overflow: "hidden",
+    },
+    actionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 16,
+    },
+    actionIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    actionLabel: { flex: 1, fontSize: 15, fontWeight: "600" },
+    divider: { height: StyleSheet.hairlineWidth, marginLeft: 64 },
+    tipRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      padding: 16,
+    },
+    tipTitle: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
+    tipBody: { fontSize: 13, lineHeight: 18 },
+    footnote: { fontSize: 12, textAlign: "center", marginTop: 4 },
+  });
+}

@@ -36,6 +36,14 @@ import { usePremium } from "../hooks/usePremium";
 import { getFollowers } from "../services/followService";
 import { BRAND } from "../constants/theme-tokens";
 
+const TRAIT_LABELS = {
+  CONSCIENTIOUSNESS: "Conscientiousness",
+  AGREEABLENESS: "Agreeableness",
+  EXTRAVERSION: "Extraversion",
+  NEUROTICISM: "Neuroticism",
+  OPENNESS: "Openness",
+};
+
 export default function ProfileScreen({ navigation }) {
   const { colors, isDark, toggleTheme } = useTheme();
   const { isPremium } = usePremium();
@@ -162,7 +170,10 @@ export default function ProfileScreen({ navigation }) {
   }
 
   const canManageStripe = profile.role === "host" || profile.role === "admin";
-  const isPaidHost = profile.role === "host" && profile.hostConfig?.type === "paid";
+  const canSellMemberships =
+    profile.stripeConnect?.status === "active" ||
+    profile.hostConfig?.type === "paid";
+
   const ratingValue = profile.hostStats?.averageRating
     ? profile.hostStats.averageRating.toFixed(1)
     : "–";
@@ -398,13 +409,13 @@ export default function ProfileScreen({ navigation }) {
                     )}
                   </TouchableOpacity>
 
-                  {isPaidHost && (
+                  {canSellMemberships && (
                     <TouchableOpacity style={[s.toolCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate("MembershipPlans")}>
                       <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
                         <Icon name="ticket" size={20} color={colors.primary} />
                       </View>
                       <Text style={[s.toolTitle, { color: colors.text }]}>Plans</Text>
-                      <Text style={[s.toolSub, { color: colors.textTertiary }]}>Active memberships</Text>
+                      <Text style={[s.toolSub, { color: colors.textTertiary }]}>Membership plans</Text>
                     </TouchableOpacity>
                   )}
 
@@ -423,6 +434,14 @@ export default function ProfileScreen({ navigation }) {
                     <Text style={[s.toolTitle, { color: colors.text }]}>Groups</Text>
                     <Text style={[s.toolSub, { color: colors.textTertiary }]}>Community</Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity style={[s.toolCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate("MyFleet")}>
+                    <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                      <Icon name="fleet" size={20} color={colors.primary} />
+                    </View>
+                    <Text style={[s.toolTitle, { color: colors.text }]}>My Fleet</Text>
+                    <Text style={[s.toolSub, { color: colors.textTertiary }]}>Rental vehicles</Text>
+                  </TouchableOpacity>
                 </View>
               </>
             )}
@@ -439,9 +458,12 @@ export default function ProfileScreen({ navigation }) {
                 <View style={[s.personalityCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   {Object.entries(profile.personality).map(([trait, score]) => (
                     <View key={trait} style={s.traitRow}>
-                      <Text style={[s.traitName, { color: colors.text }]}>
-                        {trait.charAt(0).toUpperCase() + trait.slice(1)}
-                      </Text>
+                      <View style={s.traitHeader}>
+                        <Text style={[s.traitName, { color: colors.text }]}>
+                          {TRAIT_LABELS[trait.toUpperCase()] ?? (trait.charAt(0).toUpperCase() + trait.slice(1).toLowerCase())}
+                        </Text>
+                        <Text style={[s.traitScore, { color: colors.primary }]}>{score}</Text>
+                      </View>
                       <View style={[s.traitBar, { backgroundColor: colors.sunken }]}>
                         <LinearGradient
                           colors={BRAND.gradient}
@@ -450,7 +472,6 @@ export default function ProfileScreen({ navigation }) {
                           style={[s.traitFill, { width: `${score}%` }]}
                         />
                       </View>
-                      <Text style={[s.traitScore, { color: colors.primary }]}>{score}</Text>
                     </View>
                   ))}
                 </View>
@@ -679,11 +700,12 @@ function createStyles(colors, isDark) {
       marginBottom: 20,
       gap: 14,
     },
-    traitRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    traitName: { fontSize: 13, fontWeight: "600", width: 72 },
-    traitBar: { flex: 1, height: 7, borderRadius: 4, overflow: "hidden" },
+    traitRow: { gap: 5 },
+    traitHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    traitName: { fontSize: 12, fontWeight: "600", letterSpacing: 0.2 },
+    traitBar: { height: 7, borderRadius: 4, overflow: "hidden" },
     traitFill: { height: "100%", borderRadius: 4 },
-    traitScore: { fontSize: 13, fontWeight: "700", width: 28, textAlign: "right" },
+    traitScore: { fontSize: 13, fontWeight: "700" },
     personalityPrompt: {
       flexDirection: "row",
       alignItems: "center",

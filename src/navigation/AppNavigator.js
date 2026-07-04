@@ -98,6 +98,9 @@ import ProUpsellScreen from "../screens/matching/ProUpsellScreen";
 import ProCheckoutScreen from "../screens/matching/ProCheckoutScreen";
 import PlusCheckoutScreen from "../screens/matching/PlusCheckoutScreen";
 import PlusActivatedScreen from "../screens/matching/PlusActivatedScreen";
+import ReportScreen from "../screens/ReportScreen";
+import SafetyCenterScreen from "../screens/SafetyCenterScreen";
+import ConversationsScreen from "../screens/ConversationsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -487,6 +490,9 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="ProCheckout" component={ProCheckoutScreen} />
           <Stack.Screen name="PlusCheckout" component={PlusCheckoutScreen} />
           <Stack.Screen name="PlusActivated" component={PlusActivatedScreen} />
+          <Stack.Screen name="Report" component={ReportScreen} />
+          <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen} />
+          <Stack.Screen name="Conversations" component={ConversationsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
 
