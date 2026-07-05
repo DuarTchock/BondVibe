@@ -52,6 +52,10 @@ exports.onPostCommentWritten = social.onPostCommentWritten;
 exports.onPostCreated = social.onPostCreated;
 exports.onFollowCreated = social.onFollowCreated;
 
+// AI Foundation — single gateway to Claude (kinlo_build/ai_features/02).
+const aiFoundation = require("./ai/foundation");
+exports.callClaude = aiFoundation.buildCallClaude(db, anthropicKey);
+
 /**
  * Look up a user's email (for Stripe receipts). Returns null if unavailable.
  * @param {string} userId

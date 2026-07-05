@@ -110,6 +110,7 @@ import SafetyCenterScreen from "../screens/SafetyCenterScreen";
 import ConversationsScreen from "../screens/ConversationsScreen";
 import ManageScreen from "../screens/ManageScreen";
 import SettingsScreen from "../screens/SettingsScreen";
+import AiOptInScreen from "../screens/AiOptInScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -331,7 +332,17 @@ const AppNavigator = forwardRef((props, ref) => {
                   params: { userEmail: user.email, fullName: "Host" },
                 });
               }
-              // 5. All checks passed - go to the tab shell
+              // 5. One-time "Turn on Kinlo AI" opt-in (§2.1) — gates all AI.
+              //    Shown once per account (aiOptIn undefined = never answered).
+              else if (userData.aiOptIn === undefined) {
+                console.log("✨ AI opt-in not answered - navigating to AiOptIn");
+                hasReachedHome.current = true; // don't re-route mid-decision
+                navigateToRoute("AiOptIn", {
+                  user,
+                  params: { fromOnboarding: true },
+                });
+              }
+              // 6. All checks passed - go to the tab shell
               else {
                 console.log("✅ All checks passed - navigating to MainTabs");
                 hasReachedHome.current = true;
@@ -571,6 +582,7 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="SafetyCenter" component={SafetyCenterScreen} />
           <Stack.Screen name="Conversations" component={ConversationsScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="AiOptIn" component={AiOptInScreen} />
         </Stack.Navigator>
       </NavigationContainer>
 
