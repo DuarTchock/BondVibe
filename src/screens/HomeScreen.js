@@ -260,6 +260,19 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Search entry (§2.2) */}
+        <TouchableOpacity
+          style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={() => navigation.navigate("SearchEvents")}
+          activeOpacity={0.8}
+          testID="home-search"
+        >
+          <Icon name="search" size={18} color={colors.textTertiary} />
+          <Text style={[styles.searchPlaceholder, { color: colors.textTertiary }]}>
+            Search events
+          </Text>
+        </TouchableOpacity>
+
         {/* Pending Ratings Section */}
         {pendingRatingEvents.length > 0 && (
           <View style={styles.section}>
@@ -379,6 +392,30 @@ export default function HomeScreen({ navigation }) {
             })}
           </View>
         </View>
+
+        {/* Zero state (§2.2): no featured events near the user yet */}
+        {featuredEvents.length === 0 && (
+          <View style={styles.zeroState}>
+            <Icon name="discover" size={36} color={colors.textTertiary} />
+            <Text style={[styles.zeroTitle, { color: colors.text }]}>
+              No featured events yet
+            </Text>
+            <Text style={[styles.zeroText, { color: colors.textSecondary }]}>
+              Be the first to host something your community will love.
+            </Text>
+            <TouchableOpacity
+              style={[styles.zeroCta, { backgroundColor: colors.primary }]}
+              onPress={() =>
+                canCreateEvents
+                  ? navigation.navigate("CreateEvent")
+                  : navigation.navigate("RequestHost")
+              }
+              activeOpacity={0.85}
+            >
+              <Text style={styles.zeroCtaText}>Host one</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Featured Events */}
         {featuredEvents.length > 0 && (
@@ -599,6 +636,33 @@ function createStyles(colors, isDark) {
     },
     scrollView: { flex: 1 },
     scrollContent: { paddingBottom: 40 },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderRadius: 14,
+      borderWidth: 1,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      marginHorizontal: 24,
+      marginBottom: 20,
+    },
+    searchPlaceholder: { fontSize: 14.5 },
+    zeroState: {
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 40,
+      paddingVertical: 28,
+    },
+    zeroTitle: { fontSize: 16, fontWeight: "700" },
+    zeroText: { fontSize: 13, textAlign: "center", lineHeight: 18 },
+    zeroCta: {
+      borderRadius: 999,
+      paddingHorizontal: 24,
+      paddingVertical: 10,
+      marginTop: 6,
+    },
+    zeroCtaText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
     section: { marginBottom: 28 },
     sectionHeader: {
       flexDirection: "row",
