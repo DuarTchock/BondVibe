@@ -1,8 +1,9 @@
 /**
- * FeedScreen — posts from people you follow (and yourself). Entry points to
- * compose a post and to direct messages.
+ * FeedScreen — the Wall tab: Smart Wall (AI-ranked events with "why you're
+ * seeing this") fused with the social feed (posts from people you follow).
+ * AI unavailable / opted out → plain chronological feed, never fake output.
  */
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,18 +14,136 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
-import { collection, getDocs, query, limit } from "firebase/firestore";
+import { collection, getDocs, query, limit, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import Icon from "../components/Icon";
 import GradientBackground from "../components/GradientBackground";
 import PostCard from "../components/PostCard";
+import AICard, { AIText } from "../components/AICard";
+import AILoadingCard from "../components/AILoadingCard";
+import WhyPill from "../components/WhyPill";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import { useTheme } from "../contexts/ThemeContext";
 import { getFeed } from "../services/postService";
 import { followUser, unfollowUser } from "../services/followService";
+import useClaude from "../hooks/useClaude";
+import useAiOptIn from "../hooks/useAiOptIn";
+import { TYPE, SPACING, RADII, ELEVATION } from "../constants/theme-tokens";
 
 const normAvatar = (a) =>
   !a ? null : typeof a === "string" ? { type: "emoji", value: a } : a;
+
+const WALL_CACHE_TTL_MS = 90 * 60 * 1000; // §10: cache ranking per session
+
+/** Smart Wall header: digest AICard + top ranked event cards with WhyPill. */
+function SmartWallHeader({ navigation }) {
+  const { colors } = useTheme();
+  const { aiOptIn } = useAiOptIn();
+  const { data, loading, fallback } = useClaude(
+    "smart_wall",
+    {},
+    { enabled: aiOptIn, cacheKey: "smart_wall", ttlMs: WALL_CACHE_TTL_MS }
+  );
+  const [events, setEvents] = useState({}); // eventId -> event data
+
+  const top = (data?.feed || []).slice(0, 5);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const missing = top.filter((i) => !events[i.eventId]);
+      if (missing.length === 0) return;
+      const fetched = {};
+      await Promise.all(
+        missing.map(async (i) => {
+          try {
+            const snap = await getDoc(doc(db, "events", i.eventId));
+            if (snap.exists()) fetched[i.eventId] = snap.data();
+          } catch {
+            // skip
+          }
+        })
+      );
+      if (alive && Object.keys(fetched).length) {
+        setEvents((prev) => ({ ...prev, ...fetched }));
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  if (!aiOptIn) return null; // plain feed, no AI chrome
+  if (loading) return <AILoadingCard style={sw.block} />;
+  if (fallback || !data) {
+    // Model unavailable → soft note, plain feed below (never fake output).
+    return (
+      <Text style={[TYPE.caption, sw.fallbackNote, { color: colors.textTertiary }]}>
+        AI picks are taking a break — showing the latest instead.
+      </Text>
+    );
+  }
+
+  return (
+    <View style={sw.block}>
+      <AICard eyebrow="Curated for you by Kinlo AI">
+        <AIText>{data.digest.text}</AIText>
+      </AICard>
+      {top.map((item) => {
+        const ev = events[item.eventId];
+        if (!ev) return null;
+        const when = ev.date
+          ? new Date(ev.date).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })
+          : "";
+        return (
+          <View
+            key={item.eventId}
+            style={[sw.card, ELEVATION.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <WhyPill reason={item.reason} />
+            <Text style={[TYPE.title, { color: colors.text }]} numberOfLines={2}>
+              {ev.title}
+            </Text>
+            <Text style={[TYPE.caption, { color: colors.textSecondary }]}>
+              {when}
+              {ev.city ? ` · ${ev.city}` : ""}
+            </Text>
+            <TouchableOpacity
+              style={[sw.cta, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate("EventDetail", { eventId: item.eventId })}
+              activeOpacity={0.85}
+            >
+              <Text style={[TYPE.label, sw.ctaText]}>I'm in</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const sw = StyleSheet.create({
+  block: { gap: SPACING.md, marginBottom: SPACING.lg },
+  fallbackNote: { textAlign: "center", marginBottom: SPACING.md },
+  card: {
+    borderRadius: RADII.card,
+    borderWidth: 1,
+    padding: SPACING.card,
+    gap: SPACING.sm,
+  },
+  cta: {
+    alignSelf: "flex-start",
+    borderRadius: RADII.pill,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.sm,
+  },
+  ctaText: { color: "#FFFFFF" },
+});
 
 export default function FeedScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -82,8 +201,17 @@ export default function FeedScreen({ navigation }) {
     <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
       {/* Tab root — the AppHeader (✉/🔔) is provided by the tab navigator.
-          Contextual "+" = compose (spec §1.2). */}
+          Contextual "+" = compose (§1.2) · sparkle = Ask Kinlo (§1.6). */}
       <View style={styles.header}>
+        <TouchableOpacity
+          style={[styles.askPill, { backgroundColor: colors.brandSoft }]}
+          onPress={() => navigation.navigate("AskKinlo")}
+          hitSlop={hit}
+          testID="wall-ask-kinlo"
+        >
+          <Icon name="ai" size={14} color={colors.primary} />
+          <Text style={[styles.askPillText, { color: colors.primary }]}>Ask Kinlo</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate("CreatePost")} hitSlop={hit}>
           <Icon name="add" size={26} color={colors.text} />
         </TouchableOpacity>
@@ -95,6 +223,7 @@ export default function FeedScreen({ navigation }) {
         renderItem={({ item }) => (
           <PostCard post={item} navigation={navigation} onChanged={load} />
         )}
+        ListHeaderComponent={<SmartWallHeader navigation={navigation} />}
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />
@@ -183,10 +312,19 @@ function createStyles(colors) {
     header: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "flex-end",
+      justifyContent: "space-between",
       paddingHorizontal: 20,
       paddingBottom: 12,
     },
+    askPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+    },
+    askPillText: { fontSize: 13, fontWeight: "700" },
     list: { paddingHorizontal: 16, paddingBottom: 30, flexGrow: 1 },
     empty: { alignItems: "center", marginTop: 80, paddingHorizontal: 40, gap: 14 },
     emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20 },

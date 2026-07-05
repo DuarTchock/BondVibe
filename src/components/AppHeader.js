@@ -61,7 +61,7 @@ export default function AppHeader({ title, navigation }) {
 
       <View style={styles.actions}>
         <TouchableOpacity
-          onPress={() => navigation.navigate("DMList")}
+          onPress={() => navigation.navigate("Inbox")}
           hitSlop={hit}
           testID="header-messages"
         >

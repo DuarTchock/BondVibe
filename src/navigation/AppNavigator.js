@@ -111,6 +111,8 @@ import ConversationsScreen from "../screens/ConversationsScreen";
 import ManageScreen from "../screens/ManageScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import AiOptInScreen from "../screens/AiOptInScreen";
+import AskKinloScreen from "../screens/AskKinloScreen";
+import InboxScreen from "../screens/InboxScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -583,6 +585,8 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="Conversations" component={ConversationsScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="AiOptIn" component={AiOptInScreen} />
+          <Stack.Screen name="AskKinlo" component={AskKinloScreen} />
+          <Stack.Screen name="Inbox" component={InboxScreen} />
         </Stack.Navigator>
       </NavigationContainer>
 
