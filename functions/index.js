@@ -56,6 +56,11 @@ exports.onFollowCreated = social.onFollowCreated;
 const aiFoundation = require("./ai/foundation");
 exports.callClaude = aiFoundation.buildCallClaude(db, anthropicKey);
 
+// Post-event recap posts (Smart Wall §10).
+const aiRecaps = require("./ai/recaps");
+exports.onRecapPhotoCreated =
+  aiRecaps.buildOnRecapPhotoCreated(db, anthropicKey);
+
 /**
  * Weekly Digest push (ai_features/14) — Mondays: nudge AI-opted-in users
  * that their week is ready. The digest itself is generated on open (one

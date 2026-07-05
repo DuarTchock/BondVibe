@@ -112,6 +112,19 @@ export default function PostCard({ post, navigation, onChanged }) {
         </TouchableOpacity>
       </View>
 
+      {post.type === "recap" && (
+        <View style={styles.recapRow}>
+          <Icon name="ai" size={12} color={colors.primary} />
+          <Text style={[styles.recapEyebrow, { color: colors.primary }]}>
+            EVENT RECAP{post.eventTitle ? ` · ${post.eventTitle.toUpperCase()}` : ""}
+          </Text>
+          {(post.attendeeIds || []).includes(me) && (
+            <View style={[styles.thereBadge, { backgroundColor: "#E1F5EC" }]}>
+              <Text style={styles.thereText}>You were there ✓</Text>
+            </View>
+          )}
+        </View>
+      )}
       {!!post.text && (
         <Text style={[styles.text, { color: colors.text }]}>{post.text}</Text>
       )}
@@ -150,6 +163,16 @@ const hit = { top: 8, bottom: 8, left: 8, right: 8 };
 
 function createStyles(colors) {
   return StyleSheet.create({
+    recapRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 6,
+      marginBottom: 6,
+    },
+    recapEyebrow: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6, flexShrink: 1 },
+    thereBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+    thereText: { fontSize: 10, fontWeight: "700", color: "#1F8A6E" },
     card: {
       backgroundColor: colors.surface,
       borderColor: colors.border,

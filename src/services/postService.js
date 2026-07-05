@@ -77,8 +77,25 @@ export const getFeed = async (max = 50) => {
         )
       )
     );
-    const posts = snaps
-      .flatMap((s) => s.docs.map((d) => ({ id: d.id, ...d.data() })))
+    // Recap posts route to ATTENDEES (not followers): you were there, you
+    // see the recap. No orderBy → no composite index; merged + sorted below.
+    const recapSnap = await getDocs(
+      query(
+        collection(db, "posts"),
+        where("attendeeIds", "array-contains", me),
+        qLimit(20)
+      )
+    ).catch(() => null);
+    const recaps = recapSnap
+      ? recapSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      : [];
+
+    const seen = new Set();
+    const posts = [
+      ...snaps.flatMap((s) => s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      ...recaps,
+    ]
+      .filter((p) => (seen.has(p.id) ? false : seen.add(p.id)))
       .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     return posts.slice(0, max);
   } catch (e) {

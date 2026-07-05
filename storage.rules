@@ -55,6 +55,14 @@ service firebase.storage {
                       isImageUnder(10 * 1024 * 1024);
     }
 
+    // Post-event recap moments — an attendee uploads under their own uid;
+    // Firestore rules additionally require a check-in to register the photo.
+    match /recaps/{eventId}/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId &&
+                      isImageUnder(10 * 1024 * 1024);
+    }
+
     // Everything else is denied by default.
     match /{allPaths=**} {
       allow read, write: if false;

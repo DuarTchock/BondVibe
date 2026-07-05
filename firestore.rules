@@ -158,6 +158,18 @@ service cloud.firestore {
         allow write: if isSignedIn() && isEventHost(eventId);
       }
 
+      // Recap photos (Smart Wall §10) — checked-in attendees share moments
+      // (uploading = explicit consent). The recap post itself is created by
+      // the Cloud Function trigger (Admin SDK).
+      match /recapPhotos/{photoId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() &&
+                         request.resource.data.uid == request.auth.uid &&
+                         exists(/databases/$(database)/documents/events/$(eventId)/checkins/$(request.auth.uid));
+        allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+        allow update: if false;
+      }
+
       // Polls — only the host creates/closes; any participant votes (own vote).
       match /polls/{pollId} {
         allow read: if isSignedIn() && isEventParticipant(eventId);

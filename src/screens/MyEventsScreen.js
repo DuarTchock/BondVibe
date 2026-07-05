@@ -31,6 +31,8 @@ import { getEventCreatorId } from "../utils/eventHelpers";
 import { useFocusEffect } from "@react-navigation/native";
 import RatingModal from "../components/RatingModal";
 import { getUserRatingForEvent } from "../services/ratingService";
+import * as ImagePicker from "expo-image-picker";
+import { hasMyCheckin, shareRecapPhoto } from "../services/recapService";
 
 export default function MyEventsScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
@@ -192,6 +194,35 @@ export default function MyEventsScreen({ navigation, route }) {
     );
     // Update local state to show the rating
     setRatedEvents((prev) => ({ ...prev, [selectedEvent.id]: rating }));
+  };
+
+  // Recap moments (§10): checked-in attendees share a photo — uploading is
+  // the consent (shared with everyone who attended).
+  const handleShareMoment = async (event) => {
+    const checkedIn = await hasMyCheckin(event.id);
+    if (!checkedIn) {
+      Alert.alert(
+        "Check-in required",
+        "Recap moments can only be shared by attendees who checked in at the event."
+      );
+      return;
+    }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+    try {
+      await shareRecapPhoto(event.id, result.assets[0].uri);
+      Alert.alert(
+        "Moment shared 🎉",
+        "It'll appear in the event recap on the Wall, visible to everyone who attended."
+      );
+    } catch (e) {
+      Alert.alert("Couldn't share", e.message || "Please try again.");
+    }
   };
 
   const canHost = currentUser?.role === "host" || currentUser?.role === "admin";
@@ -379,6 +410,25 @@ export default function MyEventsScreen({ navigation, route }) {
                 People you met here
               </Text>
               <Icon name="forward" size={14} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+
+          {/* Recap moment (§10): share a photo into the event recap */}
+          {showRateButton && (
+            <TouchableOpacity
+              style={[styles.metRow, { borderColor: colors.border }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleShareMoment(event);
+              }}
+            >
+              <Icon name="camera" size={16} color={colors.primary} />
+              <Text style={[styles.metText, { color: colors.primary }]}>
+                Share a moment
+              </Text>
+              <Text style={[styles.metHint, { color: colors.textTertiary }]}>
+                seen by attendees
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -774,6 +824,7 @@ function createStyles(colors) {
       paddingTop: 10,
     },
     metText: { fontSize: 13, fontWeight: "700", flexShrink: 1 },
+    metHint: { fontSize: 11 },
     rateButton: {
       borderRadius: 10,
       overflow: "hidden",

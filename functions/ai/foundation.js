@@ -456,6 +456,7 @@ function buildCallClaude(db, anthropicKey) {
 
 module.exports = {
   buildCallClaude,
+  callAnthropic, // reused by the recap trigger
   // exported for unit tests
   getAiConfig,
   consumeBudget,
