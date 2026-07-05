@@ -298,26 +298,6 @@ export default function ProfileScreen({ navigation }) {
               </TouchableOpacity>
             )}
 
-            {/* Host tools now live in Host Mode → Manage (Events tab).
-                A hint card points hosts there. */}
-            {canManageStripe && (
-              <TouchableOpacity
-                style={[s.hostHint, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => navigation.navigate("MainTabs", { screen: "EventsTab" })}
-              >
-                <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
-                  <Icon name="settings" size={18} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.toolTitle, { color: colors.text }]}>Host tools moved</Text>
-                  <Text style={[s.toolSub, { color: colors.textTertiary }]}>
-                    Switch to Hosting in the header → Events tab becomes Manage
-                  </Text>
-                </View>
-                <Icon name="forward" size={18} color={colors.textTertiary} />
-              </TouchableOpacity>
-            )}
-
             {/* ── Personalidad ── */}
             {hasPersonality && (
               <>
@@ -529,16 +509,6 @@ function createStyles(colors, isDark) {
     },
     sectionAction: { fontSize: 13, fontWeight: "600" },
 
-    hostHint: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      borderRadius: 16,
-      borderWidth: 1,
-      padding: 14,
-      marginHorizontal: 20,
-      marginBottom: 20,
-    },
 
     // Tool grid
     toolGrid: {
