@@ -2172,8 +2172,9 @@ exports.adminResetPassword = onCall(async (request) => {
 // BONDVIBE PRO — subscription checkout (Stripe)
 // ============================================
 
-const PRO_RETURN_URL = `https://${process.env.GCLOUD_PROJECT || "bondvibe-dev"}.web.app/pro-return.html`;
-const PLUS_RETURN_URL = PRO_RETURN_URL; // shared neutral return page
+const HOSTING_ORIGIN = `https://${process.env.GCLOUD_PROJECT || "bondvibe-dev"}.web.app`;
+const PRO_RETURN_URL = `${HOSTING_ORIGIN}/pro-return.html`;
+const PLUS_RETURN_URL = `${HOSTING_ORIGIN}/plus-return.html`;
 
 // Admin-editable subscription pricing (config/subscriptions). Amounts are in
 // major currency units in Firestore; converted to centavos for Stripe here.

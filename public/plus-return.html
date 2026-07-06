@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kinlo Pro</title>
+  <title>Kinlo Plus</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; margin: 0; }
@@ -35,21 +35,21 @@
   <div class="card">
     <div class="mark">
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7z" />
-        <path d="M5 20h14" />
+        <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.4L12 15l-1.9-4.6L5.5 9l4.6-1.4L12 3z" />
+        <path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z" />
       </svg>
     </div>
-    <h1 id="title">You're Pro</h1>
-    <p id="msg">Your Kinlo Pro subscription is active. Tap below to return to the app — your Pro features unlock automatically.</p>
+    <h1 id="title">You're on Kinlo Plus</h1>
+    <p id="msg">Your Kinlo Plus subscription is active. Tap below to return to the app — your Plus features unlock automatically.</p>
     <a id="cta" class="btn" href="kinlo://">Return to app</a>
-    <p class="hint">You can manage or cancel anytime from Kinlo Pro → Manage subscription.</p>
+    <p class="hint">You can manage or cancel anytime from Kinlo Plus → Manage subscription.</p>
   </div>
   <script>
     var status = new URLSearchParams(location.search).get("status");
     if (status === "cancel") {
       document.getElementById("title").textContent = "Checkout cancelled";
       document.getElementById("msg").textContent =
-        "No charge was made. Return to the app and go Pro whenever you're ready.";
+        "No charge was made. Return to the app and go Plus whenever you're ready.";
     }
   </script>
 </body>
