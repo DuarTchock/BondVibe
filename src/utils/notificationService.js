@@ -1,6 +1,5 @@
 import {
   collection,
-  addDoc,
   query,
   where,
   getDocs,
@@ -9,9 +8,12 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../services/firebase";
 
-// Crear notificación
+// Crear notificación — routed through the server (Firestore rules deny direct
+// client create). The Cloud Function stamps fromUserId + a server timestamp so
+// the sender can't be spoofed.
 export const createNotification = async (userId, notification) => {
   try {
     // Validar que userId existe
@@ -20,15 +22,14 @@ export const createNotification = async (userId, notification) => {
       return;
     }
 
-    await addDoc(collection(db, "notifications"), {
-      userId,
+    const fn = httpsCallable(getFunctions(), "createNotification");
+    await fn({
+      toUserId: userId,
       type: notification.type,
       title: notification.title,
       message: notification.message,
       icon: notification.icon || "bell",
-      read: false,
       metadata: notification.metadata || {},
-      createdAt: new Date().toISOString(),
     });
     console.log("✅ Notification created for user:", userId);
   } catch (error) {

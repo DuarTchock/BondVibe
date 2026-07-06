@@ -1,8 +1,8 @@
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 /**
- * Send a notification to a user
+ * Send a notification to a user. Routed through the server (Firestore rules
+ * deny direct client create) so the sender can't be spoofed.
  */
 export const sendNotification = async ({
   userId,
@@ -13,17 +13,16 @@ export const sendNotification = async ({
   relatedUserId = null,
 }) => {
   try {
-    await addDoc(collection(db, 'notifications'), {
-      userId,
+    const fn = httpsCallable(getFunctions(), 'createNotification');
+    await fn({
+      toUserId: userId,
       type,
       title,
       body,
       relatedEventId,
       relatedUserId,
-      read: false,
-      createdAt: new Date().toISOString(),
     });
-    
+
     console.log(`✅ Notification sent to ${userId}: ${title}`);
   } catch (error) {
     console.error('Error sending notification:', error);

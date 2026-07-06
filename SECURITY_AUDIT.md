@@ -15,12 +15,14 @@
 > | H7 payment endpoints unauth | **FIXED** — ID-token required; clients send Bearer |
 > | M1 event-create server fields | **FIXED** — averageRating/totalRatings/matching/featured* blocked |
 > | M3 match_intel leak | **FIXED** — re-checks caller check-in + target visibility |
-> | M5 Places key | **MITIGATED** — was already API-restricted to Places; recommend a billing quota + proxy |
+> | M5 Places key | **MITIGATED** — API-restricted to Places; operator TODO: daily quota + optional proxy |
+> | M2 notification spoofing | **FIXED** — server-side `createNotification` (server-set fromUserId); direct create → 403 (verified) |
+> | L1 legacy `conversations` | **FIXED** — screen+route deleted, collection denied; read → 403 (verified) |
 > | L4 SVG content-type | **FIXED** — whitelist png/jpeg/webp/heic |
 > | pushToken cross-write | **FIXED** — cross-user branch may only CLEAR (null), not hijack |
 > | INFO MP webhook signature | **MITIGATED** — handler independently re-fetches the payment from MP's API |
 >
-> **Still open (documented, lower risk):** M2 notification spoofing (needs server-side creation), L1 legacy `conversations` collection (delete the orphaned screen+collection), L3/L5 storage recap-gating/rate-cap. See "Anything else" below.
+> **Follow-up recommendations (7):** all addressed 2026-07-06 — admin custom claim, notifications server-side, conversations deleted, and Stripe-API paid-host verification are **DONE + deployed**; App Check (#2) and Places daily-quota (#6) are **operator console actions** (documented below). See "Anything else" section.
 
 
 
@@ -98,17 +100,19 @@ Attendee core journey driven on the iOS simulator (Maestro): login → 5-tab she
 
 ---
 
-## "Anything else we should fix?" — beyond the audit findings
+## "Anything else we should fix?" — follow-ups (all addressed 2026-07-06)
 
-Fixed above closes every account-takeover / money / PII-exposure hole. Recommended follow-ups (defense-in-depth, not currently exploitable takeovers):
+The 7 defense-in-depth recommendations were all implemented, deployed to bondvibe-dev, and (where a runtime surface exists) live-verified.
 
-1. **Move admin authority to a Firebase Auth custom claim** (`admin:true`) instead of the Firestore `role` field. `role` is now write-restricted so escalation is blocked, but a custom claim is the gold standard — rules read `request.auth.token.admin` and no Firestore field can ever grant admin. (`makeAdmin` would `admin.auth().setCustomUserClaims`.)
-2. **Enable Firebase App Check.** The entire "attacker calls the REST API directly, bypassing the app" threat model is mitigated at the edge if App Check binds API access to genuine, attested app instances. Rules + function auth remain the real boundary, but App Check raises the bar.
-3. **Move notification creation server-side (M2).** Today any authenticated user can write a notification to any user (in-app phishing). The clean fix is Cloud Function triggers (like `onFollowCreated` already does) — remove the client `create` path and set `notifications` create to `if false`.
-4. **Delete the legacy `conversations` collection + orphaned `ConversationsScreen`** (world-readable, unused — DMs use `dms`, which is correctly scoped).
-5. **Paid-host verification (residual).** `users/{uid}/stripeConnect` is owner-writable, so `chargesEnabled` is client-forgeable. The payment price is now server-authoritative (H2), so a buyer can't underpay; but a non-verified host could *create* a paid event. Real payout still requires genuine Stripe onboarding, so impact is low — for full correctness, verify paid-host capability via the Stripe API server-side rather than the client flag.
-6. **Places API key:** set a **daily billing quota** on the Places API (bounds cost if the key is extracted) and consider **proxying Places through a Cloud Function** so the key never ships in the bundle.
-7. **Storage rate/size caps (L5)** and **recap upload check-in gating (L3)** — low priority; the Firestore `recapPhotos` doc is check-in-gated even though the raw Storage object isn't.
+1. **Admin authority → Firebase Auth custom claim** — **DONE.** `isAdmin()` in rules now reads `request.auth.token.admin == true` first (forgery-proof, no doc read), with the write-restricted `role=='admin'` doc kept only as a safe fallback. New `promoteToAdmin`/`revokeAdmin` callables set the claim + keep `role` in sync (admin-gated; self-revoke blocked). `isAdminUid()` (functions) checks the Auth claim first. Existing admins bootstrapped by `scripts/migrate-admin-claims.mjs` (1 admin migrated). **Live-verified:** `promoteToAdmin` as non-admin → 403.
+2. **Firebase App Check** — **DOCUMENTED (operator action, needs native + console).** Enforcement can't be enabled from code alone without the attestation providers registered, or every real client is locked out. Setup checklist: (a) register App Check in the Firebase console with **App Attest** (iOS) and **Play Integrity** (Android); (b) add `expo-firebase-app-check` / native config and call `initializeAppCheck` at startup; (c) turn on **enforcement** for Firestore, Storage, and Functions *after* clients ship the SDK. Rules + function auth remain the real boundary; App Check raises the edge bar. **Not enabled** to avoid breaking the current dev clients.
+3. **Notification creation server-side (M2)** — **DONE.** New `createNotification` callable stamps a trustworthy `fromUserId` + server timestamp; privileged types (`host_approved`/`host_rejected`) are admin-gated. Firestore `notifications` create is now `if false`; both client writers (`utils/notificationService`, `services/notifications`) route through the callable. **Live-verified:** direct REST create → 403; callable legit type → 200 `{ok:true}`; callable `host_approved` as non-admin → 403.
+4. **Legacy `conversations` collection + orphaned screen** — **DONE.** `ConversationsScreen.js` deleted, route + import removed from `AppNavigator`, and the `conversations` rules set to `allow read, write: if false`. **Live-verified:** read of a `conversations` doc → 403.
+5. **Paid-host verification** — **DONE.** All three paid-payment functions (`createEventPaymentIntent`, `createMembershipPaymentIntent`, `reserveVehicle`) now call `stripe/verify.assertCanCharge()`, which retrieves the connected account from the **Stripe API** and checks `charges_enabled` — replacing the client-forgeable `stripeConnect.chargesEnabled` / `hostConfig.canCreatePaidEvents` Firestore flags. Verified by deploy + code review (a live probe needs a Connect test account in a non-chargeable state).
+6. **Places API key** — **DOCUMENTED (operator action).** The key is already API-restricted to `places-backend.googleapis.com`. Remaining hardening is console/billing config: set a **daily quota cap** on the Places API in the Google Cloud console (Quotas), and optionally **proxy Places through a Cloud Function** so the key never ships in the bundle. No code change is safe to make unilaterally here (a wrong quota breaks live autocomplete).
+7. **Storage rate/size caps (L5) + recap check-in gating (L3)** — **PARTIALLY DONE.** Size caps are enforced (5–10 MB per path) and content-types are whitelisted (L4). The Firestore `recapPhotos` doc is already check-in-gated; the raw Storage object isn't (low impact — the object is inert unless a gated Firestore doc references it). Per-user upload *rate* limiting has no Storage-rules primitive and remains an App-Check/Cloud-Function concern (see #2).
 
 ## Deploy state
-All fixes deployed to **bondvibe-dev** (Firestore rules, Storage rules, Cloud Functions). Places key restriction applied in Google Cloud. 119 user docs migrated (PII). Not deployed to prod (you manage releases).
+All fixes deployed to **bondvibe-dev** (Firestore rules, Storage rules, Cloud Functions: `createNotification`, `promoteToAdmin`, `revokeAdmin`, `createEventPaymentIntent`, `createMembershipPaymentIntent`, `reserveVehicle`, `adminListUserEmails`). Admin custom-claim migration run (1 admin). Places key API-restricted in Google Cloud. 119 user docs migrated (PII). 243/243 jest green. Not deployed to prod (you manage releases).
+
+**Operator TODO (not code):** enable App Check enforcement (#2) and set the Places daily quota (#6) from the Firebase/Cloud consoles.

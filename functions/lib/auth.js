@@ -22,10 +22,20 @@ async function verifyBearer(req) {
 }
 
 /**
+ * Admin authority lives primarily in a Firebase Auth custom claim
+ * ({admin:true}) — it's cryptographically bound to the ID token and can't be
+ * self-set. The Firestore `role == 'admin'` doc stays as a fallback (it also
+ * can't be self-elevated: security rules forbid a user writing role:'admin').
  * @param {string} uid
- * @return {Promise<boolean>} whether the uid has role 'admin'
+ * @return {Promise<boolean>} whether the uid is an admin
  */
 async function isAdminUid(uid) {
+  try {
+    const user = await admin.auth().getUser(uid);
+    if (user.customClaims && user.customClaims.admin === true) return true;
+  } catch (e) {
+    // fall through to the Firestore fallback
+  }
   const snap = await admin.firestore().collection("users").doc(uid).get();
   return snap.exists && snap.data().role === "admin";
 }

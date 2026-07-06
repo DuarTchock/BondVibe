@@ -14,9 +14,16 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
+    // Admin authority is primarily a Firebase Auth custom claim ({admin:true})
+    // — forgery-proof and free to check (no document read). The Firestore
+    // role=='admin' fallback covers any admin not yet migrated to a claim; it's
+    // safe because rules forbid a user self-writing role:'admin', so the doc
+    // can only say 'admin' if an existing admin set it.
     function isAdmin() {
-      return isSignedIn() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() &&
+             (request.auth.token.admin == true ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid))
+                .data.role == 'admin');
     }
     
     function isEventParticipant(eventId) {
@@ -371,9 +378,11 @@ service cloud.firestore {
       allow delete: if isSignedIn() && 
                        resource.data.userId == request.auth.uid;
       
-      // Any authenticated user can create notifications
-      // (needed for rating notifications, event join notifications, etc.)
-      allow create: if isSignedIn();
+      // Notifications are created ONLY server-side (the createNotification
+      // Cloud Function, via the Admin SDK). Direct client create is denied so
+      // an attacker can't forge a notification's sender or spoof a victim with
+      // a fake "You're a Verified Host!" message.
+      allow create: if false;
     }
 
     // Crash/error telemetry: write-only for users, admins read in the console.
@@ -406,19 +415,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ============================================
-    // CONVERSATIONS COLLECTION
-    // ============================================
+    // CONVERSATIONS — legacy/removed. DMs live in /dms (participant-scoped).
     match /conversations/{conversationId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if false;
-      
+      allow read, write: if false;
       match /messages/{messageId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn() && 
-                         request.resource.data.senderId == request.auth.uid;
-        allow update, delete: if false;
+        allow read, write: if false;
       }
     }
     

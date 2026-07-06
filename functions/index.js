@@ -74,6 +74,107 @@ exports.adminListUserEmails = onCall(async (request) => {
   return {emails};
 });
 
+// Admin management — grant/revoke admin via a Firebase Auth custom claim
+// (the source of truth) AND keep the Firestore role in sync for UI. Only an
+// existing admin may call these; the very first admin is bootstrapped
+// out-of-band by scripts/migrate-admin-claims.mjs.
+exports.promoteToAdmin = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid || !(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "admin only");
+  }
+  const targetUid = request.data && request.data.targetUid;
+  if (!targetUid || typeof targetUid !== "string") {
+    throw new HttpsError("invalid-argument", "Missing targetUid.");
+  }
+  const user = await admin.auth().getUser(targetUid);
+  await admin.auth().setCustomUserClaims(targetUid, {
+    ...(user.customClaims || {}),
+    admin: true,
+  });
+  await db.collection("users").doc(targetUid)
+    .set({role: "admin"}, {merge: true});
+  return {ok: true};
+});
+
+exports.revokeAdmin = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid || !(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "admin only");
+  }
+  const targetUid = request.data && request.data.targetUid;
+  if (!targetUid || typeof targetUid !== "string") {
+    throw new HttpsError("invalid-argument", "Missing targetUid.");
+  }
+  if (targetUid === uid) {
+    throw new HttpsError("failed-precondition", "Cannot revoke your own admin.");
+  }
+  const user = await admin.auth().getUser(targetUid);
+  const claims = {...(user.customClaims || {})};
+  delete claims.admin;
+  await admin.auth().setCustomUserClaims(targetUid, claims);
+  await db.collection("users").doc(targetUid)
+    .set({role: "user"}, {merge: true});
+  return {ok: true};
+});
+
+// Notifications are created ONLY here (Firestore rules deny direct client
+// create). The server stamps a trustworthy fromUserId + timestamp so a
+// notification's sender can't be spoofed, and privileged types (host
+// approval/rejection) are gated to admins so a random user can't phish a
+// victim with a fake "You're a Verified Host!" message.
+const ADMIN_ONLY_NOTIF_TYPES = new Set([
+  "host_approved",
+  "host_rejected",
+]);
+
+exports.createNotification = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+
+  const d = request.data || {};
+  const toUserId = d.toUserId;
+  const type = d.type;
+  if (!toUserId || typeof toUserId !== "string") {
+    throw new HttpsError("invalid-argument", "Missing toUserId.");
+  }
+  if (!type || typeof type !== "string" || type.length > 64) {
+    throw new HttpsError("invalid-argument", "Invalid type.");
+  }
+  if (ADMIN_ONLY_NOTIF_TYPES.has(type) && !(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "This notification is admin-only.");
+  }
+
+  const str = (v, max) =>
+    v == null ? "" : String(v).slice(0, max);
+  const metadata = {};
+  if (d.metadata && typeof d.metadata === "object" &&
+      !Array.isArray(d.metadata)) {
+    // Shallow-copy scalar entries only; cap size to keep docs small.
+    const keys = Object.keys(d.metadata).slice(0, 20);
+    for (const k of keys) {
+      const val = d.metadata[k];
+      if (val == null || typeof val === "object") continue;
+      metadata[String(k).slice(0, 64)] = str(val, 500);
+    }
+  }
+
+  await db.collection("notifications").add({
+    userId: toUserId,
+    fromUserId: uid,
+    type,
+    title: str(d.title, 200) || "Notification",
+    message: str(d.message != null ? d.message : d.body, 1000),
+    icon: str(d.icon, 40) || "bell",
+    read: false,
+    metadata,
+    relatedEventId: d.relatedEventId ? str(d.relatedEventId, 128) : null,
+    relatedUserId: d.relatedUserId ? str(d.relatedUserId, 128) : null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return {ok: true};
+});
+
 // AI Foundation — single gateway to Claude (kinlo_build/ai_features/02).
 const aiFoundation = require("./ai/foundation");
 exports.callClaude = aiFoundation.buildCallClaude(db, anthropicKey);
@@ -390,20 +491,19 @@ exports.createEventPaymentIntent = onRequest(
         stripeAccountId: stripeAccountId,
       });
 
-      // Check if host has Stripe Connect (for paid events)
-      if (eventPrice > 0 && !stripeAccountId) {
-        return res.status(400).json({
-          error: "Host has not connected their Stripe account",
-          details: "Host must connect Stripe to receive payments",
-        });
-      }
-
-      // Check if host can accept payments
-      if (eventPrice > 0 && !hostData.hostConfig?.canCreatePaidEvents) {
-        return res.status(400).json({
-          error: "Host cannot accept payments yet",
-          details: "Host needs to complete Stripe verification",
-        });
+      // Paid events: verify the host can ACTUALLY accept charges by asking
+      // Stripe — never trust the client-forgeable Firestore flags
+      // (stripeConnect.chargesEnabled / hostConfig.canCreatePaidEvents).
+      if (eventPrice > 0) {
+        const {assertCanCharge} = require("./stripe/verify");
+        try {
+          await assertCanCharge(stripe, stripeAccountId);
+        } catch (e) {
+          return res.status(400).json({
+            error: "Host cannot accept payments yet",
+            details: e.code || "host_payouts_not_ready",
+          });
+        }
       }
 
       // Create Payment Intent with NEW pricing
@@ -596,15 +696,19 @@ exports.createMembershipPaymentIntent = onRequest(
       }
       const hostData = hostDoc.data();
       const stripeAccountId = hostData.stripeConnect?.accountId;
-      if (!stripeAccountId) {
-        return res.status(400).json({
-          error: "Host has not connected their Stripe account",
-        });
-      }
-      if (!hostData.hostConfig?.canCreatePaidEvents) {
-        return res.status(400).json({
-          error: "Host cannot accept payments yet",
-        });
+      // Verify the host can actually charge by asking Stripe — the Firestore
+      // chargesEnabled/canCreatePaidEvents flags are client-forgeable.
+      if (!stripe) stripe = require("stripe")(stripeSecretKey.value());
+      {
+        const {assertCanCharge} = require("./stripe/verify");
+        try {
+          await assertCanCharge(stripe, stripeAccountId);
+        } catch (e) {
+          return res.status(400).json({
+            error: "Host cannot accept payments yet",
+            details: e.code || "host_payouts_not_ready",
+          });
+        }
       }
 
       const {calculateCheckoutAmount, getPricingConfig} = require("./stripe/pricing");
@@ -2305,8 +2409,13 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
       await db.collection("users").doc(pre.ownerId).get() : null;
     const sc = ownerSnap && ownerSnap.exists ? ownerSnap.data().stripeConnect : null;
     hostAccount = sc && sc.accountId ? sc.accountId : null;
-    const canCharge = sc && (sc.chargesEnabled || sc.payoutsEnabled);
-    if (!hostAccount || !canCharge) {
+    // Ask Stripe whether the account can actually charge — the Firestore
+    // chargesEnabled/payoutsEnabled flags are client-forgeable.
+    if (!stripe) stripe = require("stripe")(stripeSecretKey.value());
+    const {assertCanCharge} = require("./stripe/verify");
+    try {
+      await assertCanCharge(stripe, hostAccount);
+    } catch (e) {
       throw new HttpsError("failed-precondition", "host_payouts_not_ready");
     }
   }
