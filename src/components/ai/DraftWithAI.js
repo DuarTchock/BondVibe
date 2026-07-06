@@ -20,6 +20,7 @@ export default function DraftWithAI({ onApply, navigation, placeholder = "Just t
   const [draft, setDraft] = useState(null);
   const [needsPro, setNeedsPro] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const generate = async () => {
     const text = idea.trim();
@@ -27,7 +28,10 @@ export default function DraftWithAI({ onApply, navigation, placeholder = "Just t
     setBusy(true);
     setFailed(false);
     const res = await callClaude("host_copilot", { idea: text });
-    if (res.ok) setDraft(res.data);
+    if (res.ok) {
+      setExpanded(false);
+      setDraft(res.data);
+    }
     else if (res.needsPro) setNeedsPro(true);
     else setFailed(true);
     setBusy(false);
@@ -88,9 +92,22 @@ export default function DraftWithAI({ onApply, navigation, placeholder = "Just t
             <Text style={[TYPE.eyebrow, { color: colors.primary }]}>Claude drafted this</Text>
           </View>
           <Text style={[TYPE.title, { color: colors.text }]}>{draft.title}</Text>
-          <Text style={[TYPE.body, { color: colors.textSecondary }]} numberOfLines={5}>
+          <Text
+            style={[TYPE.body, { color: colors.textSecondary }]}
+            numberOfLines={expanded ? undefined : 5}
+          >
             {draft.description}
           </Text>
+          {(draft.description || "").length > 160 && (
+            <TouchableOpacity
+              onPress={() => setExpanded((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Text style={[TYPE.label, { color: colors.primary }]}>
+                {expanded ? "Show less" : "Show more"}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {(draft.priceSuggestion || draft.turnoutPrediction) && (
             <View style={styles.tiles}>

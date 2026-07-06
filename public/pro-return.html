@@ -16,18 +16,32 @@
     .mark {
       width: 72px; height: 72px; border-radius: 22px; margin: 0 auto 24px;
       background: linear-gradient(135deg, #7C3AED, #C026D3, #FF3E9A);
-      display: flex; align-items: center; justify-content: center; font-size: 34px;
+      display: flex; align-items: center; justify-content: center;
     }
+    .mark svg { width: 38px; height: 38px; stroke: #fff; stroke-width: 2;
+      fill: none; stroke-linecap: round; stroke-linejoin: round; }
     h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 12px; }
     p { color: #b9b1c6; font-size: 16px; line-height: 1.5; }
-    .hint { margin-top: 28px; font-size: 14px; color: #8a8398; }
+    .btn {
+      display: inline-block; margin-top: 32px; padding: 15px 40px;
+      border-radius: 16px; font-size: 17px; font-weight: 700; color: #fff;
+      text-decoration: none; background: linear-gradient(135deg, #7C3AED, #C026D3);
+    }
+    .btn:active { opacity: 0.85; }
+    .hint { margin-top: 24px; font-size: 14px; color: #8a8398; }
   </style>
 </head>
 <body>
   <div class="card">
-    <div class="mark">👑</div>
-    <h1 id="title">You're Pro 🎉</h1>
-    <p id="msg">Your BondVibe Pro subscription is active. You can close this tab and return to the app — your Pro features unlock automatically.</p>
+    <div class="mark">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7z" />
+        <path d="M5 20h14" />
+      </svg>
+    </div>
+    <h1 id="title">You're Pro</h1>
+    <p id="msg">Your BondVibe Pro subscription is active. Tap below to return to the app — your Pro features unlock automatically.</p>
+    <a id="cta" class="btn" href="kinlo://">Return to app</a>
     <p class="hint">You can manage or cancel anytime from BondVibe Pro → Manage subscription.</p>
   </div>
   <script>
@@ -35,7 +49,7 @@
     if (status === "cancel") {
       document.getElementById("title").textContent = "Checkout cancelled";
       document.getElementById("msg").textContent =
-        "No charge was made. You can return to the app and go Pro whenever you're ready.";
+        "No charge was made. Return to the app and go Pro whenever you're ready.";
     }
   </script>
 </body>

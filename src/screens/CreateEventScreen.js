@@ -46,8 +46,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import RecurrenceModal from "../components/RecurrenceModal";
 import { generateRecurringDates, getRecurrenceSummary } from "../utils/recurrenceUtils";
-import { usePremium } from "../hooks/usePremium";
-import { generateEventListing, isPremiumRequired } from "../services/aiService";
 import DraftWithAI from "../components/ai/DraftWithAI";
 
 // Recurrence handled by modal
@@ -62,33 +60,6 @@ export default function CreateEventScreen({ navigation }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("social");
-  const [aiGenLoading, setAiGenLoading] = useState(false);
-  const { isPremium } = usePremium();
-
-  const handleGenerateListing = async () => {
-    const idea = (description || title).trim();
-    if (!idea) {
-      Alert.alert(
-        "Write an idea first",
-        "Add a sentence about your event (or a title) and AI will generate a catchy title and description."
-      );
-      return;
-    }
-    setAiGenLoading(true);
-    const r = await generateEventListing(idea, selectedCategory);
-    setAiGenLoading(false);
-    if (r.success) {
-      if (Array.isArray(r.titles) && r.titles[0]) setTitle(r.titles[0]);
-      if (r.description) setDescription(r.description);
-    } else if (isPremiumRequired(r)) {
-      Alert.alert("Pro feature", "The AI generator is part of Kinlo Pro.", [
-        { text: "Not now", style: "cancel" },
-        { text: "See Pro", onPress: () => navigation.navigate("BondVibePro") },
-      ]);
-    } else {
-      Alert.alert("Couldn't generate", r.error || "Please try again.");
-    }
-  };
   const [selectedLanguages, setSelectedLanguages] = useState(["es", "en"]);
   const [selectedCity, setSelectedCity] = useState("tulum");
 
@@ -829,26 +800,6 @@ export default function CreateEventScreen({ navigation }) {
           <Text style={[styles.charCount, { color: colors.textTertiary }]}>
             {description.length}/500
           </Text>
-          <TouchableOpacity
-            style={[
-              styles.aiGenBtn,
-              { borderColor: `${colors.primary}66`, backgroundColor: `${colors.primary}12` },
-            ]}
-            onPress={handleGenerateListing}
-            disabled={aiGenLoading}
-            activeOpacity={0.85}
-          >
-            {aiGenLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <>
-                <Icon name="ai" size={14} color={colors.primary} />
-                <Text style={[styles.aiGenText, { color: colors.primary }]}>
-                  Generate title & description with AI
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
 
         {/* Category Dropdown */}
@@ -1400,17 +1351,6 @@ function createStyles(colors) {
     textAreaWrapper: { borderWidth: 1, borderRadius: 16, padding: 16 },
     textArea: { fontSize: 16, minHeight: 100 },
     charCount: { fontSize: 12, marginTop: 8, textAlign: "right" },
-    aiGenBtn: {
-      marginTop: 10,
-      borderWidth: 1,
-      borderRadius: 14,
-      paddingVertical: 12,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-    },
-    aiGenText: { fontSize: 14, fontWeight: "700" },
     toggleRow: { flexDirection: "row", gap: 12 },
     toggleButton: {
       flex: 1,
