@@ -25,6 +25,7 @@ import { detectProhibitedContent, PROHIBITED_MESSAGE } from "../utils/contentGua
 import { reportProhibitedContent } from "../services/reportService";
 import CarpoolCard from "../components/CarpoolCard";
 import KeyboardAccessory from "../components/KeyboardAccessory";
+import PlaceAutocomplete from "../components/PlaceAutocomplete";
 import { createCarpool } from "../services/carpoolService";
 import { useTheme } from "../contexts/ThemeContext";
 import { auth , db } from "../services/firebase";
@@ -55,6 +56,7 @@ export default function EventChatScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [typingUsers, setTypingUsers] = useState([]);
   const [sendingLocation, setSendingLocation] = useState(false);
+  const [showPlaceSearch, setShowPlaceSearch] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [pollModalVisible, setPollModalVisible] = useState(false);
   const [pollQuestion, setPollQuestion] = useState("");
@@ -311,7 +313,49 @@ export default function EventChatScreen({ route, navigation }) {
     }, 8000);
   };
 
-  const handleShareLocation = async () => {
+  // Ask first — don't dump the raw GPS fix into the chat on a single tap.
+  // Offer searching for a specific place, or sharing the current location.
+  const promptShareLocation = () => {
+    Alert.alert(
+      "Share location",
+      "Search for a place, or share your current location?",
+      [
+        { text: "Search a place", onPress: () => setShowPlaceSearch(true) },
+        { text: "Current location", onPress: shareCurrentLocation },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  // Send a place picked from the Places search.
+  const handlePlaceSelected = async (place) => {
+    setShowPlaceSearch(false);
+    const { latitude, longitude, address, description } = place || {};
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      Alert.alert(
+        "No map location",
+        "That place didn't return coordinates. Try another search."
+      );
+      return;
+    }
+    try {
+      setSendingLocation(true);
+      await sendLocationMessage(
+        `event_${eventId}`,
+        auth.currentUser.uid,
+        latitude,
+        longitude,
+        address || description || null
+      );
+    } catch (error) {
+      console.error("Error sharing place:", error);
+      Alert.alert("Error", "Could not share that place. Please try again.");
+    } finally {
+      setSendingLocation(false);
+    }
+  };
+
+  const shareCurrentLocation = async () => {
     try {
       setSendingLocation(true);
 
@@ -791,7 +835,7 @@ export default function EventChatScreen({ route, navigation }) {
         >
           <TouchableOpacity
             style={styles.locationButton}
-            onPress={handleShareLocation}
+            onPress={promptShareLocation}
             disabled={sendingLocation}
           >
             {sendingLocation ? (
@@ -1003,6 +1047,14 @@ export default function EventChatScreen({ route, navigation }) {
         </View>
         <KeyboardAccessory />
       </Modal>
+
+      {/* Places search launched from the "share location" prompt */}
+      <PlaceAutocomplete
+        open={showPlaceSearch}
+        onOpenChange={setShowPlaceSearch}
+        onSelect={handlePlaceSelected}
+        placeholder="Search a place to share…"
+      />
     </KeyboardAvoidingView>
   );
 }

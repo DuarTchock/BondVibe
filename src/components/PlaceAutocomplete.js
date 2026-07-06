@@ -48,9 +48,17 @@ export default function PlaceAutocomplete({
   onSelect,
   placeholder = "Search a place…",
   label,
+  // Optional controlled-open mode: when `open` is provided the parent drives
+  // visibility (and no trigger field is rendered) — used to launch the search
+  // from elsewhere, e.g. the chat "share location" prompt.
+  open: openProp,
+  onOpenChange,
 }) {
   const { colors } = useTheme();
-  const [open, setOpen] = useState(false);
+  const controlled = openProp !== undefined;
+  const [openState, setOpenState] = useState(false);
+  const open = controlled ? openProp : openState;
+  const setOpen = (v) => (controlled ? onOpenChange?.(v) : setOpenState(v));
   const [query, setQuery] = useState("");
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -59,12 +67,18 @@ export default function PlaceAutocomplete({
 
   const hasKey = !!PLACES_KEY;
 
-  const openModal = () => {
-    sessionToken.current = makeSessionToken();
-    setQuery(value || "");
-    setPredictions([]);
-    setOpen(true);
-  };
+  const openModal = () => setOpen(true);
+
+  // Initialize a fresh search (session token + reset) each time the modal
+  // opens — works for both the internal trigger and controlled-open.
+  useEffect(() => {
+    if (open) {
+      sessionToken.current = makeSessionToken();
+      setQuery(value || "");
+      setPredictions([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const closeModal = () => {
     setOpen(false);
@@ -158,27 +172,31 @@ export default function PlaceAutocomplete({
 
   return (
     <>
-      {!!label && <Text style={styles.label}>{label}</Text>}
-      <TouchableOpacity
-        style={styles.fieldButton}
-        onPress={openModal}
-        activeOpacity={0.7}
-      >
-        <Icon name="location"
-          size={20}
-          color={colors.textSecondary}
-          style={{ marginRight: 12 }}
-        />
-        <Text
-          style={[
-            styles.fieldText,
-            { color: value ? colors.text : colors.textTertiary },
-          ]}
-          numberOfLines={1}
-        >
-          {value || placeholder}
-        </Text>
-      </TouchableOpacity>
+      {!controlled && (
+        <>
+          {!!label && <Text style={styles.label}>{label}</Text>}
+          <TouchableOpacity
+            style={styles.fieldButton}
+            onPress={openModal}
+            activeOpacity={0.7}
+          >
+            <Icon name="location"
+              size={20}
+              color={colors.textSecondary}
+              style={{ marginRight: 12 }}
+            />
+            <Text
+              style={[
+                styles.fieldText,
+                { color: value ? colors.text : colors.textTertiary },
+              ]}
+              numberOfLines={1}
+            >
+              {value || placeholder}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
 
       <Modal
         visible={open}
