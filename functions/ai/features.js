@@ -22,6 +22,7 @@ const DEFAULTS = {
   ai_analytics: {maxTokens: 800},
   match_intel: {maxTokens: 600},
   weekly_digest: {maxTokens: 700, freePerMonth: 1},
+  content_translation: {maxTokens: 1500, freePerMonth: 1},
 };
 
 // ─── Context loaders ────────────────────────────────────────────────────────
@@ -230,9 +231,36 @@ async function loadWeeklyDigest(db, uid) {
   };
 }
 
+/**
+ * Content translation (Layer 2): ground is ONLY the user's content text — no
+ * account data loaded. The client passes the text + target language.
+ * @param {FirebaseFirestore.Firestore} db handle (unused)
+ * @param {string} uid caller (unused)
+ * @param {object} cfg config (unused)
+ * @param {object} input {text, targetLang, targetName}
+ * @return {Promise<object>} context
+ */
+async function loadContentTranslation(db, uid, cfg, input) {
+  const text = String((input && input.text) || "").slice(0, 4000);
+  if (!text.trim()) throw new Error("no text to translate");
+  const targetName = String(
+    (input && (input.targetName || input.targetLang)) || "English").slice(0, 40);
+  return {text, targetName};
+}
+
 // ─── Prompts ────────────────────────────────────────────────────────────────
 
 const PROMPTS = {
+  content_translation: (ctx) => ({
+    system:
+      "You are a professional translator for Kinlo. Translate the user's " +
+      "content into " + ctx.targetName + ". Preserve meaning, tone, emojis, " +
+      "and line breaks. Do not add notes, quotes, or explanations. Return " +
+      "STRICT JSON: {\"translation\":string} where translation is ONLY the " +
+      "translated text. If the text is already in " + ctx.targetName +
+      ", return it unchanged.",
+    user: JSON.stringify({text: ctx.text}),
+  }),
   host_copilot: (ctx, input) => ({
     system: SYSTEM_BASE +
       " Schema: {\"title\":string,\"description\":string," +
@@ -290,6 +318,12 @@ const PROMPTS = {
 // ─── Validators ─────────────────────────────────────────────────────────────
 
 const VALIDATORS = {
+  content_translation: (d) => {
+    if (!d || typeof d.translation !== "string" || !d.translation.trim()) {
+      return "translation missing";
+    }
+    return null;
+  },
   host_copilot: (d) => {
     if (!d || typeof d.title !== "string" || !d.title) return "title missing";
     if (typeof d.description !== "string" || !d.description) {
@@ -355,6 +389,23 @@ const VALIDATORS = {
 // Each returns null when allowed, or {error, needsPro?/needsPlus?}.
 
 const GATES = {
+  // Translate: Plus members AND Pro hosts get it unlimited; everyone else gets
+  // 1 free translation per month, then the client routes to the paywall
+  // (Plus, or Pro if the user is a host).
+  content_translation: async (db, uid, user, cfg) => {
+    if (user.plan === "kinlo_plus" || user.isPremium === true) return null;
+    const monthKey = new Date().toISOString().slice(0, 7);
+    const ref = db.collection("aiUsage").doc(uid);
+    const snap = await ref.get();
+    const d = snap.exists ? snap.data() : {};
+    const used = d.translateMonth === monthKey ? (d.translateCount || 0) : 0;
+    if (used >= (cfg.features.content_translation.freePerMonth || 1)) {
+      return {error: "taste_limit", needsPlus: true};
+    }
+    await ref.set(
+      {translateMonth: monthKey, translateCount: used + 1}, {merge: true});
+    return null;
+  },
   host_copilot: async (db, uid, user, cfg) => {
     if (user.isPremium === true) return null;
     // Free taste: one lifetime draft, tracked in aiUsage.
@@ -409,6 +460,7 @@ module.exports = {
     ai_analytics: loadAiAnalytics,
     match_intel: loadMatchIntel,
     weekly_digest: loadWeeklyDigest,
+    content_translation: loadContentTranslation,
   },
   PROMPTS,
   VALIDATORS,

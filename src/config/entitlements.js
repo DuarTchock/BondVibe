@@ -48,6 +48,12 @@ export const FEATURES = {
     freeTaste: '1 AI draft, then Pro',
   },
   member_intel: { tier: 'pro', audience: 'host', on: true }, // Pro only
+  content_translation: {
+    tier: 'plus',
+    audience: 'attendee',
+    on: true,
+    freeTaste: '1 translation / month', // Pro hosts included (server gate)
+  },
   ai_analytics: {
     tier: 'pro',
     audience: 'host',

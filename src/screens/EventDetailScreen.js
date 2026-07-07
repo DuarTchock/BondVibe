@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Icon from "../components/Icon";
+import TranslateButton from "../components/TranslateButton";
 import {
   View,
   Text,
@@ -1146,6 +1147,12 @@ export default function EventDetailScreen({ route, navigation }) {
             >
               {eventDescription}
             </Text>
+            <TranslateButton
+              text={eventDescription}
+              contentId={`event_${event.id}`}
+              navigation={navigation}
+              style={{ marginTop: 14 }}
+            />
           </View>
         </View>
 
