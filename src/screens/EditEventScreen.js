@@ -13,6 +13,7 @@ import {
   Modal,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import {
   doc,
   getDoc,
@@ -51,6 +52,7 @@ const CATEGORIES = [
 
 export default function EditEventScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t, i18n } = useTranslation();
   const { eventId } = route.params;
   const [form, setForm] = useState({
     title: "",
@@ -128,7 +130,7 @@ export default function EditEventScreen({ route, navigation }) {
               const u = await getDoc(doc(db, "users", id));
               return {
                 id,
-                name: u.exists() ? u.data().fullName || u.data().name || "Co-host" : "Co-host",
+                name: u.exists() ? u.data().fullName || u.data().name || t("editEvent.defaultCoHostName") : t("editEvent.defaultCoHostName"),
               };
             })
           );
@@ -197,8 +199,8 @@ export default function EditEventScreen({ route, navigation }) {
 
   // Format date for display
   const formatDateDisplay = (date) => {
-    if (!date || isNaN(date.getTime())) return "Select date";
-    return date.toLocaleDateString("en-US", {
+    if (!date || isNaN(date.getTime())) return t("editEvent.selectDate");
+    return date.toLocaleDateString(i18n.language, {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -208,8 +210,8 @@ export default function EditEventScreen({ route, navigation }) {
 
   // Format time for display
   const formatTimeDisplay = (date) => {
-    if (!date || isNaN(date.getTime())) return "Select time";
-    return date.toLocaleTimeString("en-US", {
+    if (!date || isNaN(date.getTime())) return t("editEvent.selectTime");
+    return date.toLocaleTimeString(i18n.language, {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
@@ -286,17 +288,17 @@ export default function EditEventScreen({ route, navigation }) {
     const user = await findUserByEmail(email);
     setAddingCoHost(false);
     if (!user) {
-      Alert.alert("Not found", "No Kinlo user with that email.");
+      Alert.alert(t("editEvent.alerts.notFoundTitle"), t("editEvent.alerts.notFoundMsg"));
       return;
     }
     if (user.id === creatorId || coHosts.some((c) => c.id === user.id)) {
-      Alert.alert("Already a co-host", "That person already manages this event.");
+      Alert.alert(t("editEvent.alerts.alreadyCoHostTitle"), t("editEvent.alerts.alreadyCoHostMsg"));
       return;
     }
     await updateDoc(doc(db, "events", eventId), { coHosts: arrayUnion(user.id) });
     setCoHosts((c) => [...c, { id: user.id, name: user.fullName || user.name || email }]);
     setCoHostEmail("");
-    Alert.alert("Co-host added", `${user.fullName || email} can now manage this event.`);
+    Alert.alert(t("editEvent.alerts.coHostAddedTitle"), t("editEvent.alerts.coHostAddedMsg", { name: user.fullName || email }));
   };
 
   const handleRemoveCoHost = async (id) => {
@@ -310,23 +312,23 @@ export default function EditEventScreen({ route, navigation }) {
       !form.description.trim() ||
       !form.location.trim()
     ) {
-      Alert.alert("Error", "Please fill in all required fields");
+      Alert.alert(t("editEvent.alerts.missingFieldsTitle"), t("editEvent.alerts.missingFieldsMsg"));
       return;
     }
 
     // If recurring event with multiple events from this date onwards, ask user
     if (isRecurring && futureEventsCount > 1) {
       Alert.alert(
-        "Edit Recurring Event",
-        "Do you want to edit only this event or this and all following events?",
+        t("editEvent.alerts.editRecurringTitle"),
+        t("editEvent.alerts.editRecurringMsg"),
         [
-          { text: "Cancel", style: "cancel" },
+          { text: t("editEvent.cancel"), style: "cancel" },
           {
-            text: "Only This Event",
+            text: t("editEvent.alerts.onlyThisEvent"),
             onPress: () => saveEvent(false),
           },
           {
-            text: `This & Following (${futureEventsCount})`,
+            text: t("editEvent.alerts.thisAndFollowing", { count: futureEventsCount }),
             onPress: () => saveEvent(true),
           },
         ]
@@ -414,9 +416,9 @@ export default function EditEventScreen({ route, navigation }) {
         console.log(`✅ Updated ${updatedCount} future events`);
 
         Alert.alert(
-          "Success",
-          `Updated ${updatedCount} events in the series!`,
-          [{ text: "OK", onPress: () => navigation.goBack() }]
+          t("editEvent.alerts.successTitle"),
+          t("editEvent.alerts.successSeriesMsg", { count: updatedCount }),
+          [{ text: t("editEvent.alerts.ok"), onPress: () => navigation.goBack() }]
         );
       } else {
         // Update only this event (including date/time)
@@ -426,13 +428,13 @@ export default function EditEventScreen({ route, navigation }) {
           time: form.time || formatTimeDisplay(form.date),
         });
 
-        Alert.alert("Success", "Event updated!", [
-          { text: "OK", onPress: () => navigation.goBack() },
+        Alert.alert(t("editEvent.alerts.successTitle"), t("editEvent.alerts.eventUpdatedMsg"), [
+          { text: t("editEvent.alerts.ok"), onPress: () => navigation.goBack() },
         ]);
       }
     } catch (error) {
       console.error("Error updating event:", error);
-      Alert.alert("Error", "Failed to update event");
+      Alert.alert(t("editEvent.alerts.missingFieldsTitle"), t("editEvent.alerts.updateFailedMsg"));
     } finally {
       setSaving(false);
     }
@@ -442,27 +444,27 @@ export default function EditEventScreen({ route, navigation }) {
   const handleDelete = () => {
     if (isRecurring && futureEventsCount > 1) {
       Alert.alert(
-        "Delete Recurring Event",
-        "Do you want to delete only this event or this and all following events?",
+        t("editEvent.alerts.deleteRecurringTitle"),
+        t("editEvent.alerts.deleteRecurringMsg"),
         [
-          { text: "Cancel", style: "cancel" },
+          { text: t("editEvent.cancel"), style: "cancel" },
           {
-            text: "Only This Event",
+            text: t("editEvent.alerts.onlyThisEvent"),
             style: "destructive",
             onPress: () => deleteEvent(false),
           },
           {
-            text: `This & Following (${futureEventsCount})`,
+            text: t("editEvent.alerts.thisAndFollowing", { count: futureEventsCount }),
             style: "destructive",
             onPress: () => deleteEvent(true),
           },
         ]
       );
     } else {
-      Alert.alert("Delete Event", "Are you sure? This cannot be undone.", [
-        { text: "Cancel", style: "cancel" },
+      Alert.alert(t("editEvent.alerts.deleteEventTitle"), t("editEvent.alerts.deleteEventMsg"), [
+        { text: t("editEvent.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("editEvent.alerts.delete"),
           style: "destructive",
           onPress: () => deleteEvent(false),
         },
@@ -513,19 +515,19 @@ export default function EditEventScreen({ route, navigation }) {
         await batch.commit();
         console.log(`🗑️ Deleted ${deletedCount} events from this date onwards`);
 
-        Alert.alert("Deleted", `${deletedCount} events deleted successfully`, [
-          { text: "OK", onPress: () => navigation.navigate("MainTabs", { screen: "HomeTab" }) },
+        Alert.alert(t("editEvent.alerts.deletedTitle"), t("editEvent.alerts.deletedSeriesMsg", { count: deletedCount }), [
+          { text: t("editEvent.alerts.ok"), onPress: () => navigation.navigate("MainTabs", { screen: "HomeTab" }) },
         ]);
       } else {
         // Delete only this event
         await deleteDoc(doc(db, "events", eventId));
-        Alert.alert("Deleted", "Event deleted successfully", [
-          { text: "OK", onPress: () => navigation.navigate("MainTabs", { screen: "HomeTab" }) },
+        Alert.alert(t("editEvent.alerts.deletedTitle"), t("editEvent.alerts.deletedEventMsg"), [
+          { text: t("editEvent.alerts.ok"), onPress: () => navigation.navigate("MainTabs", { screen: "HomeTab" }) },
         ]);
       }
     } catch (error) {
       console.error("Error deleting event:", error);
-      Alert.alert("Error", "Failed to delete event");
+      Alert.alert(t("editEvent.alerts.missingFieldsTitle"), t("editEvent.alerts.deleteFailedMsg"));
     }
   };
 
@@ -564,15 +566,15 @@ export default function EditEventScreen({ route, navigation }) {
               <Text
                 style={[styles.pickerCancel, { color: colors.textSecondary }]}
               >
-                Cancel
+                {t("editEvent.cancel")}
               </Text>
             </TouchableOpacity>
             <Text style={[styles.pickerTitle, { color: colors.text }]}>
-              Select Date
+              {t("editEvent.selectDate")}
             </Text>
             <TouchableOpacity onPress={confirmDateSelection}>
               <Text style={[styles.pickerDone, { color: colors.primary }]}>
-                Done
+                {t("editEvent.done")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -611,15 +613,15 @@ export default function EditEventScreen({ route, navigation }) {
               <Text
                 style={[styles.pickerCancel, { color: colors.textSecondary }]}
               >
-                Cancel
+                {t("editEvent.cancel")}
               </Text>
             </TouchableOpacity>
             <Text style={[styles.pickerTitle, { color: colors.text }]}>
-              Select Time
+              {t("editEvent.selectTime")}
             </Text>
             <TouchableOpacity onPress={confirmTimeSelection}>
               <Text style={[styles.pickerDone, { color: colors.primary }]}>
-                Done
+                {t("editEvent.done")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -648,7 +650,7 @@ export default function EditEventScreen({ route, navigation }) {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Edit Event
+            {t("editEvent.headerTitle")}
           </Text>
           {isRecurring && (
             <View
@@ -661,7 +663,7 @@ export default function EditEventScreen({ route, navigation }) {
               <Text
                 style={[styles.recurringBadgeText, { color: colors.primary }]}
               >
-                Recurring
+                {t("editEvent.recurring")}
               </Text>
             </View>
           )}
@@ -690,8 +692,7 @@ export default function EditEventScreen({ route, navigation }) {
             <Text
               style={[styles.recurringBannerText, { color: colors.primary }]}
             >
-              This is part of a recurring series ({futureEventsCount} future
-              events)
+              {t("editEvent.recurringSeriesBanner", { count: futureEventsCount })}
             </Text>
             <Text
               style={[
@@ -699,7 +700,7 @@ export default function EditEventScreen({ route, navigation }) {
                 { color: colors.textSecondary },
               ]}
             >
-              You can edit just this event or all future events at once.
+              {t("editEvent.recurringSeriesSubtext")}
             </Text>
           </View>
         )}
@@ -707,7 +708,7 @@ export default function EditEventScreen({ route, navigation }) {
         {/* Event Title */}
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Event Title *
+            {t("editEvent.eventTitleLabel")}
           </Text>
           <View style={styles.inputWrapper}>
             <TextInput
@@ -721,7 +722,7 @@ export default function EditEventScreen({ route, navigation }) {
               ]}
               value={form.title}
               onChangeText={(text) => setForm({ ...form, title: text })}
-              placeholder="Coffee & Chat"
+              placeholder={t("editEvent.eventTitlePlaceholder")}
               placeholderTextColor={colors.textTertiary}
               maxLength={80}
             />
@@ -737,7 +738,7 @@ export default function EditEventScreen({ route, navigation }) {
         {/* Description */}
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Description *
+            {t("editEvent.descriptionLabel")}
           </Text>
           <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
             <TextInput
@@ -752,7 +753,7 @@ export default function EditEventScreen({ route, navigation }) {
               ]}
               value={form.description}
               onChangeText={(text) => setForm({ ...form, description: text })}
-              placeholder="Tell people what to expect..."
+              placeholder={t("editEvent.descriptionPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               multiline
               maxLength={500}
@@ -765,7 +766,7 @@ export default function EditEventScreen({ route, navigation }) {
 
         {/* Category */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Community</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("editEvent.communityLabel")}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -813,7 +814,7 @@ export default function EditEventScreen({ route, navigation }) {
 
         {/* Language */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Language</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("editEvent.languageLabel")}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -862,7 +863,7 @@ export default function EditEventScreen({ route, navigation }) {
         {/* Date & Time with Native Pickers */}
         <View style={styles.rowSection}>
           <View style={[styles.section, { flex: 1 }]}>
-            <Text style={[styles.label, { color: colors.text }]}>Date *</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{t("editEvent.dateLabel")}</Text>
             <TouchableOpacity
               style={styles.inputWrapper}
               onPress={() => {
@@ -897,7 +898,7 @@ export default function EditEventScreen({ route, navigation }) {
           </View>
 
           <View style={[styles.section, { flex: 1, marginLeft: 12 }]}>
-            <Text style={[styles.label, { color: colors.text }]}>Time *</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{t("editEvent.timeLabel")}</Text>
             <TouchableOpacity
               style={styles.inputWrapper}
               onPress={() => {
@@ -935,13 +936,13 @@ export default function EditEventScreen({ route, navigation }) {
         {/* Note for recurring events about date/time */}
         {isRecurring && (
           <Text style={[styles.dateNote, { color: colors.textTertiary }]}>
-            Note: Date/time changes only apply to this specific event.
+            {t("editEvent.recurringDateNote")}
           </Text>
         )}
 
         {/* Location */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Location *</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("editEvent.locationLabel")}</Text>
           <View style={styles.inputWrapper}>
             <Icon
               name="location"
@@ -961,7 +962,7 @@ export default function EditEventScreen({ route, navigation }) {
               ]}
               value={form.location}
               onChangeText={(text) => setForm({ ...form, location: text })}
-              placeholder="Starbucks Downtown"
+              placeholder={t("editEvent.locationPlaceholder")}
               placeholderTextColor={colors.textTertiary}
             />
           </View>
@@ -969,11 +970,11 @@ export default function EditEventScreen({ route, navigation }) {
 
         {/* Event length — sets end time; drives when Community Matching opens */}
         <SelectDropdown
-          label="Event length"
+          label={t("editEvent.eventLengthLabel")}
           value={form.durationMinutes}
           onValueChange={(v) => setForm({ ...form, durationMinutes: v })}
           options={EVENT_DURATIONS}
-          placeholder="Select duration"
+          placeholder={t("editEvent.selectDuration")}
           type="default"
         />
 
@@ -981,7 +982,7 @@ export default function EditEventScreen({ route, navigation }) {
         <View style={styles.rowSection}>
           <View style={[styles.section, { flex: 1 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
-              Max People
+              {t("editEvent.maxPeopleLabel")}
             </Text>
             <View style={styles.inputWrapper}>
               <TextInput
@@ -1009,7 +1010,7 @@ export default function EditEventScreen({ route, navigation }) {
 
           <View style={[styles.section, { flex: 1, marginLeft: 12 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
-              Price (MXN)
+              {t("editEvent.priceMxnLabel")}
             </Text>
             <View style={styles.inputWrapper}>
               <TextInput
@@ -1036,9 +1037,9 @@ export default function EditEventScreen({ route, navigation }) {
         {/* Co-hosts — only the creator manages them */}
         {isCreator && (
           <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.text }]}>Co-hosts</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{t("editEvent.coHostsLabel")}</Text>
             <Text style={[styles.coHostHint, { color: colors.textSecondary }]}>
-              They can edit the event and take attendance (check-in).
+              {t("editEvent.coHostsHint")}
             </Text>
             {coHosts.map((c) => (
               <View
@@ -1049,7 +1050,7 @@ export default function EditEventScreen({ route, navigation }) {
                   {c.name}
                 </Text>
                 <TouchableOpacity onPress={() => handleRemoveCoHost(c.id)}>
-                  <Text style={{ color: colors.error, fontWeight: "700" }}>Remove</Text>
+                  <Text style={{ color: colors.error, fontWeight: "700" }}>{t("editEvent.remove")}</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -1059,7 +1060,7 @@ export default function EditEventScreen({ route, navigation }) {
                   styles.coHostInput,
                   { color: colors.text, borderColor: colors.borderStrong },
                 ]}
-                placeholder="co-host's email"
+                placeholder={t("editEvent.coHostEmailPlaceholder")}
                 placeholderTextColor={colors.textTertiary}
                 value={coHostEmail}
                 onChangeText={setCoHostEmail}
@@ -1068,7 +1069,7 @@ export default function EditEventScreen({ route, navigation }) {
               />
               <TouchableOpacity onPress={handleAddCoHost} disabled={addingCoHost}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  {addingCoHost ? "…" : "Add"}
+                  {addingCoHost ? "…" : t("editEvent.add")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1091,7 +1092,7 @@ export default function EditEventScreen({ route, navigation }) {
             ]}
           >
             <Text style={styles.saveButtonText}>
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? t("editEvent.saving") : t("editEvent.saveChanges")}
             </Text>
           </View>
         </TouchableOpacity>
