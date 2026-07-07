@@ -14,27 +14,29 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import GradientBackground from "../components/GradientBackground";
 import { useTheme } from "../contexts/ThemeContext";
 import { getOwnerRentals, getMyFleet } from "../services/rentalService";
 import { formatCentavos } from "../utils/pricing";
 
-const STATUS_META = {
-  reserved: { label: "Reserved", color: "#B45309" },
-  active: { label: "In use", color: "#34C759" },
-  completed: { label: "Completed", color: "#8a8f9c" },
-  expired: { label: "Expired", color: "#8a8f9c" },
-  cancelled: { label: "Cancelled", color: "#c25b5b" },
-};
-
 const fmt = (iso) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "—";
 
 export default function VehicleBookingsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const STATUS_META = {
+    reserved: { label: t("vehicleBookings.status.reserved"), color: "#B45309" },
+    active: { label: t("vehicleBookings.status.active"), color: "#34C759" },
+    completed: { label: t("vehicleBookings.status.completed"), color: "#8a8f9c" },
+    expired: { label: t("vehicleBookings.status.expired"), color: "#8a8f9c" },
+    cancelled: { label: t("rentals.status.cancelled"), color: "#c25b5b" },
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -45,7 +47,7 @@ export default function VehicleBookingsScreen({ navigation }) {
         const decorated = rentals
           .map((r) => ({
             ...r,
-            title: titleById[r.vehicleId] || "Vehicle",
+            title: titleById[r.vehicleId] || t("rentals.activeRental.vehicleFallback"),
             startMs: r.startAt ? new Date(r.startAt).getTime() : 0,
             upcoming: r.endAt ? new Date(r.endAt).getTime() >= now : true,
           }))
@@ -89,7 +91,7 @@ export default function VehicleBookingsScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={hit}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Bookings</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.hub.bookingsTitle")}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -100,22 +102,22 @@ export default function VehicleBookingsScreen({ navigation }) {
           <View style={styles.emptyArt}>
             <Icon name="calendar" size={32} color={colors.primary} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>No bookings yet</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{t("vehicleBookings.emptyTitle")}</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Reservations for your vehicles will show up here.
+            {t("vehicleBookings.emptyText")}
           </Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {upcoming.length > 0 && (
             <>
-              <Text style={[styles.section, { color: colors.textTertiary }]}>UPCOMING</Text>
+              <Text style={[styles.section, { color: colors.textTertiary }]}>{t("vehicleBookings.upcoming")}</Text>
               {upcoming.map((r) => <Card key={r.id} r={r} />)}
             </>
           )}
           {past.length > 0 && (
             <>
-              <Text style={[styles.section, { color: colors.textTertiary }]}>PAST</Text>
+              <Text style={[styles.section, { color: colors.textTertiary }]}>{t("vehicleBookings.past")}</Text>
               {past.map((r) => <Card key={r.id} r={r} />)}
             </>
           )}

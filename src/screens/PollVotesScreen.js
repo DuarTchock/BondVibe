@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -22,6 +23,7 @@ const normAvatar = (a) =>
 
 export default function PollVotesScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { parent, pollId } = route.params || {};
   const [poll, setPoll] = useState(null);
   const [votes, setVotes] = useState([]);
@@ -55,7 +57,7 @@ export default function PollVotesScreen({ route, navigation }) {
           ids.map(async (uid) => {
             const u = await getDoc(doc(db, "users", uid));
             const d = u.exists() ? u.data() : {};
-            return { id: uid, name: d.fullName || d.name || "Member", avatar: d.avatar };
+            return { id: uid, name: d.fullName || d.name || t("pollVotes.member"), avatar: d.avatar };
           })
         );
         setMembers(users);
@@ -93,7 +95,7 @@ export default function PollVotesScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Poll results</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("pollVotes.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -104,8 +106,7 @@ export default function PollVotesScreen({ route, navigation }) {
       ) : poll.anonymous ? (
         <View style={styles.loading}>
           <Text style={[styles.anon, { color: colors.textSecondary }]}>
-            <Icon name="hide" size={14} color={colors.textSecondary} /> This
-            poll is anonymous — individual votes are hidden.
+            <Icon name="hide" size={14} color={colors.textSecondary} /> {t("pollVotes.anonymousNotice")}
           </Text>
         </View>
       ) : (
@@ -119,7 +120,7 @@ export default function PollVotesScreen({ route, navigation }) {
                   {opt.text} · {voters.length}
                 </Text>
                 {voters.length === 0 ? (
-                  <Text style={[styles.muted, { color: colors.textTertiary }]}>No votes</Text>
+                  <Text style={[styles.muted, { color: colors.textTertiary }]}>{t("pollVotes.noVotes")}</Text>
                 ) : (
                   voters.map((m) => <Row key={m.id} m={m} />)
                 )}
@@ -128,10 +129,10 @@ export default function PollVotesScreen({ route, navigation }) {
           })}
 
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            NOT VOTED YET ({notVoted.length})
+            {t("pollVotes.notVotedHeader", { count: notVoted.length })}
           </Text>
           {notVoted.length === 0 ? (
-            <Text style={[styles.muted, { color: colors.textTertiary }]}>Everyone voted</Text>
+            <Text style={[styles.muted, { color: colors.textTertiary }]}>{t("pollVotes.everyoneVoted")}</Text>
           ) : (
             notVoted.map((m) => <Row key={m.id} m={m} />)
           )}

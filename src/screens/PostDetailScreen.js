@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import GradientBackground from "../components/GradientBackground";
 import PostCard from "../components/PostCard";
@@ -26,6 +27,7 @@ const normAvatar = (a) =>
 
 export default function PostDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { postId } = route.params || {};
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
@@ -55,7 +57,7 @@ export default function PostDetailScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={hit}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Post</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t("postDetail.title")}</Text>
         <View style={{ width: 26 }} />
       </View>
       <KeyboardAvoidingView
@@ -86,7 +88,7 @@ export default function PostDetailScreen({ route, navigation }) {
           ListEmptyComponent={
             post ? (
               <Text style={[styles.empty, { color: colors.textTertiary }]}>
-                No comments yet. Be the first.
+                {t("postDetail.noComments")}
               </Text>
             ) : null
           }
@@ -94,7 +96,7 @@ export default function PostDetailScreen({ route, navigation }) {
         <View style={[styles.inputBar, { borderTopColor: colors.border }]}>
           <TextInput
             style={[styles.input, { color: colors.text, backgroundColor: colors.surfaceGlass }]}
-            placeholder="Add a comment…"
+            placeholder={t("postDetail.commentPlaceholder")}
             placeholderTextColor={colors.textTertiary}
             value={text}
             onChangeText={setText}

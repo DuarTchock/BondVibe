@@ -14,6 +14,7 @@ import {
   Keyboard,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
 import { doc, updateDoc, arrayUnion, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../../services/firebase";
@@ -65,6 +66,7 @@ function waitForAttendance(eventId, userId, timeoutMs = 10000) {
 
 export default function CheckoutScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { confirmPayment, loading: confirmLoading } = useConfirmPayment();
 
   const { eventId, eventTitle, amount } = route.params;
@@ -124,13 +126,13 @@ export default function CheckoutScreen({ route, navigation }) {
       await startMercadoPagoCheckout(eventId, amount);
       const ok = await waitForAttendance(eventId, auth.currentUser.uid, 90000);
       Alert.alert(
-        ok ? "Payment successful!" : "Almost there",
+        ok ? t("paymentCheckout.paymentSuccessfulTitle") : t("paymentCheckout.almostThereTitle"),
         ok
-          ? `You've joined "${eventTitle}".`
-          : "We'll confirm your spot as soon as the payment is processed.",
+          ? t("paymentCheckout.joinedEvent", { eventTitle })
+          : t("paymentCheckout.confirmingSpot"),
         [
           {
-            text: "OK",
+            text: t("paymentCheckout.ok"),
             onPress: () =>
               navigation.replace("EventDetail", { eventId, shouldReload: true }),
           },
@@ -138,8 +140,8 @@ export default function CheckoutScreen({ route, navigation }) {
       );
     } catch (e) {
       Alert.alert(
-        "Mercado Pago",
-        e.message || "Could not start checkout. Please try again."
+        t("paymentCheckout.mercadoPago"),
+        e.message || t("paymentCheckout.couldNotStartCheckout")
       );
     } finally {
       setProcessing(false);
@@ -148,7 +150,7 @@ export default function CheckoutScreen({ route, navigation }) {
 
   const handlePayment = async () => {
     if (!cardComplete) {
-      Alert.alert("Incomplete Card", "Please enter complete card details");
+      Alert.alert(t("paymentCheckout.incompleteCardTitle"), t("paymentCheckout.incompleteCardMessage"));
       return;
     }
 
@@ -175,8 +177,8 @@ export default function CheckoutScreen({ route, navigation }) {
       if (error) {
         console.error("❌ Payment failed:", error);
         Alert.alert(
-          "Payment Failed",
-          error.message || "There was an error processing your payment",
+          t("paymentCheckout.paymentFailedTitle"),
+          error.message || t("paymentCheckout.paymentErrorMessage"),
         );
         setProcessing(false);
         return;
@@ -196,11 +198,11 @@ export default function CheckoutScreen({ route, navigation }) {
 
       // Show success and navigate with reload flag
       Alert.alert(
-        "Payment Successful!",
-        `You've successfully joined "${eventTitle}". The host will be notified.`,
+        t("paymentCheckout.paymentSuccessfulExclaim"),
+        t("paymentCheckout.joinedEventHostNotified", { eventTitle }),
         [
           {
-            text: "OK",
+            text: t("paymentCheckout.ok"),
             onPress: () => {
               // ⭐ Navigate with shouldReload flag
               navigation.replace("EventDetail", {
@@ -214,8 +216,8 @@ export default function CheckoutScreen({ route, navigation }) {
     } catch (error) {
       console.error("❌ Payment error:", error);
       Alert.alert(
-        "Payment Error",
-        "There was an error processing your payment. Please try again.",
+        t("paymentCheckout.paymentErrorTitle"),
+        t("paymentCheckout.paymentErrorRetryMessage"),
       );
     } finally {
       setProcessing(false);
@@ -242,7 +244,7 @@ export default function CheckoutScreen({ route, navigation }) {
             <Icon name="back" size={26} color={colors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Checkout
+            {t("paymentCheckout.title")}
           </Text>
           <View style={{ width: 40 }} />
         </View>
@@ -284,7 +286,7 @@ export default function CheckoutScreen({ route, navigation }) {
               ]}
             >
               <Text style={[styles.breakdownTitle, { color: colors.text }]}>
-                Pricing Breakdown
+                {t("paymentCheckout.pricingBreakdown")}
               </Text>
 
               <View style={styles.breakdownRow}>
@@ -294,7 +296,7 @@ export default function CheckoutScreen({ route, navigation }) {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Ticket Price
+                  {t("paymentCheckout.ticketPrice")}
                 </Text>
                 <Text style={[styles.breakdownValue, { color: colors.text }]}>
                   {formatMXN(amount)}
@@ -308,7 +310,7 @@ export default function CheckoutScreen({ route, navigation }) {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Platform Fee (5%)
+                  {t("paymentCheckout.platformFee")}
                 </Text>
                 <Text style={[styles.breakdownValue, { color: colors.text }]}>
                   {formatMXN(platformFee)}
@@ -322,7 +324,7 @@ export default function CheckoutScreen({ route, navigation }) {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Processing Fee
+                  {t("paymentCheckout.processingFee")}
                 </Text>
                 <Text style={[styles.breakdownValue, { color: colors.text }]}>
                   {formatMXN(stripeFee)}
@@ -335,7 +337,7 @@ export default function CheckoutScreen({ route, navigation }) {
 
               <View style={styles.breakdownRow}>
                 <Text style={[styles.totalLabel, { color: colors.text }]}>
-                  Total
+                  {t("paymentCheckout.total")}
                 </Text>
                 <Text style={[styles.totalValue, { color: colors.primary }]}>
                   {formatMXN(totalAmount)}
@@ -356,7 +358,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   ]}
                 >
                   <Text style={[styles.cardLabel, { color: colors.text }]}>
-                    Mercado Pago
+                    {t("paymentCheckout.mercadoPago")}
                   </Text>
                   <Text
                     style={[
@@ -364,8 +366,7 @@ export default function CheckoutScreen({ route, navigation }) {
                       { color: colors.textSecondary, marginTop: 6 },
                     ]}
                   >
-                    You'll pay securely on Mercado Pago (cards, OXXO or SPEI).
-                    Your spot is confirmed automatically once payment completes.
+                    {t("paymentCheckout.mercadoPagoDescription")}
                   </Text>
                 </View>
 
@@ -384,7 +385,7 @@ export default function CheckoutScreen({ route, navigation }) {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text style={styles.payButtonText}>
-                      Continue with Mercado Pago
+                      {t("paymentCheckout.continueWithMercadoPago")}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -402,7 +403,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   ]}
                 >
                   <Text style={[styles.cardLabel, { color: colors.text }]}>
-                    Card Details
+                    {t("paymentCheckout.cardDetails")}
                   </Text>
                   <CardField
                     postalCodeEnabled={false}
@@ -427,7 +428,7 @@ export default function CheckoutScreen({ route, navigation }) {
                   <Text
                     style={[styles.securityText, { color: colors.textSecondary }]}
                   >
-                    Your payment is secure and encrypted
+                    {t("paymentCheckout.securePayment")}
                   </Text>
                 </View>
 
@@ -449,7 +450,7 @@ export default function CheckoutScreen({ route, navigation }) {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text style={styles.payButtonText}>
-                      Pay {formatMXN(totalAmount)}
+                      {t("paymentCheckout.pay", { amount: formatMXN(totalAmount) })}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -458,8 +459,7 @@ export default function CheckoutScreen({ route, navigation }) {
 
             {/* Terms */}
             <Text style={[styles.termsText, { color: colors.textTertiary }]}>
-              By completing this purchase you agree to our Terms of Service and
-              Privacy Policy
+              {t("paymentCheckout.termsAgreement")}
             </Text>
 
             {/* Extra padding for keyboard */}

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -27,6 +28,7 @@ const STRIPE_RETURN_URL = "kinlo://stripe/return";
 
 export default function HostTypeSelectionScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState(null);
   const [payoutProcessor, setPayoutProcessor] = useState("stripe");
   const [loading, setLoading] = useState(false);
@@ -60,7 +62,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
       goAfterSelection();
     } catch (error) {
       console.error("❌ Error deferring selection:", error);
-      Alert.alert("Error", "Could not continue. Please try again.");
+      Alert.alert(t("hostTypeSelection.error"), t("hostTypeSelection.couldNotContinue"));
       setLoading(false);
     }
   };
@@ -68,8 +70,8 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
   const handleContinue = async () => {
     if (!selectedType) {
       Alert.alert(
-        "Selection Required",
-        "Please select a host type to continue."
+        t("hostTypeSelection.selectionRequired"),
+        t("hostTypeSelection.selectionRequiredMessage")
       );
       return;
     }
@@ -104,8 +106,8 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
         });
         console.log("✅ User set as Paid Host (Mercado Pago, connection pending)");
         Alert.alert(
-          "Mercado Pago",
-          "Connecting your Mercado Pago account isn't available yet — we're finishing that integration. You're set up as a host and can create free events for now; paid events unlock once your account is connected."
+          t("hostTypeSelection.mercadoPago"),
+          t("hostTypeSelection.mercadoPagoMessage")
         );
         goAfterSelection();
       } else if (selectedType === "paid") {
@@ -114,7 +116,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
         const accountResult = await createConnectAccount(
           auth.currentUser.uid,
           userEmail || auth.currentUser.email,
-          fullName || "Host"
+          fullName || t("hostTypeSelection.host")
         );
 
         if (!accountResult.success) {
@@ -155,8 +157,8 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
     } catch (error) {
       console.error("❌ Error setting up host:", error);
       Alert.alert(
-        "Setup Error",
-        error.message || "Could not complete setup. Please try again."
+        t("hostTypeSelection.setupError"),
+        error.message || t("hostTypeSelection.setupErrorMessage")
       );
       setLoading(false);
     }
@@ -171,7 +173,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
       <View style={styles.header}>
         <View style={{ width: 50 }} />
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Choose Host Type
+          {t("hostTypeSelection.chooseHostType")}
         </Text>
         <View style={{ width: 50 }} />
       </View>
@@ -186,11 +188,10 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
             <Icon name="tent" size={36} color={colors.primary} />
           </View>
           <Text style={[styles.introTitle, { color: colors.text }]}>
-            Congratulations!
+            {t("hostTypeSelection.congratulations")}
           </Text>
           <Text style={[styles.introText, { color: colors.textSecondary }]}>
-            You've been approved as a host. Now choose what type of events you'd
-            like to create.
+            {t("hostTypeSelection.introText")}
           </Text>
         </View>
 
@@ -223,7 +224,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
               </View>
               <View style={styles.optionTitleContainer}>
                 <Text style={[styles.optionTitle, { color: colors.text }]}>
-                  Hosting Free Events Only
+                  {t("hostTypeSelection.freeHostTitle")}
                 </Text>
                 <Text
                   style={[
@@ -231,7 +232,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  No Stripe account needed
+                  {t("hostTypeSelection.freeHostSubtitle")}
                 </Text>
               </View>
               {selectedType === "free" && (
@@ -245,7 +246,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                   <Icon name="check" size={14} color={colors.success} />
                 </View>
                 <Text style={[styles.featureText, { color: colors.text }]}>
-                  Create unlimited free events
+                  {t("hostTypeSelection.freeFeatureUnlimitedEvents")}
                 </Text>
               </View>
               <View style={styles.featureRow}>
@@ -253,7 +254,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                   <Icon name="check" size={14} color={colors.success} />
                 </View>
                 <Text style={[styles.featureText, { color: colors.text }]}>
-                  Build your community
+                  {t("hostTypeSelection.freeFeatureBuildCommunity")}
                 </Text>
               </View>
               <View style={styles.featureRow}>
@@ -261,7 +262,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                   <Icon name="check" size={14} color={colors.success} />
                 </View>
                 <Text style={[styles.featureText, { color: colors.text }]}>
-                  Get started immediately
+                  {t("hostTypeSelection.freeFeatureGetStarted")}
                 </Text>
               </View>
               <View style={styles.featureRow}>
@@ -269,7 +270,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                   <Icon name="check" size={14} color={colors.success} />
                 </View>
                 <Text style={[styles.featureText, { color: colors.text }]}>
-                  Upgrade to paid events anytime
+                  {t("hostTypeSelection.freeFeatureUpgradeAnytime")}
                 </Text>
               </View>
             </View>
@@ -281,7 +282,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
               ]}
             >
               <Text style={[styles.recommendText, { color: colors.primary }]}>
-                Perfect for getting started
+                {t("hostTypeSelection.perfectForGettingStarted")}
               </Text>
             </View>
           </View>
@@ -316,7 +317,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
               </View>
               <View style={styles.optionTitleContainer}>
                 <Text style={[styles.optionTitle, { color: colors.text }]}>
-                  Hosting Free and Paid Events
+                  {t("hostTypeSelection.paidHostTitle")}
                 </Text>
                 <Text
                   style={[
@@ -324,7 +325,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Requires Stripe account
+                  {t("hostTypeSelection.paidHostSubtitle")}
                 </Text>
               </View>
               {selectedType === "paid" && (
@@ -338,7 +339,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                   <Icon name="check" size={14} color={colors.success} />
                 </View>
                 <Text style={[styles.featureText, { color: colors.text }]}>
-                  Create paid events
+                  {t("hostTypeSelection.paidFeatureCreatePaidEvents")}
                 </Text>
               </View>
               <View style={styles.featureRow}>
@@ -346,7 +347,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                   <Icon name="check" size={14} color={colors.success} />
                 </View>
                 <Text style={[styles.featureText, { color: colors.text }]}>
-                  Also create free events
+                  {t("hostTypeSelection.paidFeatureAlsoFreeEvents")}
                 </Text>
               </View>
               <View style={styles.featureRow}>
@@ -354,7 +355,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                   <Icon name="check" size={14} color={colors.success} />
                 </View>
                 <Text style={[styles.featureText, { color: colors.text }]}>
-                  Receive payments directly (100%)
+                  {t("hostTypeSelection.paidFeatureReceiveDirectly")}
                 </Text>
               </View>
               <View style={styles.featureRow}>
@@ -362,7 +363,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                   <Icon name="check" size={14} color={colors.success} />
                 </View>
                 <Text style={[styles.featureText, { color: colors.text }]}>
-                  Platform and processing fees covered by attendees
+                  {t("hostTypeSelection.paidFeatureFeesCovered")}
                 </Text>
               </View>
             </View>
@@ -375,7 +376,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
             >
               <Icon name="info" size={14} color={colors.warning} />
               <Text style={[styles.infoText, { color: colors.warning }]}>
-                Requires Stripe verification (1-2 days)
+                {t("hostTypeSelection.requiresStripeVerification")}
               </Text>
             </View>
           </View>
@@ -385,18 +386,18 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
         {selectedType === "paid" && (
           <View style={styles.processorSection}>
             <Text style={[styles.processorLabel, { color: colors.textSecondary }]}>
-              How do you want to get paid?
+              {t("hostTypeSelection.howDoYouWantToGetPaid")}
             </Text>
             {[
               {
                 id: "stripe",
-                title: "Stripe",
-                subtitle: "Direct to your bank · requires RFC (Mexico tax ID)",
+                title: t("hostTypeSelection.stripeTitle"),
+                subtitle: t("hostTypeSelection.stripeSubtitle"),
               },
               {
                 id: "mercadopago",
-                title: "Mercado Pago",
-                subtitle: "No RFC needed · great for foreigners in Mexico",
+                title: t("hostTypeSelection.mercadoPagoTitle"),
+                subtitle: t("hostTypeSelection.mercadoPagoSubtitle"),
               },
             ].map((opt) => (
               <TouchableOpacity
@@ -464,12 +465,12 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
                     { color: colors.primary, marginLeft: 12 },
                   ]}
                 >
-                  Setting up...
+                  {t("hostTypeSelection.settingUp")}
                 </Text>
               </View>
             ) : (
               <Text style={[styles.continueText, { color: colors.primary }]}>
-                Continue
+                {t("hostTypeSelection.continue")}
               </Text>
             )}
           </View>
@@ -486,7 +487,7 @@ export default function HostTypeSelectionScreen({ navigation, route }) {
               { color: colors.textTertiary, opacity: loading ? 0.5 : 1 },
             ]}
           >
-            Decide Later
+            {t("hostTypeSelection.decideLater")}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -14,12 +14,14 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { useTranslation } from 'react-i18next';
 import { db, auth } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 import SuccessModal from '../components/SuccessModal';
 
 export default function RequestHostScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     whyHost: '',
     experience: '',
@@ -40,7 +42,7 @@ export default function RequestHostScreen({ navigation }) {
     // Validación
     if (!formData.whyHost.trim() || !formData.experience.trim() || !formData.eventIdeas.trim()) {
       console.log('❌ Form incomplete');
-      Alert.alert('Incomplete Form', 'Please fill in all fields before submitting.');
+      Alert.alert(t('requestHost.incompleteFormTitle'), t('requestHost.incompleteFormMessage'));
       return;
     }
 
@@ -61,8 +63,8 @@ export default function RequestHostScreen({ navigation }) {
         setSubmitting(false);
         setModalConfig({
           visible: true,
-          title: 'Request Already Submitted',
-          message: 'You already have a pending host request. Please wait for admin review. We\'ll notify you once a decision has been made.',
+          title: t('requestHost.alreadySubmittedTitle'),
+          message: t('requestHost.alreadySubmittedMessage'),
           icon: 'clock',
           tone: 'brand'
         });
@@ -87,19 +89,19 @@ export default function RequestHostScreen({ navigation }) {
       console.log('🎉 Showing success modal');
       setModalConfig({
         visible: true,
-        title: 'Application Submitted!',
-        message: 'Your host request has been submitted successfully. Our team will review it soon and notify you of the decision.',
+        title: t('requestHost.applicationSubmittedTitle'),
+        message: t('requestHost.applicationSubmittedMessage'),
         icon: 'party',
         tone: 'success'
       });
-      
+
     } catch (error) {
       console.error('❌ Error submitting host request:', error);
       setSubmitting(false);
       Alert.alert(
-        'Submission Error',
-        'Could not submit your request. Please try again.',
-        [{ text: 'OK' }]
+        t('requestHost.submissionErrorTitle'),
+        t('requestHost.submissionErrorMessage'),
+        [{ text: t('requestHost.ok') }]
       );
     }
   };
@@ -123,7 +125,7 @@ export default function RequestHostScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Become a Host</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('requestHost.headerTitle')}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -140,17 +142,17 @@ export default function RequestHostScreen({ navigation }) {
             <Icon name="ai" size={40} color={colors.primary} />
           </View>
           <Text style={[styles.introTitle, { color: colors.text }]}>
-            Share Your Passion
+            {t('requestHost.introTitle')}
           </Text>
           <Text style={[styles.introText, { color: colors.textSecondary }]}>
-            As a host, you'll be able to create unlimited events and build your community. Tell us why you'd be a great host!
+            {t('requestHost.introText')}
           </Text>
         </View>
 
         <View style={styles.formSection}>
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>
-              Why do you want to be a host? *
+              {t('requestHost.whyHostLabel')}
             </Text>
             <View style={[styles.inputWrapper, {
               backgroundColor: colors.surfaceGlass,
@@ -158,7 +160,7 @@ export default function RequestHostScreen({ navigation }) {
             }]}>
               <TextInput
                 style={[styles.textArea, { color: colors.text }]}
-                placeholder="Share your motivation..."
+                placeholder={t('requestHost.whyHostPlaceholder')}
                 placeholderTextColor={colors.textTertiary}
                 value={formData.whyHost}
                 onChangeText={(text) => setFormData({ ...formData, whyHost: text })}
@@ -174,7 +176,7 @@ export default function RequestHostScreen({ navigation }) {
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>
-              What's your experience with organizing events? *
+              {t('requestHost.experienceLabel')}
             </Text>
             <View style={[styles.inputWrapper, {
               backgroundColor: colors.surfaceGlass,
@@ -182,7 +184,7 @@ export default function RequestHostScreen({ navigation }) {
             }]}>
               <TextInput
                 style={[styles.textArea, { color: colors.text }]}
-                placeholder="Describe your background..."
+                placeholder={t('requestHost.experiencePlaceholder')}
                 placeholderTextColor={colors.textTertiary}
                 value={formData.experience}
                 onChangeText={(text) => setFormData({ ...formData, experience: text })}
@@ -198,7 +200,7 @@ export default function RequestHostScreen({ navigation }) {
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>
-              What kind of events would you like to host? *
+              {t('requestHost.eventIdeasLabel')}
             </Text>
             <View style={[styles.inputWrapper, {
               backgroundColor: colors.surfaceGlass,
@@ -206,7 +208,7 @@ export default function RequestHostScreen({ navigation }) {
             }]}>
               <TextInput
                 style={[styles.textArea, { color: colors.text }]}
-                placeholder="Share your ideas..."
+                placeholder={t('requestHost.eventIdeasPlaceholder')}
                 placeholderTextColor={colors.textTertiary}
                 value={formData.eventIdeas}
                 onChangeText={(text) => setFormData({ ...formData, eventIdeas: text })}
@@ -236,12 +238,12 @@ export default function RequestHostScreen({ navigation }) {
               <View style={styles.loadingRow}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={[styles.submitText, { color: colors.primary, marginLeft: 12 }]}>
-                  Submitting...
+                  {t('requestHost.submitting')}
                 </Text>
               </View>
             ) : (
               <Text style={[styles.submitText, { color: colors.primary }]}>
-                Submit Application
+                {t('requestHost.submitApplication')}
               </Text>
             )}
           </View>
@@ -249,7 +251,7 @@ export default function RequestHostScreen({ navigation }) {
 
         <View style={styles.noteSection}>
           <Text style={[styles.noteText, { color: colors.textTertiary }]}>
-            Your application will be reviewed by our team. We'll notify you once a decision has been made.
+            {t('requestHost.reviewNote')}
           </Text>
         </View>
       </ScrollView>

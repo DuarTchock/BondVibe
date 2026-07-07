@@ -16,12 +16,14 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../services/firebase";
 import Icon from "../components/Icon";
 import { getWeeklyDigest } from "../services/digestService";
 import { TYPE, SPACING, RADII, BRAND, AI } from "../constants/theme-tokens";
 
 function PickRow({ pick, navigation }) {
+  const { t } = useTranslation();
   const [ev, setEv] = useState(null);
   useEffect(() => {
     getDoc(doc(db, "events", pick.eventId))
@@ -45,7 +47,7 @@ function PickRow({ pick, navigation }) {
         onPress={() => navigation.navigate("EventDetail", { eventId: pick.eventId })}
       >
         <Text style={[TYPE.label, { color: "#FFFFFF" }]}>
-          {pick.cta === "remind" ? "Remind" : "Go"}
+          {pick.cta === "remind" ? t("yourWeek.remindCta") : t("yourWeek.goCta")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -53,6 +55,7 @@ function PickRow({ pick, navigation }) {
 }
 
 export default function YourWeekScreen({ navigation }) {
+  const { t } = useTranslation();
   const [state, setState] = useState({ loading: true, data: null, needsPlus: false });
 
   useEffect(() => {
@@ -72,7 +75,7 @@ export default function YourWeekScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={hit}>
           <Icon name="back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={[TYPE.eyebrow, { color: AI.accent }]}>YOUR WEEK · CURATED BY AI</Text>
+        <Text style={[TYPE.eyebrow, { color: AI.accent }]}>{t("yourWeek.headerEyebrow")}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -83,8 +86,8 @@ export default function YourWeekScreen({ navigation }) {
           <Icon name="ai" size={40} color={AI.accent} />
           <Text style={[TYPE.body, styles.emptyText, { color: AI.textOnDark }]}>
             {state.needsPlus
-              ? "You've seen this month's free digest. Kinlo Plus delivers it every week."
-              : "Your digest is taking a break — check back soon."}
+              ? t("yourWeek.needsPlusText")
+              : t("yourWeek.emptyText")}
           </Text>
           {state.needsPlus && (
             <TouchableOpacity onPress={() => navigation.navigate("PlusPaywall", { from: "weekly_digest" })}>
@@ -94,7 +97,7 @@ export default function YourWeekScreen({ navigation }) {
                 end={{ x: 1, y: 0 }}
                 style={styles.cta}
               >
-                <Text style={[TYPE.label, { color: "#FFFFFF" }]}>See Kinlo Plus</Text>
+                <Text style={[TYPE.label, { color: "#FFFFFF" }]}>{t("yourWeek.seeKinloPlus")}</Text>
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -114,7 +117,7 @@ export default function YourWeekScreen({ navigation }) {
 
           {(state.data.picks || []).length > 0 && (
             <View style={styles.picks}>
-              <Text style={[TYPE.eyebrow, { color: AI.accent }]}>PICKED FOR YOU</Text>
+              <Text style={[TYPE.eyebrow, { color: AI.accent }]}>{t("yourWeek.pickedForYou")}</Text>
               {state.data.picks.map((p) => (
                 <PickRow key={p.eventId} pick={p} navigation={navigation} />
               ))}

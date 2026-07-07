@@ -9,34 +9,36 @@ import {
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { usePremium } from "../hooks/usePremium";
 import { startProCheckout, openProPortal } from "../services/proService";
 
-const PRO_PRICE_LABEL = "$199 MXN / mo";
-
-const PRO_FEATURES = [
-  { icon: "ai", title: "AI coaching", desc: "Recommendations to improve your events based on your reviews" },
-  { icon: "chart", title: "Advanced insights", desc: "Trends, sentiment and benchmark vs your category" },
-  { icon: "qr", title: "QR check-in", desc: "Take attendance at the event door" },
-  { icon: "users", title: "Attendee CRM", desc: "History, regulars and alerts on who needs attention" },
-  { icon: "chat", title: "Messaging + unlimited groups", desc: "Mass announcements and unlimited groups" },
-];
-
 export default function BondVibeProScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { isPremium, loading } = usePremium();
   const [working, setWorking] = useState(false);
   const styles = createStyles(colors, isDark);
+
+  const PRO_PRICE_LABEL = t("bondvibePro.priceLabel");
+
+  const PRO_FEATURES = [
+    { icon: "ai", title: t("bondvibePro.features.aiCoaching.title"), desc: t("bondvibePro.features.aiCoaching.desc") },
+    { icon: "chart", title: t("bondvibePro.features.advancedInsights.title"), desc: t("bondvibePro.features.advancedInsights.desc") },
+    { icon: "qr", title: t("bondvibePro.features.qrCheckin.title"), desc: t("bondvibePro.features.qrCheckin.desc") },
+    { icon: "users", title: t("bondvibePro.features.attendeeCrm.title"), desc: t("bondvibePro.features.attendeeCrm.desc") },
+    { icon: "chat", title: t("bondvibePro.features.messaging.title"), desc: t("bondvibePro.features.messaging.desc") },
+  ];
 
   const openCheckout = async () => {
     setWorking(true);
     try {
       await startProCheckout();
     } catch (e) {
-      Alert.alert("Pro", e.message || "Could not start checkout.");
+      Alert.alert(t("bondvibePro.alertTitle"), e.message || t("bondvibePro.checkoutError"));
     } finally {
       setWorking(false);
     }
@@ -47,7 +49,7 @@ export default function BondVibeProScreen({ navigation }) {
     try {
       await openProPortal();
     } catch (e) {
-      Alert.alert("Pro", e.message || "Could not open the billing portal.");
+      Alert.alert(t("bondvibePro.alertTitle"), e.message || t("bondvibePro.portalError"));
     } finally {
       setWorking(false);
     }
@@ -60,7 +62,7 @@ export default function BondVibeProScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Kinlo Pro</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("bondvibePro.headerTitle")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -68,12 +70,12 @@ export default function BondVibeProScreen({ navigation }) {
         <View style={[styles.hero, { borderColor: `${colors.primary}55`, backgroundColor: `${colors.primary}12` }]}>
           <Icon name="pro" size={40} color={colors.primary} />
           <Text style={[styles.heroTitle, { color: colors.text }]}>
-            {isPremium ? "You're Pro" : "Take your events to the next level"}
+            {isPremium ? t("bondvibePro.heroTitlePro") : t("bondvibePro.heroTitleFree")}
           </Text>
           <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
             {isPremium
-              ? "You have access to all Pro features."
-              : "Tools for hosts who want to grow and retain their community."}
+              ? t("bondvibePro.heroSubtitlePro")
+              : t("bondvibePro.heroSubtitleFree")}
           </Text>
         </View>
 
@@ -103,7 +105,7 @@ export default function BondVibeProScreen({ navigation }) {
             {working ? (
               <ActivityIndicator color={colors.text} />
             ) : (
-              <Text style={[styles.secondaryText, { color: colors.text }]}>Manage subscription</Text>
+              <Text style={[styles.secondaryText, { color: colors.text }]}>{t("bondvibePro.manageSubscription")}</Text>
             )}
           </TouchableOpacity>
         ) : (
@@ -119,13 +121,12 @@ export default function BondVibeProScreen({ navigation }) {
               ) : (
                 <>
                   <Icon name="pro" size={18} color="#fff" />
-                  <Text style={styles.ctaText}>Go Pro · {PRO_PRICE_LABEL}</Text>
+                  <Text style={styles.ctaText}>{t("bondvibePro.ctaGoPro", { price: PRO_PRICE_LABEL })}</Text>
                 </>
               )}
             </TouchableOpacity>
             <Text style={[styles.finePrint, { color: colors.textTertiary }]}>
-              Payment is processed securely in your browser. Your Pro access
-              activates automatically once payment completes.
+              {t("bondvibePro.finePrint")}
             </Text>
           </>
         )}

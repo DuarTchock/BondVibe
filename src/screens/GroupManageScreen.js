@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import {
   View,
@@ -41,6 +42,7 @@ const normAvatar = (a) =>
 
 export default function GroupManageScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { groupId } = route.params || {};
   const [group, setGroup] = useState(null);
   const [candidates, setCandidates] = useState([]);
@@ -65,7 +67,7 @@ export default function GroupManageScreen({ route, navigation }) {
       await updateGroup(groupId, { avatar: saved });
       setGroup((g) => ({ ...g, avatar: saved }));
     } catch (e) {
-      Alert.alert("Couldn't update photo", e.message || "Please try again.");
+      Alert.alert(t("groupManage.couldntUpdatePhoto"), e.message || t("groupManage.pleaseTryAgain"));
     } finally {
       setSavingPhoto(false);
     }
@@ -91,9 +93,11 @@ export default function GroupManageScreen({ route, navigation }) {
   const handleShareInvite = async () => {
     try {
       await Share.share({
-        message: `Join my group "${name}" on Kinlo.\nOpen: ${inviteLink(
-          inviteCode
-        )}\nor enter code: ${inviteCode}`,
+        message: t("groupManage.shareInviteMessage", {
+          name,
+          link: inviteLink(inviteCode),
+          code: inviteCode,
+        }),
       });
     } catch (e) {
       // user cancelled
@@ -104,8 +108,8 @@ export default function GroupManageScreen({ route, navigation }) {
     const url = spotifyUrl.trim();
     if (url && !/spotify\.com|spotify:/i.test(url)) {
       Alert.alert(
-        "Invalid link",
-        "Paste a Spotify playlist link (open.spotify.com/playlist/...)."
+        t("groupManage.invalidLink"),
+        t("groupManage.invalidLinkMessage")
       );
       return;
     }
@@ -114,11 +118,11 @@ export default function GroupManageScreen({ route, navigation }) {
       await updateGroup(groupId, { spotifyUrl: url });
       setGroup((g) => ({ ...g, spotifyUrl: url }));
       Alert.alert(
-        "Saved",
-        url ? "Your Spotify playlist is now on the group." : "Playlist removed."
+        t("groupManage.saved"),
+        url ? t("groupManage.spotifyPlaylistSaved") : t("groupManage.playlistRemoved")
       );
     } catch (e) {
-      Alert.alert("Couldn't save", e.message || "Please try again.");
+      Alert.alert(t("groupManage.couldntSave"), e.message || t("groupManage.pleaseTryAgain"));
     } finally {
       setSavingSpotify(false);
     }
@@ -126,12 +130,12 @@ export default function GroupManageScreen({ route, navigation }) {
 
   const handleRegenerate = () => {
     Alert.alert(
-      "New invite code?",
-      "The current link/code will stop working.",
+      t("groupManage.newInviteCode"),
+      t("groupManage.newInviteCodeMessage"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("groupManage.cancel"), style: "cancel" },
         {
-          text: "Generate",
+          text: t("groupManage.generate"),
           onPress: async () => setInviteCode(await regenerateInviteCode(groupId)),
         },
       ]
@@ -146,23 +150,23 @@ export default function GroupManageScreen({ route, navigation }) {
     setAddingEmail(false);
     if (!user) {
       Alert.alert(
-        "Not on Kinlo yet",
-        `${target} isn't registered. Send them an invite to join your group?`,
+        t("groupManage.notOnKinloYet"),
+        t("groupManage.notOnKinloYetMessage", { target }),
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Send invite", onPress: () => handleShareInvite(target) },
+          { text: t("groupManage.cancel"), style: "cancel" },
+          { text: t("groupManage.sendInvite"), onPress: () => handleShareInvite(target) },
         ]
       );
       return;
     }
     if ((group.memberIds || []).includes(user.id)) {
-      Alert.alert("Already a member", `${user.fullName || target} is already in the group.`);
+      Alert.alert(t("groupManage.alreadyAMember"), t("groupManage.alreadyAMemberMessage", { name: user.fullName || target }));
       return;
     }
     await addMembers(groupId, [user.id]);
     setGroup((g) => ({ ...g, memberIds: [...(g.memberIds || []), user.id] }));
     setEmail("");
-    Alert.alert("Added", `${user.fullName || target} was added to the group.`);
+    Alert.alert(t("groupManage.added"), t("groupManage.addedMessage", { name: user.fullName || target }));
   };
 
   const [blockTarget, setBlockTarget] = useState(null);
@@ -197,11 +201,11 @@ export default function GroupManageScreen({ route, navigation }) {
       setBlockReason("");
       setBlockEvidence(null);
       Alert.alert(
-        "User blocked",
-        "They were removed and can't rejoin. The report was sent to Kinlo."
+        t("groupManage.userBlocked"),
+        t("groupManage.userBlockedMessage")
       );
     } catch (e) {
-      Alert.alert("Couldn't block", e.message || "Please try again.");
+      Alert.alert(t("groupManage.couldntBlock"), e.message || t("groupManage.pleaseTryAgain"));
     } finally {
       setBlocking(false);
     }
@@ -213,7 +217,7 @@ export default function GroupManageScreen({ route, navigation }) {
       await updateGroup(groupId, { hostOnly: value });
     } catch (e) {
       setGroup((g) => ({ ...g, hostOnly: !value }));
-      Alert.alert("Couldn't update", e.message || "Please try again.");
+      Alert.alert(t("groupManage.couldntUpdate"), e.message || t("groupManage.pleaseTryAgain"));
     }
   };
 
@@ -225,23 +229,23 @@ export default function GroupManageScreen({ route, navigation }) {
     setAddingPhone(false);
     if (!user) {
       Alert.alert(
-        "Not on Kinlo yet",
-        `${target} isn't registered. Send them an invite to join your group?`,
+        t("groupManage.notOnKinloYet"),
+        t("groupManage.notOnKinloYetMessage", { target }),
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Send invite", onPress: () => handleShareInvite(target) },
+          { text: t("groupManage.cancel"), style: "cancel" },
+          { text: t("groupManage.sendInvite"), onPress: () => handleShareInvite(target) },
         ]
       );
       return;
     }
     if ((group.memberIds || []).includes(user.id)) {
-      Alert.alert("Already a member", `${user.fullName || target} is already in the group.`);
+      Alert.alert(t("groupManage.alreadyAMember"), t("groupManage.alreadyAMemberMessage", { name: user.fullName || target }));
       return;
     }
     await addMembers(groupId, [user.id]);
     setGroup((g) => ({ ...g, memberIds: [...(g.memberIds || []), user.id] }));
     setPhone("");
-    Alert.alert("Added", `${user.fullName || target} was added to the group.`);
+    Alert.alert(t("groupManage.added"), t("groupManage.addedMessage", { name: user.fullName || target }));
   };
 
   const memberIds = group?.memberIds || [];
@@ -265,10 +269,10 @@ export default function GroupManageScreen({ route, navigation }) {
   };
 
   const handleDelete = () => {
-    Alert.alert("Delete group?", "This removes the group and its chat for everyone.", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("groupManage.deleteGroupConfirmTitle"), t("groupManage.deleteGroupMessage"), [
+      { text: t("groupManage.cancel"), style: "cancel" },
       {
-        text: "Delete",
+        text: t("groupManage.delete"),
         style: "destructive",
         onPress: async () => {
           await deleteGroup(groupId);
@@ -297,7 +301,7 @@ export default function GroupManageScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Manage group</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("groupManage.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -310,11 +314,11 @@ export default function GroupManageScreen({ route, navigation }) {
         >
           <AvatarDisplay avatar={normAvatar(group?.avatar)} size={84} />
           <Text style={[styles.photoText, { color: colors.primary }]}>
-            {savingPhoto ? "Saving…" : "Change group photo"}
+            {savingPhoto ? t("groupManage.saving") : t("groupManage.changeGroupPhoto")}
           </Text>
         </TouchableOpacity>
 
-        <Text style={[styles.label, { color: colors.textSecondary }]}>GROUP NAME</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>{t("groupManage.groupName")}</Text>
         <View style={styles.nameRow}>
           <TextInput
             style={[styles.input, { color: colors.text, borderColor: colors.border }]}
@@ -324,20 +328,20 @@ export default function GroupManageScreen({ route, navigation }) {
           />
           <TouchableOpacity onPress={handleSaveName} disabled={saving}>
             <Text style={{ color: colors.primary, fontWeight: "700" }}>
-              {saving ? "…" : "Save"}
+              {saving ? "…" : t("groupManage.save")}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Invite link / code */}
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
-          INVITE
+          {t("groupManage.invite")}
         </Text>
         <View style={styles.inviteBox}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.codeText, { color: colors.text }]}>{inviteCode}</Text>
             <Text style={[styles.hint, { color: colors.textTertiary }]}>
-              Share this code or link to let anyone join.
+              {t("groupManage.inviteHint")}
             </Text>
           </View>
           <TouchableOpacity onPress={handleRegenerate} style={styles.inviteIcon}>
@@ -347,18 +351,18 @@ export default function GroupManageScreen({ route, navigation }) {
         <TouchableOpacity style={styles.shareBtn} onPress={handleShareInvite} activeOpacity={0.85}>
           <View style={[styles.shareGlass, { backgroundColor: `${colors.primary}33`, borderColor: `${colors.primary}66` }]}>
             <Icon name="share" size={18} color={colors.primary} />
-            <Text style={[styles.shareText, { color: colors.primary }]}>Share invite</Text>
+            <Text style={[styles.shareText, { color: colors.primary }]}>{t("groupManage.shareInvite")}</Text>
           </View>
         </TouchableOpacity>
 
         {/* Spotify playlist */}
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
-          SPOTIFY PLAYLIST
+          {t("groupManage.spotifyPlaylist")}
         </Text>
         <View style={styles.nameRow}>
           <TextInput
             style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-            placeholder="Paste a Spotify playlist link"
+            placeholder={t("groupManage.spotifyPlaceholder")}
             placeholderTextColor={colors.textTertiary}
             value={spotifyUrl}
             onChangeText={setSpotifyUrl}
@@ -367,25 +371,25 @@ export default function GroupManageScreen({ route, navigation }) {
           />
           <TouchableOpacity onPress={handleSaveSpotify} disabled={savingSpotify}>
             <Text style={{ color: colors.primary, fontWeight: "700" }}>
-              {savingSpotify ? "…" : "Save"}
+              {savingSpotify ? "…" : t("groupManage.save")}
             </Text>
           </TouchableOpacity>
         </View>
         <Text style={[styles.hint, { color: colors.textTertiary }]}>
-          Members will see a Spotify button at the top of the group to open it.
+          {t("groupManage.spotifyHint")}
         </Text>
 
         {/* Posting mode */}
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
-          POSTING
+          {t("groupManage.posting")}
         </Text>
         <View style={[styles.hostOnlyRow, { borderColor: colors.border }]}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.text, fontWeight: "600" }}>
-              Only host can post
+              {t("groupManage.onlyHostCanPost")}
             </Text>
             <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
-              Members can still read and vote in polls
+              {t("groupManage.onlyHostCanPostHint")}
             </Text>
           </View>
           <Switch
@@ -397,7 +401,7 @@ export default function GroupManageScreen({ route, navigation }) {
 
         {/* Add by email */}
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
-          ADD BY EMAIL
+          {t("groupManage.addByEmail")}
         </Text>
         <View style={styles.nameRow}>
           <TextInput
@@ -411,34 +415,34 @@ export default function GroupManageScreen({ route, navigation }) {
           />
           <TouchableOpacity onPress={handleAddByEmail} disabled={addingEmail}>
             <Text style={{ color: colors.primary, fontWeight: "700" }}>
-              {addingEmail ? "…" : "Add"}
+              {addingEmail ? "…" : t("groupManage.add")}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Add by phone */}
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
-          ADD BY PHONE
+          {t("groupManage.addByPhone")}
         </Text>
         <View style={styles.nameRow}>
           <PhoneInput value={phone} onChangeText={setPhone} style={{ flex: 1 }} />
           <TouchableOpacity onPress={handleAddByPhone} disabled={addingPhone}>
             <Text style={{ color: colors.primary, fontWeight: "700" }}>
-              {addingPhone ? "…" : "Add"}
+              {addingPhone ? "…" : t("groupManage.add")}
             </Text>
           </TouchableOpacity>
         </View>
 
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
-          MEMBERS ({memberIds.length})
+          {t("groupManage.membersCount", { count: memberIds.length })}
         </Text>
         <Text style={[styles.hint, { color: colors.textTertiary }]}>
-          Tap an attendee to add or remove them.
+          {t("groupManage.tapAttendeeHint")}
         </Text>
 
         {candidates.length === 0 ? (
           <Text style={[styles.hint, { color: colors.textSecondary, marginTop: 12 }]}>
-            No past attendees yet. Once people join your events, they'll appear here.
+            {t("groupManage.noPastAttendeesYet")}
           </Text>
         ) : (
           candidates.map((u) => {
@@ -456,7 +460,7 @@ export default function GroupManageScreen({ route, navigation }) {
               >
                 <AvatarDisplay avatar={normAvatar(u.avatar)} size={36} />
                 <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                  {u.fullName || u.name || "Member"}
+                  {u.fullName || u.name || t("groupManage.member")}
                 </Text>
                 {isMember ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
@@ -469,7 +473,7 @@ export default function GroupManageScreen({ route, navigation }) {
                     <Icon name="check" size={20} color={colors.primary} />
                   </View>
                 ) : (
-                  <Text style={{ color: colors.primary, fontWeight: "700" }}>Add</Text>
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>{t("groupManage.add")}</Text>
                 )}
               </TouchableOpacity>
             );
@@ -478,7 +482,7 @@ export default function GroupManageScreen({ route, navigation }) {
 
         <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
           <Icon name="delete" size={18} color="#EF4444" />
-          <Text style={styles.deleteText}>Delete group</Text>
+          <Text style={styles.deleteText}>{t("groupManage.deleteGroup")}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -498,14 +502,14 @@ export default function GroupManageScreen({ route, navigation }) {
         <View style={styles.blockOverlay}>
           <View style={[styles.blockCard, { backgroundColor: colors.background }]}>
             <Text style={[styles.blockTitle, { color: colors.text }]}>
-              Block {blockTarget?.fullName || blockTarget?.name || "user"}?
+              {t("groupManage.blockUserTitle", { name: blockTarget?.fullName || blockTarget?.name || t("groupManage.user") })}
             </Text>
             <Text style={{ color: colors.textSecondary, marginBottom: 12 }}>
-              They'll be removed and can't rejoin. This is reported to Kinlo.
+              {t("groupManage.blockUserDescription")}
             </Text>
             <TextInput
               style={[styles.input, { color: colors.text, borderColor: colors.border, minHeight: 70 }]}
-              placeholder="Reason (what happened?)"
+              placeholder={t("groupManage.reasonPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={blockReason}
               onChangeText={setBlockReason}
@@ -515,7 +519,7 @@ export default function GroupManageScreen({ route, navigation }) {
             <TouchableOpacity style={styles.evidenceBtn} onPress={pickEvidence}>
               <Icon name="imagePlus" size={18} color={colors.primary} />
               <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                {blockEvidence ? "Change evidence" : "Add evidence (optional)"}
+                {blockEvidence ? t("groupManage.changeEvidence") : t("groupManage.addEvidenceOptional")}
               </Text>
             </TouchableOpacity>
             {blockEvidence && (
@@ -530,12 +534,12 @@ export default function GroupManageScreen({ route, navigation }) {
                 }}
               >
                 <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
-                  Cancel
+                  {t("groupManage.cancel")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={confirmBlock} disabled={blocking}>
                 <Text style={{ color: "#EF4444", fontWeight: "700" }}>
-                  {blocking ? "Blocking…" : "Block user"}
+                  {blocking ? t("groupManage.blocking") : t("groupManage.blockUser")}
                 </Text>
               </TouchableOpacity>
             </View>

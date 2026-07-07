@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { checkInFromScan, subscribeCheckins } from "../services/checkinService";
@@ -10,6 +11,7 @@ import { checkInFromScan, subscribeCheckins } from "../services/checkinService";
 export default function CheckInScannerScreen({ route, navigation }) {
   const { eventId, eventTitle } = route.params || {};
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(true);
   const [result, setResult] = useState(null); // { ok, msg }
@@ -28,7 +30,12 @@ export default function CheckInScannerScreen({ route, navigation }) {
     const r = await checkInFromScan(eventId, data);
     setResult(
       r.success
-        ? { ok: true, msg: r.already ? `${r.name} already checked in` : `${r.name} checked in` }
+        ? {
+            ok: true,
+            msg: r.already
+              ? t("checkInScanner.alreadyCheckedIn", { name: r.name })
+              : t("checkInScanner.justCheckedIn", { name: r.name }),
+          }
         : { ok: false, msg: r.error }
     );
     setTimeout(() => {
@@ -43,7 +50,7 @@ export default function CheckInScannerScreen({ route, navigation }) {
         <Icon name="back" size={26} color={colors.text} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-        Check-in · {count}
+        {t("checkInScanner.headerTitle", { count })}
       </Text>
       <View style={{ width: 28 }} />
     </View>
@@ -65,16 +72,16 @@ export default function CheckInScannerScreen({ route, navigation }) {
         {Header}
         <View style={styles.center}>
           <Text style={[styles.permTitle, { color: colors.text }]}>
-            We need the camera
+            {t("checkInScanner.permTitle")}
           </Text>
           <Text style={[styles.permText, { color: colors.textSecondary }]}>
-            To scan your attendees' QR codes and check them in.
+            {t("checkInScanner.permText")}
           </Text>
           <TouchableOpacity
             style={[styles.permBtn, { backgroundColor: colors.primary }]}
             onPress={requestPermission}
           >
-            <Text style={styles.permBtnText}>Allow camera</Text>
+            <Text style={styles.permBtnText}>{t("checkInScanner.allowCamera")}</Text>
           </TouchableOpacity>
         </View>
       </GradientBackground>
@@ -94,7 +101,7 @@ export default function CheckInScannerScreen({ route, navigation }) {
         />
         <View style={styles.reticle} pointerEvents="none" />
         <Text style={styles.hint}>
-          Point at your attendee's QR code
+          {t("checkInScanner.hint")}
         </Text>
         {eventTitle ? <Text style={styles.eventLabel}>{eventTitle}</Text> : null}
         {result && (

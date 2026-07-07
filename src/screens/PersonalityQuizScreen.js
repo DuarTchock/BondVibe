@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { doc, updateDoc } from "firebase/firestore";
@@ -26,6 +27,7 @@ import {
 
 export default function PersonalityQuizScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [answers, setAnswers] = useState({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,7 +89,7 @@ export default function PersonalityQuizScreen({ navigation }) {
       setShowSuccessModal(true);
     } catch (error) {
       console.error("Error saving personality:", error);
-      alert("Failed to save personality profile. Please try again.");
+      alert(t("personalityQuiz.saveError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -111,8 +113,8 @@ export default function PersonalityQuizScreen({ navigation }) {
       <SuccessModal
         visible={showSuccessModal}
         onClose={handleSuccessClose}
-        title="Profile Complete!"
-        message="Your personality profile has been saved. We'll use this to match you with compatible groups."
+        title={t("personalityQuiz.successTitle")}
+        message={t("personalityQuiz.successMessage")}
         icon="brain"
         tone="brand"
       />
@@ -121,8 +123,8 @@ export default function PersonalityQuizScreen({ navigation }) {
       <SuccessModal
         visible={showIncompleteModal}
         onClose={() => setShowIncompleteModal(false)}
-        title="Almost There!"
-        message="Please answer all 44 questions before submitting your personality quiz."
+        title={t("personalityQuiz.incompleteTitle")}
+        message={t("personalityQuiz.incompleteMessage", { count: PERSONALITY_QUESTIONS.length })}
         icon="alert"
         tone="warning"
       />
@@ -133,7 +135,7 @@ export default function PersonalityQuizScreen({ navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.text }]}>
-          Personality Quiz
+          {t("personalityQuiz.headerTitle")}
         </Text>
         <View style={{ width: 60 }} />
       </View>
@@ -152,8 +154,11 @@ export default function PersonalityQuizScreen({ navigation }) {
           />
         </View>
         <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-          {currentQuestionIndex + 1} / {PERSONALITY_QUESTIONS.length} (
-          {progress}%)
+          {t("personalityQuiz.progressLabel", {
+            current: currentQuestionIndex + 1,
+            total: PERSONALITY_QUESTIONS.length,
+            percent: progress,
+          })}
         </Text>
       </View>
 
@@ -182,17 +187,21 @@ export default function PersonalityQuizScreen({ navigation }) {
             <Text
               style={[styles.dimensionText, { color: colors.textSecondary }]}
             >
-              {DIMENSION_INFO[currentQuestion.dimension].title}
+              {t(`personalityQuiz.dimensions.${currentQuestion.dimension}.title`, {
+                defaultValue: DIMENSION_INFO[currentQuestion.dimension].title,
+              })}
             </Text>
           </View>
 
           <Text
             style={[styles.questionNumber, { color: colors.textSecondary }]}
           >
-            Question {currentQuestionIndex + 1}
+            {t("personalityQuiz.questionNumber", { number: currentQuestionIndex + 1 })}
           </Text>
           <Text style={[styles.questionText, { color: colors.text }]}>
-            {currentQuestion.text}
+            {t(`personalityQuiz.questions.q${currentQuestion.id}`, {
+              defaultValue: currentQuestion.text,
+            })}
           </Text>
         </View>
 
@@ -229,7 +238,9 @@ export default function PersonalityQuizScreen({ navigation }) {
                     },
                   ]}
                 >
-                  {option.label}
+                  {t(`personalityQuiz.scaleOptions.${option.value}`, {
+                    defaultValue: option.label,
+                  })}
                 </Text>
               </TouchableOpacity>
             );
@@ -252,7 +263,7 @@ export default function PersonalityQuizScreen({ navigation }) {
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               <Icon name="back" size={14} color={colors.text} />
-              <Text style={[styles.navButtonText, { color: colors.text }]}>Previous</Text>
+              <Text style={[styles.navButtonText, { color: colors.text }]}>{t("personalityQuiz.previous")}</Text>
             </View>
           </TouchableOpacity>
 
@@ -277,7 +288,7 @@ export default function PersonalityQuizScreen({ navigation }) {
                   { color: isComplete ? "#FFFFFF" : colors.textSecondary },
                 ]}
               >
-                {isSubmitting ? "Submitting..." : "Submit Quiz"}
+                {isSubmitting ? t("personalityQuiz.submitting") : t("personalityQuiz.submit")}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -292,7 +303,7 @@ export default function PersonalityQuizScreen({ navigation }) {
               onPress={handleNext}
             >
               <Text style={[styles.navButtonText, { color: colors.text }]}>
-                Next →
+                {t("personalityQuiz.next")}
               </Text>
             </TouchableOpacity>
           )}
@@ -301,8 +312,7 @@ export default function PersonalityQuizScreen({ navigation }) {
         {/* Help Text */}
         <View style={styles.helpContainer}>
           <Text style={[styles.helpText, { color: colors.textTertiary }]}>
-            Be honest - there are no right or wrong answers. Your responses
-            help us match you with compatible groups.
+            {t("personalityQuiz.helpText")}
           </Text>
         </View>
       </ScrollView>

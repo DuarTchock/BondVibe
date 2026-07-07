@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import {
@@ -52,6 +53,7 @@ import {
 
 export default function AdminDashboardScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("requests"); // requests | users
 
   // Host Requests state
@@ -101,8 +103,8 @@ export default function AdminDashboardScreen({ navigation }) {
 
   // ✅ HELPER: Get user display name (handles both fullName and name fields)
   const getUserDisplayName = (user) => {
-    if (!user) return "Unknown";
-    return user.fullName || user.name || "Unknown";
+    if (!user) return t("adminDashboard.unknown");
+    return user.fullName || user.name || t("adminDashboard.unknown");
   };
 
   // Access guard: only admins may use this screen. This is defense-in-depth on
@@ -119,9 +121,9 @@ export default function AdminDashboardScreen({ navigation }) {
         if (!isAdmin) {
           setLoading(false);
           Alert.alert(
-            "Access denied",
-            "This area is for administrators only.",
-            [{ text: "OK", onPress: () => navigation.goBack() }]
+            t("adminDashboard.accessDeniedTitle"),
+            t("adminDashboard.accessDeniedMessage"),
+            [{ text: t("adminDashboard.ok"), onPress: () => navigation.goBack() }]
           );
         }
       } catch (e) {
@@ -192,9 +194,9 @@ export default function AdminDashboardScreen({ navigation }) {
         pro: { amount: Number(subForm.proAmount) || 0, currency: subForm.proCurrency, interval: "month" },
         plus: { amount: Number(subForm.plusAmount) || 0, currency: subForm.plusCurrency, interval: "month" },
       });
-      Alert.alert("Saved", "Subscription prices updated. New checkouts use these.");
+      Alert.alert(t("adminDashboard.saved"), t("adminDashboard.subscriptionsSaved"));
     } catch (e) {
-      Alert.alert("Error", e.message || "Could not save subscription prices.");
+      Alert.alert(t("adminDashboard.error"), e.message || t("adminDashboard.couldNotSaveSubscriptions"));
     } finally {
       setSubSaving(false);
     }
@@ -206,7 +208,7 @@ export default function AdminDashboardScreen({ navigation }) {
       await setDoc(doc(db, "config", "cities"), { cities: next }, { merge: false });
       setCitiesList(next);
     } catch (e) {
-      Alert.alert("Couldn't save", e.message || "Please try again.");
+      Alert.alert(t("adminDashboard.couldntSave"), e.message || t("adminDashboard.pleaseTryAgain"));
     } finally {
       setCitySaving(false);
     }
@@ -218,7 +220,7 @@ export default function AdminDashboardScreen({ navigation }) {
     const id = slugifyCity(label);
     if (!id) return;
     if ((citiesList || []).some((c) => c.id === id)) {
-      Alert.alert("Already listed", `${label} is already an operating city.`);
+      Alert.alert(t("adminDashboard.alreadyListed"), t("adminDashboard.alreadyListedMessage", { label }));
       return;
     }
     setNewCityLabel("");
@@ -227,16 +229,16 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const removeCity = (city) => {
     if ((citiesList || []).length <= 1) {
-      Alert.alert("Can't remove", "At least one operating city is required.");
+      Alert.alert(t("adminDashboard.cantRemove"), t("adminDashboard.cantRemoveMessage"));
       return;
     }
     Alert.alert(
-      "Remove city",
-      `Remove ${city.label}? It will disappear from every city dropdown. Existing events/vehicles in ${city.label} keep their data.`,
+      t("adminDashboard.removeCity"),
+      t("adminDashboard.removeCityMessage", { label: city.label }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("adminDashboard.cancel"), style: "cancel" },
         {
-          text: "Remove",
+          text: t("adminDashboard.remove"),
           style: "destructive",
           onPress: () => persistCities(citiesList.filter((c) => c.id !== city.id)),
         },
@@ -254,9 +256,9 @@ export default function AdminDashboardScreen({ navigation }) {
         stripeFeePercent: pct(pricingForm.stripePct),
         stripeFixedCentavos: Math.round((Number(pricingForm.stripeFixed) || 0) * 100),
       });
-      Alert.alert("Saved", "Pricing updated. New checkouts use these rates.");
+      Alert.alert(t("adminDashboard.saved"), t("adminDashboard.pricingSaved"));
     } catch (e) {
-      Alert.alert("Error", e.message || "Could not save pricing.");
+      Alert.alert(t("adminDashboard.error"), e.message || t("adminDashboard.couldNotSavePricing"));
     } finally {
       setPricingSaving(false);
     }
@@ -291,7 +293,7 @@ export default function AdminDashboardScreen({ navigation }) {
             id: docSnap.id,
             ...requestData,
             // ✅ FIX: Use fullName OR name
-            userName: userData?.fullName || userData?.name || "Unknown User",
+            userName: userData?.fullName || userData?.name || t("adminDashboard.unknownUser"),
           };
         })
       );
@@ -371,8 +373,8 @@ export default function AdminDashboardScreen({ navigation }) {
 
       await createNotification(currentRequest.userId, {
         type: "host_approved",
-        title: "Congratulations!",
-        message: `Your host request has been approved! Admin says: "${message}"`,
+        title: t("adminDashboard.congratulations"),
+        message: t("adminDashboard.hostApprovedNotification", { message }),
         icon: "tent",
       });
 
@@ -382,13 +384,13 @@ export default function AdminDashboardScreen({ navigation }) {
       setStats((prev) => ({ ...prev, pending: Math.max(0, (prev.pending || 1) - 1) }));
 
       Alert.alert(
-        "Success",
-        `${currentRequest.userName} has been approved! They'll choose their host type (free or paid) to activate hosting.`,
-        [{ text: "OK" }]
+        t("adminDashboard.success"),
+        t("adminDashboard.hostApprovedAlert", { name: currentRequest.userName }),
+        [{ text: t("adminDashboard.ok") }]
       );
     } catch (error) {
       console.error("Error approving request:", error);
-      Alert.alert("Error", "Could not approve request. Please try again.");
+      Alert.alert(t("adminDashboard.error"), t("adminDashboard.couldNotApprove"));
     } finally {
       setHostRequestsProcessing(null);
       setCurrentRequest(null);
@@ -408,20 +410,20 @@ export default function AdminDashboardScreen({ navigation }) {
 
       await createNotification(currentRequest.userId, {
         type: "host_rejected",
-        title: "Host Request Update",
-        message: `Your host request was reviewed. Admin says: "${message}"`,
+        title: t("adminDashboard.hostRequestUpdate"),
+        message: t("adminDashboard.hostRejectedNotification", { message }),
         icon: "clipboard",
       });
 
       console.log("✅ Host request rejected");
       Alert.alert(
-        "Rejected",
-        `${currentRequest.userName}'s request has been rejected`
+        t("adminDashboard.rejected"),
+        t("adminDashboard.hostRejectedAlert", { name: currentRequest.userName })
       );
       await loadData();
     } catch (error) {
       console.error("Error rejecting request:", error);
-      Alert.alert("Error", "Could not reject request. Please try again.");
+      Alert.alert(t("adminDashboard.error"), t("adminDashboard.couldNotReject"));
     } finally {
       setHostRequestsProcessing(null);
       setCurrentRequest(null);
@@ -458,16 +460,16 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const handleResetPassword = (user) => {
     if (!user.email) {
-      Alert.alert("No email", "This user has no email on file.");
+      Alert.alert(t("adminDashboard.noEmail"), t("adminDashboard.noEmailMessage"));
       return;
     }
     Alert.alert(
-      "Reset password",
-      `Generate a password-reset link for ${user.email}? You can share it with them.`,
+      t("adminDashboard.resetPassword"),
+      t("adminDashboard.resetPasswordMessage", { email: user.email }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("adminDashboard.cancel"), style: "cancel" },
         {
-          text: "Generate",
+          text: t("adminDashboard.generate"),
           onPress: async () => {
             try {
               const fn = httpsCallable(getFunctions(), "adminResetPassword");
@@ -475,11 +477,11 @@ export default function AdminDashboardScreen({ navigation }) {
               const link = res.data?.link;
               if (link) {
                 await Share.share({
-                  message: `Kinlo password reset for ${user.email}:\n${link}`,
+                  message: t("adminDashboard.resetPasswordShareMessage", { email: user.email, link }),
                 });
               }
             } catch (e) {
-              Alert.alert("Error", e.message || "Could not generate the link.");
+              Alert.alert(t("adminDashboard.error"), e.message || t("adminDashboard.couldNotGenerateLink"));
             }
           },
         },
@@ -489,21 +491,21 @@ export default function AdminDashboardScreen({ navigation }) {
 
   const handleDeleteUser = (user) => {
     Alert.alert(
-      "Delete user",
-      `Permanently delete ${getUserDisplayName(user)} (${user.email})? This removes their account and can't be undone.`,
+      t("adminDashboard.deleteUser"),
+      t("adminDashboard.deleteUserMessage", { name: getUserDisplayName(user), email: user.email }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("adminDashboard.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("adminDashboard.delete"),
           style: "destructive",
           onPress: async () => {
             try {
               const fn = httpsCallable(getFunctions(), "adminDeleteUser");
               await fn({ uid: user.id });
               await loadUsers(roleFilter);
-              Alert.alert("Deleted", "The user has been removed.");
+              Alert.alert(t("adminDashboard.deletedTitle"), t("adminDashboard.deletedMessage"));
             } catch (e) {
-              Alert.alert("Error", e.message || "Could not delete the user.");
+              Alert.alert(t("adminDashboard.error"), e.message || t("adminDashboard.couldNotDeleteUser"));
             }
           },
         },
@@ -521,7 +523,7 @@ export default function AdminDashboardScreen({ navigation }) {
     );
 
     if (!permission.allowed) {
-      Alert.alert("Error", permission.reason);
+      Alert.alert(t("adminDashboard.error"), permission.reason);
       setConfirmModalVisible(false);
       return;
     }
@@ -540,8 +542,8 @@ export default function AdminDashboardScreen({ navigation }) {
           result = await removeHostRole(confirmUser.id, reason);
           if (result.success) {
             Alert.alert(
-              "Success",
-              `Removed host role from ${displayName}. ${result.eventsCancelled} event(s) cancelled.`
+              t("adminDashboard.success"),
+              t("adminDashboard.removedHostRole", { name: displayName, count: result.eventsCancelled })
             );
           }
           break;
@@ -549,7 +551,7 @@ export default function AdminDashboardScreen({ navigation }) {
         case "remove_admin":
           result = await removeAdminRole(confirmUser.id);
           if (result.success) {
-            Alert.alert("Success", `Removed admin role from ${displayName}`);
+            Alert.alert(t("adminDashboard.success"), t("adminDashboard.removedAdminRole", { name: displayName }));
           }
           break;
 
@@ -561,8 +563,8 @@ export default function AdminDashboardScreen({ navigation }) {
           );
           if (result.success) {
             Alert.alert(
-              "Success",
-              `Suspended ${displayName}. ${result.eventsCancelled} event(s) cancelled.`
+              t("adminDashboard.success"),
+              t("adminDashboard.suspendedUser", { name: displayName, count: result.eventsCancelled })
             );
           }
           break;
@@ -570,20 +572,20 @@ export default function AdminDashboardScreen({ navigation }) {
         case "unsuspend":
           result = await unsuspendUser(confirmUser.id);
           if (result.success) {
-            Alert.alert("Success", `Unsuspended ${displayName}`);
+            Alert.alert(t("adminDashboard.success"), t("adminDashboard.unsuspendedUser", { name: displayName }));
           }
           break;
       }
 
       if (!result.success) {
-        Alert.alert("Error", result.error || "Action failed");
+        Alert.alert(t("adminDashboard.error"), result.error || t("adminDashboard.actionFailed"));
       }
 
       await loadData();
       await loadUsers(roleFilter);
     } catch (error) {
       console.error("Error performing admin action:", error);
-      Alert.alert("Error", "Could not complete action. Please try again.");
+      Alert.alert(t("adminDashboard.error"), t("adminDashboard.couldNotCompleteAction"));
     } finally {
       setLoading(false);
       setConfirmUser(null);
@@ -655,7 +657,7 @@ export default function AdminDashboardScreen({ navigation }) {
             <Text
               style={[styles.roleText, { color: getRoleTextColor(user.role) }]}
             >
-              {user.role?.toUpperCase() || "USER"}
+              {user.role?.toUpperCase() || t("adminDashboard.roleUser").toUpperCase()}
             </Text>
           </View>
         </View>
@@ -664,7 +666,7 @@ export default function AdminDashboardScreen({ navigation }) {
         {user.suspended && (
           <View style={styles.suspendedBanner}>
             <Text style={styles.suspendedText}>
-              SUSPENDED{" "}
+              {t("adminDashboard.suspendedBanner")}{" "}
               {user.suspensionReason ? `• ${user.suspensionReason}` : ""}
             </Text>
           </View>
@@ -687,7 +689,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 ]}
               >
                 <Text style={[styles.actionText, { color: "#34C759" }]}>
-                  Unsuspend
+                  {t("adminDashboard.unsuspend")}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -708,7 +710,7 @@ export default function AdminDashboardScreen({ navigation }) {
                     ]}
                   >
                     <Text style={[styles.actionText, { color: colors.warning }]}>
-                      Remove Host
+                      {t("adminDashboard.removeHost")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -729,7 +731,7 @@ export default function AdminDashboardScreen({ navigation }) {
                     ]}
                   >
                     <Text style={[styles.actionText, { color: colors.warning }]}>
-                      Remove Admin
+                      {t("adminDashboard.removeAdmin")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -750,7 +752,7 @@ export default function AdminDashboardScreen({ navigation }) {
                     ]}
                   >
                     <Text style={[styles.actionText, { color: colors.error }]}>
-                      Suspend
+                      {t("adminDashboard.suspend")}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -773,7 +775,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 ]}
               >
                 <Text style={[styles.actionText, { color: colors.brand }]}>
-                  Reset Password
+                  {t("adminDashboard.resetPassword")}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -794,7 +796,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 ]}
               >
                 <Text style={[styles.actionText, { color: colors.error }]}>
-                  Delete
+                  {t("adminDashboard.delete")}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -864,7 +866,7 @@ export default function AdminDashboardScreen({ navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Admin Dashboard
+          {t("adminDashboard.title")}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -901,7 +903,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 },
               ]}
             >
-              Host Requests
+              {t("adminDashboard.tabHostRequests")}
             </Text>
             {stats.pending > 0 && (
               <View style={styles.badge}>
@@ -939,7 +941,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 },
               ]}
             >
-              Users
+              {t("adminDashboard.tabUsers")}
             </Text>
           </View>
         </TouchableOpacity>
@@ -962,7 +964,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 { color: activeTab === "crashes" ? colors.primary : colors.textSecondary },
               ]}
             >
-              Crashes
+              {t("adminDashboard.tabCrashes")}
             </Text>
           </View>
         </TouchableOpacity>
@@ -985,7 +987,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 { color: activeTab === "pricing" ? colors.primary : colors.textSecondary },
               ]}
             >
-              Pricing
+              {t("adminDashboard.tabPricing")}
             </Text>
           </View>
         </TouchableOpacity>
@@ -1019,7 +1021,7 @@ export default function AdminDashboardScreen({ navigation }) {
               {activeTab === "requests" ? stats.pending : stats.regular}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              {activeTab === "requests" ? "Pending" : "Users"}
+              {activeTab === "requests" ? t("adminDashboard.statPending") : t("adminDashboard.statUsers")}
             </Text>
           </View>
 
@@ -1043,7 +1045,7 @@ export default function AdminDashboardScreen({ navigation }) {
               {activeTab === "requests" ? stats.events : stats.admins}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              {activeTab === "requests" ? "Events" : "Admins"}
+              {activeTab === "requests" ? t("adminDashboard.statEvents") : t("adminDashboard.statAdmins")}
             </Text>
           </View>
 
@@ -1067,7 +1069,7 @@ export default function AdminDashboardScreen({ navigation }) {
               {activeTab === "requests" ? stats.regular : stats.hosts}
             </Text>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              {activeTab === "requests" ? "Users" : "Hosts"}
+              {activeTab === "requests" ? t("adminDashboard.statUsers") : t("adminDashboard.statHosts")}
             </Text>
           </View>
         </View>
@@ -1077,7 +1079,7 @@ export default function AdminDashboardScreen({ navigation }) {
         {activeTab === "requests" && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Pending Host Requests
+              {t("adminDashboard.pendingHostRequests")}
             </Text>
 
             {pendingRequests.length === 0 ? (
@@ -1088,7 +1090,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 <Text
                   style={[styles.emptyText, { color: colors.textSecondary }]}
                 >
-                  No pending requests
+                  {t("adminDashboard.noPendingRequests")}
                 </Text>
               </View>
             ) : (
@@ -1135,7 +1137,7 @@ export default function AdminDashboardScreen({ navigation }) {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          WHY HOST?
+                          {t("adminDashboard.whyHost")}
                         </Text>
                         <Text
                           style={[styles.detailValue, { color: colors.text }]}
@@ -1151,7 +1153,7 @@ export default function AdminDashboardScreen({ navigation }) {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          EXPERIENCE
+                          {t("adminDashboard.experience")}
                         </Text>
                         <Text
                           style={[styles.detailValue, { color: colors.text }]}
@@ -1167,7 +1169,7 @@ export default function AdminDashboardScreen({ navigation }) {
                             { color: colors.textSecondary },
                           ]}
                         >
-                          EVENT IDEAS
+                          {t("adminDashboard.eventIdeas")}
                         </Text>
                         <Text
                           style={[styles.detailValue, { color: colors.text }]}
@@ -1196,8 +1198,8 @@ export default function AdminDashboardScreen({ navigation }) {
                         >
                           <Text style={styles.rejectText}>
                             {hostRequestsProcessing === request.id
-                              ? "Processing..."
-                              : "Reject"}
+                              ? t("adminDashboard.processing")
+                              : t("adminDashboard.reject")}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -1220,8 +1222,8 @@ export default function AdminDashboardScreen({ navigation }) {
                         >
                           <Text style={styles.approveText}>
                             {hostRequestsProcessing === request.id
-                              ? "Processing..."
-                              : "Approve"}
+                              ? t("adminDashboard.processing")
+                              : t("adminDashboard.approve")}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -1238,7 +1240,7 @@ export default function AdminDashboardScreen({ navigation }) {
           <View style={styles.section}>
             {crashes.length === 0 ? (
               <Text style={{ color: colors.textSecondary, textAlign: "center", marginTop: 24 }}>
-                No crashes reported
+                {t("adminDashboard.noCrashesReported")}
               </Text>
             ) : (
               crashes.map((c) => (
@@ -1250,7 +1252,7 @@ export default function AdminDashboardScreen({ navigation }) {
                   ]}
                 >
                   <Text style={[styles.crashMsg, { color: colors.text }]} numberOfLines={2}>
-                    {c.message || "Unknown error"}
+                    {c.message || t("adminDashboard.unknownError")}
                   </Text>
                   <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 4 }}>
                     {(c.platform || "?")} · {c.screen || c.source || "js"}
@@ -1290,7 +1292,7 @@ export default function AdminDashboardScreen({ navigation }) {
               />
               <TextInput
                 style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search users..."
+                placeholder={t("adminDashboard.searchUsersPlaceholder")}
                 placeholderTextColor={colors.textTertiary}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -1331,7 +1333,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         },
                       ]}
                     >
-                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                      {t(`adminDashboard.roleFilter${filter.charAt(0).toUpperCase() + filter.slice(1)}`)}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -1339,7 +1341,7 @@ export default function AdminDashboardScreen({ navigation }) {
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {filteredUsers.length} User{filteredUsers.length !== 1 ? "s" : ""}
+              {t("adminDashboard.userCount", { count: filteredUsers.length })}
             </Text>
 
             {loading ? (
@@ -1354,7 +1356,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 <Text
                   style={[styles.emptyText, { color: colors.textSecondary }]}
                 >
-                  No users found
+                  {t("adminDashboard.noUsersFound")}
                 </Text>
               </View>
             ) : (
@@ -1369,19 +1371,18 @@ export default function AdminDashboardScreen({ navigation }) {
         {activeTab === "pricing" && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Fees & pricing
+              {t("adminDashboard.feesAndPricing")}
             </Text>
             {!pricingForm ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
             ) : (
               <>
                 <Text style={[styles.feeHint, { color: colors.textSecondary }]}>
-                  Percentages are whole numbers (5 = 5%). Buyers pay these fees on
-                  top; hosts receive 100% of their price. Changes apply to new checkouts.
+                  {t("adminDashboard.feesHint")}
                 </Text>
 
                 <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
-                  Event platform fee (%)
+                  {t("adminDashboard.eventPlatformFee")}
                 </Text>
                 <TextInput
                   style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
@@ -1393,7 +1394,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 />
 
                 <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
-                  Rental platform fee (%)
+                  {t("adminDashboard.rentalPlatformFee")}
                 </Text>
                 <TextInput
                   style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
@@ -1405,7 +1406,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 />
 
                 <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
-                  Stripe fee (%)
+                  {t("adminDashboard.stripeFee")}
                 </Text>
                 <TextInput
                   style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
@@ -1417,7 +1418,7 @@ export default function AdminDashboardScreen({ navigation }) {
                 />
 
                 <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
-                  Stripe fixed fee (MXN per transaction)
+                  {t("adminDashboard.stripeFixedFee")}
                 </Text>
                 <TextInput
                   style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
@@ -1437,18 +1438,16 @@ export default function AdminDashboardScreen({ navigation }) {
                   {pricingSaving ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.saveFeeTxt}>Save pricing</Text>
+                    <Text style={styles.saveFeeTxt}>{t("adminDashboard.savePricing")}</Text>
                   )}
                 </TouchableOpacity>
 
                 {/* Operating cities — feeds every city dropdown in the app */}
                 <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 32 }]}>
-                  Operating cities
+                  {t("adminDashboard.operatingCities")}
                 </Text>
                 <Text style={[styles.feeHint, { color: colors.textSecondary }]}>
-                  These cities appear in every city selector (events, profiles,
-                  vehicles, search). Removing one hides it from selectors but
-                  keeps existing data.
+                  {t("adminDashboard.operatingCitiesHint")}
                 </Text>
                 {!citiesList ? (
                   <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
@@ -1472,7 +1471,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         style={[styles.feeInput, { flex: 1, marginBottom: 0, color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
                         value={newCityLabel}
                         onChangeText={setNewCityLabel}
-                        placeholder="e.g. Mérida"
+                        placeholder={t("adminDashboard.newCityPlaceholder")}
                         placeholderTextColor={colors.textTertiary}
                         onSubmitEditing={addCity}
                       />
@@ -1481,7 +1480,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         onPress={addCity}
                         disabled={citySaving}
                       >
-                        <Text style={styles.saveFeeTxt}>Add</Text>
+                        <Text style={styles.saveFeeTxt}>{t("adminDashboard.add")}</Text>
                       </TouchableOpacity>
                     </View>
                   </>
@@ -1489,17 +1488,16 @@ export default function AdminDashboardScreen({ navigation }) {
 
                 {/* Subscriptions — Kinlo Pro (host) + Kinlo Plus (attendee) */}
                 <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 32 }]}>
-                  Subscriptions
+                  {t("adminDashboard.subscriptions")}
                 </Text>
                 <Text style={[styles.feeHint, { color: colors.textSecondary }]}>
-                  Monthly prices (in the currency shown). Applied to new Kinlo Pro
-                  and Kinlo Plus checkouts.
+                  {t("adminDashboard.subscriptionsHint")}
                 </Text>
 
                 {subForm && (
                   <>
                     <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
-                      Kinlo Pro — amount / month ({subForm.proCurrency})
+                      {t("adminDashboard.kinloProAmount", { currency: subForm.proCurrency })}
                     </Text>
                     <TextInput
                       style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
@@ -1511,7 +1509,7 @@ export default function AdminDashboardScreen({ navigation }) {
                     />
 
                     <Text style={[styles.feeLabel, { color: colors.textSecondary }]}>
-                      Kinlo Plus — amount / month ({subForm.plusCurrency})
+                      {t("adminDashboard.kinloPlusAmount", { currency: subForm.plusCurrency })}
                     </Text>
                     <TextInput
                       style={[styles.feeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
@@ -1531,7 +1529,7 @@ export default function AdminDashboardScreen({ navigation }) {
                       {subSaving ? (
                         <ActivityIndicator size="small" color="#fff" />
                       ) : (
-                        <Text style={styles.saveFeeTxt}>Save subscriptions</Text>
+                        <Text style={styles.saveFeeTxt}>{t("adminDashboard.saveSubscriptions")}</Text>
                       )}
                     </TouchableOpacity>
                   </>
@@ -1549,7 +1547,7 @@ export default function AdminDashboardScreen({ navigation }) {
         onSubmit={
           modalType === "approve" ? handleApproveSubmit : handleRejectSubmit
         }
-        title={modalType === "approve" ? "Approve Request" : "Reject Request"}
+        title={modalType === "approve" ? t("adminDashboard.approveRequestTitle") : t("adminDashboard.rejectRequestTitle")}
         userName={currentRequest?.userName || ""}
         type={modalType}
       />

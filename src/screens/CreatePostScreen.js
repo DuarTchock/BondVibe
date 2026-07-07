@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import GradientBackground from "../components/GradientBackground";
 import { useTheme } from "../contexts/ThemeContext";
@@ -26,6 +27,7 @@ const MAX_PHOTOS = 4;
 
 export default function CreatePostScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [text, setText] = useState("");
   const [images, setImages] = useState([]); // local uris
   const [posting, setPosting] = useState(false);
@@ -34,7 +36,7 @@ export default function CreatePostScreen({ navigation }) {
     if (images.length >= MAX_PHOTOS) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow photo access to add images.");
+      Alert.alert(t("createPost.permissionNeededTitle"), t("createPost.permissionNeededMessage"));
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -54,10 +56,10 @@ export default function CreatePostScreen({ navigation }) {
       const urls = [];
       for (const uri of images) urls.push(await uploadPostImage(uid, uri));
       const r = await createPost({ text, images: urls });
-      if (!r.success) throw new Error(r.error || "Failed");
+      if (!r.success) throw new Error(r.error || t("createPost.failed"));
       navigation.goBack();
     } catch (e) {
-      Alert.alert("Couldn't post", e.message || "Please try again.");
+      Alert.alert(t("createPost.couldntPostTitle"), e.message || t("createPost.tryAgain"));
     } finally {
       setPosting(false);
     }
@@ -72,7 +74,7 @@ export default function CreatePostScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={hit}>
           <Icon name="close" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>New post</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t("createPost.title")}</Text>
         <TouchableOpacity
           onPress={submit}
           disabled={!canPost}
@@ -81,7 +83,7 @@ export default function CreatePostScreen({ navigation }) {
           {posting ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.postTxt}>Post</Text>
+            <Text style={styles.postTxt}>{t("createPost.postButton")}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -89,7 +91,7 @@ export default function CreatePostScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <TextInput
           style={[styles.input, { color: colors.text }]}
-          placeholder="What's happening?"
+          placeholder={t("createPost.textPlaceholder")}
           placeholderTextColor={colors.textTertiary}
           value={text}
           onChangeText={setText}
@@ -116,7 +118,9 @@ export default function CreatePostScreen({ navigation }) {
         <TouchableOpacity style={styles.addPhoto} onPress={pick} disabled={images.length >= MAX_PHOTOS}>
           <Icon name="image" size={20} color={colors.primary} />
           <Text style={[styles.addPhotoText, { color: colors.primary }]}>
-            Add photo{images.length > 0 ? ` (${images.length}/${MAX_PHOTOS})` : ""}
+            {images.length > 0
+              ? t("createPost.addPhotoWithCount", { count: images.length, max: MAX_PHOTOS })
+              : t("createPost.addPhoto")}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -19,6 +19,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../services/firebase";
 import GradientBackground from "../components/GradientBackground";
 import Icon from "../components/Icon";
@@ -26,12 +27,6 @@ import { useTheme } from "../contexts/ThemeContext";
 import useKinloChat from "../hooks/useKinloChat";
 import useAiOptIn from "../hooks/useAiOptIn";
 import { TYPE, SPACING, RADII, BRAND, AI, ELEVATION } from "../constants/theme-tokens";
-
-const STARTER_CHIPS = [
-  "What can I do this weekend?",
-  "Plan my whole week",
-  "Something new for me",
-];
 
 /** Inline event card attached to an AI reply (grounded eventId). */
 function EventAttachment({ eventId, navigation }) {
@@ -68,10 +63,16 @@ function EventAttachment({ eventId, navigation }) {
 
 export default function AskKinloScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { aiOptIn } = useAiOptIn();
   const { messages, send, sending } = useKinloChat();
   const [input, setInput] = useState("");
   const listRef = useRef(null);
+  const STARTER_CHIPS = [
+    t("askKinlo.chips.weekend"),
+    t("askKinlo.chips.planWeek"),
+    t("askKinlo.chips.somethingNew"),
+  ];
 
   useEffect(() => {
     if (messages.length) {
@@ -109,7 +110,7 @@ export default function AskKinloScreen({ navigation }) {
               style={[styles.plusCta, { backgroundColor: colors.primary }]}
               onPress={() => navigation.navigate("PlusPaywall", { from: "ask_kinlo" })}
             >
-              <Text style={[TYPE.label, { color: "#FFFFFF" }]}>See Kinlo Plus</Text>
+              <Text style={[TYPE.label, { color: "#FFFFFF" }]}>{t("askKinlo.seeKinloPlus")}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -143,8 +144,8 @@ export default function AskKinloScreen({ navigation }) {
           <Icon name="ai" size={18} color={AI.accent} />
         </LinearGradient>
         <View style={{ flex: 1 }}>
-          <Text style={[TYPE.title, { color: colors.text }]}>Ask Kinlo</Text>
-          <Text style={[TYPE.caption, { color: colors.success }]}>● Knows your communities</Text>
+          <Text style={[TYPE.title, { color: colors.text }]}>{t("askKinlo.title")}</Text>
+          <Text style={[TYPE.caption, { color: colors.success }]}>{t("askKinlo.knowsCommunities")}</Text>
         </View>
       </View>
 
@@ -152,13 +153,13 @@ export default function AskKinloScreen({ navigation }) {
         <View style={styles.optInPrompt}>
           <Icon name="ai" size={40} color={colors.textTertiary} />
           <Text style={[TYPE.body, styles.optInText, { color: colors.textSecondary }]}>
-            Turn on Kinlo AI to plan your social life in one sentence.
+            {t("askKinlo.optInText")}
           </Text>
           <TouchableOpacity
             style={[styles.plusCta, { backgroundColor: colors.primary }]}
             onPress={() => navigation.navigate("AiOptIn")}
           >
-            <Text style={[TYPE.label, { color: "#FFFFFF" }]}>Turn on Kinlo AI</Text>
+            <Text style={[TYPE.label, { color: "#FFFFFF" }]}>{t("askKinlo.turnOnCta")}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -176,7 +177,7 @@ export default function AskKinloScreen({ navigation }) {
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <Text style={[TYPE.body, { color: colors.textSecondary, textAlign: "center" }]}>
-                  Ask anything about your week — I only suggest real events from your communities.
+                  {t("askKinlo.emptyText")}
                 </Text>
                 <View style={styles.chips}>
                   {STARTER_CHIPS.map((s) => (
@@ -195,7 +196,7 @@ export default function AskKinloScreen({ navigation }) {
               sending ? (
                 <View style={styles.typing}>
                   <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={[TYPE.caption, { color: colors.textTertiary }]}>Kinlo AI is thinking…</Text>
+                  <Text style={[TYPE.caption, { color: colors.textTertiary }]}>{t("askKinlo.thinking")}</Text>
                 </View>
               ) : null
             }
@@ -205,7 +206,7 @@ export default function AskKinloScreen({ navigation }) {
             <TextInput
               testID="ask-kinlo-input"
               style={[TYPE.body, styles.input, { color: colors.text }]}
-              placeholder="Ask Kinlo anything…"
+              placeholder={t("askKinlo.placeholder")}
               placeholderTextColor={colors.textTertiary}
               value={input}
               onChangeText={setInput}

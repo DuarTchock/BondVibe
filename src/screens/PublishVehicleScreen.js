@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import useCities from "../hooks/useCities";
 import SelectDropdown from "../components/SelectDropdown";
@@ -31,8 +32,6 @@ import {
   ensureProvider,
 } from "../services/rentalService";
 import { uploadVehiclePhotos } from "../services/storageService";
-
-const TYPE_LABEL = { scooter: "Scooter", bike: "Bike", car: "Car" };
 
 // Module-scope so the TextInput isn't remounted (and focus lost) on each render.
 function Field({ label, c, st, ...props }) {
@@ -52,9 +51,16 @@ const toPesos = (centavos) => (centavos ? String(centavos / 100) : "");
 
 export default function PublishVehicleScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { cities } = useCities();
   const { vehicleId } = route.params || {};
   const editing = !!vehicleId;
+
+  const TYPE_LABEL = {
+    scooter: t("publishVehicle.typeScooter"),
+    bike: t("publishVehicle.typeBike"),
+    car: t("publishVehicle.typeCar"),
+  };
 
   const [type, setType] = useState("scooter");
   const [title, setTitle] = useState("");
@@ -94,7 +100,7 @@ export default function PublishVehicleScreen({ route, navigation }) {
   const pickImages = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("Permission needed", "Allow photo access to add pictures of your vehicle.");
+      Alert.alert(t("publishVehicle.permissionNeededTitle"), t("publishVehicle.permissionNeededMsg"));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -112,10 +118,10 @@ export default function PublishVehicleScreen({ route, navigation }) {
   const removePhoto = (uri) => setPhotos((prev) => prev.filter((p) => p !== uri));
 
   const onSave = async () => {
-    if (!title.trim()) return Alert.alert("Missing title", "Give your vehicle a name.");
-    if (!city.trim()) return Alert.alert("Missing city", "Add the city where it's available.");
+    if (!title.trim()) return Alert.alert(t("publishVehicle.missingTitleTitle"), t("publishVehicle.missingTitleMsg"));
+    if (!city.trim()) return Alert.alert(t("publishVehicle.missingCityTitle"), t("publishVehicle.missingCityMsg"));
     if (photos.length === 0) {
-      return Alert.alert("Add a photo", "Add at least one real photo of your vehicle.");
+      return Alert.alert(t("publishVehicle.addPhotoTitle"), t("publishVehicle.addPhotoMsg"));
     }
     setSaving(true);
     try {
@@ -142,23 +148,23 @@ export default function PublishVehicleScreen({ route, navigation }) {
       await updateVehicle(id, { ...payload, photos: photoUrls });
       navigation.goBack();
     } catch (e) {
-      Alert.alert("Couldn't save", e.message || "Try again.");
+      Alert.alert(t("publishVehicle.couldntSave"), e.message || t("rentals.common.tryAgain"));
       setSaving(false);
     }
   };
 
   const onDelete = () => {
-    Alert.alert("Remove vehicle?", "This will unpublish it from the marketplace.", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("publishVehicle.removeVehicleTitle"), t("publishVehicle.removeVehicleMsg"), [
+      { text: t("rentals.common.cancel"), style: "cancel" },
       {
-        text: "Remove",
+        text: t("publishVehicle.remove"),
         style: "destructive",
         onPress: async () => {
           try {
             await deleteVehicle(vehicleId);
             navigation.goBack();
           } catch (e) {
-            Alert.alert("Couldn't remove", e.message || "Try again.");
+            Alert.alert(t("publishVehicle.couldntRemove"), e.message || t("rentals.common.tryAgain"));
           }
         },
       },
@@ -188,7 +194,7 @@ export default function PublishVehicleScreen({ route, navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {editing ? "Edit vehicle" : "Publish a scooter"}
+          {editing ? t("publishVehicle.editVehicle") : t("publishVehicle.publishScooter")}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -197,34 +203,34 @@ export default function PublishVehicleScreen({ route, navigation }) {
         {/* Draft listing with AI (inventory: Rentals → Your Fleet, pro) */}
         <DraftWithAI
           navigation={navigation}
-          placeholder="e.g. red 150cc scooter, helmet included, near centro…"
+          placeholder={t("publishVehicle.draftPlaceholder")}
           onApply={(d) => {
             setTitle(d.title);
           }}
         />
 
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Type</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>{t("publishVehicle.type")}</Text>
         <View style={styles.chipsRow}>
-          {VEHICLE_TYPES.map((t) => {
-            const active = t === type;
+          {VEHICLE_TYPES.map((vt) => {
+            const active = vt === type;
             return (
               <TouchableOpacity
-                key={t}
-                onPress={() => setType(t)}
+                key={vt}
+                onPress={() => setType(vt)}
                 style={[
                   styles.chip,
                   { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? `${colors.primary}22` : "transparent" },
                 ]}
               >
                 <Text style={[styles.chipText, { color: active ? colors.primary : colors.textSecondary }]}>
-                  {TYPE_LABEL[t]}
+                  {TYPE_LABEL[vt]}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Photos</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>{t("publishVehicle.photos")}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
           {photos.map((uri) => (
             <View key={uri} style={styles.photoWrap}>
@@ -245,17 +251,17 @@ export default function PublishVehicleScreen({ route, navigation }) {
               activeOpacity={0.8}
             >
               <Text style={[styles.photoAddPlus, { color: colors.primary }]}>+</Text>
-              <Text style={[styles.photoAddTxt, { color: colors.textTertiary }]}>Add photo</Text>
+              <Text style={[styles.photoAddTxt, { color: colors.textTertiary }]}>{t("publishVehicle.addPhoto")}</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
         <Text style={[styles.photoHint, { color: colors.textTertiary }]}>
-          Add real photos of your vehicle (up to 5). At least one is required.
+          {t("publishVehicle.photoHint")}
         </Text>
 
-        <Field c={colors} st={styles} label="Title" value={title} onChangeText={setTitle} placeholder="e.g. City scooter" />
+        <Field c={colors} st={styles} label={t("publishVehicle.titleLabel")} value={title} onChangeText={setTitle} placeholder={t("publishVehicle.titlePlaceholder")} />
         <View style={{ marginBottom: 14 }}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>City</Text>
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t("rentals.hub.city")}</Text>
           <SelectDropdown
             value={cities.find((c) => c.label === city)?.id || null}
             onValueChange={(id) => {
@@ -264,24 +270,24 @@ export default function PublishVehicleScreen({ route, navigation }) {
             }}
             options={cities}
             type="location"
-            placeholder="Select a city"
+            placeholder={t("publishVehicle.selectCity")}
           />
         </View>
-        <Field c={colors} st={styles} label="Pickup point" value={pickupLabel} onChangeText={setPickupLabel} placeholder="e.g. Insurgentes metro" />
-        <Field c={colors} st={styles} label="Price per day (MXN)" value={pricePerDay} onChangeText={setPricePerDay} placeholder="0" keyboardType="numeric" />
+        <Field c={colors} st={styles} label={t("publishVehicle.pickupPoint")} value={pickupLabel} onChangeText={setPickupLabel} placeholder={t("publishVehicle.pickupPointPlaceholder")} />
+        <Field c={colors} st={styles} label={t("publishVehicle.pricePerDay")} value={pricePerDay} onChangeText={setPricePerDay} placeholder="0" keyboardType="numeric" />
         <Field
           c={colors}
           st={styles}
-          label="Security deposit (MXN) — you collect this directly"
+          label={t("publishVehicle.depositLabel")}
           value={deposit}
           onChangeText={setDeposit}
           placeholder="0"
           keyboardType="numeric"
         />
-        <Field c={colors} st={styles} label="Range (km, optional)" value={rangeKm} onChangeText={setRangeKm} placeholder="0" keyboardType="numeric" />
+        <Field c={colors} st={styles} label={t("publishVehicle.rangeLabel")} value={rangeKm} onChangeText={setRangeKm} placeholder="0" keyboardType="numeric" />
 
         <View style={styles.switchRow}>
-          <Text style={[styles.label, { color: colors.text, marginBottom: 0 }]}>Requires a license</Text>
+          <Text style={[styles.label, { color: colors.text, marginBottom: 0 }]}>{t("publishVehicle.requiresLicense")}</Text>
           <Switch
             value={requiresLicense}
             onValueChange={setRequiresLicense}
@@ -289,31 +295,30 @@ export default function PublishVehicleScreen({ route, navigation }) {
           />
         </View>
 
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Availability window (optional)</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>{t("publishVehicle.availabilityWindow")}</Text>
         <View style={styles.datesRow}>
           <DateField
-            label="Available from"
+            label={t("publishVehicle.availableFrom")}
             value={availFrom}
             onChange={setAvailFrom}
             onClear={() => setAvailFrom(null)}
-            placeholder="Any"
+            placeholder={t("rentals.hub.anyPlaceholder")}
           />
           <DateField
-            label="Available until"
+            label={t("publishVehicle.availableUntil")}
             value={availUntil}
             onChange={setAvailUntil}
             onClear={() => setAvailUntil(null)}
             minimumDate={availFrom || undefined}
-            placeholder="Any"
+            placeholder={t("rentals.hub.anyPlaceholder")}
           />
         </View>
         <Text style={[styles.photoHint, { color: colors.textTertiary }]}>
-          Leave blank to keep it always available. Riders can only book dates inside this window.
+          {t("publishVehicle.availabilityHint")}
         </Text>
 
         <Text style={[styles.note, { color: colors.textTertiary }]}>
-          You rent directly to riders and receive the full price you set. Kinlo adds a small
-          service fee for the rider; the deposit, damage and theft are handled between you and the rider.
+          {t("publishVehicle.note")}
         </Text>
 
         <TouchableOpacity
@@ -325,13 +330,13 @@ export default function PublishVehicleScreen({ route, navigation }) {
           {saving ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.saveTxt}>{editing ? "Save changes" : "Publish"}</Text>
+            <Text style={styles.saveTxt}>{editing ? t("publishVehicle.saveChanges") : t("publishVehicle.publish")}</Text>
           )}
         </TouchableOpacity>
 
         {editing && (
           <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} activeOpacity={0.7}>
-            <Text style={[styles.deleteTxt, { color: "#EF4444" }]}>Remove vehicle</Text>
+            <Text style={[styles.deleteTxt, { color: "#EF4444" }]}>{t("publishVehicle.removeVehicle")}</Text>
           </TouchableOpacity>
         )}
         <View style={{ height: 40 }} />

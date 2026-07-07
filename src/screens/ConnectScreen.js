@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -22,6 +23,7 @@ const normAvatar = (a) =>
 
 export default function ConnectScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { eventId } = route.params || {};
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ export default function ConnectScreen({ route, navigation }) {
             const d = u.exists() ? u.data() : {};
             return {
               id,
-              name: d.fullName || d.name || "Attendee",
+              name: d.fullName || d.name || t("connect.defaultAttendeeName"),
               avatar: d.avatar,
               location: d.location,
               following: following.has(id),
@@ -77,7 +79,7 @@ export default function ConnectScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Connect</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("connect.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -88,11 +90,11 @@ export default function ConnectScreen({ route, navigation }) {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Follow the people you met — stay in the loop for their next events.
+            {t("connect.subtitle")}
           </Text>
           {people.length === 0 ? (
             <Text style={[styles.muted, { color: colors.textTertiary }]}>
-              No one else to connect with here yet.
+              {t("connect.empty")}
             </Text>
           ) : (
             people.map((p) => (
@@ -136,7 +138,7 @@ export default function ConnectScreen({ route, navigation }) {
                       { color: p.following ? colors.text : "#FFFFFF" },
                     ]}
                   >
-                    {p.following ? "Following" : "Follow"}
+                    {p.following ? t("connect.following") : t("connect.follow")}
                   </Text>
                 </TouchableOpacity>
               </View>

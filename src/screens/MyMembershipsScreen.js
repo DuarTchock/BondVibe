@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -21,14 +22,14 @@ import {
   MEMBERSHIP_PLAN_TYPES,
 } from "../services/membershipService";
 
-const STATE_META = {
-  active: { label: "Active", color: "#34C759" },
-  depleted: { label: "No credits left", color: "#B45309" },
-  expired: { label: "Expired", color: "#c25b5b" },
-};
-
 export default function MyMembershipsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
+  const STATE_META = {
+    active: { label: t("myMemberships.stateActive"), color: "#34C759" },
+    depleted: { label: t("myMemberships.stateDepleted"), color: "#B45309" },
+    expired: { label: t("myMemberships.stateExpired"), color: "#c25b5b" },
+  };
   const [memberships, setMemberships] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,8 +51,8 @@ export default function MyMembershipsScreen({ navigation }) {
       navigation.navigate("MembershipCheckout", { plan });
     } else {
       Alert.alert(
-        "Plan unavailable",
-        "This plan isn't offered anymore. Check the host's current plans on one of their events."
+        t("myMemberships.planUnavailableTitle"),
+        t("myMemberships.planUnavailableMessage")
       );
     }
   };
@@ -79,8 +80,8 @@ export default function MyMembershipsScreen({ navigation }) {
             </Text>
             <Text style={[styles.expiry, { color: colors.textSecondary }]}>
               {state === "expired"
-                ? `Expired ${expiry ? expiry.toLocaleDateString() : ""}`
-                : `Valid until ${expiry ? expiry.toLocaleDateString() : "—"}`}
+                ? t("myMemberships.expiredOn", { date: expiry ? expiry.toLocaleDateString() : "" })
+                : t("myMemberships.validUntil", { date: expiry ? expiry.toLocaleDateString() : "—" })}
             </Text>
           </View>
           <View style={[styles.badge, { backgroundColor: `${meta.color}22` }]}>
@@ -92,7 +93,7 @@ export default function MyMembershipsScreen({ navigation }) {
           <View style={styles.creditsSection}>
             <View style={styles.creditsHeader}>
               <Text style={[styles.creditsText, { color: colors.text }]}>
-                {remaining} of {total} classes left
+                {t("myMemberships.classesLeft", { remaining, total })}
               </Text>
             </View>
             <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
@@ -106,7 +107,7 @@ export default function MyMembershipsScreen({ navigation }) {
           </View>
         ) : (
           <Text style={[styles.unlimitedText, { color: colors.textSecondary }]}>
-            Unlimited classes
+            {t("myMemberships.unlimitedClasses")}
           </Text>
         )}
 
@@ -119,7 +120,7 @@ export default function MyMembershipsScreen({ navigation }) {
             onPress={() => handleRenew(m)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.renewText, { color: colors.primary }]}>Renew</Text>
+            <Text style={[styles.renewText, { color: colors.primary }]}>{t("myMemberships.renew")}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -133,7 +134,7 @@ export default function MyMembershipsScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>My Memberships</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("myMemberships.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -145,10 +146,10 @@ export default function MyMembershipsScreen({ navigation }) {
         <View style={styles.empty}>
           <Icon name="ticket" size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No memberships yet
+            {t("myMemberships.noneYet")}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            When you buy a class pack or pass from a host, it'll show up here.
+            {t("myMemberships.noneYetHint")}
           </Text>
         </View>
       ) : (

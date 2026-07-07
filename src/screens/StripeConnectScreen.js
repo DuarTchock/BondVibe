@@ -11,6 +11,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -29,6 +30,7 @@ const STRIPE_RETURN_URL = "kinlo://stripe/return";
 
 export default function StripeConnectScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -61,17 +63,17 @@ export default function StripeConnectScreen({ navigation }) {
         await loadData();
         if (!silent) {
           Alert.alert(
-            "Status Updated",
-            "Your Stripe account status has been refreshed."
+            t("stripeConnect.statusUpdatedTitle"),
+            t("stripeConnect.statusUpdatedMessage")
           );
         }
       } else if (!silent) {
-        Alert.alert("Error", result.error || "Could not refresh status.");
+        Alert.alert(t("stripeConnect.errorTitle"), result.error || t("stripeConnect.couldNotRefresh"));
       }
     } catch (error) {
       console.error("Error refreshing status:", error);
       if (!silent) {
-        Alert.alert("Error", "Could not refresh status. Please try again.");
+        Alert.alert(t("stripeConnect.errorTitle"), t("stripeConnect.couldNotRefreshRetry"));
       }
     } finally {
       setRefreshing(false);
@@ -87,7 +89,7 @@ export default function StripeConnectScreen({ navigation }) {
         const accountResult = await createConnectAccount(
           auth.currentUser.uid,
           userData.email || auth.currentUser.email,
-          userData.fullName || "Host"
+          userData.fullName || t("stripeConnect.defaultHostName")
         );
 
         if (!accountResult.success) {
@@ -121,8 +123,8 @@ export default function StripeConnectScreen({ navigation }) {
     } catch (error) {
       console.error("❌ Error connecting Stripe:", error);
       Alert.alert(
-        "Connection Error",
-        error.message || "Could not connect to Stripe. Please try again."
+        t("stripeConnect.connectionErrorTitle"),
+        error.message || t("stripeConnect.couldNotConnect")
       );
     } finally {
       setConnecting(false);
@@ -162,7 +164,7 @@ export default function StripeConnectScreen({ navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Stripe Connect
+          {t("stripeConnect.title")}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -205,17 +207,17 @@ export default function StripeConnectScreen({ navigation }) {
             />
             <Text style={[styles.statusTitle, { color: colors.text }]}>
               {isActive
-                ? "Account Active"
+                ? t("stripeConnect.accountActive")
                 : isPending
-                ? "Verification Pending"
-                : "Not Connected"}
+                ? t("stripeConnect.verificationPending")
+                : t("stripeConnect.notConnected")}
             </Text>
             <Text style={[styles.statusText, { color: colors.textSecondary }]}>
               {isActive
-                ? "You can create paid events and receive payments"
+                ? t("stripeConnect.canCreatePaidEvents")
                 : isPending
-                ? "Your account is being verified by Stripe (1-2 days)"
-                : "Connect your Stripe account to create paid events"}
+                ? t("stripeConnect.beingVerified")
+                : t("stripeConnect.connectToCreatePaidEvents")}
             </Text>
 
             {canCreatePaidEvents && (
@@ -226,7 +228,7 @@ export default function StripeConnectScreen({ navigation }) {
                 ]}
               >
                 <Text style={styles.featureBadgeText}>
-                  Paid Events Enabled
+                  {t("stripeConnect.paidEventsEnabled")}
                 </Text>
               </View>
             )}
@@ -250,21 +252,23 @@ export default function StripeConnectScreen({ navigation }) {
               color={colors.primary}
             />
             <Text style={[styles.hostTypeTitle, { color: colors.text }]}>
-              Current:{" "}
-              {hostConfig?.type === "paid"
-                ? "Paid Host"
-                : hostConfig?.type === "free"
-                ? "Free Host"
-                : "Host type not selected"}
+              {t("stripeConnect.current", {
+                type:
+                  hostConfig?.type === "paid"
+                    ? t("stripeConnect.paidHost")
+                    : hostConfig?.type === "free"
+                    ? t("stripeConnect.freeHost")
+                    : t("stripeConnect.hostTypeNotSelected"),
+              })}
             </Text>
             <Text
               style={[styles.hostTypeText, { color: colors.textSecondary }]}
             >
               {hostConfig?.type === "paid"
-                ? "You can create both free and paid events"
+                ? t("stripeConnect.canCreateBoth")
                 : hostConfig?.type === "free"
-                ? "You can create free events. Connect Stripe to upgrade to paid events."
-                : "Choose a host type to start creating events."}
+                ? t("stripeConnect.canCreateFreeOnly")
+                : t("stripeConnect.chooseHostType")}
             </Text>
           </View>
         </View>
@@ -282,20 +286,16 @@ export default function StripeConnectScreen({ navigation }) {
               ]}
             >
               <Text style={[styles.detailsTitle, { color: colors.warning }]}>
-                Payouts not active yet
+                {t("stripeConnect.payoutsNotActiveTitle")}
               </Text>
               <Text
                 style={[styles.statusText, { color: colors.textSecondary, textAlign: "left", marginBottom: 12 }]}
               >
-                You can accept payments, but Stripe isn't releasing funds to your
-                bank yet. This usually means Stripe still needs more information
-                (bank details or identity verification). Complete your Stripe
-                setup to start receiving payouts. Your collected funds are held
-                safely by Stripe until then.
+                {t("stripeConnect.payoutsNotActiveMessage")}
               </Text>
               <TouchableOpacity onPress={handleConnectStripe} disabled={connecting}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  {connecting ? "Opening…" : "Complete Stripe setup →"}
+                  {connecting ? t("stripeConnect.opening") : t("stripeConnect.completeSetupArrow")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -315,14 +315,14 @@ export default function StripeConnectScreen({ navigation }) {
               ]}
             >
               <Text style={[styles.detailsTitle, { color: colors.text }]}>
-                Account Details
+                {t("stripeConnect.accountDetails")}
               </Text>
 
               <View style={styles.detailRow}>
                 <Text
                   style={[styles.detailLabel, { color: colors.textSecondary }]}
                 >
-                  Account ID
+                  {t("stripeConnect.accountId")}
                 </Text>
                 <Text style={[styles.detailValue, { color: colors.text }]}>
                   {stripeConnect.accountId.substring(0, 12)}...
@@ -333,7 +333,7 @@ export default function StripeConnectScreen({ navigation }) {
                 <Text
                   style={[styles.detailLabel, { color: colors.textSecondary }]}
                 >
-                  Charges Enabled
+                  {t("stripeConnect.chargesEnabled")}
                 </Text>
                 <Text
                   style={[
@@ -345,7 +345,7 @@ export default function StripeConnectScreen({ navigation }) {
                     },
                   ]}
                 >
-                  {stripeConnect.chargesEnabled ? "Yes" : "No"}
+                  {stripeConnect.chargesEnabled ? t("stripeConnect.yes") : t("stripeConnect.no")}
                 </Text>
               </View>
 
@@ -353,7 +353,7 @@ export default function StripeConnectScreen({ navigation }) {
                 <Text
                   style={[styles.detailLabel, { color: colors.textSecondary }]}
                 >
-                  Payouts Enabled
+                  {t("stripeConnect.payoutsEnabled")}
                 </Text>
                 <Text
                   style={[
@@ -365,7 +365,7 @@ export default function StripeConnectScreen({ navigation }) {
                     },
                   ]}
                 >
-                  {stripeConnect.payoutsEnabled ? "Yes" : "No"}
+                  {stripeConnect.payoutsEnabled ? t("stripeConnect.yes") : t("stripeConnect.no")}
                 </Text>
               </View>
 
@@ -373,7 +373,7 @@ export default function StripeConnectScreen({ navigation }) {
                 <Text
                   style={[styles.detailLabel, { color: colors.textSecondary }]}
                 >
-                  Details Submitted
+                  {t("stripeConnect.detailsSubmitted")}
                 </Text>
                 <Text
                   style={[
@@ -385,7 +385,7 @@ export default function StripeConnectScreen({ navigation }) {
                     },
                   ]}
                 >
-                  {stripeConnect.detailsSubmitted ? "Yes" : "No"}
+                  {stripeConnect.detailsSubmitted ? t("stripeConnect.yes") : t("stripeConnect.no")}
                 </Text>
               </View>
             </View>
@@ -405,20 +405,20 @@ export default function StripeConnectScreen({ navigation }) {
           >
             <Icon name="dollar" size={28} color={colors.primary} />
             <Text style={[styles.infoTitle, { color: colors.text }]}>
-              How Payments Work
+              {t("stripeConnect.howPaymentsWork")}
             </Text>
             <View style={styles.infoList}>
               <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
-                • You receive 100% of the ticket price you set
+                {t("stripeConnect.infoReceive100")}
               </Text>
               <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
-                • Platform fee (5%) + processing fee (2.9% + $3 MXN) are added at checkout
+                {t("stripeConnect.infoFees")}
               </Text>
               <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
-                • Attendees see the total price before paying
+                {t("stripeConnect.infoAttendeesSeeTotal")}
               </Text>
               <Text style={[styles.infoItem, { color: colors.textSecondary }]}>
-                • Payments go directly to your Stripe account
+                {t("stripeConnect.infoDirectPayments")}
               </Text>
             </View>
           </View>
@@ -452,17 +452,17 @@ export default function StripeConnectScreen({ navigation }) {
                     ]}
                   >
                     {stripeConnect?.accountId
-                      ? "Connecting..."
-                      : "Setting up..."}
+                      ? t("stripeConnect.connecting")
+                      : t("stripeConnect.settingUp")}
                   </Text>
                 </View>
               ) : (
                 <Text style={[styles.actionText, { color: colors.primary }]}>
                   {isPending
-                    ? "Complete Verification"
+                    ? t("stripeConnect.completeVerification")
                     : stripeConnect?.accountId
-                    ? "Continue Stripe Setup"
-                    : "Connect Stripe Account"}
+                    ? t("stripeConnect.continueSetup")
+                    : t("stripeConnect.connectAccount")}
                 </Text>
               )}
             </View>
@@ -486,15 +486,14 @@ export default function StripeConnectScreen({ navigation }) {
             ]}
           >
             <Text style={[styles.refreshText, { color: colors.text }]}>
-              Refresh Status
+              {t("stripeConnect.refreshStatus")}
             </Text>
           </View>
         </TouchableOpacity>
 
         <View style={styles.noteSection}>
           <Text style={[styles.noteText, { color: colors.textTertiary }]}>
-            Stripe verification typically takes 1-2 business days. You'll be
-            notified when your account is ready.
+            {t("stripeConnect.verificationNote")}
           </Text>
         </View>
       </ScrollView>

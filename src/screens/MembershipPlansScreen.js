@@ -14,6 +14,7 @@ import {
   Platform,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
 import { auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
@@ -46,6 +47,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
   const goBack = () =>
     fromEventCreation ? navigation.navigate("CreateEvent") : navigation.goBack();
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -111,21 +113,21 @@ export default function MembershipPlansScreen({ navigation, route }) {
       setModalVisible(false);
       loadPlans();
     } else {
-      Alert.alert("Couldn't save plan", result.error || "Please try again.");
+      Alert.alert(t("membershipPlans.couldNotSaveTitle"), result.error || t("membershipPlans.tryAgain"));
     }
   };
 
   const handleArchiveToggle = (plan) => {
     const archiving = plan.active;
     Alert.alert(
-      archiving ? "Archive plan?" : "Reactivate plan?",
+      archiving ? t("membershipPlans.archivePlanTitle") : t("membershipPlans.reactivatePlanTitle"),
       archiving
-        ? "It will stop being sold. Existing members keep their memberships."
-        : "It will be available for purchase again.",
+        ? t("membershipPlans.archivePlanMessage")
+        : t("membershipPlans.reactivatePlanMessage"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("membershipPlans.cancel"), style: "cancel" },
         {
-          text: archiving ? "Archive" : "Reactivate",
+          text: archiving ? t("membershipPlans.archive") : t("membershipPlans.reactivate"),
           style: archiving ? "destructive" : "default",
           onPress: async () => {
             await setMembershipPlanActive(plan.id, !plan.active);
@@ -164,7 +166,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
         <TouchableOpacity style={styles.cardAction} onPress={() => openEdit(plan)}>
           <Icon name="edit" size={16} color={colors.textSecondary} />
           <Text style={[styles.cardActionText, { color: colors.textSecondary }]}>
-            Edit
+            {t("membershipPlans.edit")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -182,7 +184,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
               { color: plan.active ? colors.textSecondary : colors.primary },
             ]}
           >
-            {plan.active ? "Archive" : "Reactivate"}
+            {plan.active ? t("membershipPlans.archive") : t("membershipPlans.reactivate")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -198,7 +200,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Membership Plans
+          {t("membershipPlans.title")}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -213,8 +215,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
           showsVerticalScrollIndicator={false}
         >
           <Text style={[styles.intro, { color: colors.textSecondary }]}>
-            Sell class packs or time passes. Members buy a plan and use credits to
-            attend your events.
+            {t("membershipPlans.intro")}
           </Text>
 
           <TouchableOpacity style={styles.newButton} onPress={openCreate} activeOpacity={0.85}>
@@ -226,7 +227,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
             >
               <Icon name="plus" size={20} color={colors.primary} />
               <Text style={[styles.newButtonText, { color: colors.primary }]}>
-                New Plan
+                {t("membershipPlans.newPlan")}
               </Text>
             </View>
           </TouchableOpacity>
@@ -234,10 +235,10 @@ export default function MembershipPlansScreen({ navigation, route }) {
           {plans.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                No plans yet
+                {t("membershipPlans.noPlansYet")}
               </Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Create your first membership plan to start selling class packs.
+                {t("membershipPlans.noPlansYetHint")}
               </Text>
             </View>
           )}
@@ -245,7 +246,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
           {activePlans.length > 0 && (
             <>
               <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
-                ACTIVE
+                {t("membershipPlans.active")}
               </Text>
               {activePlans.map(renderPlanCard)}
             </>
@@ -254,7 +255,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
           {archivedPlans.length > 0 && (
             <>
               <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
-                ARCHIVED
+                {t("membershipPlans.archived")}
               </Text>
               {archivedPlans.map(renderPlanCard)}
             </>
@@ -271,7 +272,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
           <View style={[styles.modalCard, { backgroundColor: colors.background }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {editingId ? "Edit Plan" : "New Plan"}
+                {editingId ? t("membershipPlans.editPlan") : t("membershipPlans.newPlan")}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Icon name="close" size={24} color={colors.textSecondary} />
@@ -279,22 +280,22 @@ export default function MembershipPlansScreen({ navigation, route }) {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Field label="Plan name" colors={colors}>
+              <Field label={t("membershipPlans.planNameLabel")} colors={colors}>
                 <TextInput
                   style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="e.g. 10 Classes"
+                  placeholder={t("membershipPlans.planNamePlaceholder")}
                   placeholderTextColor={colors.textTertiary}
                   value={form.name}
-                  onChangeText={(t) => setForm({ ...form, name: t })}
+                  onChangeText={(txt) => setForm({ ...form, name: txt })}
                   maxLength={60}
                 />
               </Field>
 
-              <Field label="Type" colors={colors}>
+              <Field label={t("membershipPlans.typeLabel")} colors={colors}>
                 <View style={styles.typeRow}>
                   {[
-                    { key: MEMBERSHIP_PLAN_TYPES.CREDITS, label: "Class pack" },
-                    { key: MEMBERSHIP_PLAN_TYPES.UNLIMITED, label: "Unlimited" },
+                    { key: MEMBERSHIP_PLAN_TYPES.CREDITS, label: t("membershipPlans.classPack") },
+                    { key: MEMBERSHIP_PLAN_TYPES.UNLIMITED, label: t("membershipPlans.unlimited") },
                   ].map((opt) => {
                     const selected = form.type === opt.key;
                     return (
@@ -324,14 +325,14 @@ export default function MembershipPlansScreen({ navigation, route }) {
               </Field>
 
               {isCredits && (
-                <Field label="Classes included" colors={colors}>
+                <Field label={t("membershipPlans.classesIncludedLabel")} colors={colors}>
                   <TextInput
                     style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                    placeholder="e.g. 10"
+                    placeholder={t("membershipPlans.classesIncludedPlaceholder")}
                     placeholderTextColor={colors.textTertiary}
                     value={form.creditsIncluded}
-                    onChangeText={(t) =>
-                      setForm({ ...form, creditsIncluded: t.replace(/[^0-9]/g, "") })
+                    onChangeText={(txt) =>
+                      setForm({ ...form, creditsIncluded: txt.replace(/[^0-9]/g, "") })
                     }
                     keyboardType="number-pad"
                     returnKeyType="done"
@@ -339,61 +340,61 @@ export default function MembershipPlansScreen({ navigation, route }) {
                 </Field>
               )}
 
-              <Field label="Validity (days)" colors={colors}>
+              <Field label={t("membershipPlans.validityLabel")} colors={colors}>
                 <TextInput
                   style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="e.g. 60"
+                  placeholder={t("membershipPlans.validityPlaceholder")}
                   placeholderTextColor={colors.textTertiary}
                   value={form.validityDays}
-                  onChangeText={(t) =>
-                    setForm({ ...form, validityDays: t.replace(/[^0-9]/g, "") })
+                  onChangeText={(txt) =>
+                    setForm({ ...form, validityDays: txt.replace(/[^0-9]/g, "") })
                   }
                   keyboardType="number-pad"
                   returnKeyType="done"
                 />
               </Field>
 
-              <Field label="Price (MXN)" colors={colors}>
+              <Field label={t("membershipPlans.priceLabel")} colors={colors}>
                 <TextInput
                   style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="e.g. 1200"
+                  placeholder={t("membershipPlans.pricePlaceholder")}
                   placeholderTextColor={colors.textTertiary}
                   value={form.price}
-                  onChangeText={(t) =>
-                    setForm({ ...form, price: t.replace(/[^0-9.]/g, "") })
+                  onChangeText={(txt) =>
+                    setForm({ ...form, price: txt.replace(/[^0-9.]/g, "") })
                   }
                   keyboardType="decimal-pad"
                   returnKeyType="done"
                 />
               </Field>
 
-              <Field label="What's included (optional)" colors={colors}>
+              <Field label={t("membershipPlans.descriptionLabel")} colors={colors}>
                 <TextInput
                   style={[
                     styles.input,
                     styles.textArea,
                     { color: colors.text, borderColor: colors.border },
                   ]}
-                  placeholder="What members get, schedule, level, etc."
+                  placeholder={t("membershipPlans.descriptionPlaceholder")}
                   placeholderTextColor={colors.textTertiary}
                   value={form.description}
-                  onChangeText={(t) => setForm({ ...form, description: t })}
+                  onChangeText={(txt) => setForm({ ...form, description: txt })}
                   multiline
                   maxLength={500}
                 />
               </Field>
 
-              <Field label="Terms & conditions (optional)" colors={colors}>
+              <Field label={t("membershipPlans.termsLabel")} colors={colors}>
                 <TextInput
                   style={[
                     styles.input,
                     styles.textArea,
                     { color: colors.text, borderColor: colors.border },
                   ]}
-                  placeholder="Cancellation, expiry, transfer rules, etc."
+                  placeholder={t("membershipPlans.termsPlaceholder")}
                   placeholderTextColor={colors.textTertiary}
                   value={form.terms}
-                  onChangeText={(t) => setForm({ ...form, terms: t })}
+                  onChangeText={(txt) => setForm({ ...form, terms: txt })}
                   multiline
                   maxLength={500}
                 />
@@ -406,10 +407,10 @@ export default function MembershipPlansScreen({ navigation, route }) {
               >
                 <View>
                   <Text style={[styles.toggleLabel, { color: colors.text }]}>
-                    Allow auto-renewal
+                    {t("membershipPlans.allowAutoRenew")}
                   </Text>
                   <Text style={[styles.toggleHint, { color: colors.textTertiary }]}>
-                    Members can subscribe to renew automatically.
+                    {t("membershipPlans.allowAutoRenewHint")}
                   </Text>
                 </View>
                 <View
@@ -449,7 +450,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <Text style={[styles.saveButtonText, { color: colors.primary }]}>
-                      {editingId ? "Save Changes" : "Create Plan"}
+                      {editingId ? t("membershipPlans.saveChanges") : t("membershipPlans.createPlan")}
                     </Text>
                   )}
                 </View>

@@ -24,6 +24,7 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { usePremium } from "../hooks/usePremium";
@@ -40,6 +41,7 @@ const normalizeAvatar = (a) => {
 
 export default function RatingDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { ratingId } = route.params || {};
   const [rating, setRating] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -57,15 +59,15 @@ export default function RatingDetailScreen({ route, navigation }) {
       setText(r.reply);
     } else if (isPremiumRequired(r)) {
       Alert.alert(
-        "Pro feature",
-        "AI replies are part of Kinlo Pro.",
+        t("ratingDetail.proFeatureTitle"),
+        t("ratingDetail.proFeatureMsg"),
         [
-          { text: "Not now", style: "cancel" },
-          { text: "See Pro", onPress: () => navigation.navigate("BondVibePro") },
+          { text: t("ratingDetail.notNow"), style: "cancel" },
+          { text: t("ratingDetail.seePro"), onPress: () => navigation.navigate("BondVibePro") },
         ]
       );
     } else {
-      Alert.alert("Couldn't generate", r.error || "Please try again.");
+      Alert.alert(t("ratingDetail.couldntGenerate"), r.error || t("ratingDetail.pleaseTryAgain"));
     }
   };
   const scrollRef = useRef(null);
@@ -112,7 +114,7 @@ export default function RatingDetailScreen({ route, navigation }) {
       if (recipient) {
         await createNotification(recipient, {
           type: "rating_reply",
-          title: "New message about your review",
+          title: t("ratingDetail.newMessageTitle"),
           message: body.length > 80 ? `${body.slice(0, 80)}…` : body,
           icon: "chat",
           metadata: { ratingId },
@@ -141,7 +143,7 @@ export default function RatingDetailScreen({ route, navigation }) {
     return (
       <GradientBackground>
         <View style={styles.loading}>
-          <Text style={{ color: colors.textSecondary }}>Rating not found.</Text>
+          <Text style={{ color: colors.textSecondary }}>{t("ratingDetail.notFound")}</Text>
         </View>
       </GradientBackground>
     );
@@ -161,7 +163,7 @@ export default function RatingDetailScreen({ route, navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Icon name="back" size={26} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Review</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{t("ratingDetail.title")}</Text>
           <View style={{ width: 28 }} />
         </View>
 
@@ -176,7 +178,7 @@ export default function RatingDetailScreen({ route, navigation }) {
               <AvatarDisplay avatar={normalizeAvatar(rating.userAvatar)} size={44} />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.userName, { color: colors.text }]}>
-                  {rating.userName || "Attendee"}
+                  {rating.userName || t("ratingDetail.attendee")}
                 </Text>
                 <StarRow rating={rating.rating} size={16} style={{ marginTop: 4 }} />
               </View>
@@ -195,13 +197,13 @@ export default function RatingDetailScreen({ route, navigation }) {
 
           <Text style={[styles.threadLabel, { color: colors.textTertiary }]}>
             {isHost
-              ? "Reply to ask for more feedback or thank them"
-              : "Conversation with the host"}
+              ? t("ratingDetail.threadLabelHost")
+              : t("ratingDetail.threadLabelGuest")}
           </Text>
 
           {messages.length === 0 ? (
             <Text style={[styles.empty, { color: colors.textTertiary }]}>
-              No messages yet.
+              {t("ratingDetail.noMessages")}
             </Text>
           ) : (
             messages.map((m) => {
@@ -240,14 +242,14 @@ export default function RatingDetailScreen({ route, navigation }) {
               <Icon name="ai" size={15} color={colors.primary} />
             )}
             <Text style={[styles.aiSuggestText, { color: colors.primary }]}>
-              {aiLoading ? "Generating…" : "Suggest reply with AI"}
+              {aiLoading ? t("ratingDetail.generating") : t("ratingDetail.suggestReply")}
             </Text>
           </TouchableOpacity>
         )}
         <View style={[styles.inputBar, { borderTopColor: colors.border }]}>
           <TextInput
             style={[styles.input, { color: colors.text, backgroundColor: colors.surfaceGlass }]}
-            placeholder="Write a message…"
+            placeholder={t("ratingDetail.writeMessage")}
             placeholderTextColor={colors.textTertiary}
             value={text}
             onChangeText={setText}

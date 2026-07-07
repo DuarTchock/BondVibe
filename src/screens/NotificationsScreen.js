@@ -13,6 +13,7 @@ import {
   TextInput,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import KeyboardAccessory from "../components/KeyboardAccessory";
@@ -66,6 +67,7 @@ const resolveIconName = (raw) =>
 
 export default function NotificationsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -90,7 +92,7 @@ export default function NotificationsScreen({ navigation }) {
       setJoinCode("");
       navigation.navigate("GroupChat", { groupId: r.groupId });
     } else {
-      Alert.alert("Couldn't join", r.error || "Check the code and try again.");
+      Alert.alert(t("notifications.couldntJoinTitle"), r.error || t("notifications.checkCodeTryAgain"));
     }
   };
 
@@ -142,11 +144,9 @@ export default function NotificationsScreen({ navigation }) {
                 type: "event_messages",
                 title:
                   data.unreadCount > 0
-                    ? `${data.unreadCount} new message${
-                        data.unreadCount > 1 ? "s" : ""
-                      }`
-                    : "Messages",
-                message: `${data.lastSender || "Someone"}: ${
+                    ? t("notifications.newMessagesTitle", { count: data.unreadCount })
+                    : t("notifications.messagesTitle"),
+                message: `${data.lastSender || t("notifications.someone")}: ${
                   data.lastMessage || ""
                 }`,
                 read: data.read || false,
@@ -158,7 +158,7 @@ export default function NotificationsScreen({ navigation }) {
                   eventId: data.eventId
                     ? data.eventId.replace("event_", "")
                     : "",
-                  eventTitle: String(data.eventTitle || "Event"),
+                  eventTitle: String(data.eventTitle || t("notifications.defaultEventTitle")),
                   conversationId: data.eventId || "",
                 },
               });
@@ -167,7 +167,7 @@ export default function NotificationsScreen({ navigation }) {
               allNotifications.push({
                 id: notifDoc.id,
                 type: String(data.type || ""),
-                title: String(data.title || "Notification"),
+                title: String(data.title || t("notifications.defaultTitle")),
                 message: String(data.message || ""),
                 icon: String(data.icon || "bell"),
                 read: Boolean(data.read),
@@ -202,9 +202,9 @@ export default function NotificationsScreen({ navigation }) {
               {
                 id: "demo1",
                 type: "welcome",
-                title: "Welcome to Kinlo!",
-                message: "Start exploring events and connect with people",
-                time: "Just now",
+                title: t("notifications.welcomeTitle"),
+                message: t("notifications.welcomeMessage"),
+                time: t("notifications.justNow"),
                 read: false,
                 icon: "party",
                 action: () => navigation.navigate("SearchEvents"),
@@ -251,10 +251,10 @@ export default function NotificationsScreen({ navigation }) {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
 
-    if (seconds < 60) return "Just now";
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+    if (seconds < 60) return t("notifications.justNow");
+    if (seconds < 3600) return t("notifications.minAgo", { count: Math.floor(seconds / 60) });
+    if (seconds < 86400) return t("notifications.hoursAgo", { count: Math.floor(seconds / 3600) });
+    if (seconds < 604800) return t("notifications.daysAgo", { count: Math.floor(seconds / 86400) });
     return date.toLocaleDateString();
   };
 
@@ -283,7 +283,7 @@ export default function NotificationsScreen({ navigation }) {
         if (notification.metadata?.eventId) {
           navigation.navigate("EventChat", {
             eventId: notification.metadata.eventId,
-            eventTitle: notification.metadata.eventTitle || "Event Chat",
+            eventTitle: notification.metadata.eventTitle || t("notifications.defaultEventChat"),
           });
         }
         break;
@@ -345,9 +345,9 @@ export default function NotificationsScreen({ navigation }) {
 
       case "welcome":
         Alert.alert(
-          notification.title || "Welcome to Kinlo!",
+          notification.title || t("notifications.welcomeTitle"),
           notification.message || notification.body,
-          [{ text: "Let's go", onPress: () => navigation.navigate("SearchEvents") }]
+          [{ text: t("notifications.letsGo"), onPress: () => navigation.navigate("SearchEvents") }]
         );
         break;
 
@@ -490,11 +490,11 @@ export default function NotificationsScreen({ navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Notifications
+          {t("notifications.headerTitle")}
         </Text>
         <TouchableOpacity onPress={handleMarkAllRead}>
           <Text style={[styles.markAllRead, { color: colors.primary }]}>
-            Mark all read
+            {t("notifications.markAllRead")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -519,17 +519,17 @@ export default function NotificationsScreen({ navigation }) {
           {/* Groups inbox */}
           <View style={styles.groupsHeaderRow}>
             <Text style={[styles.groupsHeading, { color: colors.textTertiary }]}>
-              GROUPS
+              {t("notifications.groupsHeading")}
             </Text>
             <TouchableOpacity onPress={() => setJoinVisible(true)}>
               <Text style={[styles.joinLink, { color: colors.primary }]}>
-                + Join with code
+                {t("notifications.joinWithCode")}
               </Text>
             </TouchableOpacity>
           </View>
           {groups.length === 0 && (
             <Text style={[styles.groupMeta, { color: colors.textTertiary, marginBottom: 16 }]}>
-              No groups yet. Join one with an invite code.
+              {t("notifications.noGroupsYet")}
             </Text>
           )}
           {groups.length > 0 && (
@@ -552,7 +552,7 @@ export default function NotificationsScreen({ navigation }) {
                       {g.name}
                     </Text>
                     <Text style={[styles.groupMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                      {g.lastMessage || `${g.memberIds?.length || 0} members`}
+                      {g.lastMessage || t("notifications.membersCount", { count: g.memberIds?.length || 0 })}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -561,13 +561,13 @@ export default function NotificationsScreen({ navigation }) {
           )}
 
           <Text style={[styles.groupsHeading, { color: colors.textTertiary, marginTop: 16 }]}>
-            NOTIFICATIONS
+            {t("notifications.notificationsHeading")}
           </Text>
 
           {notifications.length === 0 ? (
             <View style={styles.emptyInline}>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                You're all caught up!
+                {t("notifications.allCaughtUp")}
               </Text>
             </View>
           ) : (
@@ -586,14 +586,14 @@ export default function NotificationsScreen({ navigation }) {
         <View style={styles.joinOverlay}>
           <View style={[styles.joinCard, { backgroundColor: colors.background }]}>
             <Text style={[styles.joinTitle, { color: colors.text }]}>
-              Join a group
+              {t("notifications.joinGroupTitle")}
             </Text>
             <Text style={[styles.joinHint, { color: colors.textSecondary }]}>
-              Enter the invite code the host shared with you.
+              {t("notifications.joinGroupHint")}
             </Text>
             <TextInput
               style={[styles.joinInput, { color: colors.text, borderColor: colors.border }]}
-              placeholder="e.g. AB3K77"
+              placeholder={t("notifications.joinCodePlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={joinCode}
               onChangeText={(v) => setJoinCode(v.toUpperCase())}
@@ -603,12 +603,12 @@ export default function NotificationsScreen({ navigation }) {
             <View style={styles.joinActions}>
               <TouchableOpacity onPress={() => setJoinVisible(false)}>
                 <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
-                  Cancel
+                  {t("notifications.cancel")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleJoinByCode} disabled={joining}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  {joining ? "Joining…" : "Join"}
+                  {joining ? t("notifications.joining") : t("notifications.join")}
                 </Text>
               </TouchableOpacity>
             </View>

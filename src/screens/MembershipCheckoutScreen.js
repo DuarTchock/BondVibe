@@ -14,6 +14,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import {
@@ -26,6 +27,7 @@ import { getPricingConfig, overridesFor } from "../services/configService";
 
 export default function MembershipCheckoutScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { confirmPayment } = useConfirmPayment();
   const { plan } = route.params;
 
@@ -47,7 +49,7 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
 
   const handlePay = async () => {
     if (!cardComplete) {
-      Alert.alert("Incomplete card", "Please enter complete card details.");
+      Alert.alert(t("membershipCheckout.incompleteCardTitle"), t("membershipCheckout.incompleteCardMessage"));
       return;
     }
     Keyboard.dismiss();
@@ -56,7 +58,7 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
     try {
       const intent = await createMembershipPaymentIntent(plan.id);
       if (!intent.success) {
-        Alert.alert("Couldn't start purchase", intent.error || "Try again.");
+        Alert.alert(t("membershipCheckout.couldNotStartTitle"), intent.error || t("membershipCheckout.tryAgain"));
         setProcessing(false);
         return;
       }
@@ -66,7 +68,7 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
       });
 
       if (error) {
-        Alert.alert("Payment failed", error.message || "Please try again.");
+        Alert.alert(t("membershipCheckout.paymentFailedTitle"), error.message || t("membershipCheckout.tryAgain"));
         setProcessing(false);
         return;
       }
@@ -75,11 +77,11 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
       await new Promise((r) => setTimeout(r, 2000));
 
       Alert.alert(
-        "Membership active!",
-        `You purchased "${plan.name}".`,
+        t("membershipCheckout.membershipActiveTitle"),
+        t("membershipCheckout.membershipActiveMessage", { planName: plan.name }),
         [
           {
-            text: "View my memberships",
+            text: t("membershipCheckout.viewMyMemberships"),
             onPress: () =>
               navigation.replace("MyMemberships", { shouldReload: true }),
           },
@@ -87,7 +89,7 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
       );
     } catch (e) {
       console.error("❌ Membership purchase error:", e);
-      Alert.alert("Error", "There was a problem processing your payment.");
+      Alert.alert(t("membershipCheckout.errorTitle"), t("membershipCheckout.errorMessage"));
       setProcessing(false);
     }
   };
@@ -122,7 +124,7 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Icon name="back" size={26} color={colors.text} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Checkout</Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>{t("membershipCheckout.title")}</Text>
             <View style={{ width: 28 }} />
           </View>
 
@@ -135,15 +137,15 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
             </View>
 
             <View style={styles.breakdown}>
-              <Row label="Plan" value={formatPlanPrice(amount)} />
-              <Row label="Service fee" value={formatPlanPrice(platformFee)} />
-              <Row label="Processing fee" value={formatPlanPrice(stripeFee)} />
+              <Row label={t("membershipCheckout.plan")} value={formatPlanPrice(amount)} />
+              <Row label={t("membershipCheckout.serviceFee")} value={formatPlanPrice(platformFee)} />
+              <Row label={t("membershipCheckout.processingFee")} value={formatPlanPrice(stripeFee)} />
               <View style={styles.divider} />
-              <Row label="Total" value={formatPlanPrice(totalAmount)} strong />
+              <Row label={t("membershipCheckout.total")} value={formatPlanPrice(totalAmount)} strong />
             </View>
 
             <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
-              Card details
+              {t("membershipCheckout.cardDetails")}
             </Text>
             <CardField
               postalCodeEnabled={false}
@@ -177,7 +179,7 @@ export default function MembershipCheckoutScreen({ route, navigation }) {
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <Text style={[styles.payText, { color: colors.primary }]}>
-                    Pay {formatPlanPrice(totalAmount)}
+                    {t("membershipCheckout.pay", { amount: formatPlanPrice(totalAmount) })}
                   </Text>
                 )}
               </View>

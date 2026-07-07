@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import DateField from "../components/DateField";
@@ -25,6 +26,7 @@ const DAY = 864e5;
 
 export default function VehicleDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { vehicleId, eventId, eventTitle, startAt, endAt } = route.params || {};
   const [vehicle, setVehicle] = useState(null);
   const [provider, setProvider] = useState(null);
@@ -60,7 +62,7 @@ export default function VehicleDetailScreen({ route, navigation }) {
     return (
       <GradientBackground>
         <View style={styles.loading}>
-          <Text style={{ color: colors.textSecondary }}>Vehicle not found.</Text>
+          <Text style={{ color: colors.textSecondary }}>{t("vehicleDetail.notFound")}</Text>
         </View>
       </GradientBackground>
     );
@@ -112,43 +114,47 @@ export default function VehicleDetailScreen({ route, navigation }) {
           </ScrollView>
         ) : (
           <View style={styles.hero}>
-            <Text style={[styles.heroPlaceholder, { color: colors.textTertiary }]}>No photo</Text>
+            <Text style={[styles.heroPlaceholder, { color: colors.textTertiary }]}>{t("rentals.hub.noPhoto")}</Text>
           </View>
         )}
 
         <Text style={[styles.title, { color: colors.text }]}>{vehicle.title}</Text>
         <Text style={[styles.sub, { color: colors.textSecondary }]}>
-          {vehicle.city ? `${vehicle.city} · ` : ""}{vehicle.pickupLabel || "Pickup on site"}
+          {vehicle.city ? `${vehicle.city} · ` : ""}{vehicle.pickupLabel || t("rentals.hub.pickupOnSite")}
         </Text>
 
         {provider && (
           <View style={styles.providerRow}>
             <Text style={[styles.provider, { color: colors.textSecondary }]}>
-              by {provider.name || "Partner"}
+              {t("vehicleDetail.byProvider", { name: provider.name || t("vehicleDetail.partner") })}
             </Text>
             {provider.verified && <HostBadge small />}
           </View>
         )}
 
         <View style={[styles.specs, { borderColor: colors.border }]}>
-          <Spec label="Type" value={vehicle.type} colors={colors} />
-          {vehicle.rangeKm ? <Spec label="Range" value={`${vehicle.rangeKm} km`} colors={colors} /> : null}
-          {vehicle.requiresLicense ? <Spec label="License" value="Required" colors={colors} /> : null}
+          <Spec label={t("vehicleDetail.specType")} value={vehicle.type} colors={colors} />
+          {vehicle.rangeKm ? (
+            <Spec label={t("vehicleDetail.specRange")} value={t("vehicleDetail.rangeKm", { km: vehicle.rangeKm })} colors={colors} />
+          ) : null}
+          {vehicle.requiresLicense ? (
+            <Spec label={t("rentals.hub.license")} value={t("vehicleDetail.required")} colors={colors} />
+          ) : null}
           {vehicle.depositCentavos ? (
-            <Spec label="Deposit (to host)" value={formatCentavos(vehicle.depositCentavos)} colors={colors} />
+            <Spec label={t("vehicleDetail.depositToHost")} value={formatCentavos(vehicle.depositCentavos)} colors={colors} />
           ) : null}
         </View>
 
         {eventId && (
           <View style={[styles.eventBanner, { borderColor: colors.border }]}>
             <Text style={[styles.eventBannerText, { color: colors.textSecondary }]} numberOfLines={2}>
-              This rental will be linked to{" "}
-              <Text style={{ color: colors.text, fontWeight: "700" }}>{eventTitle || "your event"}</Text>.
+              {t("vehicleDetail.linkedToEventPrefix")}{" "}
+              <Text style={{ color: colors.text, fontWeight: "700" }}>{eventTitle || t("rentals.common.yourEvent")}</Text>.
             </Text>
           </View>
         )}
 
-        <Text style={[styles.datesTitle, { color: colors.text }]}>Availability</Text>
+        <Text style={[styles.datesTitle, { color: colors.text }]}>{t("vehicleDetail.availability")}</Text>
         <AvailabilityCalendar
           bookedRanges={vehicle.bookedRanges}
           availableFrom={vehicle.availableFrom}
@@ -157,10 +163,10 @@ export default function VehicleDetailScreen({ route, navigation }) {
           selectedEnd={endDate}
         />
 
-        <Text style={[styles.datesTitle, { color: colors.text }]}>Choose your dates</Text>
+        <Text style={[styles.datesTitle, { color: colors.text }]}>{t("vehicleDetail.chooseDates")}</Text>
         <View style={styles.datesRow}>
           <DateField
-            label="From"
+            label={t("rentals.activeRental.from")}
             value={startDate}
             onChange={(d) => {
               setStartDate(d);
@@ -169,7 +175,7 @@ export default function VehicleDetailScreen({ route, navigation }) {
             minimumDate={new Date()}
           />
           <DateField
-            label="Until"
+            label={t("rentals.activeRental.until")}
             value={endDate}
             onChange={setEndDate}
             minimumDate={new Date(startDate.getTime() + DAY)}
@@ -178,16 +184,16 @@ export default function VehicleDetailScreen({ route, navigation }) {
         {!available && (
           <Text style={[styles.unavailable, { color: "#EF4444" }]}>
             {vehicle.status !== "available"
-              ? "This vehicle isn't available right now."
-              : "Not available for these dates — try different dates."}
+              ? t("vehicleDetail.notAvailableNow")
+              : t("vehicleDetail.notAvailableDates")}
           </Text>
         )}
 
         {!isFree && breakdown && (
           <View style={[styles.feeBox, { borderColor: colors.border }]}>
-            <FeeRow label={`Rental · ${days} day${days > 1 ? "s" : ""}`} value={formatCentavos(feeBase)} colors={colors} />
-            <FeeRow label="Service fee" value={formatCentavos(breakdown.platformFeeCentavos)} colors={colors} />
-            <FeeRow label="Processing fee" value={formatCentavos(breakdown.stripeFeeCentavos)} colors={colors} />
+            <FeeRow label={t("vehicleDetail.rentalDaysLabel", { count: days })} value={formatCentavos(feeBase)} colors={colors} />
+            <FeeRow label={t("rentals.checkout.serviceFee")} value={formatCentavos(breakdown.platformFeeCentavos)} colors={colors} />
+            <FeeRow label={t("rentals.checkout.processingFee")} value={formatCentavos(breakdown.stripeFeeCentavos)} colors={colors} />
           </View>
         )}
       </ScrollView>
@@ -195,10 +201,10 @@ export default function VehicleDetailScreen({ route, navigation }) {
       <View style={[styles.footer, { borderColor: colors.border, backgroundColor: colors.background }]}>
         <View>
           <Text style={[styles.footerPrice, { color: colors.text }]}>
-            {isFree ? "Free" : formatCentavos(total)}
+            {isFree ? t("rentals.common.free") : formatCentavos(total)}
           </Text>
           <Text style={[styles.footerUnit, { color: colors.textTertiary }]}>
-            {isFree ? "no charge" : `${days} day${days > 1 ? "s" : ""} · incl. fees`}
+            {isFree ? t("vehicleDetail.noCharge") : t("vehicleDetail.daysInclFees", { count: days })}
           </Text>
         </View>
         <TouchableOpacity
@@ -207,7 +213,7 @@ export default function VehicleDetailScreen({ route, navigation }) {
           disabled={!available}
           activeOpacity={0.85}
         >
-          <Text style={styles.rentTxt}>{available ? "Rent now" : "Not available"}</Text>
+          <Text style={styles.rentTxt}>{available ? t("vehicleDetail.rentNow") : t("vehicleDetail.notAvailable")}</Text>
         </TouchableOpacity>
       </View>
     </GradientBackground>

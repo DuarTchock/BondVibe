@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../contexts/ThemeContext';
 import GradientBackground from "../components/GradientBackground";
 import { DIMENSION_INFO } from '../utils/personalityQuiz';
@@ -20,6 +21,7 @@ const CENTER = RADAR_SIZE / 2;
 
 export default function PersonalityResultsScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { scores } = route.params;
 
   const insights = getPersonalityInsights(scores);
@@ -64,10 +66,10 @@ export default function PersonalityResultsScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Your Profile</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t("personalityResults.headerTitle")}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Home')}>
           <Text style={[styles.doneButton, { color: colors.primary }]}>
-            Done
+            {t("personalityResults.done")}
           </Text>
         </TouchableOpacity>
       </View>
@@ -91,10 +93,10 @@ export default function PersonalityResultsScreen({ route, navigation }) {
             <Icon name="successCircle" size={36} color={colors.primary} />
           </View>
           <Text style={[styles.successTitle, { color: colors.text }]}>
-            Profile Complete!
+            {t("personalityResults.successTitle")}
           </Text>
           <Text style={[styles.successText, { color: colors.textSecondary }]}>
-            We'll use this to match you with compatible groups and events.
+            {t("personalityResults.successText")}
           </Text>
         </View>
 
@@ -109,7 +111,7 @@ export default function PersonalityResultsScreen({ route, navigation }) {
           ]}
         >
           <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Your Big Five Profile
+            {t("personalityResults.chartTitle")}
           </Text>
 
           <View style={styles.chartContainer}>
@@ -127,12 +129,20 @@ export default function PersonalityResultsScreen({ route, navigation }) {
                     />
                     <View style={styles.dimensionLabels}>
                       <Text style={[styles.dimensionName, { color: colors.text }]}>
-                        {info.title.split(' ')[0]}
+                        {t(`personalityResults.dimensions.${dim.key}.title`, {
+                          defaultValue: info.title,
+                        }).split(' ')[0]}
                       </Text>
                       <Text
                         style={[styles.dimensionTrait, { color: colors.textSecondary }]}
                       >
-                        {score < 50 ? info.lowTrait : info.highTrait}
+                        {score < 50
+                          ? t(`personalityResults.dimensions.${dim.key}.lowTrait`, {
+                              defaultValue: info.lowTrait,
+                            })
+                          : t(`personalityResults.dimensions.${dim.key}.highTrait`, {
+                              defaultValue: info.highTrait,
+                            })}
                       </Text>
                     </View>
                   </View>
@@ -163,7 +173,7 @@ export default function PersonalityResultsScreen({ route, navigation }) {
         {/* Insights */}
         <View style={styles.insightsSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Your Insights
+            {t("personalityResults.insightsTitle")}
           </Text>
           {Object.keys(insights).map((dimension) => {
             const info = DIMENSION_INFO[dimension];
@@ -187,11 +197,15 @@ export default function PersonalityResultsScreen({ route, navigation }) {
                     style={styles.insightIcon}
                   />
                   <Text style={[styles.insightTitle, { color: colors.text }]}>
-                    {info.title}
+                    {t(`personalityResults.dimensions.${dimension}.title`, {
+                      defaultValue: info.title,
+                    })}
                   </Text>
                 </View>
                 <Text style={[styles.insightDescription, { color: colors.textSecondary }]}>
-                  {info.description}
+                  {t(`personalityResults.dimensions.${dimension}.description`, {
+                    defaultValue: info.description,
+                  })}
                 </Text>
                 <View style={styles.insightDivider} />
                 <Text style={[styles.insightText, { color: colors.text }]}>
@@ -207,14 +221,13 @@ export default function PersonalityResultsScreen({ route, navigation }) {
           style={[styles.actionButton, { backgroundColor: colors.primary }]}
           onPress={() => navigation.navigate('SearchEvents')}
         >
-          <Text style={styles.actionButtonText}>Find Compatible Events</Text>
+          <Text style={styles.actionButtonText}>{t("personalityResults.findEventsButton")}</Text>
         </TouchableOpacity>
 
         {/* Info Footer */}
         <View style={styles.infoFooter}>
           <Text style={[styles.infoText, { color: colors.textTertiary }]}>
-            Your personality profile is private and only used for matching. You
-            can retake the quiz anytime from your profile settings.
+            {t("personalityResults.infoFooter")}
           </Text>
         </View>
       </ScrollView>

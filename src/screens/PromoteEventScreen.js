@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import {
@@ -25,6 +26,7 @@ import {
 
 export default function PromoteEventScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { confirmPayment } = useConfirmPayment();
   const { eventId, eventTitle } = route.params || {};
 
@@ -36,7 +38,7 @@ export default function PromoteEventScreen({ route, navigation }) {
 
   const handlePay = async () => {
     if (!cardComplete) {
-      Alert.alert("Incomplete card", "Please enter complete card details.");
+      Alert.alert(t("promoteEvent.incompleteCardTitle"), t("promoteEvent.incompleteCardMsg"));
       return;
     }
     Keyboard.dismiss();
@@ -44,7 +46,7 @@ export default function PromoteEventScreen({ route, navigation }) {
     try {
       const intent = await createPromotionPaymentIntent(eventId, selectedPlan);
       if (!intent.success) {
-        Alert.alert("Couldn't start promotion", intent.error || "Try again.");
+        Alert.alert(t("promoteEvent.couldntStartTitle"), intent.error || t("promoteEvent.tryAgain"));
         setProcessing(false);
         return;
       }
@@ -52,19 +54,19 @@ export default function PromoteEventScreen({ route, navigation }) {
         paymentMethodType: "Card",
       });
       if (error) {
-        Alert.alert("Payment failed", error.message || "Please try again.");
+        Alert.alert(t("promoteEvent.paymentFailedTitle"), error.message || t("promoteEvent.pleaseTryAgain"));
         setProcessing(false);
         return;
       }
       await new Promise((r) => setTimeout(r, 2000));
       Alert.alert(
-        "Your event is featured!",
-        `"${eventTitle}" will appear in Featured for ${plan.days} days.`,
-        [{ text: "Done", onPress: () => navigation.goBack() }]
+        t("promoteEvent.featuredTitle"),
+        t("promoteEvent.featuredMsg", { title: eventTitle, days: plan.days }),
+        [{ text: t("promoteEvent.done"), onPress: () => navigation.goBack() }]
       );
     } catch (e) {
       console.error("❌ Promotion payment error:", e);
-      Alert.alert("Error", "There was a problem processing your payment.");
+      Alert.alert(t("promoteEvent.errorTitle"), t("promoteEvent.errorMsg"));
       setProcessing(false);
     }
   };
@@ -85,7 +87,7 @@ export default function PromoteEventScreen({ route, navigation }) {
                 <Icon name="back" size={26} color={colors.text} />
               </TouchableOpacity>
               <Text style={[styles.headerTitle, { color: colors.text }]}>
-                Promote Event
+                {t("promoteEvent.headerTitle")}
               </Text>
               <View style={{ width: 28 }} />
             </View>
@@ -99,11 +101,10 @@ export default function PromoteEventScreen({ route, navigation }) {
                   <Icon name="ai" size={26} color={colors.primary} />
                 </View>
                 <Text style={[styles.heroTitle, { color: colors.text }]}>
-                  Feature your event
+                  {t("promoteEvent.heroTitle")}
                 </Text>
                 <Text style={[styles.heroSub, { color: colors.textSecondary }]}>
-                  Appear in the Featured carousel on the home screen and reach
-                  more people.
+                  {t("promoteEvent.heroSub")}
                 </Text>
                 {!!eventTitle && (
                   <Text style={[styles.eventName, { color: colors.primary }]} numberOfLines={1}>
@@ -113,7 +114,7 @@ export default function PromoteEventScreen({ route, navigation }) {
               </View>
 
               <Text style={[styles.label, { color: colors.textSecondary }]}>
-                CHOOSE DURATION
+                {t("promoteEvent.chooseDuration")}
               </Text>
               {PROMOTION_PLANS.map((p) => {
                 const selected = p.id === selectedPlan;
@@ -147,7 +148,7 @@ export default function PromoteEventScreen({ route, navigation }) {
                       )}
                     </View>
                     <Text style={[styles.planLabel, { color: colors.text }]}>
-                      {p.label} featured
+                      {t("promoteEvent.planFeatured", { label: p.label })}
                     </Text>
                     <Text style={[styles.planPrice, { color: colors.primary }]}>
                       {formatPromoPrice(p.priceCentavos)}
@@ -157,7 +158,7 @@ export default function PromoteEventScreen({ route, navigation }) {
               })}
 
               <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>
-                CARD DETAILS
+                {t("promoteEvent.cardDetails")}
               </Text>
               <CardField
                 postalCodeEnabled={false}
@@ -191,7 +192,7 @@ export default function PromoteEventScreen({ route, navigation }) {
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <Text style={[styles.payText, { color: colors.primary }]}>
-                      Pay {formatPromoPrice(plan.priceCentavos)}
+                      {t("promoteEvent.pay", { amount: formatPromoPrice(plan.priceCentavos) })}
                     </Text>
                   )}
                 </View>

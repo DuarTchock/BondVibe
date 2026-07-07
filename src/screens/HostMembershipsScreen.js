@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import {
   View,
@@ -23,6 +24,7 @@ import {
 
 export default function HostMembershipsScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { hostId, hostName: hostNameParam } = route.params || {};
   const [plans, setPlans] = useState([]);
   const [hostName, setHostName] = useState(hostNameParam || "");
@@ -42,7 +44,7 @@ export default function HostMembershipsScreen({ route, navigation }) {
     setPlans(data);
     if (hostSnap.exists()) {
       const d = hostSnap.data();
-      setHostName(d.fullName || d.name || hostNameParam || "Host");
+      setHostName(d.fullName || d.name || hostNameParam || t("hostMemberships.host"));
     }
     setLoading(false);
   };
@@ -57,7 +59,7 @@ export default function HostMembershipsScreen({ route, navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-          {hostName ? `${hostName}'s Plans` : "Membership Plans"}
+          {hostName ? t("hostMemberships.hostPlans", { hostName }) : t("hostMemberships.membershipPlans")}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -70,16 +72,16 @@ export default function HostMembershipsScreen({ route, navigation }) {
         <View style={styles.empty}>
           <Icon name="ticket" size={48} color={colors.textTertiary} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No plans available
+            {t("hostMemberships.noPlansAvailable")}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            This host isn't selling memberships right now.
+            {t("hostMemberships.noPlansAvailableSubtitle")}
           </Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Text style={[styles.intro, { color: colors.textSecondary }]}>
-            Buy a class pack or pass and use it to attend this host's events.
+            {t("hostMemberships.introText")}
           </Text>
           {plans.map((plan) => {
             const isUnlimited = plan.type === MEMBERSHIP_PLAN_TYPES.UNLIMITED;
@@ -106,7 +108,7 @@ export default function HostMembershipsScreen({ route, navigation }) {
                 {!!plan.description && (
                   <>
                     <Text style={[styles.sectionHeading, { color: colors.text }]}>
-                      What's included
+                      {t("hostMemberships.whatsIncluded")}
                     </Text>
                     <Text style={[styles.planDesc, { color: colors.textTertiary }]}>
                       {plan.description}
@@ -116,7 +118,7 @@ export default function HostMembershipsScreen({ route, navigation }) {
                 {!!plan.terms && (
                   <>
                     <Text style={[styles.sectionHeading, { color: colors.text }]}>
-                      Terms & conditions
+                      {t("hostMemberships.termsAndConditions")}
                     </Text>
                     <Text style={[styles.planDesc, { color: colors.textTertiary }]}>
                       {plan.terms}
@@ -134,7 +136,7 @@ export default function HostMembershipsScreen({ route, navigation }) {
                       { backgroundColor: `${colors.primary}33`, borderColor: `${colors.primary}66` },
                     ]}
                   >
-                    <Text style={[styles.buyText, { color: colors.primary }]}>Buy</Text>
+                    <Text style={[styles.buyText, { color: colors.primary }]}>{t("hostMemberships.buy")}</Text>
                   </View>
                 </TouchableOpacity>
               </View>

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
@@ -25,6 +26,7 @@ const fmtDate = (ts) => {
 
 export default function MembershipSaleScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { membershipId, userId, buyerName, amountCentavos } = route.params || {};
   const [membership, setMembership] = useState(null);
   const [buyer, setBuyer] = useState(null);
@@ -50,7 +52,7 @@ export default function MembershipSaleScreen({ route, navigation }) {
   }, [membershipId, userId]);
 
   const styles = createStyles(colors, isDark);
-  const name = buyer?.fullName || buyer?.name || buyerName || "Member";
+  const name = buyer?.fullName || buyer?.name || buyerName || t("membershipSale.defaultMemberName");
   const m = membership || {};
   const isCredits = m.type === "credits";
   const amount = typeof amountCentavos === "number" ? amountCentavos / 100 : null;
@@ -72,7 +74,7 @@ export default function MembershipSaleScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Membership sold</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("membershipSale.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -86,30 +88,30 @@ export default function MembershipSaleScreen({ route, navigation }) {
             <AvatarDisplay avatar={normAvatar(buyer?.avatar)} size={64} />
             <Text style={[styles.buyerName, { color: colors.text }]}>{name}</Text>
             <Text style={[styles.plan, { color: colors.primary }]}>
-              {m.planName || "Membership"}
+              {m.planName || t("membershipSale.defaultPlanName")}
             </Text>
           </View>
 
           <Row
             icon="ticket"
-            label="Type"
-            value={isCredits ? "Class credits" : "Unlimited"}
+            label={t("membershipSale.type")}
+            value={isCredits ? t("membershipSale.classCredits") : t("membershipSale.unlimited")}
           />
           {isCredits && (
             <Row
               icon="ticket"
-              label="Credits"
-              value={`${m.creditsRemaining ?? m.creditsTotal ?? 0} of ${m.creditsTotal ?? 0} left`}
+              label={t("membershipSale.credits")}
+              value={t("membershipSale.creditsLeft", { remaining: m.creditsRemaining ?? m.creditsTotal ?? 0, total: m.creditsTotal ?? 0 })}
             />
           )}
           {amount != null && (
-            <Row icon="dollar" label="Paid" value={`$${amount.toFixed(2)} MXN`} />
+            <Row icon="dollar" label={t("membershipSale.paid")} value={`$${amount.toFixed(2)} MXN`} />
           )}
-          <Row icon="calendar" label="Purchased" value={fmtDate(m.purchasedAt)} />
-          <Row icon="clock" label="Expires" value={fmtDate(m.expiresAt)} />
+          <Row icon="calendar" label={t("membershipSale.purchased")} value={fmtDate(m.purchasedAt)} />
+          <Row icon="clock" label={t("membershipSale.expires")} value={fmtDate(m.expiresAt)} />
           <Row
             icon="ticket"
-            label="Status"
+            label={t("membershipSale.status")}
             value={(m.status || "active").toUpperCase()}
           />
 
@@ -118,7 +120,7 @@ export default function MembershipSaleScreen({ route, navigation }) {
             onPress={() => navigation.navigate("HostAnalytics")}
           >
             <Text style={[styles.ctaText, { color: colors.text }]}>
-              View analytics
+              {t("membershipSale.viewAnalytics")}
             </Text>
           </TouchableOpacity>
         </ScrollView>

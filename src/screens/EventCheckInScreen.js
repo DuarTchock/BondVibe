@@ -12,6 +12,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -24,6 +25,7 @@ import {
 
 export default function EventCheckInScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { eventId, eventTitle } = route.params || {};
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,13 +51,13 @@ export default function EventCheckInScreen({ route, navigation }) {
 
       const built = await Promise.all(
         attendeeIds.map(async (uid) => {
-          let name = "Member";
+          let name = t("eventCheckIn.member");
           let avatar = null;
           try {
             const u = await getDoc(doc(db, "users", uid));
             if (u.exists()) {
               const d = u.data();
-              name = d.fullName || d.name || "Member";
+              name = d.fullName || d.name || t("eventCheckIn.member");
               if (d.avatar) avatar = d.avatar;
             }
           } catch (e) {
@@ -83,7 +85,7 @@ export default function EventCheckInScreen({ route, navigation }) {
     if (r.success) {
       load();
     } else {
-      Alert.alert("Couldn't check in", r.error || "Please try again.");
+      Alert.alert(t("eventCheckIn.couldntCheckIn"), r.error || t("eventCheckIn.pleaseTryAgain"));
     }
   };
 
@@ -106,7 +108,7 @@ export default function EventCheckInScreen({ route, navigation }) {
               <Icon name="payment" size={13} color={colors.textTertiary} />
             )}
             <Text style={[styles.meta, { color: colors.textSecondary }]}>
-              {res ? "Membership" : "Paid / Free"}
+              {res ? t("eventCheckIn.membership") : t("eventCheckIn.paidOrFree")}
             </Text>
           </View>
         </View>
@@ -122,7 +124,7 @@ export default function EventCheckInScreen({ route, navigation }) {
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Text style={[styles.checkBtnText, { color: colors.primary }]}>
-                Check in
+                {t("eventCheckIn.checkIn")}
               </Text>
             )}
           </TouchableOpacity>
@@ -130,7 +132,7 @@ export default function EventCheckInScreen({ route, navigation }) {
         {res && redeemed && (
           <View style={styles.doneBadge}>
             <Icon name="check" size={16} color="#34C759" />
-            <Text style={styles.doneText}>In</Text>
+            <Text style={styles.doneText}>{t("eventCheckIn.in")}</Text>
           </View>
         )}
       </View>
@@ -145,7 +147,7 @@ export default function EventCheckInScreen({ route, navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-          Check-in
+          {t("eventCheckIn.title")}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -162,12 +164,11 @@ export default function EventCheckInScreen({ route, navigation }) {
             </Text>
           )}
           <Text style={[styles.hint, { color: colors.textTertiary }]}>
-            Tap “Check in” for members attending with a class pass to deduct their
-            credit. Paid/free attendees don't need check-in.
+            {t("eventCheckIn.hint")}
           </Text>
           {rows.length === 0 ? (
             <Text style={[styles.empty, { color: colors.textSecondary }]}>
-              No attendees yet.
+              {t("eventCheckIn.noAttendees")}
             </Text>
           ) : (
             rows.map(renderRow)

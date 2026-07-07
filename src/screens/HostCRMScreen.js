@@ -1,5 +1,6 @@
 import Icon from "../components/Icon";
 import React, { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -32,19 +33,19 @@ import {
 const normAvatar = (a) =>
   !a ? null : typeof a === "string" ? { type: "emoji", value: a } : a;
 
-const SEGMENTS = [
-  { id: "risk", label: "At risk" },
-  { id: "recurring", label: "Regulars" },
-  { id: "all", label: "All" },
-];
-
 export default function HostCRMScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { isPremium, loading: premiumLoading } = usePremium();
+  const SEGMENTS = [
+    { id: "risk", label: t("hostCRM.segmentAtRisk") },
+    { id: "recurring", label: t("hostCRM.segmentRegulars") },
+    { id: "all", label: t("hostCRM.segmentAll") },
+  ];
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [segment, setSegment] = useState("risk");
-  const [hostName, setHostName] = useState("your host");
+  const [hostName, setHostName] = useState(t("hostCRM.defaultHostName"));
   const [sent, setSent] = useState({});
   const [announceVisible, setAnnounceVisible] = useState(false);
   const [announceText, setAnnounceText] = useState("");
@@ -93,7 +94,7 @@ export default function HostCRMScreen({ navigation }) {
     setAnnouncing(false);
     setAnnounceVisible(false);
     setAnnounceText("");
-    if (r.success) Alert.alert("Sent", `Announcement sent to ${r.count} ${r.count === 1 ? "person" : "people"}.`);
+    if (r.success) Alert.alert(t("hostCRM.sent"), t("hostCRM.announcementSentCount", { count: r.count }));
   };
 
   const Header = (
@@ -101,9 +102,9 @@ export default function HostCRMScreen({ navigation }) {
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Icon name="back" size={26} color={colors.text} />
       </TouchableOpacity>
-      <Text style={[styles.headerTitle, { color: colors.text }]}>Attendees</Text>
+      <Text style={[styles.headerTitle, { color: colors.text }]}>{t("hostCRM.title")}</Text>
       <TouchableOpacity onPress={exportCSV}>
-        <Text style={{ color: colors.primary, fontWeight: "700" }}>Export</Text>
+        <Text style={{ color: colors.primary, fontWeight: "700" }}>{t("hostCRM.export")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -114,15 +115,15 @@ export default function HostCRMScreen({ navigation }) {
         <StatusBar style={isDark ? "light" : "dark"} />
         {Header}
         <View style={styles.center}>
-          <Text style={[styles.upsellTitle, { color: colors.text }]}>CRM is Pro</Text>
+          <Text style={[styles.upsellTitle, { color: colors.text }]}>{t("hostCRM.crmIsPro")}</Text>
           <Text style={[styles.upsellText, { color: colors.textSecondary }]}>
-            Know your regulars and re-engage the ones who drift away.
+            {t("hostCRM.crmIsProDescription")}
           </Text>
           <TouchableOpacity
             style={[styles.upsellBtn, { backgroundColor: colors.primary }]}
             onPress={() => navigation.navigate("BondVibePro")}
           >
-            <Text style={styles.upsellBtnText}>See Kinlo Pro</Text>
+            <Text style={styles.upsellBtnText}>{t("hostCRM.seeKinloPro")}</Text>
           </TouchableOpacity>
         </View>
       </GradientBackground>
@@ -171,7 +172,7 @@ export default function HostCRMScreen({ navigation }) {
         >
           <Icon name="broadcast" size={16} color={colors.primary} />
           <Text style={[styles.announceBtnText, { color: colors.primary }]}>
-            Send announcement to {filtered.length}
+            {t("hostCRM.sendAnnouncementTo", { count: filtered.length })}
           </Text>
         </TouchableOpacity>
       )}
@@ -187,8 +188,8 @@ export default function HostCRMScreen({ navigation }) {
           {filtered.length === 0 ? (
             <Text style={[styles.empty, { color: colors.textSecondary }]}>
               {segment === "risk"
-                ? "Nobody at risk right now"
-                : "No attendees in this segment yet."}
+                ? t("hostCRM.nobodyAtRisk")
+                : t("hostCRM.noAttendeesInSegment")}
             </Text>
           ) : (
             filtered.map((r) => (
@@ -200,8 +201,8 @@ export default function HostCRMScreen({ navigation }) {
                       {r.name}
                     </Text>
                     <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-                      {r.eventsCount} event{r.eventsCount === 1 ? "" : "s"}
-                      {r.lastDate ? ` · last ${r.lastDate.toLocaleDateString()}` : ""}
+                      {t("hostCRM.eventsCount", { count: r.eventsCount })}
+                      {r.lastDate ? t("hostCRM.lastDate", { date: r.lastDate.toLocaleDateString() }) : ""}
                     </Text>
                   </View>
                 </View>
@@ -210,12 +211,12 @@ export default function HostCRMScreen({ navigation }) {
                   <View style={styles.flags}>
                     {r.flags.inactive && (
                       <View style={[styles.flag, { backgroundColor: `${colors.warning}22`, borderColor: colors.warning }]}>
-                        <Text style={[styles.flagText, { color: colors.warning }]}>Broke their streak</Text>
+                        <Text style={[styles.flagText, { color: colors.warning }]}>{t("hostCRM.brokeStreak")}</Text>
                       </View>
                     )}
                     {r.flags.membershipExpiring && (
                       <View style={[styles.flag, { backgroundColor: `${colors.error}22`, borderColor: colors.error }]}>
-                        <Text style={[styles.flagText, { color: colors.error }]}>Membership expiring</Text>
+                        <Text style={[styles.flagText, { color: colors.error }]}>{t("hostCRM.membershipExpiring")}</Text>
                       </View>
                     )}
                   </View>
@@ -224,19 +225,19 @@ export default function HostCRMScreen({ navigation }) {
                 {sent[r.id] ? (
                   <View style={styles.sentRow}>
                     <Icon name="check" size={14} color={colors.success} />
-                    <Text style={[styles.sentMsg, { color: colors.success }]}>Message sent</Text>
+                    <Text style={[styles.sentMsg, { color: colors.success }]}>{t("hostCRM.messageSent")}</Text>
                   </View>
                 ) : (
                   <View style={styles.actions}>
                     <TouchableOpacity style={[styles.action, { borderColor: colors.borderStrong }]} onPress={() => act(r, "reminder")}>
-                      <Text style={[styles.actionText, { color: colors.text }]}>Reminder</Text>
+                      <Text style={[styles.actionText, { color: colors.text }]}>{t("hostCRM.reminder")}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.action, { borderColor: colors.borderStrong }]} onPress={() => act(r, "checkin")}>
-                      <Text style={[styles.actionText, { color: colors.text }]}>How are you?</Text>
+                      <Text style={[styles.actionText, { color: colors.text }]}>{t("hostCRM.howAreYou")}</Text>
                     </TouchableOpacity>
                     {r.flags.membershipExpiring && (
                       <TouchableOpacity style={[styles.action, { borderColor: colors.primary, backgroundColor: `${colors.primary}14` }]} onPress={() => act(r, "renew")}>
-                        <Text style={[styles.actionText, { color: colors.primary }]}>Renew</Text>
+                        <Text style={[styles.actionText, { color: colors.primary }]}>{t("hostCRM.renew")}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -251,14 +252,14 @@ export default function HostCRMScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.background }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Announcement to {filtered.length} attendee{filtered.length === 1 ? "" : "s"}
+              {t("hostCRM.announcementToCount", { count: filtered.length })}
             </Text>
             <TextInput
               style={[
                 styles.modalInput,
                 { color: colors.text, borderColor: colors.borderStrong },
               ]}
-              placeholder="Write your announcement…"
+              placeholder={t("hostCRM.writeAnnouncementPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={announceText}
               onChangeText={setAnnounceText}
@@ -267,11 +268,11 @@ export default function HostCRMScreen({ navigation }) {
             />
             <View style={styles.modalActions}>
               <TouchableOpacity onPress={() => setAnnounceVisible(false)}>
-                <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>Cancel</Text>
+                <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>{t("hostCRM.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={sendAnnounce} disabled={announcing || !announceText.trim()}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  {announcing ? "Sending…" : "Send"}
+                  {announcing ? t("hostCRM.sending") : t("hostCRM.send")}
                 </Text>
               </TouchableOpacity>
             </View>

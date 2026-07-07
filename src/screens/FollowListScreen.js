@@ -14,6 +14,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -27,6 +28,7 @@ const normAvatar = (a) =>
 export default function FollowListScreen({ route, navigation }) {
   const { userId, type } = route.params || {};
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const me = auth.currentUser?.uid;
 
   const [people, setPeople] = useState([]);
@@ -48,7 +50,7 @@ export default function FollowListScreen({ route, navigation }) {
           const d = snap.exists() ? snap.data() : {};
           return {
             id: uid,
-            name: d.fullName || d.name || "User",
+            name: d.fullName || d.name || t("followList.defaultUserName"),
             avatar: d.avatar,
             location: d.location,
             following: myFollowing.has(uid),
@@ -90,7 +92,7 @@ export default function FollowListScreen({ route, navigation }) {
           <Icon name="back" size={28} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {type === "followers" ? "Followers" : "Following"}
+          {type === "followers" ? t("followList.followersTitle") : t("followList.followingTitle")}
         </Text>
         <View style={{ width: 28 }} />
       </View>
@@ -138,7 +140,7 @@ export default function FollowListScreen({ route, navigation }) {
                       { color: item.following ? colors.text : colors.onPrimary || "#fff" },
                     ]}
                   >
-                    {item.following ? "Following" : "Follow"}
+                    {item.following ? t("followList.following") : t("followList.follow")}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -146,7 +148,7 @@ export default function FollowListScreen({ route, navigation }) {
           )}
           ListEmptyComponent={
             <Text style={[styles.empty, { color: colors.textTertiary }]}>
-              {type === "followers" ? "No followers yet." : "Not following anyone yet."}
+              {type === "followers" ? t("followList.noFollowers") : t("followList.noFollowing")}
             </Text>
           }
         />

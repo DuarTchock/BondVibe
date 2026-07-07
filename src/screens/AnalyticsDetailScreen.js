@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -24,28 +25,28 @@ const fmtDate = (ts) => {
   return ms ? new Date(ms).toLocaleDateString() : "—";
 };
 
-const CONFIG = {
-  members: {
-    title: "Active members",
-    tip: "Active members are your recurring revenue and the core of your community. Keep them engaged with updates and new events.",
-  },
-  memberships: {
-    title: "Memberships sold",
-    tip: "Every sale is a commitment. Thank buyers and invite them to their first class to build loyalty.",
-  },
-  attended: {
-    title: "Classes attended",
-    tip: "Attendance is engagement. Members who attend renew more — celebrate regulars.",
-  },
-  expiring: {
-    title: "Expiring soon",
-    tip: "These memberships expire within 7 days. A message or renewal offer NOW protects this revenue.",
-  },
-};
-
 export default function AnalyticsDetailScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const metric = route.params?.metric || "members";
+  const CONFIG = {
+    members: {
+      title: t("analyticsDetail.members.title"),
+      tip: t("analyticsDetail.members.tip"),
+    },
+    memberships: {
+      title: t("analyticsDetail.memberships.title"),
+      tip: t("analyticsDetail.memberships.tip"),
+    },
+    attended: {
+      title: t("analyticsDetail.attended.title"),
+      tip: t("analyticsDetail.attended.tip"),
+    },
+    expiring: {
+      title: t("analyticsDetail.expiring.title"),
+      tip: t("analyticsDetail.expiring.tip"),
+    },
+  };
   const cfg = CONFIG[metric] || CONFIG.members;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +59,7 @@ export default function AnalyticsDetailScreen({ route, navigation }) {
         if (metric === "attended") {
           list = redemptions.map((r) => ({
             userId: r.userId,
-            title: r.eventTitle || "Class",
+            title: r.eventTitle || t("analyticsDetail.classFallback"),
             sub: fmtDate(r.redeemedAt || r.createdAt),
           }));
         } else {
@@ -73,11 +74,11 @@ export default function AnalyticsDetailScreen({ route, navigation }) {
           }
           list = ms.map((m) => ({
             userId: m.userId,
-            title: m.planName || "Membership",
+            title: m.planName || t("analyticsDetail.membershipFallback"),
             sub:
               m.type === "credits"
-                ? `${m.creditsRemaining ?? 0} credits · exp ${fmtDate(m.expiresAt)}`
-                : `Unlimited · exp ${fmtDate(m.expiresAt)}`,
+                ? t("analyticsDetail.creditsSub", { count: m.creditsRemaining ?? 0, date: fmtDate(m.expiresAt) })
+                : t("analyticsDetail.unlimitedSub", { date: fmtDate(m.expiresAt) }),
           }));
         }
         // resolve names/avatars
@@ -87,10 +88,10 @@ export default function AnalyticsDetailScreen({ route, navigation }) {
           ids.map(async (id) => {
             const u = await getDoc(doc(db, "users", id));
             const d = u.exists() ? u.data() : {};
-            users[id] = { name: d.fullName || d.name || "Member", avatar: d.avatar };
+            users[id] = { name: d.fullName || d.name || t("analyticsDetail.memberFallback"), avatar: d.avatar };
           })
         );
-        setRows(list.map((r) => ({ ...r, ...(users[r.userId] || { name: "Member" }) })));
+        setRows(list.map((r) => ({ ...r, ...(users[r.userId] || { name: t("analyticsDetail.memberFallback") }) })));
       } catch (e) {
         // ignore
       } finally {
@@ -123,10 +124,10 @@ export default function AnalyticsDetailScreen({ route, navigation }) {
             <Text style={[styles.tipText, { color: colors.text }]}>{cfg.tip}</Text>
           </View>
           <Text style={[styles.count, { color: colors.textSecondary }]}>
-            {rows.length} {rows.length === 1 ? "entry" : "entries"}
+            {t("analyticsDetail.entryCount", { count: rows.length })}
           </Text>
           {rows.length === 0 ? (
-            <Text style={[styles.muted, { color: colors.textTertiary }]}>Nothing here yet.</Text>
+            <Text style={[styles.muted, { color: colors.textTertiary }]}>{t("analyticsDetail.empty")}</Text>
           ) : (
             rows.map((r, i) => (
               <View key={`${r.userId}-${i}`} style={[styles.row, { borderColor: colors.border }]}>

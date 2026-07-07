@@ -12,31 +12,34 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { collection, addDoc } from 'firebase/firestore';
+import { useTranslation } from 'react-i18next';
 import { auth, db } from '../services/firebase';
 import { useTheme } from '../contexts/ThemeContext';
 import Colors from '../constants/Colors';
 import Sizes from '../constants/Sizes';
 
-const REPORT_REASONS = [
-  'Inappropriate content',
-  'Harassment or bullying',
-  'Spam or scam',
-  'Safety concern',
-  'Fake profile',
-  'Offensive behavior',
-  'Other',
+const REPORT_REASON_KEYS = [
+  'inappropriateContent',
+  'harassmentOrBullying',
+  'spamOrScam',
+  'safetyConcern',
+  'fakeProfile',
+  'offensiveBehavior',
+  'other',
 ];
 
 export default function ReportScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { type, targetId, targetName } = route.params;
+  const REPORT_REASONS = REPORT_REASON_KEYS.map((key) => t(`report.reasons.${key}`));
   const [selectedReason, setSelectedReason] = useState('');
   const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!selectedReason) {
-      Alert.alert('Error', 'Please select a reason');
+      Alert.alert(t('report.errorTitle'), t('report.selectReasonError'));
       return;
     }
 
@@ -54,18 +57,18 @@ export default function ReportScreen({ route, navigation }) {
       });
 
       Alert.alert(
-        'Report Submitted',
-        'Thank you for helping keep Kinlo safe. We will review your report.',
+        t('report.submittedTitle'),
+        t('report.submittedMessage'),
         [
           {
-            text: 'OK',
+            text: t('report.ok'),
             onPress: () => navigation.goBack(),
           },
         ]
       );
     } catch (error) {
       console.error('Error submitting report:', error);
-      Alert.alert('Error', 'Failed to submit report');
+      Alert.alert(t('report.errorTitle'), t('report.submitFailedError'));
     } finally {
       setSubmitting(false);
     }
@@ -79,19 +82,21 @@ export default function ReportScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Report {type === 'user' ? 'User' : 'Event'}</Text>
+        <Text style={styles.headerTitle}>
+          {type === 'user' ? t('report.reportUserTitle') : t('report.reportEventTitle')}
+        </Text>
         <View style={{ width: 60 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.infoCard}>
           <Text style={styles.infoText}>
-            Reporting: <Text style={styles.infoHighlight}>{targetName}</Text>
+            {t('report.reportingLabel')} <Text style={styles.infoHighlight}>{targetName}</Text>
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Why are you reporting this?</Text>
-        
+        <Text style={styles.sectionTitle}>{t('report.sectionTitle')}</Text>
+
         {REPORT_REASONS.map((reason) => (
           <TouchableOpacity
             key={reason}
@@ -112,12 +117,12 @@ export default function ReportScreen({ route, navigation }) {
         ))}
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Additional Details (Optional)</Text>
+          <Text style={styles.label}>{t('report.additionalDetailsLabel')}</Text>
           <TextInput
             style={styles.textArea}
             value={details}
             onChangeText={setDetails}
-            placeholder="Provide any additional information..."
+            placeholder={t('report.detailsPlaceholder')}
             multiline
             maxLength={500}
             placeholderTextColor={Colors.textLight}
@@ -128,7 +133,7 @@ export default function ReportScreen({ route, navigation }) {
         <View style={styles.safetyNote}>
           <Icon name="privacy" size={22} color={colors.primary} />
           <Text style={styles.safetyText}>
-            Your report is anonymous. We take all reports seriously and will investigate promptly.
+            {t('report.safetyNote')}
           </Text>
         </View>
 
@@ -140,7 +145,7 @@ export default function ReportScreen({ route, navigation }) {
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>Submit Report</Text>
+            <Text style={styles.submitButtonText}>{t('report.submitButton')}</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

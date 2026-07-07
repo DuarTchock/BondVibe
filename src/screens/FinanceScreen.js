@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { getHostFinance } from "../services/hostInsightsService";
@@ -22,6 +23,7 @@ const monthLabel = (k) => {
 
 export default function FinanceScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +43,7 @@ export default function FinanceScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Finances</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("finance.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -56,15 +58,15 @@ export default function FinanceScreen({ navigation }) {
               {money(data?.totalCentavos)} MXN
             </Text>
             <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
-              Total received · {money(data?.monthCentavos)} this month
+              {t("finance.totalReceived", { amount: money(data?.monthCentavos) })}
             </Text>
           </View>
 
           <Text style={[styles.section, { color: colors.textSecondary }]}>
-            MONTHLY TREND
+            {t("finance.monthlyTrend")}
           </Text>
           {(data?.byMonth || []).length === 0 ? (
-            <Text style={[styles.muted, { color: colors.textTertiary }]}>No income yet.</Text>
+            <Text style={[styles.muted, { color: colors.textTertiary }]}>{t("finance.noIncomeYet")}</Text>
           ) : (
             data.byMonth.map((m) => (
               <View key={m.month} style={styles.trendRow}>
@@ -85,10 +87,10 @@ export default function FinanceScreen({ navigation }) {
           )}
 
           <Text style={[styles.section, { color: colors.textSecondary, marginTop: 20 }]}>
-            REVENUE PER EVENT
+            {t("finance.revenuePerEvent")}
           </Text>
           {(data?.byEvent || []).length === 0 ? (
-            <Text style={[styles.muted, { color: colors.textTertiary }]}>No paid events yet.</Text>
+            <Text style={[styles.muted, { color: colors.textTertiary }]}>{t("finance.noPaidEventsYet")}</Text>
           ) : (
             data.byEvent.map((e) => (
               <View key={e.eventId} style={[styles.eventRow, { borderColor: colors.border }]}>

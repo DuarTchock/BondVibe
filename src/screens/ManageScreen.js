@@ -4,6 +4,7 @@
  * no business logic moved. (The old ProfileScreen "Host Tools" grid lives here.)
  */
 import React, { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { View, ScrollView, StyleSheet, TouchableOpacity, Text } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
@@ -19,6 +20,7 @@ import { TYPE, SPACING, RADII, BRAND, ELEVATION } from "../constants/theme-token
 
 export default function ManageScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [profile, setProfile] = useState(null);
 
   useFocusEffect(
@@ -54,76 +56,76 @@ export default function ManageScreen({ navigation }) {
             style={[styles.createBtn, ELEVATION.floatingBrand]}
           >
             <Icon name="add" size={20} color="#FFFFFF" />
-            <Text style={[TYPE.label, styles.createText]}>Create event</Text>
+            <Text style={[TYPE.label, styles.createText]}>{t("manage.createEvent")}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
-        <SectionHeader title="Your events" />
+        <SectionHeader title={t("manage.yourEvents")} />
         <View style={card}>
           <ListRow
             icon="calendar"
-            title="Hosted events"
-            subtitle="Roster, check-in, edit, promote"
+            title={t("manage.hostedEvents")}
+            subtitle={t("manage.hostedEventsSubtitle")}
             onPress={() => navigation.navigate("MyEvents", { initialTab: "hosting" })}
           />
           <ListRow
             icon="qr"
-            title="Check-in scanner"
-            subtitle="Scan attendee QR codes"
+            title={t("manage.checkInScanner")}
+            subtitle={t("manage.checkInScannerSubtitle")}
             onPress={() => navigation.navigate("CheckInScanner")}
             divider={false}
           />
         </View>
 
-        <SectionHeader title="Business" />
+        <SectionHeader title={t("manage.business")} />
         <View style={card}>
           <ListRow
             icon="chart"
-            title="Analytics"
-            subtitle="Revenue & members"
+            title={t("manage.analytics")}
+            subtitle={t("manage.analyticsSubtitle")}
             onPress={() => navigation.navigate("HostAnalytics")}
           />
           <ListRow
             icon="dollar"
-            title="Finance"
-            subtitle="Trends, revenue per event"
+            title={t("manage.finance")}
+            subtitle={t("manage.financeSubtitle")}
             onPress={() => navigation.navigate("Finance")}
           />
           <ListRow
             icon="payment"
-            title="Payments"
-            subtitle="Stripe payout account"
+            title={t("manage.payments")}
+            subtitle={t("manage.paymentsSubtitle")}
             onPress={() => navigation.navigate("StripeConnect")}
           />
           {canSellMemberships && (
             <ListRow
               icon="ticket"
-              title="Membership plans"
-              subtitle="Create & manage what you sell"
+              title={t("manage.membershipPlans")}
+              subtitle={t("manage.membershipPlansSubtitle")}
               onPress={() => navigation.navigate("MembershipPlans")}
             />
           )}
           <ListRow
             icon="star"
-            title="Ratings"
-            subtitle="Reviews & AI coaching"
+            title={t("manage.ratings")}
+            subtitle={t("manage.ratingsSubtitle")}
             onPress={() => navigation.navigate("RatingsOverview")}
             divider={false}
           />
         </View>
 
-        <SectionHeader title="Community" />
+        <SectionHeader title={t("manage.community")} />
         <View style={card}>
           <ListRow
             icon="users"
-            title="Members"
-            subtitle="Your attendees, at-risk & regulars"
+            title={t("manage.members")}
+            subtitle={t("manage.membersSubtitle")}
             onPress={() => navigation.navigate("HostCRM")}
           />
           <ListRow
             icon="community"
-            title="Groups"
-            subtitle="Persistent groups & polls"
+            title={t("manage.groups")}
+            subtitle={t("manage.groupsSubtitle")}
             onPress={() => navigation.navigate("HostGroups")}
             divider={false}
           />

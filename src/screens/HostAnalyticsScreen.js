@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import {
   View,
   Text,
@@ -33,6 +34,7 @@ const normAvatar = (a) =>
 
 export default function HostAnalyticsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,19 +75,19 @@ export default function HostAnalyticsScreen({ navigation }) {
       setAiVisible(true);
     } else if (r.success && r.enough === false) {
       Alert.alert(
-        "Not enough feedback yet",
-        "You need at least 3 reviews with written comments to generate AI recommendations."
+        t("hostAnalytics.notEnoughFeedback"),
+        t("hostAnalytics.notEnoughFeedbackMessage")
       );
     } else if (
       (r.code || "").includes("permission-denied") ||
       r.error === "premium_required"
     ) {
       Alert.alert(
-        "Premium feature",
-        "AI recommendations are part of Kinlo Pro. Upgrade to get coaching on how to improve your events, based on your real reviews."
+        t("hostAnalytics.premiumFeature"),
+        t("hostAnalytics.premiumFeatureMessage")
       );
     } else {
-      Alert.alert("Couldn't generate", r.error || "Please try again later.");
+      Alert.alert(t("hostAnalytics.couldntGenerate"), r.error || t("hostAnalytics.pleaseTryAgainLater"));
     }
   };
 
@@ -113,7 +115,7 @@ export default function HostAnalyticsScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Analytics</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("hostAnalytics.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -124,7 +126,7 @@ export default function HostAnalyticsScreen({ navigation }) {
       ) : !data ? (
         <View style={styles.loading}>
           <Text style={{ color: colors.textSecondary }}>
-            Couldn't load analytics.
+            {t("hostAnalytics.couldntLoad")}
           </Text>
         </View>
       ) : (
@@ -132,7 +134,7 @@ export default function HostAnalyticsScreen({ navigation }) {
           {/* AI Analytics (ai_features/16A) */}
           <MonthReadCard navigation={navigation} />
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
-            REVENUE
+            {t("hostAnalytics.revenue")}
           </Text>
           <TouchableOpacity
             style={styles.revenueCard}
@@ -143,38 +145,38 @@ export default function HostAnalyticsScreen({ navigation }) {
               {formatPlanPrice(data.revenueTotalCentavos)}
             </Text>
             <Text style={[styles.revenueLabel, { color: colors.textSecondary }]}>
-              Total received · {formatPlanPrice(data.revenueMonthCentavos)} this month · Tap for details
+              {t("hostAnalytics.totalReceived", { amount: formatPlanPrice(data.revenueMonthCentavos) })}
             </Text>
           </TouchableOpacity>
 
           <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
-            MEMBERS
+            {t("hostAnalytics.members")}
           </Text>
           <View style={styles.statsGrid}>
             <StatCard
               icon="users"
-              label="Active members"
+              label={t("hostAnalytics.activeMembers")}
               value={data.activeMembers}
               accent="#34C759"
               onPress={() => navigation.navigate("AnalyticsDetail", { metric: "members" })}
             />
             <StatCard
               icon="ticket"
-              label="Memberships sold"
+              label={t("hostAnalytics.membershipsSold")}
               value={data.membershipsSold}
               accent={colors.primary}
               onPress={() => navigation.navigate("AnalyticsDetail", { metric: "memberships" })}
             />
             <StatCard
               icon="calendarCheck"
-              label="Classes attended"
+              label={t("hostAnalytics.classesAttended")}
               value={data.classesAttended}
               accent={colors.brand}
               onPress={() => navigation.navigate("AnalyticsDetail", { metric: "attended" })}
             />
             <StatCard
               icon="clock"
-              label="Expiring (7 days)"
+              label={t("hostAnalytics.expiringSoon7d")}
               value={data.expiringSoonCount}
               accent={colors.warning}
               onPress={() => navigation.navigate("AnalyticsDetail", { metric: "expiring" })}
@@ -183,8 +185,8 @@ export default function HostAnalyticsScreen({ navigation }) {
               icon="star"
               label={
                 data.hostTotalRatings > 0
-                  ? `Rating (${data.hostTotalRatings})`
-                  : "Rating"
+                  ? t("hostAnalytics.ratingWithCount", { count: data.hostTotalRatings })
+                  : t("hostAnalytics.rating")
               }
               value={
                 data.hostTotalRatings > 0
@@ -199,7 +201,7 @@ export default function HostAnalyticsScreen({ navigation }) {
           {/* Reviews */}
           <View style={styles.reviewsHeaderRow}>
             <Text style={[styles.sectionLabel, { color: colors.textTertiary, marginTop: 0 }]}>
-              REVIEWS ({reviews.length})
+              {t("hostAnalytics.reviewsCount", { count: reviews.length })}
             </Text>
             <TouchableOpacity
               style={[
@@ -216,14 +218,14 @@ export default function HostAnalyticsScreen({ navigation }) {
                 <Icon name="ai" size={15} color={colors.primary} />
               )}
               <Text style={[styles.aiBtnText, { color: colors.primary }]}>
-                {aiLoading ? "Analyzing…" : "AI tips"}
+                {aiLoading ? t("hostAnalytics.analyzing") : t("hostAnalytics.aiTips")}
               </Text>
             </TouchableOpacity>
           </View>
 
           {reviews.length === 0 ? (
             <Text style={[styles.emptyReviews, { color: colors.textSecondary }]}>
-              No reviews yet. They'll appear here after your events.
+              {t("hostAnalytics.noReviewsYet")}
             </Text>
           ) : (
             <>
@@ -266,7 +268,7 @@ export default function HostAnalyticsScreen({ navigation }) {
                   <View style={styles.reviewHead}>
                     <AvatarDisplay avatar={normAvatar(r.userAvatar)} size={28} />
                     <Text style={[styles.reviewName, { color: colors.text }]} numberOfLines={1}>
-                      {r.userName || "Someone"}
+                      {r.userName || t("hostAnalytics.someone")}
                     </Text>
                     <StarRow rating={r.rating} size={13} showEmpty={false} />
                   </View>
@@ -286,7 +288,7 @@ export default function HostAnalyticsScreen({ navigation }) {
           {data.expiringSoon.length > 0 && (
             <>
               <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
-                EXPIRING SOON
+                {t("hostAnalytics.expiringSoonHeader")}
               </Text>
               {data.expiringSoon.map((m) => {
                 const exp = getMembershipExpiryDate(m);
@@ -298,9 +300,9 @@ export default function HostAnalyticsScreen({ navigation }) {
                       </Text>
                       <Text style={[styles.expMeta, { color: colors.textSecondary }]}>
                         {m.type === "credits"
-                          ? `${m.creditsRemaining || 0} left · `
+                          ? t("hostAnalytics.creditsLeft", { count: m.creditsRemaining || 0 })
                           : ""}
-                        expires {exp ? exp.toLocaleDateString() : "—"}
+                        {t("hostAnalytics.expires", { date: exp ? exp.toLocaleDateString() : "—" })}
                       </Text>
                     </View>
                     <Icon name="clock" size={16} color={colors.warning} />
@@ -319,7 +321,7 @@ export default function HostAnalyticsScreen({ navigation }) {
             <View style={styles.aiCardHead}>
               <Icon name="ai" size={20} color={colors.primary} />
               <Text style={[styles.aiTitle, { color: colors.text }]}>
-                AI recommendations
+                {t("hostAnalytics.aiRecommendations")}
               </Text>
             </View>
             <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
@@ -330,7 +332,7 @@ export default function HostAnalyticsScreen({ navigation }) {
               )}
               {!!aiInsights?.sentiment && (
                 <View style={{ marginTop: 14 }}>
-                  <Text style={[styles.aiListTitle, { color: colors.text }]}>Sentiment</Text>
+                  <Text style={[styles.aiListTitle, { color: colors.text }]}>{t("hostAnalytics.sentiment")}</Text>
                   <Text style={[styles.aiListItem, { color: colors.textSecondary }]}>
                     {aiInsights.sentiment}
                   </Text>
@@ -338,21 +340,21 @@ export default function HostAnalyticsScreen({ navigation }) {
               )}
               {!!aiInsights?.trend && (
                 <View style={{ marginTop: 14 }}>
-                  <Text style={[styles.aiListTitle, { color: colors.text }]}>Trend</Text>
+                  <Text style={[styles.aiListTitle, { color: colors.text }]}>{t("hostAnalytics.trend")}</Text>
                   <Text style={[styles.aiListItem, { color: colors.textSecondary }]}>
                     {aiInsights.trend}
                   </Text>
                 </View>
               )}
-              <AiList title="Strengths" items={aiInsights?.strengths} colors={colors} styles={styles} />
-              <AiList title="To improve" items={aiInsights?.improvements} colors={colors} styles={styles} />
-              <AiList title="Next event" items={aiInsights?.nextEvent || aiInsights?.suggestions} colors={colors} styles={styles} />
+              <AiList title={t("hostAnalytics.strengths")} items={aiInsights?.strengths} colors={colors} styles={styles} />
+              <AiList title={t("hostAnalytics.toImprove")} items={aiInsights?.improvements} colors={colors} styles={styles} />
+              <AiList title={t("hostAnalytics.nextEvent")} items={aiInsights?.nextEvent || aiInsights?.suggestions} colors={colors} styles={styles} />
             </ScrollView>
             <TouchableOpacity
               style={[styles.aiClose, { backgroundColor: colors.primary }]}
               onPress={() => setAiVisible(false)}
             >
-              <Text style={styles.aiCloseText}>Done</Text>
+              <Text style={styles.aiCloseText}>{t("hostAnalytics.done")}</Text>
             </TouchableOpacity>
           </View>
         </View>

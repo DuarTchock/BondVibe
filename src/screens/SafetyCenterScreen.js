@@ -9,33 +9,41 @@ import {
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import GradientBackground from "../components/GradientBackground";
 import Icon from "../components/Icon";
 import { useTheme } from "../contexts/ThemeContext";
 
 const EMERGENCY_NUMBER = "911";
 
-const TIPS = [
-  { icon: "users", title: "Meet in public places", body: "Choose well-lit, public venues for first meetings with new contacts." },
-  { icon: "user",  title: "Tell someone your plans", body: "Let a trusted friend know where you're going and when to expect you back." },
-  { icon: "lock",  title: "Keep personal info private", body: "Don't share your address or financial details until you feel fully comfortable." },
-  { icon: "heart", title: "Trust your instincts", body: "If something feels off, leave. Your safety is always the priority." },
+const TIP_KEYS = [
+  { icon: "users", key: "meetInPublic" },
+  { icon: "user", key: "tellSomeone" },
+  { icon: "lock", key: "keepInfoPrivate" },
+  { icon: "heart", key: "trustInstincts" },
 ];
-
-function callEmergency() {
-  Alert.alert(
-    "Call Emergency Services",
-    `This will dial ${EMERGENCY_NUMBER}. Continue?`,
-    [
-      { text: "Cancel", style: "cancel" },
-      { text: "Call now", style: "destructive", onPress: () => Linking.openURL(`tel:${EMERGENCY_NUMBER}`) },
-    ]
-  );
-}
 
 export default function SafetyCenterScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const s = createStyles(colors);
+
+  const TIPS = TIP_KEYS.map((tip) => ({
+    icon: tip.icon,
+    title: t(`safetyCenter.tips.${tip.key}.title`),
+    body: t(`safetyCenter.tips.${tip.key}.body`),
+  }));
+
+  function callEmergency() {
+    Alert.alert(
+      t("safetyCenter.callEmergencyTitle"),
+      t("safetyCenter.callEmergencyMessage", { number: EMERGENCY_NUMBER }),
+      [
+        { text: t("safetyCenter.cancel"), style: "cancel" },
+        { text: t("safetyCenter.callNow"), style: "destructive", onPress: () => Linking.openURL(`tel:${EMERGENCY_NUMBER}`) },
+      ]
+    );
+  }
 
   return (
     <GradientBackground>
@@ -45,7 +53,7 @@ export default function SafetyCenterScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[s.headerTitle, { color: colors.text }]}>Safety Center</Text>
+        <Text style={[s.headerTitle, { color: colors.text }]}>{t("safetyCenter.headerTitle")}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -54,13 +62,13 @@ export default function SafetyCenterScreen({ navigation }) {
         <TouchableOpacity style={s.sosButton} onPress={callEmergency} activeOpacity={0.8}>
           <Icon name="bell" size={28} color="#fff" />
           <View>
-            <Text style={s.sosLabel}>Emergency — Call 911</Text>
-            <Text style={s.sosSub}>Tap to dial emergency services</Text>
+            <Text style={s.sosLabel}>{t("safetyCenter.sosLabel")}</Text>
+            <Text style={s.sosSub}>{t("safetyCenter.sosSub")}</Text>
           </View>
         </TouchableOpacity>
 
         {/* Quick actions */}
-        <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>QUICK ACTIONS</Text>
+        <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>{t("safetyCenter.quickActions")}</Text>
         <View style={[s.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TouchableOpacity
             style={s.actionRow}
@@ -69,7 +77,7 @@ export default function SafetyCenterScreen({ navigation }) {
             <View style={[s.actionIcon, { backgroundColor: colors.brandSoft }]}>
               <Icon name="report" size={18} color={colors.primary} />
             </View>
-            <Text style={[s.actionLabel, { color: colors.text }]}>Report a user</Text>
+            <Text style={[s.actionLabel, { color: colors.text }]}>{t("safetyCenter.reportUser")}</Text>
             <Icon name="forward" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
           <View style={[s.divider, { backgroundColor: colors.border }]} />
@@ -80,13 +88,13 @@ export default function SafetyCenterScreen({ navigation }) {
             <View style={[s.actionIcon, { backgroundColor: colors.brandSoft }]}>
               <Icon name="message" size={18} color={colors.primary} />
             </View>
-            <Text style={[s.actionLabel, { color: colors.text }]}>Contact safety team</Text>
+            <Text style={[s.actionLabel, { color: colors.text }]}>{t("safetyCenter.contactSafetyTeam")}</Text>
             <Icon name="forward" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>
 
         {/* Safety tips */}
-        <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>SAFETY TIPS</Text>
+        <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>{t("safetyCenter.safetyTips")}</Text>
         <View style={[s.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {TIPS.map((tip, i) => (
             <View key={tip.title}>
@@ -105,7 +113,7 @@ export default function SafetyCenterScreen({ navigation }) {
         </View>
 
         <Text style={[s.footnote, { color: colors.textTertiary }]}>
-          We respond to safety reports within 24 hours.
+          {t("safetyCenter.footnote")}
         </Text>
       </ScrollView>
     </GradientBackground>

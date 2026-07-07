@@ -5,11 +5,13 @@
 import React from "react";
 import Icon from "../../components/Icon";
 import { View, Text, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../contexts/ThemeContext";
 import { PrimaryButton, SecondaryButton } from "./matchUi";
 
 export default function MatchOptInScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { eventId, eventTitle } = route.params || {};
 
   return (
@@ -19,23 +21,23 @@ export default function MatchOptInScreen({ route, navigation }) {
           <Icon name="ai" size={40} color={colors.primary} />
         </View>
         <Text style={[styles.title, { color: colors.text }]}>
-          This event includes Community Matching
+          {t("matchOptIn.title")}
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Meet people from{eventTitle ? ` “${eventTitle}”` : " this event"} with a
-          shared purpose — friends, professional or romantic. It opens when the
-          event ends, so you enjoy it in person first.
+          {eventTitle
+            ? t("matchOptIn.subtitleWithTitle", { eventTitle })
+            : t("matchOptIn.subtitleDefault")}
         </Text>
       </View>
 
       <View style={styles.actions}>
         <PrimaryButton
-          label="Yes, I want to join"
+          label={t("matchOptIn.joinButton")}
           onPress={() =>
             navigation.replace("MatchConsent", { eventId, eventTitle })
           }
         />
-        <SecondaryButton label="No, thanks" onPress={() => navigation.goBack()} />
+        <SecondaryButton label={t("matchOptIn.declineButton")} onPress={() => navigation.goBack()} />
       </View>
     </View>
   );

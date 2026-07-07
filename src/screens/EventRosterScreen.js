@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -19,6 +20,7 @@ import { getAttendeeIds } from "../utils/eventHelpers";
 
 export default function EventRosterScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { eventId } = route.params || {};
   const [rows, setRows] = useState([]);
   const [waitRows, setWaitRows] = useState([]);
@@ -47,7 +49,7 @@ export default function EventRosterScreen({ route, navigation }) {
             ids.map(async (id) => {
               const u = await getDoc(doc(db, "users", id));
               const d = u.exists() ? u.data() : {};
-              return { id, name: d.fullName || d.name || "Member", avatar: d.avatar };
+              return { id, name: d.fullName || d.name || t("eventRoster.member"), avatar: d.avatar };
             })
           );
 
@@ -59,7 +61,11 @@ export default function EventRosterScreen({ route, navigation }) {
         setRows(
           aUsers.map((u) => ({
             ...u,
-            tag: isFree ? "Free" : membershipIds.has(u.id) ? "Membership" : "Paid",
+            tag: isFree
+              ? t("eventRoster.free")
+              : membershipIds.has(u.id)
+              ? t("eventRoster.membership")
+              : t("eventRoster.paid"),
             status: checkedIn.has(u.id) ? "checked-in" : isPast ? "no-show" : "going",
           }))
         );
@@ -74,12 +80,12 @@ export default function EventRosterScreen({ route, navigation }) {
 
   const styles = createStyles(colors, isDark);
   const STATUS = {
-    "checked-in": { label: "Checked in", color: "#34C759" },
-    "no-show": { label: "No-show", color: "#EF4444" },
-    going: { label: "Going", color: colors.textSecondary },
+    "checked-in": { label: t("eventRoster.checkedIn"), color: "#34C759" },
+    "no-show": { label: t("eventRoster.noShow"), color: "#EF4444" },
+    going: { label: t("eventRoster.going"), color: colors.textSecondary },
   };
 
-  const PAYMENT = ["Paid", "Membership", "Free"];
+  const PAYMENT = [t("eventRoster.paid"), t("eventRoster.membership"), t("eventRoster.free")];
   const Row = ({ u }) => (
     <AttendeeRow
       name={u.name}
@@ -98,7 +104,7 @@ export default function EventRosterScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Attendees</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("eventRoster.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -110,20 +116,24 @@ export default function EventRosterScreen({ route, navigation }) {
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.counts}>
             <Text style={[styles.count, { color: colors.text }]}>
-              {rows.length} going
+              {t("eventRoster.goingCount", { count: rows.length })}
             </Text>
             <Text style={[styles.count, { color: "#34C759" }]}>
-              {rows.filter((r) => r.status === "checked-in").length} checked in
+              {t("eventRoster.checkedInCount", {
+                count: rows.filter((r) => r.status === "checked-in").length,
+              })}
             </Text>
             {rows.some((r) => r.status === "no-show") && (
               <Text style={[styles.count, { color: "#EF4444" }]}>
-                {rows.filter((r) => r.status === "no-show").length} no-show
+                {t("eventRoster.noShowCount", {
+                  count: rows.filter((r) => r.status === "no-show").length,
+                })}
               </Text>
             )}
           </View>
 
           {rows.length === 0 ? (
-            <Text style={[styles.muted, { color: colors.textTertiary }]}>No attendees yet.</Text>
+            <Text style={[styles.muted, { color: colors.textTertiary }]}>{t("eventRoster.noAttendees")}</Text>
           ) : (
             rows.map((u) => <Row key={u.id} u={u} />)
           )}
@@ -131,10 +141,10 @@ export default function EventRosterScreen({ route, navigation }) {
           {waitRows.length > 0 && (
             <>
               <Text style={[styles.section, { color: colors.textSecondary }]}>
-                WAITLIST ({waitRows.length})
+                {t("eventRoster.waitlistHeader", { count: waitRows.length })}
               </Text>
               {waitRows.map((u, i) => (
-                <Row key={u.id} u={{ ...u, tag: `#${i + 1} in line` }} />
+                <Row key={u.id} u={{ ...u, tag: t("eventRoster.inLine", { position: i + 1 }) }} />
               ))}
             </>
           )}

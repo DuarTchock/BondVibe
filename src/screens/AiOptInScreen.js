@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+import { useTranslation } from "react-i18next";
 import GradientBackground from "../components/GradientBackground";
 import Icon from "../components/Icon";
 import { useTheme } from "../contexts/ThemeContext";
@@ -15,6 +16,7 @@ import { TYPE, SPACING, RADII, BRAND, AI, ELEVATION } from "../constants/theme-t
 
 export default function AiOptInScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { setOptIn } = useAiOptIn();
   const [busy, setBusy] = useState(false);
   // During onboarding we land on the tab shell afterwards; from Settings we pop.
@@ -52,17 +54,17 @@ export default function AiOptInScreen({ navigation, route }) {
         </LinearGradient>
 
         <Text style={[TYPE.display, styles.title, { color: colors.text }]}>
-          Meet Kinlo AI
+          {t("aiOptIn.title")}
         </Text>
         <Text style={[TYPE.body, styles.subtitle, { color: colors.textSecondary }]}>
-          Finds your people and your events, from your real activity on Kinlo.
+          {t("aiOptIn.subtitle")}
         </Text>
 
         <View style={styles.points}>
           {[
-            "Only you see what it learns",
-            "Never public · never sold",
-            "Turn it off anytime in Settings",
+            t("aiOptIn.point1"),
+            t("aiOptIn.point2"),
+            t("aiOptIn.point3"),
           ].map((p) => (
             <View key={p} style={styles.pointRow}>
               <Icon name="check" size={16} color={colors.success} />
@@ -78,12 +80,12 @@ export default function AiOptInScreen({ navigation, route }) {
             end={{ x: 1, y: 0 }}
             style={[styles.cta, ELEVATION.floatingBrand]}
           >
-            <Text style={[TYPE.label, styles.ctaText]}>Turn on Kinlo AI</Text>
+            <Text style={[TYPE.label, styles.ctaText]}>{t("aiOptIn.cta")}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => finish(false)} disabled={busy} style={styles.later} testID="ai-not-now">
-          <Text style={[TYPE.label, { color: colors.textTertiary }]}>Not now</Text>
+          <Text style={[TYPE.label, { color: colors.textTertiary }]}>{t("aiOptIn.notNow")}</Text>
         </TouchableOpacity>
       </View>
     </GradientBackground>

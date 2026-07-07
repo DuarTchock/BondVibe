@@ -11,6 +11,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import { auth, db } from "../services/firebase";
 import { joinFreeEvent } from "../services/eventJoinService";
@@ -27,6 +28,7 @@ import {
 
 export default function HowToAttendScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const {
     eventId,
     eventTitle,
@@ -63,12 +65,12 @@ export default function HowToAttendScreen({ route, navigation }) {
     setWorking(false);
     if (r.success) {
       Alert.alert(
-        "Spot reserved!",
-        "You're booked with your membership. The host will check you in at the event.",
-        [{ text: "Done", onPress: () => navigation.goBack() }]
+        t("howToAttend.spotReservedTitle"),
+        t("howToAttend.spotReservedMessage"),
+        [{ text: t("howToAttend.done"), onPress: () => navigation.goBack() }]
       );
     } else {
-      Alert.alert("Couldn't use membership", r.error || "Please try again.");
+      Alert.alert(t("howToAttend.couldntUseMembershipTitle"), r.error || t("howToAttend.tryAgain"));
     }
   };
 
@@ -86,14 +88,14 @@ export default function HowToAttendScreen({ route, navigation }) {
     try {
       const r = await joinFreeEvent(eventId);
       if (!r.success) {
-        Alert.alert("Couldn't join", r.error);
+        Alert.alert(t("howToAttend.couldntJoinTitle"), r.error);
         return;
       }
-      Alert.alert("Joined!", "You're going to this event.", [
-        { text: "Done", onPress: () => navigation.goBack() },
+      Alert.alert(t("howToAttend.joinedTitle"), t("howToAttend.joinedMessage"), [
+        { text: t("howToAttend.done"), onPress: () => navigation.goBack() },
       ]);
     } catch (e) {
-      Alert.alert("Error", "Could not join. Please try again.");
+      Alert.alert(t("howToAttend.errorTitle"), t("howToAttend.couldNotJoinTryAgain"));
     } finally {
       setWorking(false);
     }
@@ -139,7 +141,7 @@ export default function HowToAttendScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>How to attend</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("howToAttend.headerTitle")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -159,7 +161,7 @@ export default function HowToAttendScreen({ route, navigation }) {
             <View style={styles.workingRow}>
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={{ color: colors.textSecondary, marginLeft: 8 }}>
-                Processing…
+                {t("howToAttend.processing")}
               </Text>
             </View>
           )}
@@ -170,15 +172,16 @@ export default function HowToAttendScreen({ route, navigation }) {
               icon={isUnlimited ? "infinity" : "ticket"}
               iconColor={colors.primary}
               primary
-              title={isUnlimited ? "Use membership" : "Use 1 class credit"}
+              title={isUnlimited ? t("howToAttend.useMembership") : t("howToAttend.useOneCredit")}
               subtitle={
                 isUnlimited
-                  ? `Unlimited · valid until ${
-                      expiry ? expiry.toLocaleDateString() : "—"
-                    }`
-                  : `${membership.creditsRemaining} left · valid until ${
-                      expiry ? expiry.toLocaleDateString() : "—"
-                    }`
+                  ? t("howToAttend.unlimitedValidUntil", {
+                      date: expiry ? expiry.toLocaleDateString() : "—",
+                    })
+                  : t("howToAttend.creditsLeftValidUntil", {
+                      count: membership.creditsRemaining,
+                      date: expiry ? expiry.toLocaleDateString() : "—",
+                    })
               }
               onPress={handleUseCredit}
             />
@@ -190,14 +193,14 @@ export default function HowToAttendScreen({ route, navigation }) {
               icon="ai"
               iconColor={colors.warning}
               title={
-                membership ? "Renew your membership" : "Get a membership"
+                membership ? t("howToAttend.renewMembership") : t("howToAttend.getMembership")
               }
               subtitle={
                 membership
                   ? state === "expired"
-                    ? "Your membership expired — renew to use credits"
-                    : "You're out of credits — top up to keep attending"
-                  : "Buy a class pack or pass from this host"
+                    ? t("howToAttend.membershipExpired")
+                    : t("howToAttend.outOfCredits")
+                  : t("howToAttend.buyPack")
               }
               onPress={() =>
                 navigation.navigate("HostMemberships", { hostId, hostName })
@@ -209,9 +212,9 @@ export default function HowToAttendScreen({ route, navigation }) {
           <Option
             icon="payment"
             iconColor="#34C759"
-            title={price > 0 ? `Pay $${price} MXN` : "Join for free"}
+            title={price > 0 ? t("howToAttend.payAmount", { price }) : t("howToAttend.joinForFree")}
             subtitle={
-              price > 0 ? "One-time payment with your card" : "No payment needed"
+              price > 0 ? t("howToAttend.oneTimePayment") : t("howToAttend.noPaymentNeeded")
             }
             onPress={handlePay}
           />
@@ -222,7 +225,7 @@ export default function HowToAttendScreen({ route, navigation }) {
             disabled={working}
           >
             <Text style={[styles.cancelText, { color: colors.textSecondary }]}>
-              Cancel
+              {t("howToAttend.cancel")}
             </Text>
           </TouchableOpacity>
         </ScrollView>

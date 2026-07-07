@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -18,6 +19,7 @@ import { getHostRatingsByEvent, extractKeywords } from "../services/hostInsights
 
 export default function RatingsOverviewScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [reviews, setReviews] = useState([]);
   const [byEvent, setByEvent] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export default function RatingsOverviewScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Ratings & reviews</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("ratingsOverview.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -71,7 +73,7 @@ export default function RatingsOverviewScreen({ navigation }) {
               <Icon name="star" size={24} color={colors.warning} fill={colors.warning} />
             </View>
             <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
-              {reviews.length} review{reviews.length === 1 ? "" : "s"}
+              {t("ratingsOverview.reviewCount", { count: reviews.length })}
             </Text>
           </View>
 
@@ -99,7 +101,7 @@ export default function RatingsOverviewScreen({ navigation }) {
           {keywords.length > 0 && (
             <>
               <Text style={[styles.section, { color: colors.textSecondary }]}>
-                WHAT PEOPLE MENTION
+                {t("ratingsOverview.whatPeopleMention")}
               </Text>
               <View style={styles.chips}>
                 {keywords.map((k) => (
@@ -113,9 +115,9 @@ export default function RatingsOverviewScreen({ navigation }) {
             </>
           )}
 
-          <Text style={[styles.section, { color: colors.textSecondary }]}>RATING BY EVENT</Text>
+          <Text style={[styles.section, { color: colors.textSecondary }]}>{t("ratingsOverview.ratingByEvent")}</Text>
           {byEvent.length === 0 ? (
-            <Text style={[styles.muted, { color: colors.textTertiary }]}>No ratings yet.</Text>
+            <Text style={[styles.muted, { color: colors.textTertiary }]}>{t("ratingsOverview.noRatingsYet")}</Text>
           ) : (
             byEvent.map((e) => (
               <View key={e.eventId} style={[styles.eventRow, { borderColor: colors.border }]}>
@@ -133,9 +135,9 @@ export default function RatingsOverviewScreen({ navigation }) {
             ))
           )}
 
-          <Text style={[styles.section, { color: colors.textSecondary }]}>REVIEWS</Text>
+          <Text style={[styles.section, { color: colors.textSecondary }]}>{t("ratingsOverview.reviews")}</Text>
           {reviews.length === 0 ? (
-            <Text style={[styles.muted, { color: colors.textTertiary }]}>No reviews yet.</Text>
+            <Text style={[styles.muted, { color: colors.textTertiary }]}>{t("ratingsOverview.noReviewsYet")}</Text>
           ) : (
             reviews.map((r) => (
               <TouchableOpacity
@@ -150,7 +152,7 @@ export default function RatingsOverviewScreen({ navigation }) {
                   </Text>
                 )}
                 <Text style={[styles.reviewMeta, { color: colors.textTertiary }]} numberOfLines={1}>
-                  {r.eventTitle || "Event"}
+                  {r.eventTitle || t("ratingsOverview.event")}
                 </Text>
               </TouchableOpacity>
             ))

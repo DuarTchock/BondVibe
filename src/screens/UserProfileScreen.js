@@ -15,6 +15,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
@@ -37,6 +38,7 @@ const normAvatar = (a) =>
 export default function UserProfileScreen({ route, navigation }) {
   const { userId } = route.params || {};
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const me = auth.currentUser?.uid;
   const isOwnProfile = userId === me;
 
@@ -104,7 +106,7 @@ export default function UserProfileScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={hit}>
           <Icon name="back" size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("userProfile.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -123,7 +125,7 @@ export default function UserProfileScreen({ route, navigation }) {
                 <AvatarDisplay avatar={normAvatar(profile?.avatar)} size={80} />
               </AvatarFrame>
               <Text style={[styles.name, { color: colors.text }]}>
-                {profile?.fullName || "User"}
+                {profile?.fullName || t("userProfile.defaultUserName")}
               </Text>
               {!!profile?.location && (
                 <Text style={[styles.location, { color: colors.textSecondary }]}>
@@ -149,7 +151,7 @@ export default function UserProfileScreen({ route, navigation }) {
                   {followersCount}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  Followers
+                  {t("userProfile.followers")}
                 </Text>
               </TouchableOpacity>
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -163,7 +165,7 @@ export default function UserProfileScreen({ route, navigation }) {
                   {followingCount}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  Following
+                  {t("userProfile.following")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -189,19 +191,19 @@ export default function UserProfileScreen({ route, navigation }) {
                     { color: following ? colors.text : colors.onPrimary || "#fff" },
                   ]}
                 >
-                  {following ? "Following" : "Follow"}
+                  {following ? t("userProfile.following") : t("userProfile.follow")}
                 </Text>
               </TouchableOpacity>
             )}
 
             <Text style={[styles.postsLabel, { color: colors.textSecondary }]}>
-              Posts
+              {t("userProfile.posts")}
             </Text>
           </>
         }
         ListEmptyComponent={
           <Text style={[styles.empty, { color: colors.textTertiary }]}>
-            No posts yet.
+            {t("userProfile.noPosts")}
           </Text>
         }
       />
