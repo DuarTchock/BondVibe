@@ -12,6 +12,7 @@ import {
   Modal,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import {
   collection,
   addDoc,
@@ -56,6 +57,7 @@ const EVENT_DRAFT_KEY = "eventDraft";
 
 export default function CreateEventScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -89,7 +91,7 @@ export default function CreateEventScreen({ navigation }) {
       return endDate.toISOString();
     })(),
     eventCount: 1,
-    summary: "One-time event",
+    summary: t("createEvent.oneTimeEvent"),
     previewDates: [],
   });
 
@@ -276,12 +278,12 @@ export default function CreateEventScreen({ navigation }) {
       });
       if (plans.length === 0) {
         Alert.alert(
-          "No membership plans yet",
-          "To let members attend this event with a class credit, you first need to create a membership plan.",
+          t("createEvent.membershipPlansAlert.title"),
+          t("createEvent.membershipPlansAlert.msg"),
           [
-            { text: "Not now", style: "cancel" },
+            { text: t("createEvent.membershipPlansAlert.notNow"), style: "cancel" },
             {
-              text: "Create a plan",
+              text: t("createEvent.membershipPlansAlert.createPlan"),
               onPress: async () => {
                 // Persist the in-progress event so the detour to create a
                 // membership plan doesn't lose it.
@@ -334,14 +336,14 @@ export default function CreateEventScreen({ navigation }) {
       if (!canCreatePaid) {
         const hasStripeAccount = !!userProfile?.stripeConnect?.accountId;
         Alert.alert(
-          hasStripeAccount ? "Stripe Verification Pending" : "Stripe Account Required",
+          hasStripeAccount ? t("createEvent.stripe.verificationPendingTitle") : t("createEvent.stripe.accountRequiredTitle"),
           hasStripeAccount
-            ? "Your Stripe account is connected but still being verified. Once approved, you'll be able to create paid events."
-            : "To create paid events, you need to connect your Stripe account first.",
+            ? t("createEvent.stripe.verificationPendingMsg")
+            : t("createEvent.stripe.accountRequiredMsg"),
           [
-            { text: "Cancel", style: "cancel" },
+            { text: t("createEvent.cancel"), style: "cancel" },
             {
-              text: hasStripeAccount ? "Check Status" : "Connect Stripe",
+              text: hasStripeAccount ? t("createEvent.stripe.checkStatus") : t("createEvent.stripe.connectStripe"),
               onPress: () => navigation.navigate("StripeConnect"),
             },
           ]
@@ -360,28 +362,28 @@ export default function CreateEventScreen({ navigation }) {
 
     // Validation
     if (!title.trim()) {
-      Alert.alert("Missing Information", "Please enter an event title.");
+      Alert.alert(t("createEvent.validation.missingInfoTitle"), t("createEvent.validation.missingTitleMsg"));
       return;
     }
     if (!description.trim()) {
-      Alert.alert("Missing Information", "Please enter an event description.");
+      Alert.alert(t("createEvent.validation.missingInfoTitle"), t("createEvent.validation.missingDescriptionMsg"));
       return;
     }
     if (!locationDetail.trim()) {
       Alert.alert(
-        "Missing Information",
-        "Please enter a specific venue or address."
+        t("createEvent.validation.missingInfoTitle"),
+        t("createEvent.validation.missingVenueMsg")
       );
       return;
     }
     if (!maxPeople || parseInt(maxPeople) < 1) {
-      Alert.alert("Invalid Max People", "Maximum people must be at least 1.");
+      Alert.alert(t("createEvent.validation.invalidMaxPeopleTitle"), t("createEvent.validation.invalidMaxPeopleMsg"));
       return;
     }
     if (!isFree && (!price || parseFloat(price) <= 0)) {
       Alert.alert(
-        "Invalid Price",
-        "Please enter a valid price greater than 0, or mark the event as free."
+        t("createEvent.validation.invalidPriceTitle"),
+        t("createEvent.validation.invalidPriceMsg")
       );
       return;
     }
@@ -392,12 +394,12 @@ export default function CreateEventScreen({ navigation }) {
       const canCreatePaid = await canCreatePaidNow();
       if (!canCreatePaid) {
         Alert.alert(
-          "Cannot Create Paid Event",
-          "You need to connect and verify your Stripe account before creating paid events.",
+          t("createEvent.stripe.cannotCreatePaidTitle"),
+          t("createEvent.stripe.cannotCreatePaidMsg"),
           [
-            { text: "Cancel", style: "cancel" },
+            { text: t("createEvent.cancel"), style: "cancel" },
             {
-              text: "Go to Stripe Settings",
+              text: t("createEvent.stripe.goToSettings"),
               onPress: () => navigation.navigate("StripeConnect"),
             },
           ]
@@ -409,8 +411,8 @@ export default function CreateEventScreen({ navigation }) {
     // Validate datetime is in the future
     if (eventDate <= new Date()) {
       Alert.alert(
-        "Invalid Date/Time",
-        "Event must be scheduled for a future date and time."
+        t("createEvent.validation.invalidDateTitle"),
+        t("createEvent.validation.invalidDateMsg")
       );
       return;
     }
@@ -418,8 +420,8 @@ export default function CreateEventScreen({ navigation }) {
     // Validate recurrence end date
     if (recurrenceConfig.type !== "none" && new Date(recurrenceConfig.endDate) <= eventDate) {
       Alert.alert(
-        "Invalid End Date",
-        "Recurrence end date must be after the first event date."
+        t("createEvent.validation.invalidEndDateTitle"),
+        t("createEvent.validation.invalidEndDateMsg")
       );
       return;
     }
@@ -435,7 +437,7 @@ export default function CreateEventScreen({ navigation }) {
 
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("Error", "You must be logged in to create an event.");
+        Alert.alert(t("createEvent.validation.genericErrorTitle"), t("createEvent.validation.notLoggedInMsg"));
         setLoading(false);
         return;
       }
@@ -464,8 +466,8 @@ export default function CreateEventScreen({ navigation }) {
       // Limit to prevent too many events
       if (eventDates.length > 52) {
         Alert.alert(
-          "Too Many Events",
-          "You can create a maximum of 52 recurring events at once."
+          t("createEvent.validation.tooManyEventsTitle"),
+          t("createEvent.validation.tooManyEventsMsg")
         );
         setLoading(false);
         return;
@@ -491,7 +493,7 @@ export default function CreateEventScreen({ navigation }) {
           userData?.fullName ||
           userData?.name ||
           userData?.displayName ||
-          "Host",
+          t("eventDetail.defaultHostName"),
         creatorId: user.uid,
         acceptsMembership: acceptsMembership,
         creditCost: 1,
@@ -538,8 +540,8 @@ export default function CreateEventScreen({ navigation }) {
             console.error("⚠️ Error uploading images:", imageError);
             // Event was created, just images failed - don't block
             Alert.alert(
-              "Partial Success",
-              "Event created but images could not be uploaded. You can add them later by editing the event."
+              t("createEvent.validation.partialSuccessTitle"),
+              t("createEvent.validation.partialSuccessMsg")
             );
           }
         }
@@ -613,7 +615,7 @@ export default function CreateEventScreen({ navigation }) {
       setShowSuccessModal(true);
     } catch (error) {
       console.error("❌ Error creating event:", error);
-      Alert.alert("Error", "Failed to create event. Please try again.");
+      Alert.alert(t("createEvent.validation.genericErrorTitle"), t("createEvent.validation.createFailedMsg"));
     } finally {
       setLoading(false);
     }
@@ -639,15 +641,15 @@ export default function CreateEventScreen({ navigation }) {
               <Text
                 style={[styles.pickerCancel, { color: colors.textSecondary }]}
               >
-                Cancel
+                {t("createEvent.cancel")}
               </Text>
             </TouchableOpacity>
             <Text style={[styles.pickerTitle, { color: colors.text }]}>
-              Select Date
+              {t("createEvent.selectDate")}
             </Text>
             <TouchableOpacity onPress={confirmDateSelection}>
               <Text style={[styles.pickerDone, { color: colors.primary }]}>
-                Done
+                {t("createEvent.done")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -686,15 +688,15 @@ export default function CreateEventScreen({ navigation }) {
               <Text
                 style={[styles.pickerCancel, { color: colors.textSecondary }]}
               >
-                Cancel
+                {t("createEvent.cancel")}
               </Text>
             </TouchableOpacity>
             <Text style={[styles.pickerTitle, { color: colors.text }]}>
-              Select Time
+              {t("createEvent.selectTime")}
             </Text>
             <TouchableOpacity onPress={confirmTimeSelection}>
               <Text style={[styles.pickerDone, { color: colors.primary }]}>
-                Done
+                {t("createEvent.done")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -729,7 +731,7 @@ export default function CreateEventScreen({ navigation }) {
           <Icon name="back" size={28} color={colors.text} type="ui" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Create Event
+          {t("createEvent.headerTitle")}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -754,7 +756,7 @@ export default function CreateEventScreen({ navigation }) {
 
         {/* Title */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Title *</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("createEvent.titleLabel")}</Text>
           <View
             style={[
               styles.inputWrapper,
@@ -766,7 +768,7 @@ export default function CreateEventScreen({ navigation }) {
           >
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="What's your event called?"
+              placeholder={t("createEvent.titlePlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={title}
               onChangeText={setTitle}
@@ -783,7 +785,7 @@ export default function CreateEventScreen({ navigation }) {
         {/* Description */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Description *
+            {t("createEvent.descriptionLabel")}
           </Text>
           <View
             style={[
@@ -796,7 +798,7 @@ export default function CreateEventScreen({ navigation }) {
           >
             <TextInput
               style={[styles.textArea, { color: colors.text }]}
-              placeholder="Describe your event..."
+              placeholder={t("createEvent.descriptionPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={description}
               onChangeText={setDescription}
@@ -812,43 +814,43 @@ export default function CreateEventScreen({ navigation }) {
 
         {/* Category Dropdown */}
         <SelectDropdown
-          label="Community *"
+          label={t("createEvent.communityLabel")}
           value={selectedCategory}
           onValueChange={setSelectedCategory}
           options={EVENT_CATEGORIES}
-          placeholder="Select a community"
+          placeholder={t("createEvent.selectCommunity")}
           type="category"
         />
 
         {/* Language Dropdown (Multi-select) */}
         <SelectDropdown
-          label="Languages"
+          label={t("createEvent.languagesLabel")}
           value={selectedLanguages}
           onValueChange={setSelectedLanguages}
           options={EVENT_LANGUAGES}
-          placeholder="Select languages"
+          placeholder={t("createEvent.selectLanguages")}
           type="language"
           multiSelect
         />
 
         {/* City Dropdown */}
         <SelectDropdown
-          label="City *"
+          label={t("createEvent.cityLabel")}
           value={selectedCity}
           onValueChange={setSelectedCity}
           options={cityOptions}
-          placeholder="Select a city"
+          placeholder={t("createEvent.selectCity")}
           type="location"
         />
 
         {/* Specific Location/Venue — Google Places search (autofills address) */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>
-            Venue / Address *
+            {t("createEvent.venueLabel")}
           </Text>
           <PlaceAutocomplete
             value={locationDetail}
-            placeholder="Search a place, e.g. Beach Club XYZ"
+            placeholder={t("createEvent.venuePlaceholder")}
             onSelect={(place) => {
               // Prefer the full formatted address; fall back to typed text.
               setLocationDetail(place.address || place.description || "");
@@ -870,7 +872,7 @@ export default function CreateEventScreen({ navigation }) {
 
         {/* Event Frequency */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Event Frequency</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("createEvent.eventFrequency")}</Text>
           <TouchableOpacity
             style={[
               styles.recurrenceButton,
@@ -896,7 +898,7 @@ export default function CreateEventScreen({ navigation }) {
                     { color: recurrenceConfig.type !== "none" ? colors.primary : colors.text },
                   ]}
                 >
-                  {recurrenceConfig.type === "none" ? "One-time" : recurrenceConfig.summary}
+                  {recurrenceConfig.type === "none" ? t("createEvent.oneTime") : recurrenceConfig.summary}
                 </Text>
               </View>
             </View>
@@ -908,7 +910,7 @@ export default function CreateEventScreen({ navigation }) {
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
-              {recurrenceConfig.type !== "none" ? "Start Date *" : "Date *"}
+              {recurrenceConfig.type !== "none" ? t("createEvent.startDateLabel") : t("createEvent.dateLabel")}
             </Text>
             <TouchableOpacity
               style={[
@@ -936,7 +938,7 @@ export default function CreateEventScreen({ navigation }) {
           </View>
 
           <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
-            <Text style={[styles.label, { color: colors.text }]}>Time *</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{t("createEvent.timeLabel")}</Text>
             <TouchableOpacity
               style={[
                 styles.pickerButton,
@@ -967,7 +969,7 @@ export default function CreateEventScreen({ navigation }) {
 
         {/* Free/Paid Toggle */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Event Type</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("createEvent.eventType")}</Text>
           <View style={styles.toggleRow}>
             <TouchableOpacity
               style={[
@@ -998,7 +1000,7 @@ export default function CreateEventScreen({ navigation }) {
                   { color: isFree ? colors.primary : colors.text },
                 ]}
               >
-                Free
+                {t("createEvent.free")}
               </Text>
             </TouchableOpacity>
 
@@ -1027,7 +1029,7 @@ export default function CreateEventScreen({ navigation }) {
                   { color: !isFree ? colors.primary : colors.text },
                 ]}
               >
-                Paid
+                {t("createEvent.paid")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1054,12 +1056,12 @@ export default function CreateEventScreen({ navigation }) {
           >
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={[styles.label, { color: colors.text, marginBottom: 2 }]}>
-                Accept membership credits
+                {t("createEvent.acceptMembershipCredits")}
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
                 {isFree
-                  ? "Only available for paid events."
-                  : "Let your members attend this event using a class credit."}
+                  ? t("createEvent.membershipOnlyPaid")
+                  : t("createEvent.membershipLetMembers")}
               </Text>
             </View>
             {checkingPlans ? (
@@ -1105,11 +1107,10 @@ export default function CreateEventScreen({ navigation }) {
           >
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={[styles.label, { color: colors.text, marginBottom: 2 }]}>
-                Feature this event
+                {t("createEvent.featureThisEvent")}
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                Boost visibility with a promoted spot. You'll pick a plan right
-                after creating.
+                {t("createEvent.featureThisEventDesc")}
               </Text>
             </View>
             <View
@@ -1130,7 +1131,7 @@ export default function CreateEventScreen({ navigation }) {
 
         {/* Event length — sets the end time; drives when Community Matching opens */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.text }]}>Event length</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("createEvent.eventLength")}</Text>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setShowDurationModal(true)}
@@ -1160,7 +1161,7 @@ export default function CreateEventScreen({ navigation }) {
         <View style={styles.row}>
           <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
-              Max People
+              {t("createEvent.maxPeople")}
             </Text>
             <View
               style={[
@@ -1192,7 +1193,7 @@ export default function CreateEventScreen({ navigation }) {
 
           <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
-              {isFree ? "Price" : "Price (MXN) *"}
+              {isFree ? t("createEvent.priceLabel") : t("createEvent.priceMxnLabel")}
             </Text>
             <View
               style={[
@@ -1234,41 +1235,40 @@ export default function CreateEventScreen({ navigation }) {
             ]}
           >
             <Text style={[styles.infoText, { color: colors.primary }]}>
-              You'll receive 100% of each ticket sale. Platform and
-              processing fees are added at checkout.
+              {t("createEvent.paymentInfo")}
             </Text>
-            
+
             {/* Cancellation Policy Disclosure */}
             <View style={[styles.refundPolicyCard, { backgroundColor: `${colors.primary}11`, borderColor: `${colors.primary}33` }]}>
               <Text style={[styles.refundPolicyTitle, { color: colors.text }]}>
-                Cancellation Policy for Attendees
+                {t("createEvent.cancellationPolicyForAttendees")}
               </Text>
               <View style={styles.refundPolicyItem}>
                 <Text style={[styles.refundPolicyBullet, { color: colors.primary }]}>•</Text>
                 <Text style={[styles.refundPolicyItemText, { color: colors.textSecondary }]}>
-                  7+ days before: 100% ticket refund
+                  {t("createEvent.policy7daysTicket")}
                 </Text>
               </View>
               <View style={styles.refundPolicyItem}>
                 <Text style={[styles.refundPolicyBullet, { color: colors.primary }]}>•</Text>
                 <Text style={[styles.refundPolicyItemText, { color: colors.textSecondary }]}>
-                  3-7 days before: 50% ticket refund
+                  {t("createEvent.policy3to7Ticket")}
                 </Text>
               </View>
               <View style={styles.refundPolicyItem}>
                 <Text style={[styles.refundPolicyBullet, { color: colors.primary }]}>•</Text>
                 <Text style={[styles.refundPolicyItemText, { color: colors.textSecondary }]}>
-                  Less than 3 days: No refund
+                  {t("createEvent.policyLess3NoRefund")}
                 </Text>
               </View>
               <View style={styles.refundPolicyItem}>
                 <Text style={[styles.refundPolicyBullet, { color: colors.secondary }]}>•</Text>
                 <Text style={[styles.refundPolicyItemText, { color: colors.textSecondary }]}>
-                  If you cancel: 100% refund to attendees
+                  {t("createEvent.policyIfYouCancel")}
                 </Text>
               </View>
               <Text style={[styles.refundPolicyNote, { color: colors.textTertiary }]}>
-                Service and processing fees are non-refundable.
+                {t("createEvent.feesNonRefundable")}
               </Text>
             </View>
           </View>
@@ -1285,13 +1285,13 @@ export default function CreateEventScreen({ navigation }) {
           ]}
         >
           <Text style={[styles.tipsTitle, { color: colors.primary }]}>
-            Tips for great events
+            {t("createEvent.tipsTitle")}
           </Text>
           <Text style={[styles.tipsText, { color: colors.textSecondary }]}>
-            • Be specific about the vibe{"\n"}• Choose public, accessible
-            locations{"\n"}• Set clear expectations
+            • {t("createEvent.tipBeSpecific")}{"\n"}• {t("createEvent.tipChooseLocations")}
+            {"\n"}• {t("createEvent.tipSetExpectations")}
             {recurrenceConfig.type !== "none" &&
-              "\n• Recurring events create independent instances"}
+              `\n• ${t("createEvent.tipRecurring")}`}
           </Text>
         </View>
 
@@ -1317,8 +1317,8 @@ export default function CreateEventScreen({ navigation }) {
                 <Icon name="plus" size={20} color={colors.primary} type="ui" />
                 <Text style={[styles.createText, { color: colors.primary }]}>
                   {recurrenceConfig.type !== "none"
-                    ? "Create Recurring Events"
-                    : "Create Event"}
+                    ? t("createEvent.createRecurringEvents")
+                    : t("createEvent.createEventButton")}
                 </Text>
               </>
             )}
