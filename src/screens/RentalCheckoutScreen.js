@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { CardField, useConfirmPayment } from "@stripe/stripe-react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import { reserveVehicle } from "../services/rentalService";
 import { formatCentavos, estimateCheckout } from "../utils/pricing";
@@ -22,6 +23,7 @@ import { getPricingConfig, overridesFor } from "../services/configService";
 
 export default function RentalCheckoutScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { confirmPayment } = useConfirmPayment();
   const { vehicle, days = 1, startAt, endAt, eventId, eventTitle } = route.params || {};
 
@@ -45,7 +47,7 @@ export default function RentalCheckoutScreen({ route, navigation }) {
 
   const handlePay = async () => {
     if (!isFree && !cardComplete) {
-      Alert.alert("Incomplete card", "Please enter complete card details.");
+      Alert.alert(t("rentals.checkout.incompleteCardTitle"), t("rentals.checkout.incompleteCardMsg"));
       return;
     }
     Keyboard.dismiss();
@@ -54,10 +56,10 @@ export default function RentalCheckoutScreen({ route, navigation }) {
       const res = await reserveVehicle({ vehicleId: vehicle.id, startAt, endAt, eventId });
       if (!res.success) {
         const messages = {
-          vehicle_unavailable: "Sorry, this vehicle was just taken.",
-          host_payouts_not_ready: "This host hasn't finished payout setup yet. Try another vehicle.",
+          vehicle_unavailable: t("rentals.checkout.vehicleUnavailable"),
+          host_payouts_not_ready: t("rentals.checkout.hostPayoutsNotReady"),
         };
-        Alert.alert("Couldn't reserve", messages[res.error] || res.error || "Please try again.");
+        Alert.alert(t("rentals.checkout.couldntReserveTitle"), messages[res.error] || res.error || t("rentals.common.pleaseTryAgain"));
         setProcessing(false);
         return;
       }
@@ -72,7 +74,7 @@ export default function RentalCheckoutScreen({ route, navigation }) {
       if (res.clientSecret) {
         const { error } = await confirmPayment(res.clientSecret, { paymentMethodType: "Card" });
         if (error) {
-          Alert.alert("Payment failed", error.message || "Please try again.");
+          Alert.alert(t("rentals.checkout.paymentFailedTitle"), error.message || t("rentals.common.pleaseTryAgain"));
           setProcessing(false);
           return;
         }
@@ -82,7 +84,7 @@ export default function RentalCheckoutScreen({ route, navigation }) {
       await new Promise((r) => setTimeout(r, 1500));
       goActive(res.rentalId);
     } catch {
-      Alert.alert("Error", "There was a problem processing your rental.");
+      Alert.alert(t("rentals.checkout.errorTitle"), t("rentals.checkout.errorMsg"));
       setProcessing(false);
     }
   };
@@ -112,7 +114,7 @@ export default function RentalCheckoutScreen({ route, navigation }) {
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <Icon name="back" size={26} color={colors.text} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Checkout</Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.checkout.title")}</Text>
             <View style={{ width: 28 }} />
           </View>
 
@@ -120,37 +122,37 @@ export default function RentalCheckoutScreen({ route, navigation }) {
             <View style={[styles.card, { borderColor: colors.border }]}>
               <Text style={[styles.vehName, { color: colors.text }]}>{vehicle?.title}</Text>
               <Text style={[styles.vehMeta, { color: colors.textSecondary }]}>
-                {days} day{days > 1 ? "s" : ""}{vehicle?.city ? ` · ${vehicle.city}` : ""}
+                {t("rentals.dayCount", { count: days })}{vehicle?.city ? ` · ${vehicle.city}` : ""}
               </Text>
               {eventId && (
                 <Text style={[styles.vehMeta, { color: colors.textTertiary }]} numberOfLines={1}>
-                  For {eventTitle || "your event"}
+                  {t("rentals.checkout.forEvent", { title: eventTitle || t("rentals.common.yourEvent") })}
                 </Text>
               )}
             </View>
 
             <View style={styles.breakdown}>
-              <Row label="Rental fee" value={fee ? formatCentavos(fee) : "Free"} />
+              <Row label={t("rentals.checkout.rentalFee")} value={fee ? formatCentavos(fee) : t("rentals.common.free")} />
               {breakdown && (
                 <>
-                  <Row label="Service fee" value={formatCentavos(breakdown.platformFeeCentavos)} />
-                  <Row label="Processing fee" value={formatCentavos(breakdown.stripeFeeCentavos)} />
+                  <Row label={t("rentals.checkout.serviceFee")} value={formatCentavos(breakdown.platformFeeCentavos)} />
+                  <Row label={t("rentals.checkout.processingFee")} value={formatCentavos(breakdown.stripeFeeCentavos)} />
                 </>
               )}
               {deposit > 0 && (
                 <Row
-                  label="Deposit"
-                  hint="Paid directly to the host on pickup — not charged by Kinlo"
+                  label={t("rentals.checkout.deposit")}
+                  hint={t("rentals.checkout.depositHint")}
                   value={formatCentavos(deposit)}
                 />
               )}
               <View style={styles.divider} />
-              <Row label="Charged now" value={total ? formatCentavos(total) : "Free"} strong />
+              <Row label={t("rentals.checkout.chargedNow")} value={total ? formatCentavos(total) : t("rentals.common.free")} strong />
             </View>
 
             {!isFree && (
               <>
-                <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>Card details</Text>
+                <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>{t("rentals.checkout.cardDetails")}</Text>
                 <CardField
                   postalCodeEnabled={false}
                   placeholders={{ number: "4242 4242 4242 4242" }}
@@ -175,13 +177,12 @@ export default function RentalCheckoutScreen({ route, navigation }) {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <Text style={styles.payText}>
-                  {isFree ? "Reserve for free" : `Pay ${formatCentavos(total)}`}
+                  {isFree ? t("rentals.checkout.reserveForFree") : t("rentals.checkout.pay", { amount: formatCentavos(total) })}
                 </Text>
               )}
             </TouchableOpacity>
             <Text style={[styles.disclaimer, { color: colors.textTertiary }]}>
-              The rental agreement, deposit, and any damage or theft are handled directly with the host.
-              Kinlo only facilitates the booking and charges a small service fee.
+              {t("rentals.checkout.disclaimer")}
             </Text>
           </ScrollView>
         </View>

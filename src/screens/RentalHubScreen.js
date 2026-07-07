@@ -14,6 +14,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import Icon from "../components/Icon";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import { useMode } from "../contexts/ModeContext";
 import useUserRole from "../hooks/useUserRole";
@@ -25,14 +26,19 @@ import { getAvailableVehicles, getRentalCities, VEHICLE_TYPES } from "../service
 import { formatCentavos } from "../utils/pricing";
 import { ELEVATION, RADII, SPACING } from "../constants/theme-tokens";
 
-const TYPE_LABEL = { scooter: "Scooters", bike: "Bikes", car: "Cars" };
 const toISO = (d) => (d ? new Date(d).toISOString() : undefined);
 
 export default function RentalHubScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const { isHosting } = useMode();
   const { isHost } = useUserRole();
   const { eventId, eventTitle } = route.params || {};
+  const TYPE_LABEL = {
+    scooter: t("rentals.hub.typeScooter"),
+    bike: t("rentals.hub.typeBike"),
+    car: t("rentals.hub.typeCar"),
+  };
   const [type, setType] = useState(null); // null = all
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,23 +91,23 @@ export default function RentalHubScreen({ route, navigation }) {
     : {};
 
   const styles = createStyles(colors, isDark);
-  const chips = [{ key: null, label: "All" }, ...VEHICLE_TYPES.map((t) => ({ key: t, label: TYPE_LABEL[t] }))];
+  const chips = [{ key: null, label: t("rentals.hub.all") }, ...VEHICLE_TYPES.map((tp) => ({ key: tp, label: TYPE_LABEL[tp] }))];
 
   return (
     <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
       {/* Tab root — AppHeader is provided by the tab navigator. */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Get around</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.hub.title")}</Text>
         <TouchableOpacity onPress={() => navigation.navigate("MyRentals")}>
-          <Text style={[styles.link, { color: colors.primary }]}>My rentals</Text>
+          <Text style={[styles.link, { color: colors.primary }]}>{t("rentals.hub.myRentals")}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Host Mode: fleet management entry (§1.3 — "Rentals gains Your fleet") */}
       {isHosting && isHost && (
         <>
-          <SectionHeader title="Your fleet" style={{ marginTop: 0 }} />
+          <SectionHeader title={t("rentals.hub.yourFleet")} style={{ marginTop: 0 }} />
           <View
             style={[
               styles.fleetCard,
@@ -111,14 +117,14 @@ export default function RentalHubScreen({ route, navigation }) {
           >
             <ListRow
               icon="fleet"
-              title="My fleet"
-              subtitle="Publish & manage your vehicles"
+              title={t("rentals.hub.myFleetTitle")}
+              subtitle={t("rentals.hub.myFleetSubtitle")}
               onPress={() => navigation.navigate("MyFleet")}
             />
             <ListRow
               icon="calendarCheck"
-              title="Bookings"
-              subtitle="Who booked which dates"
+              title={t("rentals.hub.bookingsTitle")}
+              subtitle={t("rentals.hub.bookingsSubtitle")}
               onPress={() => navigation.navigate("VehicleBookings")}
               divider={false}
             />
@@ -129,7 +135,7 @@ export default function RentalHubScreen({ route, navigation }) {
       {eventId && (
         <View style={[styles.eventBanner, { borderColor: colors.border }]}>
           <Text style={[styles.eventBannerText, { color: colors.textSecondary }]} numberOfLines={1}>
-            Getting to <Text style={{ color: colors.text, fontWeight: "700" }}>{eventTitle || "your event"}</Text>
+            {t("rentals.hub.gettingToPrefix")} <Text style={{ color: colors.text, fontWeight: "700" }}>{eventTitle || t("rentals.common.yourEvent")}</Text>
           </Text>
         </View>
       )}
@@ -161,12 +167,12 @@ export default function RentalHubScreen({ route, navigation }) {
           activeOpacity={0.8}
         >
           <Text style={[styles.filterBtnTxt, { color: activeFilters ? colors.primary : colors.textSecondary }]}>
-            Filters{activeFilters ? ` (${activeFilters})` : ""}
+            {t("rentals.hub.filters")}{activeFilters ? ` (${activeFilters})` : ""}
           </Text>
         </TouchableOpacity>
         {activeFilters > 0 && (
           <TouchableOpacity onPress={clearFilters} style={styles.clearFilters}>
-            <Text style={[styles.clearFiltersTxt, { color: colors.textTertiary }]}>Clear all</Text>
+            <Text style={[styles.clearFiltersTxt, { color: colors.textTertiary }]}>{t("rentals.hub.clearAll")}</Text>
           </TouchableOpacity>
         )}
         {fromDate && untilDate && (
@@ -188,9 +194,9 @@ export default function RentalHubScreen({ route, navigation }) {
               <View style={styles.emptyArt}>
                 <Icon name="bike" size={32} color={colors.primary} />
               </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No vehicles yet</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{t("rentals.hub.emptyTitle")}</Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No rides available here right now. Check back soon.
+                {t("rentals.hub.emptyText")}
               </Text>
             </View>
           ) : (
@@ -205,18 +211,18 @@ export default function RentalHubScreen({ route, navigation }) {
                   {v.photos[0] ? (
                     <Image source={{ uri: v.photos[0] }} style={styles.thumbImg} />
                   ) : (
-                    <Text style={[styles.thumbPlaceholder, { color: colors.textTertiary }]}>No photo</Text>
+                    <Text style={[styles.thumbPlaceholder, { color: colors.textTertiary }]}>{t("rentals.hub.noPhoto")}</Text>
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{v.title}</Text>
                   <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {v.city ? `${v.city} · ` : ""}{v.pickupLabel || "Pickup on site"}
+                    {v.city ? `${v.city} · ` : ""}{v.pickupLabel || t("rentals.hub.pickupOnSite")}
                   </Text>
                   <View style={styles.tagRow}>
                     {v.requiresLicense && (
                       <View style={[styles.tag, { borderColor: colors.border }]}>
-                        <Text style={[styles.tagText, { color: colors.textTertiary }]}>License</Text>
+                        <Text style={[styles.tagText, { color: colors.textTertiary }]}>{t("rentals.hub.license")}</Text>
                       </View>
                     )}
                     {v.rangeKm ? (
@@ -228,10 +234,10 @@ export default function RentalHubScreen({ route, navigation }) {
                 </View>
                 <View style={styles.priceCol}>
                   <Text style={[styles.price, { color: colors.text }]}>
-                    {v.pricePerDayCentavos ? formatCentavos(v.pricePerDayCentavos) : "Free"}
+                    {v.pricePerDayCentavos ? formatCentavos(v.pricePerDayCentavos) : t("rentals.common.free")}
                   </Text>
                   <Text style={[styles.priceUnit, { color: colors.textTertiary }]}>
-                    {v.pricePerDayCentavos ? "/ day" : ""}
+                    {v.pricePerDayCentavos ? t("rentals.common.perDay") : ""}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -250,15 +256,15 @@ export default function RentalHubScreen({ route, navigation }) {
         <View style={styles.backdrop}>
           <View style={[styles.sheet, { backgroundColor: isDark ? "#14141f" : "#fff" }]}>
             <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: colors.text }]}>Filters</Text>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>{t("rentals.hub.filtersTitle")}</Text>
               <TouchableOpacity onPress={() => setFiltersOpen(false)}>
-                <Text style={[styles.sheetDone, { color: colors.primary }]}>Done</Text>
+                <Text style={[styles.sheetDone, { color: colors.primary }]}>{t("rentals.hub.done")}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={{ paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
-              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>City</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>{t("rentals.hub.city")}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                {[{ k: null, l: "All cities" }, ...cities.map((c) => ({ k: c, l: c }))].map((c) => {
+                {[{ k: null, l: t("rentals.hub.allCities") }, ...cities.map((c) => ({ k: c, l: c }))].map((c) => {
                   const active = c.k === city;
                   return (
                     <TouchableOpacity
@@ -275,17 +281,17 @@ export default function RentalHubScreen({ route, navigation }) {
                 })}
               </ScrollView>
 
-              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Dates</Text>
+              <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>{t("rentals.hub.dates")}</Text>
               <View style={styles.datesRow}>
                 <DateField
-                  label="From"
+                  label={t("rentals.hub.from")}
                   value={fromDate}
                   onChange={setFromDate}
                   onClear={() => setFromDate(null)}
                   minimumDate={new Date()}
                 />
                 <DateField
-                  label="Until"
+                  label={t("rentals.hub.until")}
                   value={untilDate}
                   onChange={setUntilDate}
                   onClear={() => setUntilDate(null)}
@@ -294,20 +300,20 @@ export default function RentalHubScreen({ route, navigation }) {
               </View>
 
               <Text style={[styles.filterLabel, { color: colors.textSecondary, marginTop: 16 }]}>
-                Max price per day (MXN)
+                {t("rentals.hub.maxPricePerDay")}
               </Text>
               <TextInput
                 style={[styles.priceInput, { color: colors.text, borderColor: colors.border }]}
                 keyboardType="numeric"
                 value={maxPrice}
                 onChangeText={setMaxPrice}
-                placeholder="Any"
+                placeholder={t("rentals.hub.anyPlaceholder")}
                 placeholderTextColor={colors.textTertiary}
               />
 
               <View style={styles.switchRow}>
                 <Text style={[styles.filterLabel, { color: colors.text, marginBottom: 0 }]}>
-                  No license required
+                  {t("rentals.hub.noLicenseRequired")}
                 </Text>
                 <Switch value={noLicense} onValueChange={setNoLicense} trackColor={{ true: colors.primary }} />
               </View>
@@ -317,11 +323,11 @@ export default function RentalHubScreen({ route, navigation }) {
                 onPress={() => setFiltersOpen(false)}
                 activeOpacity={0.85}
               >
-                <Text style={styles.applyTxt}>Show results</Text>
+                <Text style={styles.applyTxt}>{t("rentals.hub.showResults")}</Text>
               </TouchableOpacity>
               {activeFilters > 0 && (
                 <TouchableOpacity onPress={clearFilters} style={styles.clearAll}>
-                  <Text style={[styles.clearFiltersTxt, { color: colors.textTertiary }]}>Clear all filters</Text>
+                  <Text style={[styles.clearFiltersTxt, { color: colors.textTertiary }]}>{t("rentals.hub.clearAllFilters")}</Text>
                 </TouchableOpacity>
               )}
             </ScrollView>

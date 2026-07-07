@@ -13,19 +13,20 @@ import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
 import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { getMyFleet } from "../services/rentalService";
 import { formatCentavos } from "../utils/pricing";
 
-const STATUS_META = {
-  available: { label: "Available", color: "#34C759" },
-  rented: { label: "Rented", color: "#B45309" },
-  maintenance: { label: "Maintenance", color: "#8a8f9c" },
-};
-
 export default function MyFleetScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
+  const STATUS_META = {
+    available: { label: t("rentals.status.available"), color: "#34C759" },
+    rented: { label: t("rentals.status.rented"), color: "#B45309" },
+    maintenance: { label: t("rentals.status.maintenance"), color: "#8a8f9c" },
+  };
   const [fleet, setFleet] = useState([]);
   const [payoutsReady, setPayoutsReady] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ export default function MyFleetScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>My fleet</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.fleet.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -67,9 +68,7 @@ export default function MyFleetScreen({ navigation }) {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={[styles.intro, { color: colors.textSecondary }]}>
-            Rent your vehicles directly to riders. You receive the full price you set —
-            Kinlo adds a small service fee for the rider. The deposit and the rental
-            agreement are between you and the rider.
+            {t("rentals.fleet.intro")}
           </Text>
 
           {!payoutsReady && (
@@ -80,9 +79,9 @@ export default function MyFleetScreen({ navigation }) {
             >
               <Icon name="alert" size={20} color={colors.warning} />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.payoutTitle, { color: colors.text }]}>Set up payouts</Text>
+                <Text style={[styles.payoutTitle, { color: colors.text }]}>{t("rentals.fleet.setUpPayouts")}</Text>
                 <Text style={[styles.payoutText, { color: colors.textSecondary }]}>
-                  Connect your account to get paid for paid rentals. Tap to finish.
+                  {t("rentals.fleet.setUpPayoutsText")}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -93,7 +92,7 @@ export default function MyFleetScreen({ navigation }) {
             activeOpacity={0.85}
             onPress={() => navigation.navigate("PublishVehicle", {})}
           >
-            <Text style={styles.publishTxt}>+ Publish a vehicle</Text>
+            <Text style={styles.publishTxt}>{t("rentals.fleet.publishVehicle")}</Text>
           </TouchableOpacity>
 
           {fleet.length > 0 && (
@@ -103,7 +102,7 @@ export default function MyFleetScreen({ navigation }) {
               onPress={() => navigation.navigate("VehicleBookings")}
             >
               <Text style={[styles.bookingsTxt, { color: colors.text }]}>
-                View bookings
+                {t("rentals.fleet.viewBookings")}
               </Text>
             </TouchableOpacity>
           )}
@@ -113,9 +112,9 @@ export default function MyFleetScreen({ navigation }) {
               <View style={styles.emptyArt}>
                 <Icon name="bike" size={32} color={colors.primary} />
               </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No vehicles yet</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{t("rentals.fleet.emptyTitle")}</Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Publish your first vehicle to start earning.
+                {t("rentals.fleet.emptyText")}
               </Text>
             </View>
           ) : (
@@ -132,13 +131,13 @@ export default function MyFleetScreen({ navigation }) {
                     {v.photos[0] ? (
                       <Image source={{ uri: v.photos[0] }} style={styles.thumbImg} />
                     ) : (
-                      <Text style={[styles.thumbPlaceholder, { color: colors.textTertiary }]}>No photo</Text>
+                      <Text style={[styles.thumbPlaceholder, { color: colors.textTertiary }]}>{t("rentals.fleet.noPhoto")}</Text>
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{v.title}</Text>
                     <Text style={[styles.meta, { color: colors.textSecondary }]}>
-                      {v.pricePerDayCentavos ? `${formatCentavos(v.pricePerDayCentavos)} / day` : "Free"}
+                      {v.pricePerDayCentavos ? `${formatCentavos(v.pricePerDayCentavos)} ${t("rentals.common.perDay")}` : t("rentals.common.free")}
                     </Text>
                   </View>
                   <View style={[styles.pill, { backgroundColor: `${meta.color}22`, borderColor: `${meta.color}55` }]}>

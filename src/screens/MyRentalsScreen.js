@@ -10,20 +10,21 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { getMyRentals } from "../services/rentalService";
 import { formatCentavos } from "../utils/pricing";
 
-const STATUS_META = {
-  reserved: { label: "Awaiting payment", color: "#B45309" },
-  active: { label: "Active", color: "#34C759" },
-  completed: { label: "Returned", color: "#8a8f9c" },
-  cancelled: { label: "Cancelled", color: "#c25b5b" },
-};
-
 export default function MyRentalsScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
+  const STATUS_META = {
+    reserved: { label: t("rentals.status.reserved"), color: "#B45309" },
+    active: { label: t("rentals.status.active"), color: "#34C759" },
+    completed: { label: t("rentals.status.completed"), color: "#8a8f9c" },
+    cancelled: { label: t("rentals.status.cancelled"), color: "#c25b5b" },
+  };
   const [rentals, setRentals] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,9 +49,9 @@ export default function MyRentalsScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>My rentals</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.myRentals.title")}</Text>
         <TouchableOpacity onPress={() => navigation.navigate("MainTabs", { screen: "RentalsTab" })}>
-          <Text style={[styles.link, { color: colors.primary }]}>Rent</Text>
+          <Text style={[styles.link, { color: colors.primary }]}>{t("rentals.myRentals.rent")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -65,16 +66,16 @@ export default function MyRentalsScreen({ navigation }) {
               <View style={styles.emptyArt}>
                 <Icon name="bike" size={32} color={colors.primary} />
               </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No rentals yet</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{t("rentals.myRentals.emptyTitle")}</Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Rent a scooter, bike or car to get around.
+                {t("rentals.myRentals.emptyText")}
               </Text>
               <TouchableOpacity
                 style={[styles.cta, { backgroundColor: colors.primary }]}
                 onPress={() => navigation.navigate("MainTabs", { screen: "RentalsTab" })}
                 activeOpacity={0.85}
               >
-                <Text style={styles.ctaTxt}>Browse vehicles</Text>
+                <Text style={styles.ctaTxt}>{t("rentals.myRentals.browseVehicles")}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -89,10 +90,10 @@ export default function MyRentalsScreen({ navigation }) {
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-                      {r.days ? `${r.days} day${r.days > 1 ? "s" : ""} rental` : "Rental"}
+                      {r.days ? t("rentals.myRentals.dayRentalTitle", { count: r.days }) : t("rentals.myRentals.rentalTitle")}
                     </Text>
                     <Text style={[styles.meta, { color: colors.textSecondary }]}>
-                      {r.priceCentavos ? formatCentavos(r.priceCentavos) : "Free"}
+                      {r.priceCentavos ? formatCentavos(r.priceCentavos) : t("rentals.common.free")}
                     </Text>
                   </View>
                   <View style={[styles.pill, { backgroundColor: `${meta.color}22`, borderColor: `${meta.color}55` }]}>

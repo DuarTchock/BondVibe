@@ -11,20 +11,21 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { getRental, getVehicle, completeRental } from "../services/rentalService";
 import { formatCentavos } from "../utils/pricing";
 
-const STATUS_META = {
-  reserved: { label: "Awaiting payment", color: "#B45309" },
-  active: { label: "Active", color: "#34C759" },
-  completed: { label: "Returned", color: "#8a8f9c" },
-  cancelled: { label: "Cancelled", color: "#c25b5b" },
-};
-
 export default function ActiveRentalScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
+  const STATUS_META = {
+    reserved: { label: t("rentals.status.reserved"), color: "#B45309" },
+    active: { label: t("rentals.status.active"), color: "#34C759" },
+    completed: { label: t("rentals.status.completed"), color: "#8a8f9c" },
+    cancelled: { label: t("rentals.status.cancelled"), color: "#c25b5b" },
+  };
   const { rentalId } = route.params || {};
   const [rental, setRental] = useState(null);
   const [vehicle, setVehicle] = useState(null);
@@ -45,16 +46,16 @@ export default function ActiveRentalScreen({ route, navigation }) {
   );
 
   const onReturn = () => {
-    Alert.alert("Return vehicle?", "Confirm the vehicle has been returned. Settle any deposit directly with the host.", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("rentals.activeRental.returnTitle"), t("rentals.activeRental.returnMsg"), [
+      { text: t("rentals.common.cancel"), style: "cancel" },
       {
-        text: "I've returned it",
+        text: t("rentals.activeRental.returnedIt"),
         onPress: async () => {
           setReturning(true);
           const res = await completeRental(rentalId);
           setReturning(false);
           if (!res.success) {
-            Alert.alert("Couldn't complete", res.error || "Try again.");
+            Alert.alert(t("rentals.activeRental.couldntComplete"), res.error || t("rentals.common.tryAgain"));
             return;
           }
           load();
@@ -78,7 +79,7 @@ export default function ActiveRentalScreen({ route, navigation }) {
     return (
       <GradientBackground>
         <View style={styles.loading}>
-          <Text style={{ color: colors.textSecondary }}>Rental not found.</Text>
+          <Text style={{ color: colors.textSecondary }}>{t("rentals.activeRental.notFound")}</Text>
         </View>
       </GradientBackground>
     );
@@ -94,7 +95,7 @@ export default function ActiveRentalScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Your rental</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.activeRental.title")}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -103,29 +104,29 @@ export default function ActiveRentalScreen({ route, navigation }) {
           <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
         </View>
 
-        <Text style={[styles.title, { color: colors.text }]}>{vehicle?.title || "Vehicle"}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{vehicle?.title || t("rentals.activeRental.vehicleFallback")}</Text>
         {vehicle?.pickupLabel ? (
           <Text style={[styles.sub, { color: colors.textSecondary }]}>{vehicle.pickupLabel}</Text>
         ) : null}
 
         <View style={[styles.detailCard, { borderColor: colors.border }]}>
-          <Detail label="From" value={fmtDate(rental.startAt)} colors={colors} />
-          <Detail label="Until" value={fmtDate(rental.endAt)} colors={colors} />
-          {rental.days ? <Detail label="Duration" value={`${rental.days} day${rental.days > 1 ? "s" : ""}`} colors={colors} /> : null}
-          <Detail label="Rental fee" value={rental.priceCentavos ? formatCentavos(rental.priceCentavos) : "Free"} colors={colors} />
+          <Detail label={t("rentals.activeRental.from")} value={fmtDate(rental.startAt)} colors={colors} />
+          <Detail label={t("rentals.activeRental.until")} value={fmtDate(rental.endAt)} colors={colors} />
+          {rental.days ? <Detail label={t("rentals.activeRental.duration")} value={t("rentals.dayCount", { count: rental.days })} colors={colors} /> : null}
+          <Detail label={t("rentals.activeRental.rentalFee")} value={rental.priceCentavos ? formatCentavos(rental.priceCentavos) : t("rentals.common.free")} colors={colors} />
           {rental.depositCentavos ? (
-            <Detail label="Deposit (with host)" value={formatCentavos(rental.depositCentavos)} colors={colors} />
+            <Detail label={t("rentals.activeRental.depositWithHost")} value={formatCentavos(rental.depositCentavos)} colors={colors} />
           ) : null}
         </View>
 
         {rental.status === "active" && (
           <Text style={[styles.tip, { color: colors.textSecondary }]}>
-            Enjoy the ride! When you finish, mark it returned and settle any deposit with the host.
+            {t("rentals.activeRental.tipActive")}
           </Text>
         )}
         {rental.status === "completed" && (
           <Text style={[styles.tip, { color: colors.textSecondary }]}>
-            Returned. Thanks for riding with us!
+            {t("rentals.activeRental.tipCompleted")}
           </Text>
         )}
       </ScrollView>
@@ -141,7 +142,7 @@ export default function ActiveRentalScreen({ route, navigation }) {
             {returning ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.returnTxt}>Mark as returned</Text>
+              <Text style={styles.returnTxt}>{t("rentals.activeRental.markAsReturned")}</Text>
             )}
           </TouchableOpacity>
         </View>
