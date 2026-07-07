@@ -53,6 +53,9 @@ import MomentumCardScreen from "../screens/business/MomentumCardScreen";
 import MomentumColumnsScreen from "../screens/business/MomentumColumnsScreen";
 import BusinessFinanceScreen from "../screens/business/BusinessFinanceScreen";
 import PaymentFormScreen from "../screens/business/PaymentFormScreen";
+import ClassesScreen from "../screens/business/ClassesScreen";
+import ClassFormScreen from "../screens/business/ClassFormScreen";
+import ClassRosterScreen from "../screens/business/ClassRosterScreen";
 import PersonalityQuizScreen from "../screens/PersonalityQuizScreen";
 import PersonalityResultsScreen from "../screens/PersonalityResultsScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
@@ -522,6 +525,9 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="MomentumColumns" component={MomentumColumnsScreen} />
           <Stack.Screen name="BusinessFinance" component={BusinessFinanceScreen} />
           <Stack.Screen name="BusinessPaymentForm" component={PaymentFormScreen} />
+          <Stack.Screen name="BusinessClasses" component={ClassesScreen} />
+          <Stack.Screen name="BusinessClassForm" component={ClassFormScreen} />
+          <Stack.Screen name="BusinessClassRoster" component={ClassRosterScreen} />
           <Stack.Screen
             name="PersonalityQuiz"
             component={PersonalityQuizScreen}

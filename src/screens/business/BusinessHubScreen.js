@@ -134,6 +134,12 @@ export default function BusinessHubScreen({ navigation }) {
             onPress={() => navigation.navigate("BusinessPackages")}
           />
           <ListRow
+            icon="calendar"
+            title={t("business.hub.classesTitle")}
+            subtitle={t("business.hub.classesSubtitle")}
+            onPress={() => navigation.navigate("BusinessClasses")}
+          />
+          <ListRow
             icon="qr"
             title={t("business.hub.checkInTitle")}
             subtitle={t("business.hub.checkInSubtitle")}

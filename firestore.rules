@@ -735,6 +735,11 @@ service cloud.firestore {
       match /payments/{paymentId} {
         allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
       }
+
+      // Classes / schedule (roster + waitlist).
+      match /classes/{classId} {
+        allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
+      }
     }
 
     // ============================================
