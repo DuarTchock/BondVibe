@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db, auth } from "../../services/firebase";
 import { useTheme } from "../../contexts/ThemeContext";
 import { MatchHeader } from "./matchUi";
@@ -21,6 +22,7 @@ import { getMyMatches, getAllMyMatches } from "../../services/matchingService";
 
 export default function PeopleYouMetScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { eventId } = route.params || {};
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,14 +53,14 @@ export default function PeopleYouMetScreen({ route, navigation }) {
   const styles = createStyles(colors);
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <MatchHeader title="People you met" onBack={() => navigation.goBack()} />
+      <MatchHeader title={t("matching.peopleYouMet.title")} onBack={() => navigation.goBack()} />
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
       ) : rows.length === 0 ? (
         <View style={styles.empty}>
           <Icon name="heart" size={38} color={colors.textTertiary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No matches yet. Your next event could change that.
+            {t("matching.peopleYouMet.empty")}
           </Text>
         </View>
       ) : (
@@ -87,7 +89,7 @@ export default function PeopleYouMetScreen({ route, navigation }) {
               )}
               <View style={{ flex: 1 }}>
                 <Text style={[styles.name, { color: colors.text }]}>
-                  {item.profile.displayName || "Someone"}
+                  {item.profile.displayName || t("matching.peopleYouMet.defaultName")}
                 </Text>
                 {!!item.profile.profession && (
                   <Text style={[styles.sub, { color: colors.textSecondary }]}>

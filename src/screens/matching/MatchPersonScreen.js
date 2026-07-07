@@ -15,12 +15,14 @@ import {
   Modal,
   Alert,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../contexts/ThemeContext";
 import MatchIntelCard from "../../components/ai/MatchIntelCard";
 import { likeAttendee, MATCH_TYPE_COLORS } from "../../services/matchingService";
 
 export default function MatchPersonScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { eventId, eventTitle, profile } = route.params || {};
   const [busy, setBusy] = useState(false);
   const [match, setMatch] = useState(null); // { matchId, allowMessaging }
@@ -41,25 +43,25 @@ export default function MatchPersonScreen({ route, navigation }) {
         setMatch({ matchId: res.matchId, allowMessaging: res.allowMessaging });
         return;
       }
-      Alert.alert("Liked", "If they like you back, it's a match.", [
-        { text: "Keep browsing", onPress: () => navigation.goBack() },
+      Alert.alert(t("matching.person.likedTitle"), t("matching.person.likedMsg"), [
+        { text: t("matching.person.keepBrowsing"), onPress: () => navigation.goBack() },
       ]);
     } catch (e) {
       const msg = e?.message?.includes("matching_closed")
-        ? "Matching has closed for this event."
-        : "Couldn't send your like. Please try again.";
-      Alert.alert("Oops", msg);
+        ? t("matching.person.matchingClosedMsg")
+        : t("matching.person.couldntLikeMsg");
+      Alert.alert(t("matching.person.oopsTitle"), msg);
     } finally {
       setBusy(false);
     }
   };
 
   const safety = () =>
-    Alert.alert("Safety", `Manage ${profile.displayName}`, [
-      { text: "Report", onPress: () => navigation.navigate("Report", { targetUserId: profile.userId }) },
-      { text: "Block", style: "destructive", onPress: () => Alert.alert("Blocked", "You won't see each other.") },
-      { text: "Hide", onPress: () => navigation.goBack() },
-      { text: "Cancel", style: "cancel" },
+    Alert.alert(t("matching.person.safetyTitle"), t("matching.person.safetyMsg", { name: profile.displayName }), [
+      { text: t("matching.person.report"), onPress: () => navigation.navigate("Report", { targetUserId: profile.userId }) },
+      { text: t("matching.person.block"), style: "destructive", onPress: () => Alert.alert(t("matching.person.blockedTitle"), t("matching.person.blockedMsg")) },
+      { text: t("matching.person.hide"), onPress: () => navigation.goBack() },
+      { text: t("matching.person.cancel"), style: "cancel" },
     ]);
 
   const styles = createStyles(colors);
@@ -96,7 +98,7 @@ export default function MatchPersonScreen({ route, navigation }) {
             {typeof profile.compatibility === "number" && (
               <View style={[styles.compat, { backgroundColor: `${colors.primary}18` }]}>
                 <Text style={[styles.compatText, { color: colors.primary }]}>
-                  {profile.compatibility}% match
+                  {t("matching.person.matchPercent", { percent: profile.compatibility })}
                 </Text>
               </View>
             )}
@@ -125,7 +127,7 @@ export default function MatchPersonScreen({ route, navigation }) {
           )}
           {!!profile.icebreaker && (
             <View style={[styles.iceCard, { backgroundColor: colors.surfaceGlass, borderColor: colors.border }]}>
-              <Text style={[styles.iceLabel, { color: colors.textSecondary }]}>Ask me about</Text>
+              <Text style={[styles.iceLabel, { color: colors.textSecondary }]}>{t("matching.person.askMeAbout")}</Text>
               <Text style={[styles.iceText, { color: colors.text }]}>{profile.icebreaker}</Text>
             </View>
           )}
@@ -169,9 +171,9 @@ export default function MatchPersonScreen({ route, navigation }) {
         <View style={styles.overlay}>
           <View style={[styles.overlayCard, { backgroundColor: colors.surface }]}>
             <Icon name="heart" size={54} color={colors.primary} fill={colors.primary} />
-            <Text style={[styles.matchTitle, { color: colors.text }]}>It's a match!</Text>
+            <Text style={[styles.matchTitle, { color: colors.text }]}>{t("matching.person.itsAMatch")}</Text>
             <Text style={[styles.matchSub, { color: colors.textSecondary }]}>
-              You and {profile.displayName} liked each other.
+              {t("matching.person.youAndLiked", { name: profile.displayName })}
             </Text>
             {match?.allowMessaging ? (
               <TouchableOpacity
@@ -186,11 +188,11 @@ export default function MatchPersonScreen({ route, navigation }) {
                 }}
               >
                 <Icon name="message" size={18} color="#fff" />
-                <Text style={styles.matchBtnText}>Say hi</Text>
+                <Text style={styles.matchBtnText}>{t("matching.person.sayHi")}</Text>
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity onPress={() => { setMatch(null); navigation.goBack(); }}>
-              <Text style={[styles.keep, { color: colors.textSecondary }]}>Keep browsing</Text>
+              <Text style={[styles.keep, { color: colors.textSecondary }]}>{t("matching.person.keepBrowsing")}</Text>
             </TouchableOpacity>
           </View>
         </View>

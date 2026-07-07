@@ -14,6 +14,7 @@ import {
   Alert,
 } from "react-native";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../../services/firebase";
 import { useTheme } from "../../contexts/ThemeContext";
 import { usePremium } from "../../hooks/usePremium";
@@ -27,19 +28,24 @@ import {
   MATCH_TYPE_COLORS,
 } from "../../services/matchingService";
 
-const OPENS_LABELS = {
-  now: "Right now",
-  "1h_before": "1 hour before start",
-  after_checkin: "When the event starts",
-  after_event: "When the event ends",
-};
-const CLOSES_LABELS = { "24h": "24 hours", "3d": "3 days", "1w": "1 week", forever: "Never" };
-const maxLabel = (n) => (n === -1 ? "Unlimited" : String(n));
-
 export default function HostMatchingControlsScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { isPremium, loading: proLoading } = usePremium();
   const { eventId } = route.params || {};
+  const OPENS_LABELS = {
+    now: t("matching.hostControls.opensRightNow"),
+    "1h_before": t("matching.hostControls.opens1hBefore"),
+    after_checkin: t("matching.hostControls.opensAfterCheckin"),
+    after_event: t("matching.hostControls.opensAfterEvent"),
+  };
+  const CLOSES_LABELS = {
+    "24h": t("matching.hostControls.closes24h"),
+    "3d": t("matching.hostControls.closes3d"),
+    "1w": t("matching.hostControls.closes1w"),
+    forever: t("matching.hostControls.closesForever"),
+  };
+  const maxLabel = (n) => (n === -1 ? t("matching.hostControls.unlimited") : String(n));
 
   const [enabled, setEnabled] = useState(true);
   const [types, setTypes] = useState(["friend"]);
@@ -69,7 +75,7 @@ export default function HostMatchingControlsScreen({ route, navigation }) {
 
   const onSave = async () => {
     if (enabled && types.length === 0) {
-      Alert.alert("Pick a type", "Choose at least one match type.");
+      Alert.alert(t("matching.hostControls.pickTypeTitle"), t("matching.hostControls.pickTypeMsg"));
       return;
     }
     setSaving(true);
@@ -82,14 +88,14 @@ export default function HostMatchingControlsScreen({ route, navigation }) {
         maxMatches,
         allowMessaging,
       });
-      Alert.alert("Saved", "Community Matching is set up for this event.", [
-        { text: "OK", onPress: () => navigation.goBack() },
+      Alert.alert(t("matching.hostControls.savedTitle"), t("matching.hostControls.savedMsg"), [
+        { text: t("matching.hostControls.ok"), onPress: () => navigation.goBack() },
       ]);
     } catch (e) {
       const msg = e?.message?.includes("pro_required")
-        ? "Community Matching is a Kinlo Pro feature."
-        : "Couldn't save. Please try again.";
-      Alert.alert("Oops", msg);
+        ? t("matching.hostControls.proRequiredMsg")
+        : t("matching.hostControls.couldntSaveMsg");
+      Alert.alert(t("matching.hostControls.oopsTitle"), msg);
     } finally {
       setSaving(false);
     }
@@ -100,18 +106,18 @@ export default function HostMatchingControlsScreen({ route, navigation }) {
   if (!proLoading && !isPremium) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <MatchHeader title="Community Matching" onBack={() => navigation.goBack()} />
+        <MatchHeader title={t("matching.hostControls.title")} onBack={() => navigation.goBack()} />
         <View style={styles.upsell}>
           <Icon name="pro" size={44} color={colors.primary} />
           <Text style={[styles.upsellTitle, { color: colors.text }]}>
-            Activate Community Matching with Kinlo Pro
+            {t("matching.hostControls.upsellTitle")}
           </Text>
           <Text style={[styles.upsellSub, { color: colors.textSecondary }]}>
-            Let attendees connect after your events. Included in Kinlo Pro.
+            {t("matching.hostControls.upsellSub")}
           </Text>
           <View style={{ height: 20 }} />
           <PrimaryButton
-            label="Get Kinlo Pro"
+            label={t("matching.hostControls.getPro")}
             onPress={() => navigation.replace("ProUpsell", { eventId })}
           />
         </View>
@@ -129,7 +135,7 @@ export default function HostMatchingControlsScreen({ route, navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <MatchHeader
-        title="Community Matching"
+        title={t("matching.hostControls.title")}
         onBack={() => navigation.goBack()}
         right={
           <View style={[styles.proBadge, { backgroundColor: colors.primary }]}>
@@ -140,11 +146,11 @@ export default function HostMatchingControlsScreen({ route, navigation }) {
       />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.rowBetween}>
-          <Text style={[styles.label, { color: colors.text }]}>Enable for this event</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("matching.hostControls.enableForEvent")}</Text>
           <Switch value={enabled} onValueChange={setEnabled} trackColor={{ true: colors.primary }} />
         </View>
 
-        <Section title="Match types">
+        <Section title={t("matching.hostControls.matchTypes")}>
           {MATCH_TYPES.map((t) => {
             const c = MATCH_TYPE_COLORS[t] || {};
             return (
@@ -160,34 +166,34 @@ export default function HostMatchingControlsScreen({ route, navigation }) {
           })}
         </Section>
 
-        <Section title="Opens">
+        <Section title={t("matching.hostControls.opens")}>
           {OPENS_AT_OPTIONS.map((o) => (
             <Chip key={o} label={OPENS_LABELS[o]} selected={opensAt === o} onPress={() => setOpensAt(o)} />
           ))}
         </Section>
 
-        <Section title="Closes after">
+        <Section title={t("matching.hostControls.closesAfter")}>
           {CLOSES_AFTER_OPTIONS.map((o) => (
             <Chip key={o} label={CLOSES_LABELS[o]} selected={closesAfter === o} onPress={() => setClosesAfter(o)} />
           ))}
         </Section>
 
-        <Section title="Max matches per attendee">
+        <Section title={t("matching.hostControls.maxMatches")}>
           {MAX_MATCHES_OPTIONS.map((n) => (
             <Chip key={n} label={maxLabel(n)} selected={maxMatches === n} onPress={() => setMaxMatches(n)} />
           ))}
         </Section>
         <Text style={[styles.hint, { color: colors.textTertiary }]}>
-          Past the cap, attendees can upgrade to Kinlo Plus to keep matching.
+          {t("matching.hostControls.capHint")}
         </Text>
 
         <View style={styles.rowBetween}>
-          <Text style={[styles.label, { color: colors.text }]}>Allow messaging on match</Text>
+          <Text style={[styles.label, { color: colors.text }]}>{t("matching.hostControls.allowMessaging")}</Text>
           <Switch value={allowMessaging} onValueChange={setAllowMessaging} trackColor={{ true: colors.primary }} />
         </View>
       </ScrollView>
       <View style={styles.footer}>
-        <PrimaryButton label="Save" onPress={onSave} loading={saving} />
+        <PrimaryButton label={t("matching.hostControls.save")} onPress={onSave} loading={saving} />
       </View>
     </View>
   );

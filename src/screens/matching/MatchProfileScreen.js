@@ -13,6 +13,7 @@ import {
   Alert,
 } from "react-native";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../../services/firebase";
 import { useTheme } from "../../contexts/ThemeContext";
 import { MatchHeader, PrimaryButton, Chip } from "./matchUi";
@@ -23,17 +24,17 @@ import {
   VISIBILITY_OPTIONS,
 } from "../../services/matchingService";
 
-const VIS_LABELS = {
-  everyone: "Everyone at the event",
-  same_gender: "Same gender only",
-  opposite_gender: "Opposite gender only",
-  organizer: "Organizer only",
-  hidden: "Hidden for now",
-};
-
 export default function MatchProfileScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { eventId, eventTitle } = route.params || {};
+  const VIS_LABELS = {
+    everyone: t("matching.profile.visEveryone"),
+    same_gender: t("matching.profile.visSameGender"),
+    opposite_gender: t("matching.profile.visOppositeGender"),
+    organizer: t("matching.profile.visOrganizer"),
+    hidden: t("matching.profile.visHiddenForNow"),
+  };
 
   const [types, setTypes] = useState([]);
   const [bio, setBio] = useState("");
@@ -87,7 +88,7 @@ export default function MatchProfileScreen({ route, navigation }) {
     });
     setSaving(false);
     if (!res.success) {
-      Alert.alert("Couldn't save", res.error || "Please try again.");
+      Alert.alert(t("matching.profile.couldntSaveTitle"), res.error || t("matching.profile.tryAgain"));
       return;
     }
     navigation.replace("MatchGrid", { eventId, eventTitle });
@@ -110,20 +111,20 @@ export default function MatchProfileScreen({ route, navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <MatchHeader title="Your match profile" onBack={() => navigation.goBack()} />
+      <MatchHeader title={t("matching.profile.title")} onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {field("Short bio", bio, setBio, {
-          placeholder: "A line about you…",
+        {field(t("matching.profile.shortBio"), bio, setBio, {
+          placeholder: t("matching.profile.bioPlaceholder"),
           multiline: true,
         })}
-        {field("Profession", profession, setProfession, {
-          placeholder: "e.g. Designer",
+        {field(t("matching.profile.profession"), profession, setProfession, {
+          placeholder: t("matching.profile.professionPlaceholder"),
         })}
-        {field("Interests", interests, setInterests, {
-          placeholder: "Comma separated, e.g. surfing, coffee, techno",
+        {field(t("matching.profile.interests"), interests, setInterests, {
+          placeholder: t("matching.profile.interestsPlaceholder"),
         })}
 
-        <Text style={styles.label}>What are you looking for?</Text>
+        <Text style={styles.label}>{t("matching.profile.lookingForLabel")}</Text>
         <View style={styles.chips}>
           {(types.length ? types : ["friend", "professional", "romantic"]).map((t) => {
             const c = MATCH_TYPE_COLORS[t] || {};
@@ -140,12 +141,12 @@ export default function MatchProfileScreen({ route, navigation }) {
           })}
         </View>
 
-        {field("Icebreaker (optional)", icebreaker, setIcebreaker, {
-          placeholder: "Ask me about…",
+        {field(t("matching.profile.icebreaker"), icebreaker, setIcebreaker, {
+          placeholder: t("matching.profile.icebreakerPlaceholder"),
           multiline: true,
         })}
 
-        <Text style={styles.label}>Who can see you?</Text>
+        <Text style={styles.label}>{t("matching.profile.whoCanSee")}</Text>
         <View style={styles.chips}>
           {VISIBILITY_OPTIONS.map((v) => (
             <Chip
@@ -158,7 +159,7 @@ export default function MatchProfileScreen({ route, navigation }) {
         </View>
       </ScrollView>
       <View style={styles.footer}>
-        <PrimaryButton label="Save & see who was here" onPress={onSave} loading={saving} />
+        <PrimaryButton label={t("matching.profile.saveAndSee")} onPress={onSave} loading={saving} />
       </View>
     </View>
   );

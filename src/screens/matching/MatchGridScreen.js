@@ -13,12 +13,14 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../contexts/ThemeContext";
 import { MatchHeader } from "./matchUi";
 import { getMatchGrid, getMyMatchProfile } from "../../services/matchingService";
 
 export default function MatchGridScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { eventId, eventTitle } = route.params || {};
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,10 +82,10 @@ export default function MatchGridScreen({ route, navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <MatchHeader title="Who was here" onBack={() => navigation.goBack()} />
+      <MatchHeader title={t("matching.grid.title")} onBack={() => navigation.goBack()} />
       <View style={[styles.banner, { backgroundColor: `${colors.primary}12` }]}>
         <Text style={[styles.bannerText, { color: colors.primary }]}>
-          The event ended · matching is open
+          {t("matching.grid.banner")}
         </Text>
       </View>
       {loading ? (
@@ -92,7 +94,7 @@ export default function MatchGridScreen({ route, navigation }) {
         <View style={styles.empty}>
           <Icon name="users" size={40} color={colors.textTertiary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No one else has opted in yet. Check back soon.
+            {t("matching.grid.empty")}
           </Text>
         </View>
       ) : (

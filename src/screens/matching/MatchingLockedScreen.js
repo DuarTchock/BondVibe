@@ -7,14 +7,15 @@ import React, { useState, useEffect } from "react";
 import Icon from "../../components/Icon";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 import { db } from "../../services/firebase";
 import { useTheme } from "../../contexts/ThemeContext";
 import { MatchHeader, PrimaryButton, SecondaryButton } from "./matchUi";
 import { useMatchingWindow } from "../../hooks/useMatchingWindow";
 import { getMyMatchProfile } from "../../services/matchingService";
 
-function countdown(ms) {
-  if (ms <= 0) return "Opening…";
+function countdown(ms, openingLabel) {
+  if (ms <= 0) return openingLabel;
   const s = Math.floor(ms / 1000);
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
@@ -27,6 +28,7 @@ function countdown(ms) {
 
 export default function MatchingLockedScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { eventId, eventTitle } = route.params || {};
   const [event, setEvent] = useState(null);
   const [hasProfile, setHasProfile] = useState(false);
@@ -52,21 +54,20 @@ export default function MatchingLockedScreen({ route, navigation }) {
   const styles = createStyles(colors);
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <MatchHeader title="Community Matching" onBack={() => navigation.goBack()} />
+      <MatchHeader title={t("matching.locked.title")} onBack={() => navigation.goBack()} />
       <View style={styles.center}>
         <View style={[styles.lockWrap, { backgroundColor: `${colors.primary}15` }]}>
           <Icon name="lock" size={40} color={colors.primary} />
         </View>
         <Text style={[styles.title, { color: colors.text }]}>
-          Opens when the event ends
+          {t("matching.locked.opensWhenEnds")}
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Enjoy the event and meet people in person. Matching unlocks after it
-          wraps up.
+          {t("matching.locked.subtitle")}
         </Text>
 
         <Text style={[styles.count, { color: colors.primary }]}>
-          {countdown(msUntilOpen)}
+          {countdown(msUntilOpen, t("matching.locked.opening"))}
         </Text>
 
         {/* Blurred teaser row */}
@@ -86,7 +87,7 @@ export default function MatchingLockedScreen({ route, navigation }) {
             />
           ))}
           <Text style={[styles.teaserText, { color: colors.textTertiary }]}>
-            People are here…
+            {t("matching.locked.peopleAreHere")}
           </Text>
         </View>
       </View>
@@ -94,22 +95,22 @@ export default function MatchingLockedScreen({ route, navigation }) {
       <View style={styles.footer}>
         {hasProfile ? (
           <PrimaryButton
-            label="Notify me when it opens"
+            label={t("matching.locked.notifyMe")}
             onPress={() =>
               Alert.alert(
-                "You're set",
-                "We'll notify you the moment matching opens.",
-                [{ text: "OK", onPress: () => navigation.goBack() }]
+                t("matching.locked.notifySetTitle"),
+                t("matching.locked.notifySetMsg"),
+                [{ text: t("matching.locked.ok"), onPress: () => navigation.goBack() }]
               )
             }
           />
         ) : (
           <PrimaryButton
-            label="Join & set up my profile"
+            label={t("matching.locked.joinSetup")}
             onPress={() => navigation.replace("MatchConsent", { eventId, eventTitle })}
           />
         )}
-        <SecondaryButton label="Back to event" onPress={() => navigation.goBack()} />
+        <SecondaryButton label={t("matching.locked.backToEvent")} onPress={() => navigation.goBack()} />
       </View>
     </View>
   );

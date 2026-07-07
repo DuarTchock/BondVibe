@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { auth } from "../../services/firebase";
 import { useTheme } from "../../contexts/ThemeContext";
 import { MatchHeader } from "./matchUi";
@@ -21,6 +22,7 @@ import { subscribeMatchChat, sendMatchMessage } from "../../services/matchingSer
 
 export default function MatchChatScreen({ route, navigation }) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { matchId, name } = route.params || {};
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -45,7 +47,7 @@ export default function MatchChatScreen({ route, navigation }) {
       style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <MatchHeader title={name || "Chat"} onBack={() => navigation.goBack()} />
+      <MatchHeader title={name || t("matching.matchChat.defaultTitle")} onBack={() => navigation.goBack()} />
       <FlatList
         ref={listRef}
         data={messages}
@@ -71,7 +73,7 @@ export default function MatchChatScreen({ route, navigation }) {
         }}
         ListEmptyComponent={
           <Text style={[styles.empty, { color: colors.textTertiary }]}>
-            Say hi
+            {t("matching.matchChat.sayHi")}
           </Text>
         }
       />
@@ -80,7 +82,7 @@ export default function MatchChatScreen({ route, navigation }) {
           style={[styles.input, { color: colors.text, backgroundColor: colors.surfaceGlass }]}
           value={text}
           onChangeText={setText}
-          placeholder="Message…"
+          placeholder={t("matching.matchChat.messagePlaceholder")}
           placeholderTextColor={colors.textTertiary}
           multiline
         />
