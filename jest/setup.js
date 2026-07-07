@@ -4,6 +4,17 @@ jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock")
 );
 
+// expo-localization's native binary isn't present under jest — stub it to the
+// device default (English) so src/i18n/index.js can resolve a language.
+jest.mock("expo-localization", () => ({
+  getLocales: () => [{ languageCode: "en", languageTag: "en" }],
+}));
+
+// Initialize i18next once for the whole suite (App.js does this in the real
+// app before any screen renders; test files render screens directly, so they
+// never hit that import — without this, t() calls resolve to raw keys).
+require("../src/i18n");
+
 // Native social-auth modules (used by SocialAuthButtons / socialAuth).
 jest.mock("@react-native-google-signin/google-signin", () => ({
   GoogleSignin: {

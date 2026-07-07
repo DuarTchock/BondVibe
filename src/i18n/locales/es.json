@@ -153,5 +153,42 @@
         "message": "¡Hola! Nos emociona mucho que estés aquí. Esta app se hizo con mucho cariño para personas como tú que buscan conexiones reales, no solo likes. Explora eventos, conoce gente increíble y hagamos recuerdos juntos. ¡Tú puedes!"
       }
     }
+  },
+  "home": {
+    "greetingMorning": "Buenos días",
+    "greetingAfternoon": "Buenas tardes",
+    "greetingEvening": "Buenas noches",
+    "defaultName": "Amigo",
+    "digestBanner": "Tu semana, curada por Kinlo AI",
+    "searchPlaceholder": "Buscar eventos",
+    "rateExperiences": "CALIFICA TUS EXPERIENCIAS",
+    "dateUnknown": "Fecha desconocida",
+    "zeroState": {
+      "title": "Aún no hay eventos destacados",
+      "text": "Sé el primero en organizar algo que tu comunidad va a amar.",
+      "cta": "Organizar uno"
+    },
+    "featured": "DESTACADOS",
+    "adminDashboard": "Panel de administración",
+    "adminPendingRequest_one": "{{count}} solicitud pendiente",
+    "adminPendingRequest_other": "{{count}} solicitudes pendientes",
+    "adminManage": "Administra solicitudes de host y eventos",
+    "browseByCommunity": "EXPLORA POR COMUNIDAD",
+    "seeAll": "Ver todo"
+  },
+  "wall": {
+    "askKinlo": "Pregúntale a Kinlo",
+    "aiFallbackNote": "La IA está tomando un descanso — mostrando lo más reciente.",
+    "curatedForYou": "Curado para ti por Kinlo AI",
+    "imIn": "Yo voy",
+    "interested": "Interesado",
+    "empty": {
+      "text": "Sigue a otras personas y comparte tu primera publicación para llenar tu muro.",
+      "cta": "Crear publicación",
+      "suggestTitle": "Personas que podrías seguir"
+    },
+    "following": "Siguiendo",
+    "follow": "Seguir",
+    "defaultUserName": "Usuario de Kinlo"
   }
 }

@@ -153,5 +153,42 @@
         "message": "Hey! We're so hyped you're here. This app was built with tons of love for people like you who want real connections, not just likes. Go explore some events, meet awesome humans, and let's make some memories! You got this"
       }
     }
+  },
+  "home": {
+    "greetingMorning": "Good morning",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening",
+    "defaultName": "Friend",
+    "digestBanner": "Your week, curated by Kinlo AI",
+    "searchPlaceholder": "Search events",
+    "rateExperiences": "RATE YOUR EXPERIENCES",
+    "dateUnknown": "Date unknown",
+    "zeroState": {
+      "title": "No featured events yet",
+      "text": "Be the first to host something your community will love.",
+      "cta": "Host one"
+    },
+    "featured": "FEATURED",
+    "adminDashboard": "Admin Dashboard",
+    "adminPendingRequest_one": "{{count}} pending request",
+    "adminPendingRequest_other": "{{count}} pending requests",
+    "adminManage": "Manage host requests and events",
+    "browseByCommunity": "BROWSE BY COMMUNITY",
+    "seeAll": "See all"
+  },
+  "wall": {
+    "askKinlo": "Ask Kinlo",
+    "aiFallbackNote": "AI picks are taking a break — showing the latest instead.",
+    "curatedForYou": "Curated for you by Kinlo AI",
+    "imIn": "I'm in",
+    "interested": "Interested",
+    "empty": {
+      "text": "Follow people and share your first post to fill your feed.",
+      "cta": "Create a post",
+      "suggestTitle": "People you might follow"
+    },
+    "following": "Following",
+    "follow": "Follow",
+    "defaultUserName": "Kinlo user"
   }
 }

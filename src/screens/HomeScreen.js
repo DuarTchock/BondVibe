@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import {
   doc,
   getDoc,
@@ -32,6 +33,7 @@ import FeaturedCarousel from "../components/FeaturedCarousel";
 
 export default function HomeScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t, i18n } = useTranslation();
   const { isHosting } = useMode();
   const [user, setUser] = useState(null);
   const [pendingHostRequests, setPendingHostRequests] = useState(0);
@@ -124,14 +126,14 @@ export default function HomeScreen({ navigation }) {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
+    if (hour < 12) return t("home.greetingMorning");
+    if (hour < 18) return t("home.greetingAfternoon");
+    return t("home.greetingEvening");
   };
 
   const getUserDisplayName = () => {
-    if (!user) return "Friend";
-    return user.fullName || user.name || "Friend";
+    if (!user) return t("home.defaultName");
+    return user.fullName || user.name || t("home.defaultName");
   };
 
   const isAdmin = user?.role === "admin";
@@ -171,7 +173,7 @@ export default function HomeScreen({ navigation }) {
         >
           <Icon name="ai" size={16} color="#C792EA" />
           <Text style={styles.digestText} numberOfLines={1}>
-            Your week, curated by Kinlo AI
+            {t("home.digestBanner")}
           </Text>
           <Icon name="forward" size={16} color="#C792EA" />
         </TouchableOpacity>
@@ -185,7 +187,7 @@ export default function HomeScreen({ navigation }) {
         >
           <Icon name="search" size={18} color={colors.textTertiary} />
           <Text style={[styles.searchPlaceholder, { color: colors.textTertiary }]}>
-            Search events
+            {t("home.searchPlaceholder")}
           </Text>
         </TouchableOpacity>
 
@@ -193,17 +195,17 @@ export default function HomeScreen({ navigation }) {
         {pendingRatingEvents.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>
-              RATE YOUR EXPERIENCES
+              {t("home.rateExperiences")}
             </Text>
             {pendingRatingEvents.map((event) => {
               const eventDate = event.date ? new Date(event.date) : null;
               const dateStr = eventDate
-                ? eventDate.toLocaleDateString("en-US", {
+                ? eventDate.toLocaleDateString(i18n.language, {
                     weekday: "short",
                     month: "short",
                     day: "numeric",
                   })
-                : "Date unknown";
+                : t("home.dateUnknown");
               return (
                 <TouchableOpacity
                   key={event.id}
@@ -259,10 +261,10 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.zeroState}>
             <Icon name="discover" size={36} color={colors.textTertiary} />
             <Text style={[styles.zeroTitle, { color: colors.text }]}>
-              No featured events yet
+              {t("home.zeroState.title")}
             </Text>
             <Text style={[styles.zeroText, { color: colors.textSecondary }]}>
-              Be the first to host something your community will love.
+              {t("home.zeroState.text")}
             </Text>
             <TouchableOpacity
               style={[styles.zeroCta, { backgroundColor: colors.primary }]}
@@ -273,7 +275,7 @@ export default function HomeScreen({ navigation }) {
               }
               activeOpacity={0.85}
             >
-              <Text style={styles.zeroCtaText}>Host one</Text>
+              <Text style={styles.zeroCtaText}>{t("home.zeroState.cta")}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -283,7 +285,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitleInline, { color: colors.textTertiary }]}>
-                FEATURED
+                {t("home.featured")}
               </Text>
             </View>
             <View style={styles.carouselWrap}>
@@ -332,7 +334,7 @@ export default function HomeScreen({ navigation }) {
                   )}
                 </View>
                 <View style={styles.adminText}>
-                  <Text style={styles.adminTitle}>Admin Dashboard</Text>
+                  <Text style={styles.adminTitle}>{t("home.adminDashboard")}</Text>
                   <Text
                     style={[
                       styles.adminSubtitle,
@@ -340,10 +342,8 @@ export default function HomeScreen({ navigation }) {
                     ]}
                   >
                     {pendingHostRequests > 0
-                      ? `${pendingHostRequests} pending request${
-                          pendingHostRequests > 1 ? "s" : ""
-                        }`
-                      : "Manage host requests and events"}
+                      ? t("home.adminPendingRequest", { count: pendingHostRequests })
+                      : t("home.adminManage")}
                   </Text>
                 </View>
                 <Icon name="forward" size={24} color="#FFD700" />
@@ -356,13 +356,13 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitleInline, { color: colors.textTertiary }]}>
-              BROWSE BY COMMUNITY
+              {t("home.browseByCommunity")}
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate("SearchEvents")}
             >
               <Text style={[styles.seeAll, { color: colors.primary }]}>
-                See all
+                {t("home.seeAll")}
               </Text>
             </TouchableOpacity>
           </View>

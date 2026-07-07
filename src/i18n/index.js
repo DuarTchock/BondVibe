@@ -10,8 +10,6 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import * as Localization from "expo-localization";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { doc, setDoc } from "firebase/firestore";
-import { db, auth } from "../services/firebase";
 import { APP_LANGUAGE_CODES } from "./languages";
 
 import en from "./locales/en.json";
@@ -67,6 +65,8 @@ AsyncStorage.getItem(STORAGE_KEY)
 
 /**
  * Switch the whole app's UI language and persist it (device + profile).
+ * Firebase is required lazily so importing this module (e.g. for i18next init
+ * in tests) never needs a live Firebase config.
  * @param {string} code one of APP_LANGUAGE_CODES (en/es today)
  */
 export async function setAppLanguage(code) {
@@ -78,6 +78,8 @@ export async function setAppLanguage(code) {
     // non-fatal
   }
   try {
+    const { doc, setDoc } = require("firebase/firestore");
+    const { db, auth } = require("../services/firebase");
     const uid = auth.currentUser && auth.currentUser.uid;
     if (uid) {
       await setDoc(doc(db, "users", uid), { language: code }, { merge: true });

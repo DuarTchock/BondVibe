@@ -13,6 +13,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
 import { collection, getDocs, query, limit, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
@@ -39,6 +40,7 @@ const WALL_CACHE_TTL_MS = 90 * 60 * 1000; // §10: cache ranking per session
 /** Smart Wall header: digest AICard + top ranked event cards with WhyPill. */
 function SmartWallHeader({ navigation }) {
   const { colors } = useTheme();
+  const { t, i18n } = useTranslation();
   const { aiOptIn } = useAiOptIn();
   const { data, loading, fallback } = useClaude(
     "smart_wall",
@@ -82,21 +84,21 @@ function SmartWallHeader({ navigation }) {
     // Model unavailable → soft note, plain feed below (never fake output).
     return (
       <Text style={[TYPE.caption, sw.fallbackNote, { color: colors.textTertiary }]}>
-        AI picks are taking a break — showing the latest instead.
+        {t("wall.aiFallbackNote")}
       </Text>
     );
   }
 
   return (
     <View style={sw.block}>
-      <AICard eyebrow="Curated for you by Kinlo AI">
+      <AICard eyebrow={t("wall.curatedForYou")}>
         <AIText>{data.digest.text}</AIText>
       </AICard>
       {top.map((item) => {
         const ev = events[item.eventId];
         if (!ev) return null;
         const when = ev.date
-          ? new Date(ev.date).toLocaleDateString("en-US", {
+          ? new Date(ev.date).toLocaleDateString(i18n.language, {
               weekday: "short",
               month: "short",
               day: "numeric",
@@ -125,7 +127,7 @@ function SmartWallHeader({ navigation }) {
                 onPress={() => navigation.navigate("EventDetail", { eventId: item.eventId })}
                 activeOpacity={0.85}
               >
-                <Text style={[TYPE.label, sw.ctaText]}>I'm in</Text>
+                <Text style={[TYPE.label, sw.ctaText]}>{t("wall.imIn")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -153,7 +155,7 @@ function SmartWallHeader({ navigation }) {
                 <Text
                   style={[TYPE.label, { color: interested ? colors.primary : colors.textSecondary }]}
                 >
-                  Interested
+                  {t("wall.interested")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -194,6 +196,7 @@ const sw = StyleSheet.create({
 
 export default function FeedScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
@@ -211,7 +214,7 @@ export default function FeedScreen({ navigation }) {
           const data = d.data();
           return {
             id: d.id,
-            name: data.fullName || data.name || "Kinlo user",
+            name: data.fullName || data.name || t("wall.defaultUserName"),
             avatar: data.avatar,
             following: false,
           };
@@ -257,7 +260,7 @@ export default function FeedScreen({ navigation }) {
           testID="wall-ask-kinlo"
         >
           <Icon name="ai" size={14} color={colors.primary} />
-          <Text style={[styles.askPillText, { color: colors.primary }]}>Ask Kinlo</Text>
+          <Text style={[styles.askPillText, { color: colors.primary }]}>{t("wall.askKinlo")}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => navigation.navigate("CreatePost")} hitSlop={hit}>
           <Icon name="add" size={26} color={colors.text} />
@@ -280,19 +283,19 @@ export default function FeedScreen({ navigation }) {
             <View style={styles.empty}>
               <Icon name="community" size={40} color={colors.textTertiary} />
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                Follow people and share your first post to fill your feed.
+                {t("wall.empty.text")}
               </Text>
               <TouchableOpacity
                 style={[styles.cta, { backgroundColor: colors.primary }]}
                 onPress={() => navigation.navigate("CreatePost")}
               >
-                <Text style={styles.ctaText}>Create a post</Text>
+                <Text style={styles.ctaText}>{t("wall.empty.cta")}</Text>
               </TouchableOpacity>
 
               {suggestions.length > 0 && (
                 <View style={styles.suggestSection}>
                   <Text style={[styles.suggestTitle, { color: colors.text }]}>
-                    People you might follow
+                    {t("wall.empty.suggestTitle")}
                   </Text>
                   {suggestions.map((p) => (
                     <View
@@ -337,7 +340,7 @@ export default function FeedScreen({ navigation }) {
                             { color: p.following ? colors.text : "#FFFFFF" },
                           ]}
                         >
-                          {p.following ? "Following" : "Follow"}
+                          {p.following ? t("wall.following") : t("wall.follow")}
                         </Text>
                       </TouchableOpacity>
                     </View>
