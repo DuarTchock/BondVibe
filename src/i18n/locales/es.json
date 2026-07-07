@@ -595,5 +595,68 @@
       "noUserMsg": "No se encontró el usuario. Inicia sesión de nuevo.",
       "saveFailedMsg": "No se pudo guardar tu consentimiento. Intenta de nuevo."
     }
+  },
+  "eventChat": {
+    "groupChat": "Chat grupal",
+    "startConversation": "¡Empieza la conversación!",
+    "messagePlaceholder": "Escribe un mensaje...",
+    "someone": "Alguien",
+    "host": "Host",
+    "user": "Usuario",
+    "tapToOpenInMaps": "Toca para abrir en maps",
+    "isTyping": "{{name}} está escribiendo...",
+    "twoAreTyping": "{{name1}} y {{name2}} están escribiendo...",
+    "othersAreTyping": "{{name1}}, {{name2}} y {{count}} más están escribiendo...",
+    "openLocationIn": "Abrir ubicación en…",
+    "appleMaps": "Apple Maps",
+    "googleMaps": "Google Maps",
+    "waze": "Waze",
+    "maps": "Maps",
+    "cancel": "Cancelar",
+    "poll": {
+      "createTitle": "Crear una encuesta",
+      "questionPlaceholder": "Pregunta",
+      "optionPlaceholder": "Opción {{num}}",
+      "addOption": "+ Agregar opción",
+      "anonymous": "Anónima",
+      "anonymousHint": "Oculta quién votó qué",
+      "creating": "Creando…",
+      "createPoll": "Crear encuesta"
+    },
+    "carpool": {
+      "title": "Ofrecer un aventón",
+      "seatsPlaceholder": "Lugares disponibles (ej. 3)",
+      "pickupPlaceholder": "Zona de recogida (ej. Centro)",
+      "departureTimePlaceholder": "Hora de salida (toca para elegir)",
+      "done": "Listo",
+      "notesPlaceholder": "Notas (opcional)",
+      "posting": "Publicando…",
+      "offerRide": "Ofrecer aventón"
+    },
+    "placeSearchPlaceholder": "Busca un lugar para compartir…",
+    "shareLocation": {
+      "title": "Compartir ubicación",
+      "prompt": "¿Buscar un lugar, o compartir tu ubicación actual?",
+      "searchPlace": "Buscar un lugar",
+      "currentLocation": "Ubicación actual"
+    },
+    "alerts": {
+      "accessRestrictedTitle": "Acceso restringido",
+      "needToJoinMsg": "Debes unirte a este evento antes de poder acceder a su chat.",
+      "goBack": "Regresar",
+      "noPermissionMsg": "No tienes permiso para acceder a este chat.",
+      "messageBlockedTitle": "Mensaje bloqueado",
+      "noMapLocationTitle": "Sin ubicación en el mapa",
+      "noMapLocationMsg": "Ese lugar no devolvió coordenadas. Intenta otra búsqueda.",
+      "errorTitle": "Error",
+      "couldntSharePlaceMsg": "No se pudo compartir ese lugar. Intenta de nuevo.",
+      "permissionRequiredTitle": "Permiso requerido",
+      "permissionRequiredMsg": "Habilita los permisos de ubicación para compartir tu ubicación.",
+      "ok": "OK",
+      "couldntShareLocationMsg": "No se pudo compartir la ubicación. Intenta de nuevo.",
+      "couldntCreatePollTitle": "No se pudo crear la encuesta",
+      "tryAgain": "Intenta de nuevo.",
+      "couldntOfferRideTitle": "No se pudo ofrecer el aventón"
+    }
   }
 }

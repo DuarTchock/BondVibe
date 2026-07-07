@@ -595,5 +595,68 @@
       "noUserMsg": "No user found. Please log in again.",
       "saveFailedMsg": "Failed to save your consent. Please try again."
     }
+  },
+  "eventChat": {
+    "groupChat": "Group Chat",
+    "startConversation": "Start the conversation!",
+    "messagePlaceholder": "Type a message...",
+    "someone": "Someone",
+    "host": "Host",
+    "user": "User",
+    "tapToOpenInMaps": "Tap to open in maps",
+    "isTyping": "{{name}} is typing...",
+    "twoAreTyping": "{{name1}} and {{name2}} are typing...",
+    "othersAreTyping": "{{name1}}, {{name2}} and {{count}} others are typing...",
+    "openLocationIn": "Open location in…",
+    "appleMaps": "Apple Maps",
+    "googleMaps": "Google Maps",
+    "waze": "Waze",
+    "maps": "Maps",
+    "cancel": "Cancel",
+    "poll": {
+      "createTitle": "Create a poll",
+      "questionPlaceholder": "Question",
+      "optionPlaceholder": "Option {{num}}",
+      "addOption": "+ Add option",
+      "anonymous": "Anonymous",
+      "anonymousHint": "Hide who voted for what",
+      "creating": "Creating…",
+      "createPoll": "Create poll"
+    },
+    "carpool": {
+      "title": "Offer a ride",
+      "seatsPlaceholder": "Seats available (e.g. 3)",
+      "pickupPlaceholder": "Pickup area (e.g. Centro)",
+      "departureTimePlaceholder": "Departure time (tap to pick)",
+      "done": "Done",
+      "notesPlaceholder": "Notes (optional)",
+      "posting": "Posting…",
+      "offerRide": "Offer ride"
+    },
+    "placeSearchPlaceholder": "Search a place to share…",
+    "shareLocation": {
+      "title": "Share location",
+      "prompt": "Search for a place, or share your current location?",
+      "searchPlace": "Search a place",
+      "currentLocation": "Current location"
+    },
+    "alerts": {
+      "accessRestrictedTitle": "Access Restricted",
+      "needToJoinMsg": "You need to join this event before you can access its chat.",
+      "goBack": "Go Back",
+      "noPermissionMsg": "You don't have permission to access this chat.",
+      "messageBlockedTitle": "Message blocked",
+      "noMapLocationTitle": "No map location",
+      "noMapLocationMsg": "That place didn't return coordinates. Try another search.",
+      "errorTitle": "Error",
+      "couldntSharePlaceMsg": "Could not share that place. Please try again.",
+      "permissionRequiredTitle": "Permission Required",
+      "permissionRequiredMsg": "Please enable location permissions to share your location.",
+      "ok": "OK",
+      "couldntShareLocationMsg": "Could not share location. Please try again.",
+      "couldntCreatePollTitle": "Couldn't create poll",
+      "tryAgain": "Please try again.",
+      "couldntOfferRideTitle": "Couldn't offer ride"
+    }
   }
 }

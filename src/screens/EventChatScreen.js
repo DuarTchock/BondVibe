@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { StatusBar } from "expo-status-bar";
+import { useTranslation } from "react-i18next";
 import * as Location from "expo-location";
 import PollCard from "../components/PollCard";
 import { AvatarDisplay } from "../components/AvatarPicker";
@@ -48,6 +49,7 @@ import {
 
 export default function EventChatScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
+  const { t, i18n } = useTranslation();
   const { eventId, eventTitle } = route.params;
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
@@ -106,9 +108,9 @@ export default function EventChatScreen({ route, navigation }) {
           if (!isCreator && !isAttendee) {
             setLoading(false);
             Alert.alert(
-              "Access Restricted",
-              "You need to join this event before you can access its chat.",
-              [{ text: "Go Back", onPress: () => navigation.goBack() }]
+              t("eventChat.alerts.accessRestrictedTitle"),
+              t("eventChat.alerts.needToJoinMsg"),
+              [{ text: t("eventChat.alerts.goBack"), onPress: () => navigation.goBack() }]
             );
             return;
           }
@@ -209,9 +211,9 @@ export default function EventChatScreen({ route, navigation }) {
         setLoading(false);
         if (error?.code === "permission-denied") {
           Alert.alert(
-            "Access Restricted",
-            "You don't have permission to access this chat.",
-            [{ text: "Go Back", onPress: () => navigation.goBack() }]
+            t("eventChat.alerts.accessRestrictedTitle"),
+            t("eventChat.alerts.noPermissionMsg"),
+            [{ text: t("eventChat.alerts.goBack"), onPress: () => navigation.goBack() }]
           );
         }
       }
@@ -271,7 +273,7 @@ export default function EventChatScreen({ route, navigation }) {
     if (guard.flagged) {
       setInputText("");
       reportProhibitedContent({ reason: guard.reason, content: text, eventId });
-      Alert.alert("Message blocked", PROHIBITED_MESSAGE);
+      Alert.alert(t("eventChat.alerts.messageBlockedTitle"), PROHIBITED_MESSAGE);
       return;
     }
     setInputText("");
@@ -317,12 +319,12 @@ export default function EventChatScreen({ route, navigation }) {
   // Offer searching for a specific place, or sharing the current location.
   const promptShareLocation = () => {
     Alert.alert(
-      "Share location",
-      "Search for a place, or share your current location?",
+      t("eventChat.shareLocation.title"),
+      t("eventChat.shareLocation.prompt"),
       [
-        { text: "Search a place", onPress: () => setShowPlaceSearch(true) },
-        { text: "Current location", onPress: shareCurrentLocation },
-        { text: "Cancel", style: "cancel" },
+        { text: t("eventChat.shareLocation.searchPlace"), onPress: () => setShowPlaceSearch(true) },
+        { text: t("eventChat.shareLocation.currentLocation"), onPress: shareCurrentLocation },
+        { text: t("eventChat.cancel"), style: "cancel" },
       ]
     );
   };
@@ -333,8 +335,8 @@ export default function EventChatScreen({ route, navigation }) {
     const { latitude, longitude, address, description } = place || {};
     if (typeof latitude !== "number" || typeof longitude !== "number") {
       Alert.alert(
-        "No map location",
-        "That place didn't return coordinates. Try another search."
+        t("eventChat.alerts.noMapLocationTitle"),
+        t("eventChat.alerts.noMapLocationMsg")
       );
       return;
     }
@@ -349,7 +351,7 @@ export default function EventChatScreen({ route, navigation }) {
       );
     } catch (error) {
       console.error("Error sharing place:", error);
-      Alert.alert("Error", "Could not share that place. Please try again.");
+      Alert.alert(t("eventChat.alerts.errorTitle"), t("eventChat.alerts.couldntSharePlaceMsg"));
     } finally {
       setSendingLocation(false);
     }
@@ -363,9 +365,9 @@ export default function EventChatScreen({ route, navigation }) {
 
       if (status !== "granted") {
         Alert.alert(
-          "Permission Required",
-          "Please enable location permissions to share your location.",
-          [{ text: "OK" }]
+          t("eventChat.alerts.permissionRequiredTitle"),
+          t("eventChat.alerts.permissionRequiredMsg"),
+          [{ text: t("eventChat.alerts.ok") }]
         );
         setSendingLocation(false);
         return;
@@ -405,7 +407,7 @@ export default function EventChatScreen({ route, navigation }) {
       console.log("📍 Location shared");
     } catch (error) {
       console.error("Error sharing location:", error);
-      Alert.alert("Error", "Could not share location. Please try again.");
+      Alert.alert(t("eventChat.alerts.errorTitle"), t("eventChat.alerts.couldntShareLocationMsg"));
     } finally {
       setSendingLocation(false);
     }
@@ -433,13 +435,13 @@ export default function EventChatScreen({ route, navigation }) {
       setPollModalVisible(false);
       setPollAnon(false);
     } else {
-      Alert.alert("Couldn't create poll", result.error || "Please try again.");
+      Alert.alert(t("eventChat.alerts.couldntCreatePollTitle"), result.error || t("eventChat.alerts.tryAgain"));
     }
   };
 
   const currentUserName = () => {
     const u = users[auth.currentUser?.uid];
-    return u?.fullName || u?.name || "Someone";
+    return u?.fullName || u?.name || t("eventChat.someone");
   };
 
   const handleCreateCarpool = async () => {
@@ -459,7 +461,7 @@ export default function EventChatScreen({ route, navigation }) {
         notes: "",
       });
     } else {
-      Alert.alert("Couldn't offer ride", result.error || "Please try again.");
+      Alert.alert(t("eventChat.alerts.couldntOfferRideTitle"), result.error || t("eventChat.alerts.tryAgain"));
     }
   };
 
@@ -468,21 +470,21 @@ export default function EventChatScreen({ route, navigation }) {
     const open = (url) => Linking.openURL(url).catch(() => {});
     const buttons = [];
     if (Platform.OS === "ios") {
-      buttons.push({ text: "Apple Maps", onPress: () => open(`maps:0,0?q=${latLng}`) });
+      buttons.push({ text: t("eventChat.appleMaps"), onPress: () => open(`maps:0,0?q=${latLng}`) });
     }
     buttons.push({
-      text: "Google Maps",
+      text: t("eventChat.googleMaps"),
       onPress: () => open(`https://www.google.com/maps/search/?api=1&query=${latLng}`),
     });
     buttons.push({
-      text: "Waze",
+      text: t("eventChat.waze"),
       onPress: () => open(`https://waze.com/ul?ll=${latLng}&navigate=yes`),
     });
     if (Platform.OS === "android") {
-      buttons.push({ text: "Maps", onPress: () => open(`geo:0,0?q=${latLng}`) });
+      buttons.push({ text: t("eventChat.maps"), onPress: () => open(`geo:0,0?q=${latLng}`) });
     }
-    buttons.push({ text: "Cancel", style: "cancel" });
-    Alert.alert("Open location in…", "", buttons);
+    buttons.push({ text: t("eventChat.cancel"), style: "cancel" });
+    Alert.alert(t("eventChat.openLocationIn"), "", buttons);
   };
 
   const getMessageStatus = (message) => {
@@ -520,8 +522,8 @@ export default function EventChatScreen({ route, navigation }) {
 
   // ✅ HELPER: Get user display name (handles both fullName and name fields)
   const getUserDisplayName = (user) => {
-    if (!user) return "User";
-    return user.fullName || user.name || "User";
+    if (!user) return t("eventChat.user");
+    return user.fullName || user.name || t("eventChat.user");
   };
 
   const styles = createStyles(colors);
@@ -529,7 +531,7 @@ export default function EventChatScreen({ route, navigation }) {
   const MessageBubble = ({ message }) => {
     const isMe = message.senderId === auth.currentUser.uid;
     const user = users[message.senderId];
-    const time = new Date(message.createdAt).toLocaleTimeString("en-US", {
+    const time = new Date(message.createdAt).toLocaleTimeString(i18n.language, {
       hour: "numeric",
       minute: "2-digit",
     });
@@ -546,7 +548,7 @@ export default function EventChatScreen({ route, navigation }) {
         >
           {!isMe && user && (
             <Text style={[styles.senderName, { color: colors.primary }]}>
-              {user.fullName || user.name || "Host"}
+              {user.fullName || user.name || t("eventChat.host")}
             </Text>
           )}
           <PollCard
@@ -572,7 +574,7 @@ export default function EventChatScreen({ route, navigation }) {
         >
           {!isMe && user && (
             <Text style={[styles.senderName, { color: colors.primary }]}>
-              {user.fullName || user.name || "Someone"}
+              {user.fullName || user.name || t("eventChat.someone")}
             </Text>
           )}
           <CarpoolCard
@@ -636,7 +638,7 @@ export default function EventChatScreen({ route, navigation }) {
             <Text
               style={[styles.locationSubtext, { color: colors.textSecondary }]}
             >
-              Tap to open in maps
+              {t("eventChat.tapToOpenInMaps")}
             </Text>
             <View style={styles.messageFooter}>
               <Text style={[styles.timeStamp, { color: colors.textTertiary }]}>
@@ -711,13 +713,15 @@ export default function EventChatScreen({ route, navigation }) {
 
     let typingText = "";
     if (typingUserNames.length === 1) {
-      typingText = `${typingUserNames[0]} is typing...`;
+      typingText = t("eventChat.isTyping", { name: typingUserNames[0] });
     } else if (typingUserNames.length === 2) {
-      typingText = `${typingUserNames[0]} and ${typingUserNames[1]} are typing...`;
+      typingText = t("eventChat.twoAreTyping", { name1: typingUserNames[0], name2: typingUserNames[1] });
     } else {
-      typingText = `${typingUserNames[0]}, ${typingUserNames[1]} and ${
-        typingUsers.length - 2
-      } others are typing...`;
+      typingText = t("eventChat.othersAreTyping", {
+        name1: typingUserNames[0],
+        name2: typingUserNames[1],
+        count: typingUsers.length - 2,
+      });
     }
 
     return (
@@ -775,7 +779,7 @@ export default function EventChatScreen({ route, navigation }) {
           <Text
             style={[styles.headerSubtitle, { color: colors.textSecondary }]}
           >
-            Group Chat
+            {t("eventChat.groupChat")}
           </Text>
         </View>
         <View style={{ width: 28 }} />
@@ -800,7 +804,7 @@ export default function EventChatScreen({ route, navigation }) {
             <Text
               style={[styles.emptyChatText, { color: colors.textSecondary }]}
             >
-              Start the conversation!
+              {t("eventChat.startConversation")}
             </Text>
           </View>
         ) : (
@@ -862,7 +866,7 @@ export default function EventChatScreen({ route, navigation }) {
             style={[styles.input, { color: colors.text }]}
             value={inputText}
             onChangeText={handleTextChange}
-            placeholder="Type a message..."
+            placeholder={t("eventChat.messagePlaceholder")}
             placeholderTextColor={colors.textTertiary}
             multiline
             maxLength={500}
@@ -901,11 +905,11 @@ export default function EventChatScreen({ route, navigation }) {
         <View style={styles.pollModalOverlay}>
           <View style={[styles.pollModalCard, { backgroundColor: colors.background }]}>
             <Text style={[styles.pollModalTitle, { color: colors.text }]}>
-              Create a poll
+              {t("eventChat.poll.createTitle")}
             </Text>
             <TextInput
               style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-              placeholder="Question"
+              placeholder={t("eventChat.poll.questionPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={pollQuestion}
               onChangeText={setPollQuestion}
@@ -915,7 +919,7 @@ export default function EventChatScreen({ route, navigation }) {
               <TextInput
                 key={i}
                 style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-                placeholder={`Option ${i + 1}`}
+                placeholder={t("eventChat.poll.optionPlaceholder", { num: i + 1 })}
                 placeholderTextColor={colors.textTertiary}
                 value={opt}
                 onChangeText={(v) => updatePollOption(i, v)}
@@ -925,15 +929,15 @@ export default function EventChatScreen({ route, navigation }) {
             {pollOptions.length < 5 && (
               <TouchableOpacity onPress={() => setPollOptions((p) => [...p, ""])}>
                 <Text style={[styles.pollAddOption, { color: colors.primary }]}>
-                  + Add option
+                  {t("eventChat.poll.addOption")}
                 </Text>
               </TouchableOpacity>
             )}
             <View style={styles.pollAnonRow}>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.text, fontWeight: "600" }}>Anonymous</Text>
+                <Text style={{ color: colors.text, fontWeight: "600" }}>{t("eventChat.poll.anonymous")}</Text>
                 <Text style={{ color: colors.textTertiary, fontSize: 12 }}>
-                  Hide who voted for what
+                  {t("eventChat.poll.anonymousHint")}
                 </Text>
               </View>
               <Switch
@@ -945,12 +949,12 @@ export default function EventChatScreen({ route, navigation }) {
             <View style={styles.pollModalActions}>
               <TouchableOpacity onPress={() => setPollModalVisible(false)}>
                 <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
-                  Cancel
+                  {t("eventChat.cancel")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleCreatePoll} disabled={creatingPoll}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  {creatingPoll ? "Creating…" : "Create poll"}
+                  {creatingPoll ? t("eventChat.poll.creating") : t("eventChat.poll.createPoll")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -964,11 +968,11 @@ export default function EventChatScreen({ route, navigation }) {
         <View style={styles.pollModalOverlay}>
           <View style={[styles.pollModalCard, { backgroundColor: colors.background }]}>
             <Text style={[styles.pollModalTitle, { color: colors.text }]}>
-              Offer a ride
+              {t("eventChat.carpool.title")}
             </Text>
             <TextInput
               style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-              placeholder="Seats available (e.g. 3)"
+              placeholder={t("eventChat.carpool.seatsPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={carpoolForm.seatsTotal}
               onChangeText={(v) =>
@@ -978,7 +982,7 @@ export default function EventChatScreen({ route, navigation }) {
             />
             <TextInput
               style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-              placeholder="Pickup area (e.g. Centro)"
+              placeholder={t("eventChat.carpool.pickupPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={carpoolForm.from}
               onChangeText={(v) => setCarpoolForm((f) => ({ ...f, from: v }))}
@@ -989,7 +993,7 @@ export default function EventChatScreen({ route, navigation }) {
               onPress={() => setShowDepPicker(true)}
             >
               <Text style={{ color: carpoolForm.departureTime ? colors.text : colors.textTertiary }}>
-                {carpoolForm.departureTime || "Departure time (tap to pick)"}
+                {carpoolForm.departureTime || t("eventChat.carpool.departureTimePlaceholder")}
               </Text>
             </TouchableOpacity>
             {showDepPicker && (
@@ -1018,14 +1022,14 @@ export default function EventChatScreen({ route, navigation }) {
                     style={{ alignSelf: "flex-end", padding: 8 }}
                     onPress={() => setShowDepPicker(false)}
                   >
-                    <Text style={{ color: colors.primary, fontWeight: "700" }}>Done</Text>
+                    <Text style={{ color: colors.primary, fontWeight: "700" }}>{t("eventChat.carpool.done")}</Text>
                   </TouchableOpacity>
                 )}
               </View>
             )}
             <TextInput
               style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-              placeholder="Notes (optional)"
+              placeholder={t("eventChat.carpool.notesPlaceholder")}
               placeholderTextColor={colors.textTertiary}
               value={carpoolForm.notes}
               onChangeText={(v) => setCarpoolForm((f) => ({ ...f, notes: v }))}
@@ -1034,12 +1038,12 @@ export default function EventChatScreen({ route, navigation }) {
             <View style={styles.pollModalActions}>
               <TouchableOpacity onPress={() => setCarpoolModalVisible(false)}>
                 <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
-                  Cancel
+                  {t("eventChat.cancel")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleCreateCarpool} disabled={creatingCarpool}>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>
-                  {creatingCarpool ? "Posting…" : "Offer ride"}
+                  {creatingCarpool ? t("eventChat.carpool.posting") : t("eventChat.carpool.offerRide")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1053,7 +1057,7 @@ export default function EventChatScreen({ route, navigation }) {
         open={showPlaceSearch}
         onOpenChange={setShowPlaceSearch}
         onSelect={handlePlaceSelected}
-        placeholder="Search a place to share…"
+        placeholder={t("eventChat.placeSearchPlaceholder")}
       />
     </KeyboardAvoidingView>
   );
