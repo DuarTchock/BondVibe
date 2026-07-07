@@ -2623,7 +2623,12 @@
       "membersTitle": "Members",
       "membersSubtitle_one": "{{count}} member",
       "membersSubtitle_other": "{{count}} members",
-      "moreSoon": "Dashboard, packages, finance and more arrive as we roll them out."
+      "operationsSection": "Operations",
+      "packagesTitle": "Packages",
+      "packagesSubtitle": "Class & session packs, credits",
+      "checkInTitle": "Check-in",
+      "checkInSubtitle": "Scan a member's pass to mark present",
+      "moreSoon": "Dashboard, finance, agenda and more arrive as we roll them out."
     },
     "setup": {
       "title": "New business",
@@ -2715,6 +2720,89 @@
       "emptyMsg": "Paste a CSV with a header row and at least one member.",
       "nameRequiredTitle": "Map the Name column",
       "nameRequiredMsg": "Choose which column holds the member's name."
+    },
+    "packages": {
+      "title": "Packages",
+      "emptyTitle": "No packages yet",
+      "emptyText": "Create a class pack, a pass, or a drop-in. Assign it to members and credits deduct on check-in.",
+      "addFirst": "Create a package",
+      "unlimited": "Unlimited",
+      "creditsCount_one": "{{count}} credit",
+      "creditsCount_other": "{{count}} credits",
+      "validDays": "valid {{days}}d",
+      "kindClass": "Class",
+      "kindSession": "Session",
+      "free": "Free"
+    },
+    "packageForm": {
+      "newTitle": "New package",
+      "editTitle": "Edit package",
+      "name": "Name",
+      "namePlaceholder": "e.g. 10-class pack",
+      "kind": "Type",
+      "unlimited": "Unlimited",
+      "credits": "Credits included",
+      "price": "Price (MXN)",
+      "validity": "Validity (days)",
+      "validityPlaceholder": "e.g. 60",
+      "save": "Save package",
+      "delete": "Delete package",
+      "deleteTitle": "Delete package?",
+      "deleteMsg": "Existing members keep their current credits.",
+      "nameRequiredTitle": "Name required",
+      "nameRequiredMsg": "Give the package a name."
+    },
+    "credits": {
+      "assign": "Assign a package",
+      "unlimited": "Unlimited",
+      "remaining": "{{remaining}} of {{total}} left",
+      "expires": "expires {{date}}",
+      "expired": "expired",
+      "change": "Change package",
+      "pickPackage": "Assign a package",
+      "noPackages": "No packages yet. Create one first.",
+      "addCredit": "Add a credit",
+      "removeCredit": "Remove a credit",
+      "reasonPlaceholder": "Reason (optional)",
+      "apply": "Apply"
+    },
+    "attendance": {
+      "markPresent": "Mark present",
+      "markedTitle": "Checked in",
+      "marked": "Attendance recorded.",
+      "markedCredit": "Attendance recorded · {{remaining}} credits left.",
+      "checkedIn": "Checked in",
+      "qr": "QR",
+      "manual": "manual"
+    },
+    "checkin": {
+      "headerTitle": "Check-in · {{count}}",
+      "present": "{{name}} checked in",
+      "presentCredit": "{{name}} · {{remaining}} credits left",
+      "wrongBusiness": "That pass is for another business.",
+      "notFound": "Member not found.",
+      "notAPass": "That isn't a Kinlo business pass.",
+      "permTitle": "We need the camera",
+      "permText": "To scan your members' passes and check them in.",
+      "allowCamera": "Allow camera",
+      "hint": "Point at the member's pass QR"
+    },
+    "pass": {
+      "defaultBusiness": "Business",
+      "hint": "Show this to the host to get checked in.",
+      "show": "Show"
+    },
+    "redeem": {
+      "title": "Link a business",
+      "intro": "Enter the code your host gave you. It links this account to their business and unlocks your check-in pass.",
+      "redeem": "Link account",
+      "invalid": "That code is invalid.",
+      "inUse": "That code is already in use.",
+      "failed": "Couldn't link right now. Please try again.",
+      "linked": "Linked!",
+      "done": "Done",
+      "entryTitle": "Have a business code?",
+      "entrySub": "Link a code from your studio, gym or host"
     }
   }
 }

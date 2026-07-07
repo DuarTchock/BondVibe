@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  Modal,
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -14,6 +15,8 @@ import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
+import BusinessPassCard from "../components/business/BusinessPassCard";
+import { getMyBusinessPasses } from "../services/businessPassService";
 import {
   getUserMemberships,
   getMembershipState,
@@ -31,6 +34,8 @@ export default function MyMembershipsScreen({ navigation }) {
     expired: { label: t("myMemberships.stateExpired"), color: "#c25b5b" },
   };
   const [memberships, setMemberships] = useState([]);
+  const [passes, setPasses] = useState([]);
+  const [passModal, setPassModal] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -40,8 +45,9 @@ export default function MyMembershipsScreen({ navigation }) {
   );
 
   const load = async () => {
-    const data = await getUserMemberships();
+    const [data, biz] = await Promise.all([getUserMemberships(), getMyBusinessPasses()]);
     setMemberships(data);
+    setPasses(biz);
     setLoading(false);
   };
 
@@ -138,6 +144,38 @@ export default function MyMembershipsScreen({ navigation }) {
         <View style={{ width: 28 }} />
       </View>
 
+      {/* Kinlo for Business — link a host's guest code + your check-in passes. */}
+      <View style={styles.bizBlock}>
+        <TouchableOpacity
+          style={[styles.bizEntry, { borderColor: colors.border, backgroundColor: colors.surfaceGlass }]}
+          onPress={() => navigation.navigate("BusinessRedeemCode")}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.bizEntryIcon, { backgroundColor: colors.brandSoft }]}>
+            <Icon name="qr" size={18} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.bizEntryTitle, { color: colors.text }]}>{t("business.redeem.entryTitle")}</Text>
+            <Text style={[styles.bizEntrySub, { color: colors.textTertiary }]}>{t("business.redeem.entrySub")}</Text>
+          </View>
+          <Icon name="forward" size={18} color={colors.textTertiary} />
+        </TouchableOpacity>
+        {passes.map((p) => (
+          <TouchableOpacity
+            key={`${p.bizId}-${p.memberId}`}
+            style={[styles.bizPassRow, { borderColor: colors.border }]}
+            onPress={() => setPassModal(p)}
+            activeOpacity={0.85}
+          >
+            <Icon name="ticket" size={18} color={colors.primary} />
+            <Text style={[styles.bizPassName, { color: colors.text }]} numberOfLines={1}>
+              {p.businessName || t("business.pass.defaultBusiness")}
+            </Text>
+            <Text style={[styles.bizPassAction, { color: colors.primary }]}>{t("business.pass.show")}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -157,6 +195,15 @@ export default function MyMembershipsScreen({ navigation }) {
           {memberships.map(renderCard)}
         </ScrollView>
       )}
+
+      {/* Business check-in pass */}
+      <Modal visible={!!passModal} transparent animationType="fade" onRequestClose={() => setPassModal(null)}>
+        <TouchableOpacity style={styles.passBackdrop} activeOpacity={1} onPress={() => setPassModal(null)}>
+          <View style={{ width: "100%", maxWidth: 360 }}>
+            <BusinessPassCard pass={passModal} />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </GradientBackground>
   );
 }
@@ -174,6 +221,15 @@ function createStyles(colors, isDark) {
     headerTitle: { fontSize: 20, fontWeight: "700" },
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
     content: { paddingHorizontal: 24, paddingBottom: 40 },
+    bizBlock: { paddingHorizontal: 24, paddingBottom: 12, gap: 10 },
+    bizEntry: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 14, padding: 14 },
+    bizEntryIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    bizEntryTitle: { fontSize: 14.5, fontWeight: "700" },
+    bizEntrySub: { fontSize: 12, marginTop: 2 },
+    bizPassRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+    bizPassName: { flex: 1, fontSize: 14, fontWeight: "700" },
+    bizPassAction: { fontSize: 13, fontWeight: "700" },
+    passBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)", padding: 32 },
     empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 },
     emptyTitle: { fontSize: 18, fontWeight: "700", marginTop: 16, marginBottom: 8 },
     emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20 },

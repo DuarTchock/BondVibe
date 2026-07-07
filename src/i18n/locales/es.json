@@ -2623,7 +2623,12 @@
       "membersTitle": "Miembros",
       "membersSubtitle_one": "{{count}} miembro",
       "membersSubtitle_other": "{{count}} miembros",
-      "moreSoon": "Panel, paquetes, finanzas y más llegan conforme los habilitemos."
+      "operationsSection": "Operación",
+      "packagesTitle": "Paquetes",
+      "packagesSubtitle": "Paquetes de clases/sesiones, créditos",
+      "checkInTitle": "Check-in",
+      "checkInSubtitle": "Escanea el pase del miembro para marcar presente",
+      "moreSoon": "Panel, finanzas, agenda y más llegan conforme los habilitemos."
     },
     "setup": {
       "title": "Nuevo negocio",
@@ -2715,6 +2720,89 @@
       "emptyMsg": "Pega un CSV con fila de encabezados y al menos un miembro.",
       "nameRequiredTitle": "Mapea la columna Nombre",
       "nameRequiredMsg": "Elige qué columna contiene el nombre del miembro."
+    },
+    "packages": {
+      "title": "Paquetes",
+      "emptyTitle": "Aún no hay paquetes",
+      "emptyText": "Crea un paquete de clases, un pase o un drop-in. Asígnalo a los miembros y los créditos se descuentan en el check-in.",
+      "addFirst": "Crear un paquete",
+      "unlimited": "Ilimitado",
+      "creditsCount_one": "{{count}} crédito",
+      "creditsCount_other": "{{count}} créditos",
+      "validDays": "vigencia {{days}}d",
+      "kindClass": "Clase",
+      "kindSession": "Sesión",
+      "free": "Gratis"
+    },
+    "packageForm": {
+      "newTitle": "Nuevo paquete",
+      "editTitle": "Editar paquete",
+      "name": "Nombre",
+      "namePlaceholder": "ej. Paquete de 10 clases",
+      "kind": "Tipo",
+      "unlimited": "Ilimitado",
+      "credits": "Créditos incluidos",
+      "price": "Precio (MXN)",
+      "validity": "Vigencia (días)",
+      "validityPlaceholder": "ej. 60",
+      "save": "Guardar paquete",
+      "delete": "Eliminar paquete",
+      "deleteTitle": "¿Eliminar paquete?",
+      "deleteMsg": "Los miembros actuales conservan sus créditos.",
+      "nameRequiredTitle": "Falta el nombre",
+      "nameRequiredMsg": "Dale un nombre al paquete."
+    },
+    "credits": {
+      "assign": "Asignar un paquete",
+      "unlimited": "Ilimitado",
+      "remaining": "{{remaining}} de {{total}} restantes",
+      "expires": "vence {{date}}",
+      "expired": "vencido",
+      "change": "Cambiar paquete",
+      "pickPackage": "Asignar un paquete",
+      "noPackages": "Aún no hay paquetes. Crea uno primero.",
+      "addCredit": "Agregar un crédito",
+      "removeCredit": "Quitar un crédito",
+      "reasonPlaceholder": "Motivo (opcional)",
+      "apply": "Aplicar"
+    },
+    "attendance": {
+      "markPresent": "Marcar presente",
+      "markedTitle": "Registrado",
+      "marked": "Asistencia registrada.",
+      "markedCredit": "Asistencia registrada · {{remaining}} créditos restantes.",
+      "checkedIn": "Registrado",
+      "qr": "QR",
+      "manual": "manual"
+    },
+    "checkin": {
+      "headerTitle": "Check-in · {{count}}",
+      "present": "{{name}} registrado",
+      "presentCredit": "{{name}} · {{remaining}} créditos restantes",
+      "wrongBusiness": "Ese pase es de otro negocio.",
+      "notFound": "Miembro no encontrado.",
+      "notAPass": "Eso no es un pase de Kinlo para Negocios.",
+      "permTitle": "Necesitamos la cámara",
+      "permText": "Para escanear los pases de tus miembros y registrarlos.",
+      "allowCamera": "Permitir cámara",
+      "hint": "Apunta al QR del pase del miembro"
+    },
+    "pass": {
+      "defaultBusiness": "Negocio",
+      "hint": "Muéstralo al anfitrión para que te registre.",
+      "show": "Mostrar"
+    },
+    "redeem": {
+      "title": "Vincular un negocio",
+      "intro": "Ingresa el código que te dio tu anfitrión. Vincula esta cuenta a su negocio y desbloquea tu pase de check-in.",
+      "redeem": "Vincular cuenta",
+      "invalid": "Ese código no es válido.",
+      "inUse": "Ese código ya está en uso.",
+      "failed": "No se pudo vincular ahora. Inténtalo de nuevo.",
+      "linked": "¡Vinculado!",
+      "done": "Listo",
+      "entryTitle": "¿Tienes un código de negocio?",
+      "entrySub": "Vincula un código de tu estudio, gym o anfitrión"
     }
   }
 }

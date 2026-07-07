@@ -39,6 +39,9 @@ const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const membersCol = (bizId) => collection(db, "businesses", bizId, "members");
 const memberRef = (bizId, id) => doc(db, "businesses", bizId, "members", id);
 
+/** Public member doc ref (used by packages/attendance services). */
+export const memberRefFor = (bizId, id) => doc(db, "businesses", bizId, "members", id);
+
 /**
  * Generate a short, human-shareable guest code, e.g. "RITMO-7F3K".
  * Prefix derived from the business name; 4 random unambiguous chars.
@@ -126,6 +129,7 @@ export async function createMember(data = {}, businessName = "", bizId = getMyBi
   const source = data.source || "manual";
   const payload = {
     name: (data.name || "").trim(),
+    businessName: businessName || null, // denormalized so a linked attendee can read it
     phone: (data.phone || "").trim() || null,
     email: (data.email || "").trim() || null,
     status: data.status || MEMBER_STATUS.ACTIVE,

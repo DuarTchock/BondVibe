@@ -108,6 +108,23 @@ export default function BusinessHubScreen({ navigation }) {
           />
         </View>
 
+        <SectionHeader title={t("business.hub.operationsSection")} />
+        <View style={card}>
+          <ListRow
+            icon="ticket"
+            title={t("business.hub.packagesTitle")}
+            subtitle={t("business.hub.packagesSubtitle")}
+            onPress={() => navigation.navigate("BusinessPackages")}
+          />
+          <ListRow
+            icon="qr"
+            title={t("business.hub.checkInTitle")}
+            subtitle={t("business.hub.checkInSubtitle")}
+            onPress={() => navigation.navigate("BusinessCheckIn")}
+            divider={false}
+          />
+        </View>
+
         <Text style={[styles.soon, { color: colors.textTertiary }]}>{t("business.hub.moreSoon")}</Text>
       </ScrollView>
     </GradientBackground>

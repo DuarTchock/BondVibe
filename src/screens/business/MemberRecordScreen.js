@@ -1,17 +1,19 @@
 /**
- * MemberRecordScreen — the member record (kinlo_business/01 §1). Identity,
- * hand-settable status, guest-code→QR, tags, notes timeline. Credits /
- * attendance / payments sections show their empty state until those blocks
- * (packages & attendance, finance) wire real data into the SAME record.
+ * MemberRecordScreen — the member record (kinlo_business/01 §1,3,4). Identity,
+ * hand-settable status, guest-code→QR, packages/credits (assign + manual +/-
+ * with reason), attendance ledger (mark present, auto-deduct, history), tags,
+ * notes timeline.
  */
 import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
+  TextInput,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Modal,
   Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -21,6 +23,7 @@ import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
 import StatusPill from "../../components/business/StatusPill";
 import GuestCodeCard from "../../components/business/GuestCodeCard";
+import CreditCard from "../../components/business/CreditCard";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getBusiness } from "../../services/businessService";
 import {
@@ -30,6 +33,9 @@ import {
   regenerateInviteCode,
   MEMBER_STATUS,
 } from "../../services/businessMembersService";
+import { listPackages, assignPackage, adjustCredits, PACKAGE_KIND } from "../../services/businessPackagesService";
+import { markPresent, listMemberAttendance } from "../../services/businessAttendanceService";
+import { formatCentavos } from "../../utils/pricing";
 
 const initials = (name = "") =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
@@ -40,12 +46,22 @@ export default function MemberRecordScreen({ route, navigation }) {
   const memberId = route.params?.memberId;
   const [member, setMember] = useState(null);
   const [business, setBusiness] = useState(null);
+  const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [assignVisible, setAssignVisible] = useState(false);
+  const [packages, setPackages] = useState([]);
+  const [adjust, setAdjust] = useState(null); // { delta, reason }
+
   const load = useCallback(async () => {
-    const [m, b] = await Promise.all([getMember(memberId), getBusiness()]);
+    const [m, b, att] = await Promise.all([
+      getMember(memberId),
+      getBusiness(),
+      listMemberAttendance(memberId),
+    ]);
     setMember(m);
     setBusiness(b);
+    setAttendance(att);
     setLoading(false);
   }, [memberId]);
 
@@ -55,9 +71,45 @@ export default function MemberRecordScreen({ route, navigation }) {
     }, [load])
   );
 
+  const reloadMember = async () => {
+    const [m, att] = await Promise.all([getMember(memberId), listMemberAttendance(memberId)]);
+    setMember(m);
+    setAttendance(att);
+  };
+
   const setStatus = async (status) => {
     setMember((m) => ({ ...m, status }));
     await updateMember(memberId, { status });
+  };
+
+  const openAssign = async () => {
+    setPackages(await listPackages({ activeOnly: true }));
+    setAssignVisible(true);
+  };
+
+  const onAssignPackage = async (pkg) => {
+    setAssignVisible(false);
+    await assignPackage(memberId, pkg.id);
+    await reloadMember();
+  };
+
+  const confirmAdjust = async () => {
+    const delta = adjust.delta;
+    const reason = adjust.reason;
+    setAdjust(null);
+    await adjustCredits({ ...member, id: memberId }, delta, reason || "manual");
+    await reloadMember();
+  };
+
+  const onMarkPresent = async () => {
+    const res = await markPresent({ ...member, id: memberId });
+    await reloadMember();
+    Alert.alert(
+      t("business.attendance.markedTitle"),
+      res.creditDeducted
+        ? t("business.attendance.markedCredit", { remaining: res.remaining })
+        : t("business.attendance.marked")
+    );
   };
 
   const onRegenerate = async () => {
@@ -133,7 +185,7 @@ export default function MemberRecordScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Hand-settable status (manual-first) */}
+        {/* Hand-settable status */}
         <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>{t("business.record.setStatus")}</Text>
         <View style={styles.statusRow}>
           {statusOptions.map((s) => {
@@ -142,10 +194,7 @@ export default function MemberRecordScreen({ route, navigation }) {
               <TouchableOpacity
                 key={s}
                 onPress={() => setStatus(s)}
-                style={[
-                  styles.statusChip,
-                  { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? `${colors.primary}14` : "transparent" },
-                ]}
+                style={[styles.statusChip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? `${colors.primary}14` : "transparent" }]}
               >
                 <StatusPill status={s} size="sm" />
               </TouchableOpacity>
@@ -153,14 +202,42 @@ export default function MemberRecordScreen({ route, navigation }) {
           })}
         </View>
 
-        {/* Guest code → QR */}
-        <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>{t("business.record.appAccess")}</Text>
-        <GuestCodeCard
-          code={member.inviteCode}
-          businessName={business?.name}
-          redeemed={!!member.redeemedAt}
-          onRegenerate={member.redeemedAt ? null : onRegenerate}
+        {/* Credits / package */}
+        <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>{t("business.record.credits")}</Text>
+        <CreditCard
+          member={member}
+          onAssign={openAssign}
+          onPlus={() => setAdjust({ delta: 1, reason: "" })}
+          onMinus={() => setAdjust({ delta: -1, reason: "" })}
         />
+
+        {/* Attendance */}
+        <View style={styles.attHeaderRow}>
+          <Text style={[styles.sectionLabel, { color: colors.textTertiary, marginTop: 0 }]}>{t("business.record.attendance")}</Text>
+          <TouchableOpacity style={[styles.markBtn, { backgroundColor: colors.primary }]} onPress={onMarkPresent}>
+            <Icon name="add" size={14} color="#fff" />
+            <Text style={styles.markText}>{t("business.attendance.markPresent")}</Text>
+          </TouchableOpacity>
+        </View>
+        {attendance.length === 0 ? (
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.emptyCardText, { color: colors.textTertiary }]}>{t("business.record.attendanceEmpty")}</Text>
+          </View>
+        ) : (
+          <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {attendance.slice(0, 12).map((a, i) => (
+              <View key={a.id} style={[styles.attRow, i > 0 && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth }]}>
+                <Text style={[styles.attTitle, { color: colors.text }]} numberOfLines={1}>
+                  {a.classTitle || t("business.attendance.checkedIn")}
+                </Text>
+                <Text style={[styles.attDate, { color: colors.textTertiary }]}>{new Date(a.date).toLocaleDateString()}</Text>
+                <Text style={[styles.attSource, { color: a.source === "qr" ? colors.success : colors.textTertiary }]}>
+                  {a.source === "qr" ? t("business.attendance.qr") : t("business.attendance.manual")}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Tags */}
         {Array.isArray(member.tags) && member.tags.length > 0 && (
@@ -176,23 +253,20 @@ export default function MemberRecordScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Credits — populated in the Packages block */}
-        <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>{t("business.record.credits")}</Text>
-        <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.emptyCardText, { color: colors.textTertiary }]}>{t("business.record.creditsEmpty")}</Text>
-        </View>
+        {/* Guest code → QR */}
+        <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>{t("business.record.appAccess")}</Text>
+        <GuestCodeCard
+          code={member.inviteCode}
+          businessName={business?.name}
+          redeemed={!!member.redeemedAt}
+          onRegenerate={member.redeemedAt ? null : onRegenerate}
+        />
 
-        {/* Attendance — populated in the Attendance block */}
-        <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>{t("business.record.attendance")}</Text>
-        <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.emptyCardText, { color: colors.textTertiary }]}>{t("business.record.attendanceEmpty")}</Text>
-        </View>
-
-        {/* Notes timeline */}
+        {/* Notes */}
         {Array.isArray(member.notes) && member.notes.length > 0 && (
           <>
             <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>{t("business.record.notes")}</Text>
-            <View style={[styles.notesCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               {member.notes.map((n, i) => (
                 <View key={i} style={[styles.noteRow, i > 0 && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth }]}>
                   <Text style={[styles.noteText, { color: colors.text }]}>{n.text}</Text>
@@ -207,6 +281,79 @@ export default function MemberRecordScreen({ route, navigation }) {
           <Text style={[styles.deleteText, { color: colors.error }]}>{t("business.record.delete")}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Assign-package modal */}
+      <Modal visible={assignVisible} transparent animationType="slide" onRequestClose={() => setAssignVisible(false)}>
+        <View style={styles.backdrop}>
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>{t("business.credits.pickPackage")}</Text>
+              <TouchableOpacity onPress={() => setAssignVisible(false)}>
+                <Icon name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {packages.length === 0 ? (
+              <View style={{ paddingVertical: 30, alignItems: "center" }}>
+                <Text style={{ color: colors.textTertiary, textAlign: "center" }}>{t("business.credits.noPackages")}</Text>
+                <TouchableOpacity
+                  style={[styles.createPkgBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    setAssignVisible(false);
+                    navigation.navigate("BusinessPackageForm", {});
+                  }}
+                >
+                  <Text style={styles.createPkgText}>{t("business.packages.addFirst")}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 360 }}>
+                {packages.map((p) => (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={[styles.pkgRow, { borderColor: colors.border }]}
+                    onPress={() => onAssignPackage(p)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.pkgName, { color: colors.text }]}>{p.name}</Text>
+                      <Text style={[styles.pkgMeta, { color: colors.textTertiary }]}>
+                        {p.unlimited ? t("business.packages.unlimited") : t("business.packages.creditsCount", { count: p.credits || 0 })}
+                        {` · ${p.priceCents ? formatCentavos(p.priceCents) : t("business.packages.free")}`}
+                      </Text>
+                    </View>
+                    <Icon name="forward" size={18} color={colors.textTertiary} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Credit adjust modal (with reason) */}
+      <Modal visible={!!adjust} transparent animationType="fade" onRequestClose={() => setAdjust(null)}>
+        <View style={styles.centerBackdrop}>
+          <View style={[styles.adjustCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.adjustTitle, { color: colors.text }]}>
+              {adjust?.delta > 0 ? t("business.credits.addCredit") : t("business.credits.removeCredit")}
+            </Text>
+            <TextInput
+              style={[styles.reasonInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={adjust?.reason}
+              onChangeText={(v) => setAdjust((a) => ({ ...a, reason: v }))}
+              placeholder={t("business.credits.reasonPlaceholder")}
+              placeholderTextColor={colors.textTertiary}
+            />
+            <View style={styles.adjustActions}>
+              <TouchableOpacity style={[styles.adjustBtn, { borderColor: colors.border, borderWidth: 1 }]} onPress={() => setAdjust(null)}>
+                <Text style={[styles.adjustBtnText, { color: colors.textSecondary }]}>{t("business.common.cancel")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.adjustBtn, { backgroundColor: colors.primary }]} onPress={confirmAdjust}>
+                <Text style={[styles.adjustBtnText, { color: "#fff" }]}>{t("business.credits.apply")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </GradientBackground>
   );
 }
@@ -214,14 +361,7 @@ export default function MemberRecordScreen({ route, navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
-    header: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingHorizontal: 20,
-      paddingTop: 60,
-      paddingBottom: 12,
-    },
+    header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 },
     headerTitle: { fontSize: 18, fontWeight: "800" },
     content: { paddingHorizontal: 24, paddingBottom: 40 },
     identity: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 8 },
@@ -232,15 +372,39 @@ function createStyles(colors) {
     sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", marginTop: 22, marginBottom: 10 },
     statusRow: { flexDirection: "row", gap: 8 },
     statusChip: { borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 },
+    attHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },
+    markBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16 },
+    markText: { color: "#fff", fontSize: 12.5, fontWeight: "700" },
     tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     tag: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
     tagText: { fontSize: 13, fontWeight: "600" },
     emptyCard: { borderWidth: 1, borderRadius: 14, padding: 16, alignItems: "center" },
     emptyCardText: { fontSize: 12.5, textAlign: "center", lineHeight: 18 },
-    notesCard: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14 },
+    listCard: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14 },
+    attRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 11 },
+    attTitle: { fontSize: 13.5, fontWeight: "600", flex: 1 },
+    attDate: { fontSize: 12 },
+    attSource: { fontSize: 11, fontWeight: "700" },
     noteRow: { paddingVertical: 12 },
     noteText: { fontSize: 13.5, lineHeight: 19 },
     deleteBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 20, marginTop: 10 },
     deleteText: { fontSize: 14, fontWeight: "700" },
+    // modals
+    backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+    sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 34 },
+    sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+    sheetTitle: { fontSize: 17, fontWeight: "800" },
+    pkgRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 10 },
+    pkgName: { fontSize: 14.5, fontWeight: "700" },
+    pkgMeta: { fontSize: 12, marginTop: 2 },
+    createPkgBtn: { marginTop: 16, borderRadius: 22, paddingVertical: 12, paddingHorizontal: 24 },
+    createPkgText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    centerBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)", padding: 32 },
+    adjustCard: { width: "100%", borderRadius: 20, padding: 20 },
+    adjustTitle: { fontSize: 16, fontWeight: "800", marginBottom: 14 },
+    reasonInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, marginBottom: 16 },
+    adjustActions: { flexDirection: "row", gap: 10 },
+    adjustBtn: { flex: 1, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+    adjustBtnText: { fontSize: 14, fontWeight: "700" },
   });
 }

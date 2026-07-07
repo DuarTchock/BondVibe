@@ -43,6 +43,10 @@ import MembersListScreen from "../screens/business/MembersListScreen";
 import MemberFormScreen from "../screens/business/MemberFormScreen";
 import MemberRecordScreen from "../screens/business/MemberRecordScreen";
 import CsvImportScreen from "../screens/business/CsvImportScreen";
+import PackagesScreen from "../screens/business/PackagesScreen";
+import PackageFormScreen from "../screens/business/PackageFormScreen";
+import BusinessCheckInScreen from "../screens/business/BusinessCheckInScreen";
+import RedeemCodeScreen from "../screens/business/RedeemCodeScreen";
 import PersonalityQuizScreen from "../screens/PersonalityQuizScreen";
 import PersonalityResultsScreen from "../screens/PersonalityResultsScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
@@ -502,6 +506,10 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="BusinessMemberForm" component={MemberFormScreen} />
           <Stack.Screen name="BusinessMemberRecord" component={MemberRecordScreen} />
           <Stack.Screen name="BusinessCsvImport" component={CsvImportScreen} />
+          <Stack.Screen name="BusinessPackages" component={PackagesScreen} />
+          <Stack.Screen name="BusinessPackageForm" component={PackageFormScreen} />
+          <Stack.Screen name="BusinessCheckIn" component={BusinessCheckInScreen} />
+          <Stack.Screen name="BusinessRedeemCode" component={RedeemCodeScreen} />
           <Stack.Screen
             name="PersonalityQuiz"
             component={PersonalityQuizScreen}

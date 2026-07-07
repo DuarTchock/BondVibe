@@ -704,8 +704,21 @@ service cloud.firestore {
         allow write: if isBizOwnerUid(bizId);
       }
 
-      // Member CRM records — any staff of the business may read/write.
+      // Member CRM records — staff read/write; the linked attendee may read
+      // their OWN record (to show their credits + check-in pass).
       match /members/{memberId} {
+        allow read: if isBizStaff(bizId) || isBizOwnerUid(bizId) ||
+                       (isSignedIn() && resource.data.linkedUid == request.auth.uid);
+        allow write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
+      }
+
+      // Packages (products: class/session packs, unlimited, drop-in).
+      match /packages/{packageId} {
+        allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
+      }
+
+      // Attendance ledger (QR or manual mark-present).
+      match /attendance/{recordId} {
         allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
       }
     }

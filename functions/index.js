@@ -1522,6 +1522,58 @@ exports.joinGroupByCode = onCall(async (request) => {
 });
 
 /**
+ * Redeem a Kinlo for Business guest code (kinlo_business/01 §2).
+ * An attendee (NOT staff of the business) enters the code the host gave them;
+ * this links their app account to the existing CRM member record and unlocks
+ * their business check-in pass. Server-side because the attendee has no write
+ * access to the host's members. Idempotent for the same user.
+ */
+exports.redeemBusinessGuestCode = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const code = (request.data?.code || "").trim().toUpperCase();
+  if (!code) throw new HttpsError("invalid-argument", "Missing code.");
+
+  const snap = await db
+    .collectionGroup("members")
+    .where("inviteCode", "==", code)
+    .limit(5)
+    .get();
+  if (snap.empty) throw new HttpsError("not-found", "That code is invalid.");
+
+  // Prefer a record already linked to this user (idempotent re-entry), else the
+  // first unredeemed one.
+  const docs = snap.docs;
+  const mine = docs.find((d) => d.data().linkedUid === uid);
+  const target = mine || docs.find((d) => !d.data().linkedUid) || docs[0];
+  const data = target.data();
+
+  if (data.linkedUid && data.linkedUid !== uid) {
+    throw new HttpsError("already-exists", "That code is already in use.");
+  }
+
+  const bizId = target.ref.parent.parent.id;
+  const bizSnap = await db.collection("businesses").doc(bizId).get();
+  const businessName = bizSnap.exists ? (bizSnap.data().name || "") : "";
+
+  if (!mine) {
+    await target.ref.update({
+      linkedUid: uid,
+      redeemedAt: admin.firestore.FieldValue.serverTimestamp(),
+      qrPassId: require("crypto").randomUUID(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  return {
+    bizId,
+    memberId: target.id,
+    businessName,
+    memberName: data.name || "",
+  };
+});
+
+/**
  * Atomic join for FREE events — enforces capacity inside a transaction so two
  * users can't both pass a stale capacity check and overbook. Paid events go
  * through checkout; membership joins go through reserveMembershipCredit.
