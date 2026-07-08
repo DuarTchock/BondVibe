@@ -201,6 +201,18 @@ export default function MyMembershipsScreen({ navigation }) {
         <TouchableOpacity style={styles.passBackdrop} activeOpacity={1} onPress={() => setPassModal(null)}>
           <View style={{ width: "100%", maxWidth: 360 }}>
             <BusinessPassCard pass={passModal} />
+            <TouchableOpacity
+              style={[styles.requestBtn, { backgroundColor: colors.primary }]}
+              activeOpacity={0.85}
+              onPress={() => {
+                const p = passModal;
+                setPassModal(null);
+                navigation.navigate("BusinessRequestSession", { bizId: p.bizId, businessName: p.businessName });
+              }}
+            >
+              <Icon name="calendar" size={17} color="#fff" />
+              <Text style={styles.requestBtnText}>{t("business.request.entry")}</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -230,6 +242,8 @@ function createStyles(colors, isDark) {
     bizPassName: { flex: 1, fontSize: 14, fontWeight: "700" },
     bizPassAction: { fontSize: 13, fontWeight: "700" },
     passBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)", padding: 32 },
+    requestBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 50, borderRadius: 25, marginTop: 16 },
+    requestBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
     empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 },
     emptyTitle: { fontSize: 18, fontWeight: "700", marginTop: 16, marginBottom: 8 },
     emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20 },

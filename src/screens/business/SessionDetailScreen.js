@@ -105,7 +105,7 @@ export default function SessionDetailScreen({ route, navigation }) {
         )}
         {b.status === BOOKING_STATUS.CONFIRMED && (
           <>
-            <TouchableOpacity style={[styles.primary, { backgroundColor: colors.primary, marginTop: 20 }]} onPress={() => doAction(markDone, b.id)}><Text style={styles.primaryText}>{t("business.session.markDone")}</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.primary, { backgroundColor: colors.primary, marginTop: 20 }]} onPress={() => doAction(markDone, b)}><Text style={styles.primaryText}>{t("business.session.markDone")}</Text></TouchableOpacity>
             <View style={styles.actionRow}>
               <TouchableOpacity style={[styles.ghost, { borderColor: colors.border }]} onPress={() => setReschedule({ date: new Date(b.start), time: new Date(b.start).toTimeString().slice(0, 5) })}><Text style={[styles.ghostText, { color: colors.text }]}>{t("business.session.reschedule")}</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.ghost, { borderColor: colors.border }]} onPress={onMessage}><Text style={[styles.ghostText, { color: colors.text }]}>{t("business.session.message")}</Text></TouchableOpacity>

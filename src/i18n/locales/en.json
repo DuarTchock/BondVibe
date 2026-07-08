@@ -2829,6 +2829,18 @@
       "entryTitle": "Have a business code?",
       "entrySub": "Link a code from your studio, gym or host"
     },
+    "request": {
+      "entry": "Request a session",
+      "title": "Request a session",
+      "pickType": "Session type",
+      "credit": "1 credit",
+      "hint": "This sends a request. The host confirms the final time, and a credit or payment is only applied once they accept.",
+      "send": "Send request",
+      "sentTitle": "Request sent",
+      "sentText": "The host will confirm your session soon. You'll get a notification.",
+      "done": "Done",
+      "noTypes": "This business isn't taking session requests yet."
+    },
     "dashboard": {
       "title": "Dashboard",
       "range": {
@@ -2905,6 +2917,7 @@
       "activity": "Activity",
       "save": "Save card",
       "moveTo": "Move to…",
+      "dragHint": "Drag onto a column to move",
       "pickMember": "Pick a member",
       "addCard": "Add a card",
       "emptyTitle": "Your board is clear",
@@ -2996,7 +3009,12 @@
       "location": "Location",
       "locationPlaceholder": "Room / address",
       "public": "List publicly",
-      "publicHint": "Show it in discovery to bring new customers (coming soon).",
+      "publicHint": "Show it in Kinlo discovery to bring in new customers.",
+      "city": "City",
+      "cityPlaceholder": "Where it shows in discovery",
+      "discoveryHint": "The next session is listed as an event people can find and join. Turning this off removes the listing.",
+      "cityRequiredTitle": "City required",
+      "cityRequiredMsg": "Pick a city so people can find this class in discovery.",
       "save": "Save class",
       "delete": "Delete class",
       "deleteTitle": "Delete class?",

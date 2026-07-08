@@ -47,6 +47,7 @@ import PackagesScreen from "../screens/business/PackagesScreen";
 import PackageFormScreen from "../screens/business/PackageFormScreen";
 import BusinessCheckInScreen from "../screens/business/BusinessCheckInScreen";
 import RedeemCodeScreen from "../screens/business/RedeemCodeScreen";
+import RequestSessionScreen from "../screens/business/RequestSessionScreen";
 import BusinessDashboardScreen from "../screens/business/BusinessDashboardScreen";
 import MomentumBoardScreen from "../screens/business/MomentumBoardScreen";
 import MomentumCardScreen from "../screens/business/MomentumCardScreen";
@@ -529,6 +530,7 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="BusinessPackageForm" component={PackageFormScreen} />
           <Stack.Screen name="BusinessCheckIn" component={BusinessCheckInScreen} />
           <Stack.Screen name="BusinessRedeemCode" component={RedeemCodeScreen} />
+          <Stack.Screen name="BusinessRequestSession" component={RequestSessionScreen} />
           <Stack.Screen name="BusinessDashboard" component={BusinessDashboardScreen} />
           <Stack.Screen name="MomentumBoard" component={MomentumBoardScreen} />
           <Stack.Screen name="MomentumCard" component={MomentumCardScreen} />

@@ -2829,6 +2829,18 @@
       "entryTitle": "¿Tienes un código de negocio?",
       "entrySub": "Vincula un código de tu estudio, gym o anfitrión"
     },
+    "request": {
+      "entry": "Solicitar una sesión",
+      "title": "Solicitar una sesión",
+      "pickType": "Tipo de sesión",
+      "credit": "1 crédito",
+      "hint": "Esto envía una solicitud. El anfitrión confirma la hora final, y el crédito o pago solo se aplica cuando acepta.",
+      "send": "Enviar solicitud",
+      "sentTitle": "Solicitud enviada",
+      "sentText": "El anfitrión confirmará tu sesión pronto. Recibirás una notificación.",
+      "done": "Listo",
+      "noTypes": "Este negocio aún no acepta solicitudes de sesión."
+    },
     "dashboard": {
       "title": "Panel",
       "range": {
@@ -2905,6 +2917,7 @@
       "activity": "Actividad",
       "save": "Guardar tarjeta",
       "moveTo": "Mover a…",
+      "dragHint": "Arrastra sobre una columna para mover",
       "pickMember": "Elige un miembro",
       "addCard": "Agregar tarjeta",
       "emptyTitle": "Tu tablero está despejado",
@@ -2996,7 +3009,12 @@
       "location": "Ubicación",
       "locationPlaceholder": "Salón / dirección",
       "public": "Listar públicamente",
-      "publicHint": "Muéstrala en descubrimiento para atraer clientes (próximamente).",
+      "publicHint": "Muéstrala en el descubrimiento de Kinlo para atraer nuevos clientes.",
+      "city": "Ciudad",
+      "cityPlaceholder": "Dónde aparece en descubrimiento",
+      "discoveryHint": "La próxima sesión se lista como un evento que la gente puede encontrar y al que puede unirse. Al desactivarlo se quita el listado.",
+      "cityRequiredTitle": "Falta la ciudad",
+      "cityRequiredMsg": "Elige una ciudad para que puedan encontrar esta clase en el descubrimiento.",
       "save": "Guardar clase",
       "delete": "Eliminar clase",
       "deleteTitle": "¿Eliminar clase?",

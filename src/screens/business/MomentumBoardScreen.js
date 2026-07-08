@@ -1,10 +1,11 @@
 /**
  * MomentumBoardScreen — the Momentum Kanban (kinlo_business/02 §B). Editable
- * columns; cards grouped by stage. Move a card via the column picker (reliable
- * on mobile; drag-and-drop is a follow-up). Add cards from members or bulk-
- * populate from at-risk/inactive members.
+ * columns; cards grouped by stage. Move a card by dragging it (long-press to
+ * lift, drop on a column) or via the column picker (the reliable fallback).
+ * Drag is dependency-free — core PanResponder + Animated, no native rebuild.
+ * Add cards from members or bulk-populate from at-risk/inactive members.
  */
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -14,6 +15,8 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  Animated,
+  PanResponder,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect } from "@react-navigation/native";
@@ -34,6 +37,48 @@ import { columnName } from "../../constants/momentumDefaults";
 
 const PRIORITY_FILTERS = [null, "urgent", "high", "medium", "low"];
 
+/**
+ * A card that can be lifted with a long-press and dragged. Kept at module scope
+ * (never redefined per render) so its PanResponder identity survives the parent
+ * re-renders a drag triggers. Latest callbacks are read through a ref to avoid
+ * stale closures; `armedRef` (set on long-press) gates the capture so normal
+ * taps and scrolls are never hijacked.
+ */
+function DragCard({ card, dragging, armedRef, onLift, onMoveDrag, onDrop, onPress, onMove }) {
+  const viewRef = useRef(null);
+  const cbs = useRef({});
+  cbs.current = { onLift, onMoveDrag, onDrop };
+  const responder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (e, g) =>
+        armedRef.current === card.id && Math.abs(g.dx) + Math.abs(g.dy) > 6,
+      onPanResponderGrant: () => {
+        if (viewRef.current) {
+          viewRef.current.measureInWindow((x, y, w) => cbs.current.onLift(card, x, y, w));
+        } else {
+          cbs.current.onLift(card, 0, 0, 240);
+        }
+      },
+      onPanResponderMove: (e, g) => cbs.current.onMoveDrag(g),
+      onPanResponderRelease: (e, g) => cbs.current.onDrop(card, g.moveX, g.moveY),
+      onPanResponderTerminate: () => cbs.current.onDrop(card, -1, -1),
+    })
+  ).current;
+
+  return (
+    <Animated.View ref={viewRef} collapsable={false} {...responder.panHandlers} style={dragging && { opacity: 0.25 }}>
+      <MomentumCard
+        card={card}
+        onPress={onPress}
+        onMove={onMove}
+        onLongPress={() => { armedRef.current = card.id; }}
+        onPressOut={() => { if (armedRef.current === card.id && !dragging) armedRef.current = null; }}
+        dragging={dragging}
+      />
+    </Animated.View>
+  );
+}
+
 export default function MomentumBoardScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
@@ -44,6 +89,50 @@ export default function MomentumBoardScreen({ navigation }) {
   const [pickMember, setPickMember] = useState(false);
   const [members, setMembers] = useState([]);
   const [priorityFilter, setPriorityFilter] = useState(null);
+
+  // ── Drag & drop (dependency-free) ──────────────────────────────────────────
+  const armedRef = useRef(null);          // card id armed by a long-press
+  const colRefs = useRef({});             // colId -> column View (for measuring)
+  const colFrames = useRef({});           // colId -> { x, w } in window coords
+  const [drag, setDrag] = useState(null); // { card, x, y, w } while lifting
+  const [hoverCol, setHoverCol] = useState(null);
+  const pan = useRef(new Animated.ValueXY()).current;
+
+  const onLift = useCallback((card, x, y, w) => {
+    // Snapshot every visible column's on-screen frame so the drop can hit-test.
+    Object.entries(colRefs.current).forEach(([id, r]) => {
+      r?.measureInWindow?.((cx, cy, cw) => { colFrames.current[id] = { x: cx, w: cw }; });
+    });
+    pan.setValue({ x: 0, y: 0 });
+    setDrag({ card, x, y, w: w || 240 });
+  }, [pan]);
+
+  const columnAtX = useCallback((moveX) => {
+    const hit = Object.entries(colFrames.current).find(
+      ([, f]) => moveX >= f.x && moveX <= f.x + f.w
+    );
+    return hit ? hit[0] : null;
+  }, []);
+
+  const onMoveDrag = useCallback((g) => {
+    pan.setValue({ x: g.dx, y: g.dy });
+    setHoverCol(columnAtX(g.moveX));
+  }, [pan, columnAtX]);
+
+  const onDrop = useCallback(async (card, moveX, moveY) => {
+    armedRef.current = null;
+    setDrag(null);
+    setHoverCol(null);
+    if (moveX < 0) return; // terminated (cancelled)
+    const colId = columnAtX(moveX);
+    if (colId && colId !== card.stage) {
+      const col = (board?.columns || []).find((c) => c.id === colId);
+      if (col) {
+        await moveCard(card, col.id, columnName(col, t));
+        load();
+      }
+    }
+  }, [board, columnAtX, t]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     const [b, c] = await Promise.all([getBoard(), listCards()]);
@@ -154,21 +243,40 @@ export default function MomentumBoardScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.boardRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.boardRow}
+          scrollEnabled={!drag}
+        >
           {columns.map((col) => {
             const colCards = visibleCards.filter((c) => c.stage === col.id);
+            const isTarget = drag && hoverCol === col.id && col.id !== drag.card.stage;
             return (
-              <View key={col.id} style={styles.column}>
+              <View
+                key={col.id}
+                ref={(r) => { colRefs.current[col.id] = r; }}
+                collapsable={false}
+                style={[
+                  styles.column,
+                  isTarget && { backgroundColor: `${col.color || colors.primary}12`, borderRadius: 14 },
+                ]}
+              >
                 <View style={styles.colHeader}>
                   <View style={[styles.colDot, { backgroundColor: col.color || colors.primary }]} />
                   <Text style={[styles.colName, { color: colors.text }]} numberOfLines={1}>{columnName(col, t)}</Text>
                   <Text style={[styles.colCount, { color: colors.textTertiary }]}>{colCards.length}</Text>
                 </View>
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                <ScrollView showsVerticalScrollIndicator={false} scrollEnabled={!drag} contentContainerStyle={{ paddingBottom: 20 }}>
                   {colCards.map((card) => (
-                    <MomentumCard
+                    <DragCard
                       key={card.id}
                       card={card}
+                      dragging={drag?.card.id === card.id}
+                      armedRef={armedRef}
+                      onLift={onLift}
+                      onMoveDrag={onMoveDrag}
+                      onDrop={onDrop}
                       onPress={() => navigation.navigate("MomentumCard", { cardId: card.id })}
                       onMove={() => setMovingCard(card)}
                     />
@@ -181,6 +289,27 @@ export default function MomentumBoardScreen({ navigation }) {
             );
           })}
         </ScrollView>
+      )}
+
+      {/* Floating drag copy — rendered above everything, follows the finger. */}
+      {drag && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.dragGhost,
+            { left: drag.x, top: drag.y, width: drag.w, transform: pan.getTranslateTransform() },
+          ]}
+        >
+          <MomentumCard card={drag.card} onPress={() => {}} onMove={() => {}} dragging />
+        </Animated.View>
+      )}
+
+      {drag && (
+        <View pointerEvents="none" style={styles.dragHintWrap}>
+          <View style={[styles.dragHint, { backgroundColor: colors.text }]}>
+            <Text style={[styles.dragHintText, { color: colors.background }]}>{t("business.momentum.dragHint")}</Text>
+          </View>
+        </View>
       )}
 
       {/* Move-to-column picker */}
@@ -265,5 +394,9 @@ function createStyles(colors) {
     sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
     memberRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 14 },
     memberName: { fontSize: 15, fontWeight: "600" },
+    dragGhost: { position: "absolute", zIndex: 1000, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 16 },
+    dragHintWrap: { position: "absolute", top: 108, left: 0, right: 0, alignItems: "center" },
+    dragHint: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16 },
+    dragHintText: { fontSize: 12.5, fontWeight: "700" },
   });
 }

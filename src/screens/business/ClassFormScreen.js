@@ -22,14 +22,20 @@ import { useTranslation } from "react-i18next";
 import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
 import DateField from "../../components/DateField";
+import SelectDropdown from "../../components/SelectDropdown";
+import useCities from "../../hooks/useCities";
 import { useTheme } from "../../contexts/ThemeContext";
-import { getClass, createClass, updateClass, deleteClass } from "../../services/businessClassesService";
+import {
+  getClass, createClass, updateClass, deleteClass,
+  publishClassToDiscovery, unpublishClass,
+} from "../../services/businessClassesService";
 
 const weekdayShort = (i, lang) => new Date(2024, 0, 7 + i).toLocaleDateString(lang || "en", { weekday: "short" });
 
 export default function ClassFormScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
   const { t, i18n } = useTranslation();
+  const { cities: cityOptions } = useCities();
   const classId = route.params?.classId || null;
   const editing = !!classId;
 
@@ -44,6 +50,7 @@ export default function ClassFormScreen({ route, navigation }) {
   const [capacity, setCapacity] = useState("12");
   const [location, setLocation] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [city, setCity] = useState("");
 
   useEffect(() => {
     if (!editing) return;
@@ -59,6 +66,7 @@ export default function ClassFormScreen({ route, navigation }) {
         setCapacity(String(c.capacity || 12));
         setLocation(c.location || "");
         setIsPublic(c.public === true);
+        setCity(c.city || "");
       }
       setLoading(false);
     })();
@@ -75,6 +83,10 @@ export default function ClassFormScreen({ route, navigation }) {
       Alert.alert(t("business.classForm.whenRequiredTitle"), t("business.classForm.whenRequiredMsg"));
       return;
     }
+    if (isPublic && !city) {
+      Alert.alert(t("business.classForm.cityRequiredTitle"), t("business.classForm.cityRequiredMsg"));
+      return;
+    }
     setSaving(true);
     const payload = {
       title: title.trim(),
@@ -86,10 +98,19 @@ export default function ClassFormScreen({ route, navigation }) {
       capacity,
       location: location.trim(),
       public: isPublic,
+      city: isPublic ? city : city || null,
     };
     try {
-      if (editing) await updateClass(classId, payload);
-      else await createClass(payload);
+      let saved;
+      if (editing) {
+        await updateClass(classId, payload);
+        saved = await getClass(classId);
+      } else {
+        saved = await createClass(payload);
+      }
+      // Discovery bridge: mirror a public class into events (or remove it).
+      if (isPublic) await publishClassToDiscovery(saved, { city });
+      else if (saved?.discoveryEventId) await unpublishClass(saved);
       navigation.goBack();
     } catch (e) {
       setSaving(false);
@@ -104,6 +125,8 @@ export default function ClassFormScreen({ route, navigation }) {
         text: t("business.classForm.delete"),
         style: "destructive",
         onPress: async () => {
+          const c = await getClass(classId);
+          if (c?.discoveryEventId) await unpublishClass(c);
           await deleteClass(classId);
           navigation.goBack();
         },
@@ -194,6 +217,20 @@ export default function ClassFormScreen({ route, navigation }) {
             </View>
             <Switch value={isPublic} onValueChange={setIsPublic} trackColor={{ true: colors.primary }} />
           </View>
+
+          {isPublic && (
+            <View style={{ marginTop: 16 }}>
+              <SelectDropdown
+                label={t("business.classForm.city")}
+                value={city}
+                onValueChange={setCity}
+                options={cityOptions}
+                placeholder={t("business.classForm.cityPlaceholder")}
+                type="location"
+              />
+              <Text style={[styles.switchHint, { color: colors.textTertiary, marginTop: 8 }]}>{t("business.classForm.discoveryHint")}</Text>
+            </View>
+          )}
 
           {editing && (
             <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>

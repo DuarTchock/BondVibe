@@ -251,4 +251,110 @@ async function twilioWebhook(req, res) {
   res.status(200).send("<Response></Response>");
 }
 
-module.exports = {sendBusinessMessage, remindersCron, twilioWebhook};
+/** Notify a linked app user via push + in-app (used by session reminders). */
+async function notify(linkedUid, title, body) {
+  if (!linkedUid) return;
+  await sendPush(linkedUid, title, body);
+  await sendInApp(linkedUid, title, body);
+}
+
+/**
+ * Scheduled: send due session reminders to the attendee(s) and the host, once
+ * each (marks reminderAttendeeSent / reminderHostSent). Runs every 2 hours.
+ */
+async function sessionRemindersCron() {
+  const now = Date.now();
+  const snap = await db().collectionGroup("bookings")
+    .where("status", "==", "confirmed").limit(1000).get();
+  for (const doc of snap.docs) {
+    const b = doc.data();
+    const bizId = doc.ref.parent.parent.id;
+    const start = b.start ? new Date(b.start).getTime() : 0;
+    if (start < now) continue; // past
+    const bizSnap = await db().collection("businesses").doc(bizId).get();
+    const hostName = bizSnap.exists ? (bizSnap.data().name || "") : "";
+    const when = new Date(b.start).toLocaleString("en-US",
+      {weekday: "short", hour: "numeric", minute: "2-digit"});
+    const patch = {};
+    // Attendee reminder.
+    if (b.reminderAttendeeAt && new Date(b.reminderAttendeeAt).getTime() <= now &&
+        !b.reminderAttendeeSent) {
+      for (const m of b.members || []) {
+        if (!m.memberId) continue;
+        const mem = await db().collection("businesses").doc(bizId)
+          .collection("members").doc(m.memberId).get();
+        const uid = mem.exists ? mem.data().linkedUid : null;
+        if (uid) {
+          await notify(uid, hostName || "Kinlo",
+            `Reminder: ${b.sessionTypeName || "session"} ${when}`);
+        }
+      }
+      patch.reminderAttendeeSent = true;
+    }
+    // Host reminder.
+    if (b.reminderHostAt && new Date(b.reminderHostAt).getTime() <= now &&
+        !b.reminderHostSent) {
+      const names = (b.members || []).map((m) => m.name).join(", ");
+      await notify(bizId, "Kinlo",
+        `Session soon: ${names} · ${when}`);
+      patch.reminderHostSent = true;
+    }
+    if (Object.keys(patch).length) await doc.ref.update(patch);
+  }
+}
+
+/**
+ * Scheduled (daily): a private client who has booked before but has no upcoming
+ * session and none in N days surfaces on the Momentum board with an AI-ready
+ * "re-book" card. Deduped against existing cards for that member.
+ */
+async function momentumDetectorCron() {
+  const now = Date.now();
+  const GAP_DAYS = 21;
+  const snap = await db().collectionGroup("bookings").limit(3000).get();
+  const byBiz = {};
+  for (const doc of snap.docs) {
+    const bizId = doc.ref.parent.parent.id;
+    (byBiz[bizId] = byBiz[bizId] || []).push(doc.data());
+  }
+  for (const bizId of Object.keys(byBiz)) {
+    const bookings = byBiz[bizId];
+    const byMember = {};
+    for (const b of bookings) {
+      for (const m of b.members || []) {
+        if (!m.memberId) continue;
+        (byMember[m.memberId] = byMember[m.memberId] || {name: m.name, times: []})
+          .times.push(new Date(b.start).getTime());
+      }
+    }
+    for (const memberId of Object.keys(byMember)) {
+      const info = byMember[memberId];
+      const hasUpcoming = info.times.some((t) => t >= now);
+      const last = Math.max(...info.times);
+      if (hasUpcoming || now - last < GAP_DAYS * 86400000) continue;
+      // Dedup: skip if the member already has a card.
+      const existing = await db().collection("businesses").doc(bizId)
+        .collection("momentumCards").where("memberId", "==", memberId)
+        .limit(1).get();
+      if (!existing.empty) continue;
+      await db().collection("businesses").doc(bizId)
+        .collection("momentumCards").add({
+          memberId, memberName: info.name || "",
+          stage: "at_risk", priority: "high",
+          labels: ["no-rebooking"], assigneeUid: null,
+          actionTitle: `Re-book ${info.name || "member"}`,
+          description: "", actionStatus: "todo", dueDate: null,
+          reminder: {on: false, at: null}, checklist: [], channel: "push",
+          activity: [{type: "created", text: "Auto: no upcoming session",
+            at: new Date().toISOString()}],
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+  }
+}
+
+module.exports = {
+  sendBusinessMessage, remindersCron, twilioWebhook,
+  sessionRemindersCron, momentumDetectorCron,
+};

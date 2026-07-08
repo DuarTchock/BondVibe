@@ -20,7 +20,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { getMyBizId } from "./businessService";
+import { getMyBizId, getBusiness } from "./businessService";
 
 const classesCol = (bizId) => collection(db, "businesses", bizId, "classes");
 const classRef = (bizId, id) => doc(db, "businesses", bizId, "classes", id);
@@ -72,6 +72,7 @@ export async function createClass(data = {}, bizId = getMyBizId()) {
     roster: [],
     waitlist: [],
     public: data.public === true,
+    city: data.city || null,
     branchId: data.branchId || null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -136,4 +137,101 @@ export async function removeFromWaitlist(cls, memberId, bizId = getMyBizId()) {
   if (!bizId || !cls?.id) return;
   const waitlist = (cls.waitlist || []).filter((w) => w.memberId !== memberId);
   await updateClass(cls.id, { waitlist }, bizId);
+}
+
+// ── Discovery bridge ─────────────────────────────────────────────────────────
+// A public class is mirrored into the shared `events` collection so attendees
+// find it in Home/Discovery. The mirror reuses the event doc shape (creatorId =
+// the owner uid = bizId), so no server code or extra rules are needed — the
+// existing events create rule already allows creatorId == auth.uid.
+
+/** Map a business vertical to the closest discovery category. */
+const VERTICAL_CATEGORY = {
+  dance: "arts", gym: "sports", yoga: "wellness", retreat: "wellness",
+  school: "learning", coaching: "learning", tours: "travel",
+  nightlife: "nightlife", community: "social", events: "social", other: "social",
+};
+
+/**
+ * The next real start Date for a class: a one-off date, or the next matching
+ * weekday from `from`. Returns null if the class has no schedule / is in the past.
+ */
+export function nextClassOccurrence(cls, from = new Date()) {
+  const [h, m] = String(cls.time || "18:00").split(":").map((n) => parseInt(n, 10) || 0);
+  if (cls.date) {
+    const d = new Date(cls.date);
+    d.setHours(h, m, 0, 0);
+    return d >= from ? d : null;
+  }
+  const days = Array.isArray(cls.weekdays) ? cls.weekdays : [];
+  if (days.length === 0) return null;
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + i, h, m, 0, 0);
+    if (days.includes(d.getDay()) && d > from) return d;
+  }
+  return null;
+}
+
+/**
+ * Publish (or refresh) a public class as a discoverable Event. Idempotent: the
+ * created event id is stored back on the class as `discoveryEventId`, so calling
+ * again updates that same event instead of duplicating it.
+ * @returns {Promise<string|null>} the event id, or null if it couldn't publish.
+ */
+export async function publishClassToDiscovery(cls, { city } = {}, bizId = getMyBizId()) {
+  if (!bizId || !cls?.id) return null;
+  const when = nextClassOccurrence(cls);
+  if (!when) return null;
+  const biz = await getBusiness(bizId);
+  const cityId = city || cls.city || null;
+  const eventData = {
+    title: cls.title || "Class",
+    description: cls.instructor ? `${cls.title} · ${cls.instructor}` : (cls.title || ""),
+    category: VERTICAL_CATEGORY[biz?.vertical] || "wellness",
+    languages: [],
+    city: cityId || "",
+    location: cls.location || "",
+    locationCoords: null,
+    durationMinutes: parseInt(cls.durationMin, 10) || 60,
+    maxPeople: parseInt(cls.capacity, 10) || 12,
+    price: 0,
+    currency: "MXN",
+    hostName: biz?.name || "Kinlo",
+    creatorId: bizId,
+    acceptsMembership: true,
+    creditCost: 1,
+    attendees: [],
+    participantCount: 0,
+    status: "active",
+    isRecurring: Array.isArray(cls.weekdays) && cls.weekdays.length > 0,
+    date: when.toISOString(),
+    images: [],
+    sourceBusinessId: bizId,
+    sourceClassId: cls.id,
+    updatedAt: serverTimestamp(),
+  };
+  try {
+    if (cls.discoveryEventId) {
+      await updateDoc(doc(db, "events", cls.discoveryEventId), eventData);
+      if (cityId && cityId !== cls.city) await updateClass(cls.id, { city: cityId }, bizId);
+      return cls.discoveryEventId;
+    }
+    const ref = await addDoc(collection(db, "events"), { ...eventData, createdAt: serverTimestamp() });
+    await updateClass(cls.id, { discoveryEventId: ref.id, city: cityId }, bizId);
+    return ref.id;
+  } catch (e) {
+    console.error("publishClassToDiscovery failed:", e?.message || e);
+    return null;
+  }
+}
+
+/** Remove a class's discovery listing (when the host unpublishes it). */
+export async function unpublishClass(cls, bizId = getMyBizId()) {
+  if (!cls?.discoveryEventId) return;
+  try {
+    await deleteDoc(doc(db, "events", cls.discoveryEventId));
+  } catch (e) {
+    /* already gone — ignore */
+  }
+  await updateClass(cls.id, { discoveryEventId: null }, bizId);
 }

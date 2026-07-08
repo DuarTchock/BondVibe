@@ -23,7 +23,7 @@ export function priorityColor(priority, colors) {
 const initials = (name = "") =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
 
-export default function MomentumCard({ card, onPress, onMove }) {
+export default function MomentumCard({ card, onPress, onMove, onLongPress, onPressOut, dragging }) {
   const { colors } = useTheme();
   const { t } = useTranslation();
   const pColor = priorityColor(card.priority, colors);
@@ -32,8 +32,15 @@ export default function MomentumCard({ card, onPress, onMove }) {
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: dragging ? colors.primary : colors.border },
+        dragging && { borderWidth: 2 },
+      ]}
       onPress={onPress}
+      onLongPress={onLongPress}
+      onPressOut={onPressOut}
+      delayLongPress={220}
       activeOpacity={0.85}
     >
       <View style={styles.top}>

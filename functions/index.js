@@ -2736,3 +2736,57 @@ exports.inviteBusinessStaff = onCall(async (request) => {
     });
   return {uid: staff.uid, role, name: staff.displayName || "", email};
 });
+
+// Session reminders (both sides) + the no-request Momentum detector.
+exports.businessSessionRemindersCron = onSchedule(
+  {schedule: "every 2 hours"}, bizAutomations.sessionRemindersCron);
+exports.businessMomentumDetectorCron = onSchedule(
+  {schedule: "every day 08:00", timeZone: "America/Mexico_City"},
+  bizAutomations.momentumDetectorCron);
+
+/**
+ * Attendee self-serve: request a private session from a business they're a
+ * linked member of (kinlo_business/03 flow 5). Creates a 'requested' booking;
+ * the host confirms/declines. Server-side because the attendee isn't staff.
+ */
+exports.requestBusinessSession = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const d = request.data || {};
+  const bizId = String(d.bizId || "");
+  if (!bizId) throw new HttpsError("invalid-argument", "Missing business.");
+  // Must be a linked member of this business.
+  const mem = await db.collection("businesses").doc(bizId)
+    .collection("members").where("linkedUid", "==", uid).limit(1).get();
+  if (mem.empty) throw new HttpsError("permission-denied", "Not a member.");
+  const member = mem.docs[0];
+  const start = d.start ? new Date(d.start) : new Date();
+  const ref = await db.collection("businesses").doc(bizId)
+    .collection("bookings").add({
+      members: [{memberId: member.id, name: member.data().name || ""}],
+      sessionTypeId: d.sessionTypeId || null,
+      sessionTypeName: String(d.sessionTypeName || ""),
+      start: start.toISOString(),
+      durationMin: parseInt(d.durationMin, 10) || 60,
+      location: null,
+      status: "requested",
+      paidWith: "credit",
+      priceCents: 0,
+      reminderHostAt: null,
+      reminderAttendeeAt: null,
+      notes: String(d.notes || "").slice(0, 500) || null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  // Nudge the host.
+  await db.collection("notifications").add({
+    userId: bizId,
+    type: "business_session_request",
+    title: member.data().name || "New request",
+    message: "requested a session",
+    icon: "calendarCheck",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return {bookingId: ref.id};
+});

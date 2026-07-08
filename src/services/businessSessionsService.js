@@ -23,11 +23,38 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { db, auth } from "./firebase";
 import { getMyBizId } from "./businessService";
 import { getMember } from "./businessMembersService";
 import { adjustCredits } from "./businessPackagesService";
 import { createPayment } from "./businessPaymentsService";
+
+/**
+ * Notify a booking's linked attendees (post-session hooks). Reuses the existing
+ * notification pipeline; deep-links to the host profile (Follow = join the
+ * community; rating nudge after a done session). Members without an app account
+ * are skipped. Best-effort — never blocks the state change.
+ */
+async function notifyAttendees(booking, { title, body, kind }, bizId = getMyBizId()) {
+  try {
+    const fn = httpsCallable(getFunctions(), "createNotification");
+    for (const m of booking.members || []) {
+      if (!m.memberId) continue;
+      const full = await getMember(m.memberId, bizId);
+      if (!full?.linkedUid) continue;
+      await fn({
+        toUserId: full.linkedUid,
+        type: `business_session_${kind}`,
+        title,
+        body,
+        metadata: { screen: "UserProfile", userId: bizId },
+      });
+    }
+  } catch (e) {
+    /* best-effort */
+  }
+}
 
 export const BOOKING_STATUS = {
   REQUESTED: "requested",
@@ -155,6 +182,18 @@ export async function confirmBooking(booking, bizId = getMyBizId()) {
     bizId
   );
   await settleBooking(booking, bizId);
+  // Community hook: invite the attendee to join the host's community.
+  const biz = await getDoc(doc(db, "businesses", bizId));
+  const hostName = biz.exists() ? biz.data().name || "Kinlo" : "Kinlo";
+  await notifyAttendees(
+    booking,
+    {
+      title: hostName,
+      body: `Your session is confirmed. Join ${hostName}'s community to stay in the loop.`,
+      kind: "confirmed",
+    },
+    bizId
+  );
 }
 
 export const declineBooking = (id, bizId = getMyBizId()) =>
@@ -163,10 +202,24 @@ export const cancelBooking = (id, bizId = getMyBizId()) =>
   updateBooking(id, { status: BOOKING_STATUS.CANCELLED }, bizId);
 export const markNoShow = (id, bizId = getMyBizId()) =>
   updateBooking(id, { status: BOOKING_STATUS.NO_SHOW }, bizId);
-// Marking done fires the existing rating flow for the attendee (hook wired when
-// the member has an app account; no-show never triggers a rating).
-export const markDone = (id, bizId = getMyBizId()) =>
-  updateBooking(id, { status: BOOKING_STATUS.DONE }, bizId);
+
+/**
+ * Mark a session done. Fires the rating nudge to the attendee (post-session
+ * hook); no-show never triggers a rating. Accepts the booking so we can notify.
+ */
+export async function markDone(booking, bizId = getMyBizId()) {
+  const id = typeof booking === "string" ? booking : booking.id;
+  await updateBooking(id, { status: BOOKING_STATUS.DONE }, bizId);
+  if (typeof booking === "object") {
+    const biz = await getDoc(doc(db, "businesses", bizId));
+    const hostName = biz.exists() ? biz.data().name || "Kinlo" : "Kinlo";
+    await notifyAttendees(
+      booking,
+      { title: hostName, body: `How was your session with ${hostName}? Tap to rate.`, kind: "rate" },
+      bizId
+    );
+  }
+}
 
 /** Settle a confirmed booking: deduct a session credit or record a payment. */
 async function settleBooking(booking, bizId = getMyBizId()) {

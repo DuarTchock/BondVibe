@@ -745,12 +745,17 @@ service cloud.firestore {
         allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
       }
 
-      // Private sessions: types, availability, bookings.
+      // Private sessions. Types + availability are the host's public "menu"
+      // (any signed-in user may read to request a session; write is staff).
+      // Bookings are staff-only from the client; attendee requests go through
+      // the requestBusinessSession Cloud Function (Admin SDK).
       match /sessionTypes/{id} {
-        allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
+        allow read: if isSignedIn();
+        allow write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
       }
       match /availability/{id} {
-        allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
+        allow read: if isSignedIn();
+        allow write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
       }
       match /bookings/{id} {
         allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);

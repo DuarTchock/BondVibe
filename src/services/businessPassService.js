@@ -5,7 +5,7 @@
  * the attendee belongs to so they can show their check-in pass.
  */
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { collectionGroup, query, where, getDocs } from "firebase/firestore";
+import { collection, collectionGroup, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "./firebase";
 
 /** The QR value a member shows for a host to scan them in. */
@@ -58,5 +58,32 @@ export async function getMyBusinessPasses() {
   } catch (e) {
     console.error("getMyBusinessPasses failed:", e?.message || e);
     return [];
+  }
+}
+
+/** A business's bookable "menu" — session types the attendee can request. */
+export async function getBusinessSessionTypes(bizId) {
+  if (!bizId) return [];
+  try {
+    const snap = await getDocs(collection(db, "businesses", bizId, "sessionTypes"));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error("getBusinessSessionTypes failed:", e?.message || e);
+    return [];
+  }
+}
+
+/**
+ * Request a private session from a host (attendee self-serve). Server creates a
+ * 'requested' booking; the host confirms/declines.
+ * @returns {Promise<{ok:boolean, error?:string}>}
+ */
+export async function requestSession({ bizId, sessionTypeId, sessionTypeName, start, durationMin }) {
+  try {
+    const fn = httpsCallable(getFunctions(), "requestBusinessSession");
+    await fn({ bizId, sessionTypeId, sessionTypeName, start, durationMin });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e?.code || "failed" };
   }
 }
