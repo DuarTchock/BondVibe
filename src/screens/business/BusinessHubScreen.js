@@ -156,6 +156,12 @@ export default function BusinessHubScreen({ navigation }) {
             title={t("business.hub.financeTitle")}
             subtitle={t("business.hub.financeSubtitle")}
             onPress={() => navigation.navigate("BusinessFinance")}
+          />
+          <ListRow
+            icon="broadcast"
+            title={t("business.hub.automationsTitle")}
+            subtitle={t("business.hub.automationsSubtitle")}
+            onPress={() => navigation.navigate("BusinessAutomations")}
             divider={false}
           />
         </View>

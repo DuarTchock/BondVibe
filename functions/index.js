@@ -37,6 +37,7 @@ const {
 
 // Import push notification service
 const {sendBatchPushNotifications} = require("./notifications/pushService");
+const bizAutomations = require("./business/automations");
 
 // Import event helpers (attendee/creator normalization)
 const {getAttendeeIds, getEventCreatorId} = require("./utils/eventHelpers");
@@ -2690,3 +2691,15 @@ exports.expireVehicleReservations = onSchedule(
     console.log(`🛴 Expired ${expired} unpaid vehicle reservations`);
   },
 );
+
+// ── Kinlo for Business — Automations (kinlo_business/04) ─────────────────────
+// Send-now broadcast, the reminders scheduler, and the Twilio STOP webhook.
+// SMS/email are inert until credentials are configured (see business/
+// automations.js). To activate SMS: set the TWILIO_* secrets, then bind them
+// here — {secrets: [twilioSid, twilioToken, twilioMg]} — and redeploy.
+exports.sendBusinessMessage = onCall(bizAutomations.sendBusinessMessage);
+exports.businessRemindersCron = onSchedule(
+  {schedule: "every day 09:00", timeZone: "America/Mexico_City"},
+  bizAutomations.remindersCron,
+);
+exports.twilioSmsWebhook = onRequest({cors: false}, bizAutomations.twilioWebhook);

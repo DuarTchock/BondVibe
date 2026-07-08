@@ -2639,7 +2639,9 @@
       "checkInSubtitle": "Escanea el pase del miembro para marcar presente",
       "financeTitle": "Finanzas",
       "financeSubtitle": "Pagos, ingresos, recibos y payouts",
-      "moreSoon": "Agenda, automatizaciones y más llegan conforme los habilitemos."
+      "automationsTitle": "Automatizaciones",
+      "automationsSubtitle": "Recordatorios y reconquistas, auto-ruteados",
+      "moreSoon": "Multi-sucursal, roles de staff y más llegan conforme los habilitemos."
     },
     "setup": {
       "title": "Nuevo negocio",
@@ -3082,6 +3084,70 @@
         "no_show": "No se presentó",
         "cancelled": "Cancelada",
         "declined": "Rechazada"
+      }
+    },
+    "automations": {
+      "title": "Automatizaciones",
+      "log": "Registro de mensajes",
+      "noMessages": "Aún no se han enviado mensajes.",
+      "emptyTitle": "Aún no hay automatizaciones",
+      "emptyText": "Configura un disparador y un mensaje una vez — Kinlo lo enruta a cada miembro por push, in-app, SMS o correo.",
+      "addFirst": "Nueva automatización",
+      "newTitle": "Nueva automatización",
+      "editTitle": "Editar automatización",
+      "triggerLabel": "Disparador",
+      "trigger": {
+        "welcome": "Bienvenida",
+        "reminder": "Recordatorio",
+        "expiring_credit": "Crédito por vencer",
+        "renewal": "Renovación",
+        "no_show": "No se presentó",
+        "birthday": "Cumpleaños",
+        "winback": "Reconquista"
+      },
+      "auto": "Auto",
+      "daysBefore": "Días antes",
+      "audienceLabel": "Audiencia",
+      "audience": {
+        "all": "Todos",
+        "active": "Activos",
+        "at_risk": "En riesgo",
+        "inactive": "Inactivos",
+        "tag": "Por etiqueta"
+      },
+      "tagPlaceholder": "Nombre de la etiqueta",
+      "channelsLabel": "Canales",
+      "channel": {
+        "push": "Push",
+        "inapp": "In-app",
+        "sms": "SMS",
+        "email": "Correo",
+        "none": "—"
+      },
+      "channelHint": "Push e in-app se envían ya. SMS (Twilio) y correo se activan al configurar credenciales.",
+      "message": "Mensaje",
+      "messagePlaceholder": "Qué enviar…",
+      "aiDraft": "Redactar IA",
+      "active": "Activa",
+      "activeHint": "Se ejecuta automáticamente en horario cuando está activa.",
+      "sendNow": "Enviar ya",
+      "sendNowAudience": "Enviar a esta audiencia ahora",
+      "sendNowTitle": "¿Enviar ahora?",
+      "sendNowMsg": "Envía este mensaje a la audiencia por los canales permitidos.",
+      "send": "Enviar",
+      "sentTitle": "Enviado",
+      "sentMsg": "Enviados {{sent}} · omitidos {{skipped}}.",
+      "msgRequiredTitle": "Falta el mensaje",
+      "msgRequiredMsg": "Escribe el mensaje a enviar.",
+      "save": "Guardar automatización",
+      "delete": "Eliminar automatización",
+      "deleteTitle": "¿Eliminar automatización?",
+      "deleteMsg": "Esto elimina la regla.",
+      "status": {
+        "sent": "Enviado",
+        "failed": "Falló",
+        "skipped": "Omitido",
+        "queued": "En cola"
       }
     }
   }

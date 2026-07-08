@@ -25,6 +25,7 @@ const DEFAULTS = {
   content_translation: {maxTokens: 1500, freePerMonth: 1},
   business_dashboard: {maxTokens: 700},
   momentum_action: {maxTokens: 500},
+  automation_copy: {maxTokens: 400},
 };
 
 // ─── Context loaders ────────────────────────────────────────────────────────
@@ -260,6 +261,24 @@ async function loadMomentumAction(db, uid, cfg, input) {
 }
 
 /**
+ * Automation copy: draft a short message for a trigger + audience.
+ * @param {FirebaseFirestore.Firestore} db handle
+ * @param {string} uid host / bizId
+ * @param {object} cfg config (unused)
+ * @param {object} input {trigger, audienceType}
+ * @return {Promise<object>} context
+ */
+async function loadAutomationCopy(db, uid, cfg, input) {
+  const biz = await db.collection("businesses").doc(uid).get();
+  return {
+    businessName: biz.exists ? (biz.data().name || "") : "",
+    vertical: biz.exists ? (biz.data().vertical || "other") : "other",
+    trigger: input && input.trigger ? input.trigger : "welcome",
+    audience: input && input.audienceType ? input.audienceType : "all",
+  };
+}
+
+/**
  * Match Intelligence: both OPT-IN match profiles for one event.
  * @param {FirebaseFirestore.Firestore} db handle
  * @param {string} uid caller
@@ -413,6 +432,15 @@ const PROMPTS = {
       "numbers not derivable from the metrics.",
     user: JSON.stringify(ctx),
   }),
+  automation_copy: (ctx) => ({
+    system: SYSTEM_BASE +
+      " Draft ONE short, warm, sendable message for a business lifecycle " +
+      "automation. Schema: {\"message\":string} — 1-2 sentences, no greeting " +
+      "placeholder needed (the host name is added automatically). Match the " +
+      "trigger (" + ctx.trigger + ") and audience (" + ctx.audience + "). " +
+      "Keep it human and specific to the moment; no emojis unless natural.",
+    user: JSON.stringify(ctx),
+  }),
   momentum_action: (ctx) => ({
     system: SYSTEM_BASE +
       " A host is working a retention board. For this ONE member, suggest the " +
@@ -500,6 +528,12 @@ const VALIDATORS = {
     }
     return null;
   },
+  automation_copy: (d) => {
+    if (!d || typeof d.message !== "string" || !d.message.trim()) {
+      return "message missing";
+    }
+    return null;
+  },
   momentum_action: (d) => {
     if (!d || typeof d.actionTitle !== "string" || !d.actionTitle) {
       return "actionTitle missing";
@@ -576,6 +610,8 @@ const GATES = {
     user.isPremium === true ? null : {error: "needs_pro", needsPro: true},
   momentum_action: async (db, uid, user) =>
     user.isPremium === true ? null : {error: "needs_pro", needsPro: true},
+  automation_copy: async (db, uid, user) =>
+    user.isPremium === true ? null : {error: "needs_pro", needsPro: true},
   ai_analytics: async () => null, // taste = headline; full text is the same
   // call in v1 — the client dims recommendations for non-Pro.
   match_intel: async () => null, // rationale free; icebreakers locked below.
@@ -619,6 +655,7 @@ module.exports = {
     content_translation: loadContentTranslation,
     business_dashboard: loadBusinessDashboard,
     momentum_action: loadMomentumAction,
+    automation_copy: loadAutomationCopy,
   },
   PROMPTS,
   VALIDATORS,

@@ -2639,7 +2639,9 @@
       "checkInSubtitle": "Scan a member's pass to mark present",
       "financeTitle": "Finance",
       "financeSubtitle": "Payments, revenue, receipts & payouts",
-      "moreSoon": "Agenda, automations and more arrive as we roll them out."
+      "automationsTitle": "Automations",
+      "automationsSubtitle": "Reminders & win-backs, auto-routed",
+      "moreSoon": "Multi-branch, staff roles and more arrive as we roll them out."
     },
     "setup": {
       "title": "New business",
@@ -3082,6 +3084,70 @@
         "no_show": "No-show",
         "cancelled": "Cancelled",
         "declined": "Declined"
+      }
+    },
+    "automations": {
+      "title": "Automations",
+      "log": "Message log",
+      "noMessages": "No messages sent yet.",
+      "emptyTitle": "No automations yet",
+      "emptyText": "Set a trigger and a message once — Kinlo auto-routes it to each member across push, in-app, SMS or email.",
+      "addFirst": "New automation",
+      "newTitle": "New automation",
+      "editTitle": "Edit automation",
+      "triggerLabel": "Trigger",
+      "trigger": {
+        "welcome": "Welcome",
+        "reminder": "Reminder",
+        "expiring_credit": "Expiring credit",
+        "renewal": "Renewal",
+        "no_show": "No-show",
+        "birthday": "Birthday",
+        "winback": "Win-back"
+      },
+      "auto": "Auto",
+      "daysBefore": "Days before",
+      "audienceLabel": "Audience",
+      "audience": {
+        "all": "Everyone",
+        "active": "Active",
+        "at_risk": "At risk",
+        "inactive": "Inactive",
+        "tag": "By tag"
+      },
+      "tagPlaceholder": "Tag name",
+      "channelsLabel": "Channels",
+      "channel": {
+        "push": "Push",
+        "inapp": "In-app",
+        "sms": "SMS",
+        "email": "Email",
+        "none": "—"
+      },
+      "channelHint": "Push and in-app send now. SMS (Twilio) and email activate once credentials are configured.",
+      "message": "Message",
+      "messagePlaceholder": "What to send…",
+      "aiDraft": "AI draft",
+      "active": "Active",
+      "activeHint": "Runs automatically on schedule when on.",
+      "sendNow": "Send now",
+      "sendNowAudience": "Send to this audience now",
+      "sendNowTitle": "Send now?",
+      "sendNowMsg": "Send this message to the audience across the allowed channels.",
+      "send": "Send",
+      "sentTitle": "Sent",
+      "sentMsg": "Sent {{sent}} · skipped {{skipped}}.",
+      "msgRequiredTitle": "Message required",
+      "msgRequiredMsg": "Write the message to send.",
+      "save": "Save automation",
+      "delete": "Delete automation",
+      "deleteTitle": "Delete automation?",
+      "deleteMsg": "This removes the rule.",
+      "status": {
+        "sent": "Sent",
+        "failed": "Failed",
+        "skipped": "Skipped",
+        "queued": "Queued"
       }
     }
   }

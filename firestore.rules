@@ -751,6 +751,16 @@ service cloud.firestore {
       match /bookings/{id} {
         allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
       }
+
+      // Automations: rules (staff-managed) + the delivery log (written by the
+      // engine server-side; readable by staff).
+      match /automations/{id} {
+        allow read, write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
+      }
+      match /messages/{id} {
+        allow read: if isBizStaff(bizId) || isBizOwnerUid(bizId);
+        allow write: if false; // server-only (Admin SDK)
+      }
     }
 
     // ============================================
