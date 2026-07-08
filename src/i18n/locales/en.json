@@ -477,6 +477,13 @@
     "maxPeople": "Max People",
     "priceLabel": "Price",
     "priceMxnLabel": "Price (MXN) *",
+    "twoTier": {
+      "label": "Two-tier pricing",
+      "hint": "Charge Local members a special rate; everyone else pays General.",
+      "localLabel": "Local (MXN)",
+      "generalLabel": "General (MXN)",
+      "invalidMsg": "Enter both a Local and a General price greater than zero."
+    },
     "paymentInfo": "You'll receive 100% of each ticket sale. Platform and processing fees are added at checkout.",
     "cancellationPolicyForAttendees": "Cancellation Policy for Attendees",
     "policy7daysTicket": "7+ days before: 100% ticket refund",

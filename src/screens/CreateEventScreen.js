@@ -109,6 +109,12 @@ export default function CreateEventScreen({ navigation }) {
   const [createdEventId, setCreatedEventId] = useState(null);
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState("");
+  // Two-tier pricing (kinlo_business/05 §B): when ON and Paid, the host sets a
+  // Local and a General price. `price` stays the canonical General price for
+  // backward-compat; `priceLocal` is additive. Locals are charged the local rate.
+  const [twoTier, setTwoTier] = useState(false);
+  const [priceLocal, setPriceLocal] = useState(""); // MXN integer
+  const [priceGeneral, setPriceGeneral] = useState(""); // MXN integer
   const [loading, setLoading] = useState(false);
   const [eventImages, setEventImages] = useState([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -326,8 +332,10 @@ export default function CreateEventScreen({ navigation }) {
     }
   };
 
-  // Handle price change with Stripe validation
-  const handlePriceChange = (priceText) => {
+  // Handle price change with Stripe validation. `setter` defaults to setPrice so
+  // existing single-price usage is unchanged; the two-tier inputs pass their own
+  // setter to reuse the SAME Stripe guard (kinlo_business/05 §B).
+  const handlePriceChange = (priceText, setter = setPrice) => {
     const priceNumber = parseInt(priceText) || 0;
 
     if (priceNumber > 0) {
@@ -352,7 +360,7 @@ export default function CreateEventScreen({ navigation }) {
       }
     }
 
-    setPrice(priceText);
+    setter(priceText);
   };
 
   // Generate recurring dates handled by recurrenceUtils
@@ -380,7 +388,15 @@ export default function CreateEventScreen({ navigation }) {
       Alert.alert(t("createEvent.validation.invalidMaxPeopleTitle"), t("createEvent.validation.invalidMaxPeopleMsg"));
       return;
     }
-    if (!isFree && (!price || parseFloat(price) <= 0)) {
+    if (!isFree && twoTier) {
+      if (!priceLocal || parseInt(priceLocal, 10) <= 0 || !priceGeneral || parseInt(priceGeneral, 10) <= 0) {
+        Alert.alert(
+          t("createEvent.validation.invalidPriceTitle"),
+          t("createEvent.twoTier.invalidMsg")
+        );
+        return;
+      }
+    } else if (!isFree && (!price || parseFloat(price) <= 0)) {
       Alert.alert(
         t("createEvent.validation.invalidPriceTitle"),
         t("createEvent.validation.invalidPriceMsg")
@@ -487,7 +503,11 @@ export default function CreateEventScreen({ navigation }) {
         // Event length in minutes (drives the "after event" matching window).
         durationMinutes: parseInt(durationMinutes, 10) || 180,
         maxPeople: parseInt(maxPeople),
-        price: isFree ? 0 : parseFloat(price),
+        // General price stays canonical (everything that reads `price` keeps
+        // working). `priceLocal`/`twoTier` are additive (kinlo_business/05 §B).
+        price: isFree ? 0 : twoTier ? parseInt(priceGeneral, 10) : parseFloat(price),
+        priceLocal: !isFree && twoTier ? parseInt(priceLocal, 10) : null,
+        twoTier: !isFree && twoTier,
         currency: "MXN",
         hostName:
           userData?.fullName ||
@@ -1035,6 +1055,70 @@ export default function CreateEventScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Two-tier pricing (kinlo_business/05 §B) — only for paid events */}
+        {!isFree && (
+          <View style={styles.field}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setTwoTier((v) => !v)}
+              style={[
+                styles.membershipToggle,
+                {
+                  backgroundColor: twoTier ? `${colors.primary}1A` : colors.surfaceGlass,
+                  borderColor: twoTier ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={[styles.label, { color: colors.text, marginBottom: 2 }]}>
+                  {t("createEvent.twoTier.label")}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  {t("createEvent.twoTier.hint")}
+                </Text>
+              </View>
+              <View style={[styles.switchTrack, { backgroundColor: twoTier ? colors.primary : colors.border }]}>
+                <View style={[styles.switchKnob, { alignSelf: twoTier ? "flex-end" : "flex-start" }]} />
+              </View>
+            </TouchableOpacity>
+
+            {twoTier && (
+              <View style={[styles.row, { marginTop: 12, marginBottom: 0 }]}>
+                <View style={[styles.field, { flex: 1, marginRight: 8, marginBottom: 0 }]}>
+                  <Text style={[styles.label, { color: colors.text }]}>{t("createEvent.twoTier.localLabel")}</Text>
+                  <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceGlass, borderColor: colors.border }]}>
+                    <Icon name="location" size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
+                    <TextInput
+                      style={[styles.input, { color: colors.text }]}
+                      placeholder="80"
+                      placeholderTextColor={colors.textTertiary}
+                      value={priceLocal}
+                      onChangeText={(txt) => handlePriceChange(txt, setPriceLocal)}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                    />
+                  </View>
+                </View>
+                <View style={[styles.field, { flex: 1, marginLeft: 8, marginBottom: 0 }]}>
+                  <Text style={[styles.label, { color: colors.text }]}>{t("createEvent.twoTier.generalLabel")}</Text>
+                  <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceGlass, borderColor: colors.border }]}>
+                    <Icon name="globe" size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
+                    <TextInput
+                      style={[styles.input, { color: colors.text }]}
+                      placeholder="120"
+                      placeholderTextColor={colors.textTertiary}
+                      value={priceGeneral}
+                      onChangeText={(txt) => handlePriceChange(txt, setPriceGeneral)}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Accept membership credits — only for paid events */}
         <View style={styles.field}>
           <TouchableOpacity
@@ -1157,9 +1241,9 @@ export default function CreateEventScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Max People and Price */}
+        {/* Max People and Price (single price hidden when two-tier is on) */}
         <View style={styles.row}>
-          <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
+          <View style={[styles.field, { flex: 1, marginRight: !isFree && twoTier ? 0 : 8 }]}>
             <Text style={[styles.label, { color: colors.text }]}>
               {t("createEvent.maxPeople")}
             </Text>
@@ -1191,39 +1275,41 @@ export default function CreateEventScreen({ navigation }) {
             </View>
           </View>
 
-          <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              {isFree ? t("createEvent.priceLabel") : t("createEvent.priceMxnLabel")}
-            </Text>
-            <View
-              style={[
-                styles.inputWrapper,
-                {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  opacity: isFree ? 0.5 : 1,
-                },
-              ]}
-            >
-              <Icon
-                name="dollar"
-                size={20}
-                color={colors.textSecondary}
-                type="ui"
-                style={{ marginRight: 12 }}
-              />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder={isFree ? "0" : "100"}
-                placeholderTextColor={colors.textTertiary}
-                value={isFree ? "0" : price}
-                onChangeText={handlePriceChange}
-                keyboardType="numeric"
-                returnKeyType="done"
-                editable={!isFree}
-              />
+          {!(!isFree && twoTier) && (
+            <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
+              <Text style={[styles.label, { color: colors.text }]}>
+                {isFree ? t("createEvent.priceLabel") : t("createEvent.priceMxnLabel")}
+              </Text>
+              <View
+                style={[
+                  styles.inputWrapper,
+                  {
+                    backgroundColor: colors.surfaceGlass,
+                    borderColor: colors.border,
+                    opacity: isFree ? 0.5 : 1,
+                  },
+                ]}
+              >
+                <Icon
+                  name="dollar"
+                  size={20}
+                  color={colors.textSecondary}
+                  type="ui"
+                  style={{ marginRight: 12 }}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder={isFree ? "0" : "100"}
+                  placeholderTextColor={colors.textTertiary}
+                  value={isFree ? "0" : price}
+                  onChangeText={handlePriceChange}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                  editable={!isFree}
+                />
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         {/* Payment info badge */}

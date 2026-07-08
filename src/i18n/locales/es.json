@@ -477,6 +477,13 @@
     "maxPeople": "Máximo de personas",
     "priceLabel": "Precio",
     "priceMxnLabel": "Precio (MXN) *",
+    "twoTier": {
+      "label": "Precio en dos niveles",
+      "hint": "Cobra a los miembros Locales una tarifa especial; los demás pagan General.",
+      "localLabel": "Local (MXN)",
+      "generalLabel": "General (MXN)",
+      "invalidMsg": "Ingresa un precio Local y uno General, ambos mayores a cero."
+    },
     "paymentInfo": "Recibirás el 100% de cada venta de boleto. Las comisiones de plataforma y procesamiento se agregan al pagar.",
     "cancellationPolicyForAttendees": "Política de cancelación para asistentes",
     "policy7daysTicket": "7+ días antes: reembolso del 100% del boleto",
