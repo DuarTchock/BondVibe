@@ -11,6 +11,27 @@ import { getMyBizId } from "./businessService";
 
 export const STAFF_ROLES = ["owner", "instructor", "reception"];
 
+// Weekly working hours frame the Agenda's default visible range
+// (kinlo_business/06 FIX 4). days: 0=Sun … 6=Sat.
+export const DEFAULT_WORKING_HOURS = { days: [1, 2, 3, 4, 5, 6], start: "07:00", end: "20:00" };
+
+/** A staff member's working hours, falling back to the sensible default. */
+export function getWorkingHours(staff) {
+  const wh = staff?.workingHours;
+  if (!wh || !wh.start || !wh.end) return DEFAULT_WORKING_HOURS;
+  return {
+    days: Array.isArray(wh.days) ? wh.days : DEFAULT_WORKING_HOURS.days,
+    start: wh.start,
+    end: wh.end,
+  };
+}
+
+/** Set a staff member's working hours (owner action). */
+export async function setWorkingHours(staffUid, workingHours, bizId = getMyBizId()) {
+  if (!bizId || !staffUid) return;
+  await updateDoc(doc(db, "businesses", bizId, "staff", staffUid), { workingHours });
+}
+
 export async function listStaff(bizId = getMyBizId()) {
   if (!bizId) return [];
   try {

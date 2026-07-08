@@ -15,17 +15,32 @@ import { auth } from "../../services/firebase";
 import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
 import { useTheme } from "../../contexts/ThemeContext";
-import { listStaff, inviteStaff, updateStaffRole, removeStaff } from "../../services/businessStaffService";
+import { listStaff, inviteStaff, updateStaffRole, removeStaff, getWorkingHours, setWorkingHours } from "../../services/businessStaffService";
+
+const weekdayShort = (i, lang) => new Date(2024, 0, 7 + i).toLocaleDateString(lang || "en", { weekday: "narrow" });
 
 export default function StaffScreen({ navigation }) {
   const { colors, isDark } = useTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("reception");
+  const [whEdit, setWhEdit] = useState(null); // { id, days, start, end }
   const me = auth.currentUser?.uid;
+
+  const openWorkingHours = (s) => {
+    const wh = getWorkingHours(s);
+    setWhEdit({ id: s.id, days: [...wh.days], start: wh.start, end: wh.end });
+  };
+  const toggleWhDay = (d) =>
+    setWhEdit((w) => ({ ...w, days: w.days.includes(d) ? w.days.filter((x) => x !== d) : [...w.days, d] }));
+  const saveWorkingHours = async () => {
+    await setWorkingHours(whEdit.id, { days: whEdit.days, start: whEdit.start.trim(), end: whEdit.end.trim() });
+    setWhEdit(null);
+    load();
+  };
 
   const load = useCallback(async () => { setStaff(await listStaff()); setLoading(false); }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -65,23 +80,38 @@ export default function StaffScreen({ navigation }) {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={[styles.hint, { color: colors.textTertiary }]}>{t("business.staff.hint")}</Text>
-          {staff.map((s) => (
-            <View key={s.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.name, { color: colors.text }]}>{s.name || s.email || t("business.staff.member")}</Text>
-                <Text style={[styles.email, { color: colors.textTertiary }]} numberOfLines={1}>{s.email}</Text>
-              </View>
-              <View style={[styles.roleBadge, { backgroundColor: s.role === "owner" ? `${colors.primary}18` : colors.surfaceGlass }]}>
-                <Text style={[styles.roleText, { color: s.role === "owner" ? colors.primary : colors.textSecondary }]}>{t(`business.staff.role.${s.role}`)}</Text>
-              </View>
-              {s.role !== "owner" && s.id !== me && (
-                <View style={styles.actions}>
-                  <TouchableOpacity onPress={() => changeRole(s)}><Icon name="edit" size={18} color={colors.textSecondary} /></TouchableOpacity>
-                  <TouchableOpacity onPress={() => remove(s)}><Icon name="close" size={18} color={colors.error} /></TouchableOpacity>
+          {staff.map((s) => {
+            const wh = getWorkingHours(s);
+            const canHaveHours = s.role === "owner" || s.role === "instructor";
+            return (
+              <View key={s.id} style={[styles.cardWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.cardTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.name, { color: colors.text }]}>{s.name || s.email || t("business.staff.member")}</Text>
+                    <Text style={[styles.email, { color: colors.textTertiary }]} numberOfLines={1}>{s.email}</Text>
+                  </View>
+                  <View style={[styles.roleBadge, { backgroundColor: s.role === "owner" ? `${colors.primary}18` : colors.surfaceGlass }]}>
+                    <Text style={[styles.roleText, { color: s.role === "owner" ? colors.primary : colors.textSecondary }]}>{t(`business.staff.role.${s.role}`)}</Text>
+                  </View>
+                  {s.role !== "owner" && s.id !== me && (
+                    <View style={styles.actions}>
+                      <TouchableOpacity onPress={() => changeRole(s)}><Icon name="edit" size={18} color={colors.textSecondary} /></TouchableOpacity>
+                      <TouchableOpacity onPress={() => remove(s)}><Icon name="close" size={18} color={colors.error} /></TouchableOpacity>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-          ))}
+                {canHaveHours && (
+                  <TouchableOpacity style={[styles.whRow, { borderTopColor: colors.border }]} onPress={() => openWorkingHours(s)}>
+                    <Icon name="clock" size={15} color={colors.textTertiary} />
+                    <Text style={[styles.whText, { color: colors.textSecondary }]}>
+                      {t("business.staff.workingHours")}: {wh.start}–{wh.end} · {wh.days.map((d) => weekdayShort(d, i18n.language)).join("")}
+                    </Text>
+                    <Icon name="edit" size={14} color={colors.textTertiary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
         </ScrollView>
       )}
 
@@ -101,6 +131,37 @@ export default function StaffScreen({ navigation }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Working-hours editor (frames the Agenda's default range) */}
+      <Modal visible={!!whEdit} transparent animationType="slide" onRequestClose={() => setWhEdit(null)}>
+        <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            <View style={styles.sheetHeader}><Text style={[styles.sheetTitle, { color: colors.text }]}>{t("business.staff.workingHours")}</Text><TouchableOpacity onPress={() => setWhEdit(null)}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity></View>
+            <Text style={[styles.roleHint, { color: colors.textTertiary, marginTop: 0, marginBottom: 10 }]}>{t("business.staff.workingDays")}</Text>
+            <View style={styles.dayRow}>
+              {[0, 1, 2, 3, 4, 5, 6].map((d) => {
+                const on = whEdit?.days.includes(d);
+                return (
+                  <TouchableOpacity key={d} onPress={() => toggleWhDay(d)} style={[styles.dayChip, { borderColor: on ? colors.primary : colors.border, backgroundColor: on ? `${colors.primary}18` : "transparent" }]}>
+                    <Text style={[styles.dayChipText, { color: on ? colors.primary : colors.textSecondary }]}>{weekdayShort(d, i18n.language)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.timeRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.roleHint, { color: colors.textTertiary, marginTop: 0, marginBottom: 6 }]}>{t("business.staff.startTime")}</Text>
+                <TextInput style={[styles.input, inputStyle, { marginBottom: 0 }]} value={whEdit?.start} onChangeText={(v) => setWhEdit((w) => ({ ...w, start: v }))} placeholder="07:00" placeholderTextColor={colors.textTertiary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.roleHint, { color: colors.textTertiary, marginTop: 0, marginBottom: 6 }]}>{t("business.staff.endTime")}</Text>
+                <TextInput style={[styles.input, inputStyle, { marginBottom: 0 }]} value={whEdit?.end} onChangeText={(v) => setWhEdit((w) => ({ ...w, end: v }))} placeholder="20:00" placeholderTextColor={colors.textTertiary} />
+              </View>
+            </View>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={saveWorkingHours}><Text style={styles.saveText}>{t("business.agenda.save")}</Text></TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </GradientBackground>
   );
 }
@@ -114,6 +175,14 @@ function createStyles(colors) {
     content: { paddingHorizontal: 20, paddingBottom: 40 },
     hint: { fontSize: 12.5, lineHeight: 18, marginBottom: 14 },
     card: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 10 },
+    cardWrap: { borderWidth: 1, borderRadius: 14, marginBottom: 10, overflow: "hidden" },
+    cardTop: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
+    whRow: { flexDirection: "row", alignItems: "center", gap: 8, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 11 },
+    whText: { flex: 1, fontSize: 12.5, fontWeight: "600" },
+    dayRow: { flexDirection: "row", gap: 6 },
+    dayChip: { flex: 1, borderWidth: 1.5, borderRadius: 10, paddingVertical: 10, alignItems: "center" },
+    dayChipText: { fontSize: 12, fontWeight: "800" },
+    timeRow: { flexDirection: "row", gap: 12, marginTop: 14 },
     name: { fontSize: 15, fontWeight: "700" },
     email: { fontSize: 12, marginTop: 2 },
     roleBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
