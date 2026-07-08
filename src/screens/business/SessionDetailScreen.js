@@ -73,7 +73,13 @@ export default function SessionDetailScreen({ route, navigation }) {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}><Icon name="back" size={26} color={colors.text} /></TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>{t("business.session.title")}</Text>
-        <View style={{ width: 28 }} />
+        {b && b.status !== "cancelled" && b.status !== "done" ? (
+          <TouchableOpacity onPress={() => navigation.navigate("BusinessBookingForm", { bookingId: b.id })}>
+            <Text style={[styles.editAction, { color: colors.primary }]}>{t("business.session.edit")}</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 28 }} />
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -154,6 +160,7 @@ function createStyles(colors) {
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
     header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12 },
     headerTitle: { fontSize: 18, fontWeight: "800" },
+    editAction: { fontSize: 15, fontWeight: "800" },
     content: { paddingHorizontal: 24, paddingBottom: 40 },
     statusPill: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 14 },
     statusText: { fontSize: 12, fontWeight: "800", textTransform: "uppercase" },

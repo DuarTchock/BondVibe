@@ -102,9 +102,10 @@ export default function ClassRosterScreen({ route, navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>{cls.title}</Text>
-        {/* Class details are set on the Create-Event form (kinlo_business/06 FIX 2);
-            this screen manages the roster. */}
-        <View style={{ width: 28 }} />
+        {/* Edit opens the class in the Create-Event form (kinlo_business/07 FIX 7). */}
+        <TouchableOpacity onPress={() => navigation.navigate("CreateEvent", { mode: "class", editClassId: classId })}>
+          <Icon name="edit" size={22} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

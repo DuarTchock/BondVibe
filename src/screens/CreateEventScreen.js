@@ -40,7 +40,7 @@ import {
 import useCities from "../hooks/useCities";
 import { uploadEventImages } from "../services/storageService";
 import { getHostMembershipPlans } from "../services/membershipService";
-import { createClass, updateClass } from "../services/businessClassesService";
+import { createClass, updateClass, getClass } from "../services/businessClassesService";
 import InstructorPicker from "../components/business/InstructorPicker";
 import { checkAccountStatus } from "../services/stripeConnectService";
 import { useFocusEffect } from "@react-navigation/native";
@@ -67,6 +67,7 @@ export default function CreateEventScreen({ navigation, route }) {
   // through businessClassesService; events through the events collection.
   const mode = route?.params?.mode === "class" || route?.params?.kind === "class" ? "class" : "event";
   const isClass = mode === "class";
+  const editClassId = route?.params?.editClassId || null; // class edit (FIX 7)
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -180,6 +181,46 @@ export default function CreateEventScreen({ navigation, route }) {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClass]);
+
+  // Editing an existing class (FIX 7): load it and prefill the form.
+  useEffect(() => {
+    if (!editClassId) return;
+    (async () => {
+      const c = await getClass(editClassId);
+      if (!c) return;
+      setTitle(c.title || "");
+      setDescription(c.description || "");
+      if (c.category) setSelectedCategory(c.category);
+      if (Array.isArray(c.languages) && c.languages.length) setSelectedLanguages(c.languages);
+      if (c.city) setSelectedCity(c.city);
+      if (c.location) setLocationDetail(c.location);
+      if (Array.isArray(c.images)) setEventImages(c.images);
+      setMaxPeople(String(c.capacity || 12));
+      setDurationMinutes(String(c.durationMin || 60));
+      if (c.instructorUid) setInstructorUid(c.instructorUid);
+      if (c.instructorName) setInstructorName(c.instructorName);
+      if (c.acceptsMembership) setAcceptsMembership(true);
+      if (c.price > 0 || c.twoTier) {
+        setIsFree(false);
+        if (c.twoTier) {
+          setTwoTier(true);
+          setPriceLocal(c.priceLocal != null ? String(c.priceLocal) : "");
+          setPriceGeneral(String(c.price || ""));
+        } else {
+          setPrice(String(c.price || ""));
+        }
+      }
+      // Time from the class; recurrence from its weekdays (or one-off date).
+      const [h, mn] = String(c.time || "18:00").split(":").map((n) => parseInt(n, 10) || 0);
+      const base = c.date ? new Date(c.date) : new Date(eventDate);
+      base.setHours(h, mn, 0, 0);
+      setEventDate(base);
+      if (Array.isArray(c.weekdays) && c.weekdays.length) {
+        setRecurrenceConfig((cfg) => ({ ...cfg, type: "weekly", selectedDays: c.weekdays }));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editClassId]);
 
   // Whether the host may create paid events, self-healing a stale flag: if the
   // flag is false but a Stripe account exists, refresh the real status once and
@@ -578,7 +619,7 @@ export default function CreateEventScreen({ navigation, route }) {
         const weekdays = recurrenceConfig.type !== "none" && Array.isArray(recurrenceConfig.selectedDays)
           ? recurrenceConfig.selectedDays
           : [];
-        const created = await createClass({
+        const classPayload = {
           title: title.trim(),
           description: description.trim(),
           category: selectedCategory,
@@ -598,11 +639,16 @@ export default function CreateEventScreen({ navigation, route }) {
           currency: "MXN",
           acceptsMembership,
           creditCost: 1,
-        });
+        };
+        // Edit updates the existing class (FIX 7); otherwise create a new one.
+        let created = null;
+        if (editClassId) await updateClass(editClassId, classPayload);
+        else created = await createClass(classPayload);
+        const classId = editClassId || created.id;
         if (eventImages.length > 0) {
           try {
-            const urls = await uploadEventImages(created.id, eventImages);
-            await updateClass(created.id, { images: urls });
+            const urls = await uploadEventImages(classId, eventImages);
+            await updateClass(classId, { images: urls });
           } catch (imageError) {
             console.error("⚠️ Class image upload failed:", imageError);
           }
@@ -833,7 +879,7 @@ export default function CreateEventScreen({ navigation, route }) {
           <Icon name="back" size={28} color={colors.text} type="ui" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          {isClass ? t("createEvent.classHeaderTitle") : t("createEvent.headerTitle")}
+          {isClass ? (editClassId ? t("createEvent.editClassTitle") : t("createEvent.classHeaderTitle")) : t("createEvent.headerTitle")}
         </Text>
         <View style={{ width: 40 }} />
       </View>

@@ -14,14 +14,16 @@ import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
 import DateField from "../../components/DateField";
 import { useTheme } from "../../contexts/ThemeContext";
-import { listSessionTypes, createBooking, PAID_WITH } from "../../services/businessSessionsService";
+import { listSessionTypes, createBooking, updateBooking, getBooking, PAID_WITH } from "../../services/businessSessionsService";
 import { listMembers } from "../../services/businessMembersService";
 
 export default function BookingFormScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   // Prefill from the Agenda (tap a slot): start time + which staff runs it.
+  // In edit mode (bookingId) we load the booking and update it (FIX 7).
   const params = route?.params || {};
+  const editing = !!params.bookingId;
   const [types, setTypes] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,9 +40,23 @@ export default function BookingFormScreen({ navigation, route }) {
     (async () => {
       const [ty, ms] = await Promise.all([listSessionTypes(), listMembers()]);
       setTypes(ty); setMembers(ms);
-      if (ty[0]) { setTypeId(ty[0].id); setLocation(""); }
+      if (editing) {
+        const b = await getBooking(params.bookingId);
+        if (b) {
+          setTypeId(b.sessionTypeId || ty[0]?.id || null);
+          setSelected(Array.isArray(b.members) ? b.members : []);
+          const start = new Date(b.start);
+          setDate(start);
+          setTime(`${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`);
+          setLocation(b.location || "");
+          setPaidWith(b.paidWith || "credit");
+        }
+      } else if (ty[0]) {
+        setTypeId(ty[0].id); setLocation("");
+      }
       setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const type = types.find((x) => x.id === typeId);
@@ -62,18 +78,31 @@ export default function BookingFormScreen({ navigation, route }) {
     start.setHours(h, mn, 0, 0);
     setSaving(true);
     try {
-      await createBooking({
-        members: selected,
-        sessionTypeId: type.id,
-        sessionTypeName: type.name,
-        start: start.toISOString(),
-        durationMin: type.durationMin,
-        location: location.trim() || null,
-        staffUid: params.staffUid || null,
-        paidWith,
-        priceCents: type.priceCents || 0,
-        status: "confirmed",
-      });
+      if (editing) {
+        await updateBooking(params.bookingId, {
+          members: selected,
+          sessionTypeId: type.id,
+          sessionTypeName: type.name,
+          start: start.toISOString(),
+          durationMin: type.durationMin,
+          location: location.trim() || null,
+          paidWith,
+          priceCents: type.priceCents || 0,
+        });
+      } else {
+        await createBooking({
+          members: selected,
+          sessionTypeId: type.id,
+          sessionTypeName: type.name,
+          start: start.toISOString(),
+          durationMin: type.durationMin,
+          location: location.trim() || null,
+          instructorUid: params.instructorUid || params.staffUid || null,
+          paidWith,
+          priceCents: type.priceCents || 0,
+          status: "confirmed",
+        });
+      }
       navigation.goBack();
     } catch (e) {
       setSaving(false);
