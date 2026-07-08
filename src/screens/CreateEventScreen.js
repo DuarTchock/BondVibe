@@ -74,12 +74,14 @@ export default function CreateEventScreen({ navigation, route }) {
   const [selectedLanguages, setSelectedLanguages] = useState(["es", "en"]);
   const [selectedCity, setSelectedCity] = useState("tulum");
 
-  // Initialize with tomorrow's date and default time
+  // Initialize with tomorrow's date and default time — or a prefill from the
+  // Agenda "+" (date + tapped hour), when opened from there (kinlo_business/07).
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(19, 0, 0, 0); // 7 PM
+  const prefillStart = route?.params?.prefillStart ? new Date(route.params.prefillStart) : null;
 
-  const [eventDate, setEventDate] = useState(tomorrow);
+  const [eventDate, setEventDate] = useState(prefillStart || tomorrow);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempDate, setTempDate] = useState(tomorrow);
@@ -126,7 +128,7 @@ export default function CreateEventScreen({ navigation, route }) {
   const [priceGeneral, setPriceGeneral] = useState(""); // MXN integer
   // The instructor/staff running it (a staff uid). Required for a class,
   // optional for an event — persisted so the item lands on their Agenda.
-  const [instructorUid, setInstructorUid] = useState("");
+  const [instructorUid, setInstructorUid] = useState(route?.params?.instructorUid || "");
   const [instructorName, setInstructorName] = useState("");
   const [loading, setLoading] = useState(false);
   const [eventImages, setEventImages] = useState([]);

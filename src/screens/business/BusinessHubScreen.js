@@ -206,31 +206,16 @@ export default function BusinessHubScreen({ navigation }) {
 
         <SectionHeader title={t("business.hub.programmingSection")} />
         <View style={card}>
-          <ListRow
-            icon="calendar"
-            iconColor={colors.error}
-            iconBg={`${colors.error}1A`}
-            title={t("business.hub.classesTitle")}
-            titleBadge={t("business.hub.newBadge")}
-            subtitle={t("business.hub.classesSubtitle")}
-            onPress={() => navigation.navigate("BusinessClasses")}
-          />
+          {/* One agenda covers browsing, creation, classes and requests
+              (kinlo_business/07 FIX 5) — the old Classes + Sessions rows were
+              folded in. */}
           <ListRow
             icon="calendarCheck"
             iconColor={colors.error}
             iconBg={`${colors.error}1A`}
             title={t("business.hub.agendaTitle")}
-            titleBadge={t("business.hub.newBadge")}
             subtitle={t("business.hub.agendaSubtitle")}
             onPress={() => navigation.navigate("BusinessAgendaDay")}
-          />
-          <ListRow
-            icon="clock"
-            iconColor={colors.error}
-            iconBg={`${colors.error}1A`}
-            title={t("business.hub.sessionsTitle")}
-            subtitle={t("business.hub.sessionsSubtitle")}
-            onPress={() => navigation.navigate("BusinessAgenda")}
             divider={false}
           />
         </View>

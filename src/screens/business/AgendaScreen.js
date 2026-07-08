@@ -22,10 +22,15 @@ import DurationWheelModal, { formatDuration } from "../../components/DurationWhe
 import { useTheme } from "../../contexts/ThemeContext";
 import { BRAND } from "../../constants/theme-tokens";
 import { auth } from "../../services/firebase";
-import { listStaff, getWorkingHours } from "../../services/businessStaffService";
+import { listStaff, getWorkingHours, setWorkingHours } from "../../services/businessStaffService";
 import {
-  getDayItems, getAllDayItems, createAgendaBlock, deleteAgendaBlock, AGENDA_ITEM_KIND,
+  getDayItems, getAllDayItems, getRangeCounts, createAgendaBlock, deleteAgendaBlock, AGENDA_ITEM_KIND,
 } from "../../services/businessAgendaService";
+
+const VIEWS = ["day", "week", "month", "year"];
+const weekdayNarrow = (i, lang) => new Date(2024, 0, 7 + i).toLocaleDateString(lang || "en", { weekday: "narrow" });
+const monthShort = (m, lang) => new Date(2024, m, 1).toLocaleDateString(lang || "en", { month: "short" });
+const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 import { listBookings, confirmBooking, declineBooking, BOOKING_STATUS } from "../../services/businessSessionsService";
 
 const HOUR_H = 64; // px per hour
@@ -57,6 +62,10 @@ export default function AgendaScreen({ navigation }) {
   const [slotModal, setSlotModal] = useState(null); // { min }
   const [blockDraft, setBlockDraft] = useState(null); // { min, label, durationMin }
   const [durationWheel, setDurationWheel] = useState(false);
+  const [view, setView] = useState("day"); // day | week | month | year
+  const [anchor, setAnchor] = useState(days[0]); // visible month/year
+  const [counts, setCounts] = useState({}); // dateKey -> count (week/month/year)
+  const [whEdit, setWhEdit] = useState(null); // working-hours editor
 
   const isReception = myRole === "reception";
   const selStaff = staff.find((s) => s.id === selected);
@@ -93,7 +102,27 @@ export default function AgendaScreen({ navigation }) {
   }, [selected, selStaff?.name, date]);
 
   useFocusEffect(useCallback(() => { loadStaff(); }, [loadStaff]));
-  useFocusEffect(useCallback(() => { loadDay(); }, [loadDay]));
+  useFocusEffect(useCallback(() => { if (view === "day") loadDay(); }, [loadDay, view]));
+
+  // Per-day counts for the week/month/year calendar grids.
+  useFocusEffect(useCallback(() => {
+    if (view === "day" || selected === "all") { setCounts({}); return; }
+    let alive = true;
+    let from; let to;
+    if (view === "week") {
+      const d = new Date(date); from = new Date(d); from.setDate(d.getDate() - d.getDay());
+      to = new Date(from); to.setDate(from.getDate() + 6);
+    } else if (view === "month") {
+      from = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+      to = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+    } else {
+      from = new Date(anchor.getFullYear(), 0, 1);
+      to = new Date(anchor.getFullYear(), 11, 31);
+    }
+    from.setHours(0, 0, 0, 0); to.setHours(23, 59, 59, 999);
+    getRangeCounts(selected, selStaff?.name, from, to).then((c) => { if (alive) setCounts(c); });
+    return () => { alive = false; };
+  }, [view, anchor, date, selected, selStaff?.name]));
 
   const kindColor = (kind) => ({
     [AGENDA_ITEM_KIND.EVENT]: colors.warning,
@@ -127,6 +156,33 @@ export default function AgendaScreen({ navigation }) {
     loadDay();
   };
 
+  // Header "+" and the slot sheet open the real Create-Event form (FIX 5),
+  // prefilled with the day, the tapped hour and the selected instructor.
+  const createEventAt = (min) => {
+    const start = new Date(date);
+    const m = typeof min === "number" ? min : hourToMin(wh.start);
+    start.setHours(Math.floor(m / 60), m % 60, 0, 0);
+    setSlotModal(null);
+    navigation.navigate("CreateEvent", {
+      prefillStart: start.toISOString(),
+      instructorUid: selected === "all" ? auth.currentUser?.uid : selected,
+    });
+  };
+
+  // Clock icon → edit the selected instructor's working hours (reuses the
+  // StaffScreen logic). Falls back to the owner when "All" is selected.
+  const openWorkingHours = () => {
+    const target = selected === "all" ? staff.find((s) => s.id === auth.currentUser?.uid) : selStaff;
+    const w = getWorkingHours(target);
+    setWhEdit({ id: (target && target.id) || auth.currentUser?.uid, days: [...w.days], start: w.start, end: w.end });
+  };
+  const toggleWhDay = (d) => setWhEdit((w) => ({ ...w, days: w.days.includes(d) ? w.days.filter((x) => x !== d) : [...w.days, d] }));
+  const saveWH = async () => {
+    await setWorkingHours(whEdit.id, { days: whEdit.days, start: whEdit.start.trim(), end: whEdit.end.trim() });
+    setWhEdit(null);
+    loadDay();
+  };
+
   const onItemPress = (item) => {
     if (item.kind === AGENDA_ITEM_KIND.SESSION && item.bookingId) {
       navigation.navigate("BusinessSessionDetail", { bookingId: item.bookingId });
@@ -142,6 +198,82 @@ export default function AgendaScreen({ navigation }) {
   const styles = createStyles(colors);
   const dayName = (d) => d.toLocaleDateString(i18n.language, { weekday: "short" }).toUpperCase();
   const chips = [{ id: "all", name: t("business.agenda.all") }, ...staff.filter((s) => s.role === "owner" || s.role === "instructor").map((s) => ({ id: s.id, name: s.name || t("business.agenda.you") }))];
+  const countFor = (d) => counts[dateKey(d)] || 0;
+
+  // Week / Month / Year calendars (FIX 5) — each cell drills into the Day grid.
+  const renderCalendar = () => {
+    if (view === "week") {
+      const start = new Date(date); start.setDate(date.getDate() - date.getDay());
+      const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+      return (
+        <ScrollView contentContainerStyle={styles.calContent}>
+          {week.map((d) => {
+            const n = countFor(d);
+            return (
+              <TouchableOpacity key={d.toISOString()} style={[styles.weekRow, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => { setDate(d); setView("day"); }}>
+                <View style={styles.weekDayCol}>
+                  <Text style={[styles.weekDow, { color: colors.textTertiary }]}>{d.toLocaleDateString(i18n.language, { weekday: "short" })}</Text>
+                  <Text style={[styles.weekNum, { color: colors.text }]}>{d.getDate()}</Text>
+                </View>
+                <Text style={[styles.weekCount, { color: n ? colors.text : colors.textTertiary }]}>{n ? t("business.agenda.nItems", { count: n }) : t("business.agenda.free")}</Text>
+                <Icon name="forward" size={16} color={colors.textTertiary} />
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      );
+    }
+    if (view === "month") {
+      const startPad = new Date(anchor.getFullYear(), anchor.getMonth(), 1).getDay();
+      const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
+      const cells = [];
+      for (let i = 0; i < startPad; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(anchor.getFullYear(), anchor.getMonth(), d));
+      return (
+        <View style={styles.calContent}>
+          <View style={styles.calHeader}>
+            <TouchableOpacity onPress={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1))}><Icon name="back" size={20} color={colors.textSecondary} /></TouchableOpacity>
+            <Text style={[styles.calTitle, { color: colors.text }]}>{anchor.toLocaleDateString(i18n.language, { month: "long", year: "numeric" })}</Text>
+            <TouchableOpacity onPress={() => setAnchor(new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1))}><Icon name="forward" size={20} color={colors.textSecondary} /></TouchableOpacity>
+          </View>
+          <View style={styles.dowRow}>{[0, 1, 2, 3, 4, 5, 6].map((i) => (<Text key={i} style={[styles.dowCell, { color: colors.textTertiary }]}>{weekdayNarrow(i, i18n.language)}</Text>))}</View>
+          <View style={styles.monthGrid}>
+            {cells.map((d, i) => d ? (
+              <TouchableOpacity key={i} style={[styles.monthCell, { borderColor: colors.border }]} onPress={() => { setDate(d); setView("day"); }}>
+                <Text style={[styles.monthDay, { color: colors.text }]}>{d.getDate()}</Text>
+                {countFor(d) > 0 && <View style={[styles.monthDot, { backgroundColor: colors.primary }]}><Text style={styles.monthDotText}>{countFor(d)}</Text></View>}
+              </TouchableOpacity>
+            ) : <View key={i} style={styles.monthCell} />)}
+          </View>
+        </View>
+      );
+    }
+    // year
+    const sumMonth = (m) => Object.keys(counts).reduce((acc, k) => {
+      const [y, mm] = k.split("-").map(Number);
+      return (y === anchor.getFullYear() && mm === m + 1) ? acc + counts[k] : acc;
+    }, 0);
+    return (
+      <View style={styles.calContent}>
+        <View style={styles.calHeader}>
+          <TouchableOpacity onPress={() => setAnchor(new Date(anchor.getFullYear() - 1, 0, 1))}><Icon name="back" size={20} color={colors.textSecondary} /></TouchableOpacity>
+          <Text style={[styles.calTitle, { color: colors.text }]}>{anchor.getFullYear()}</Text>
+          <TouchableOpacity onPress={() => setAnchor(new Date(anchor.getFullYear() + 1, 0, 1))}><Icon name="forward" size={20} color={colors.textSecondary} /></TouchableOpacity>
+        </View>
+        <View style={styles.yearGrid}>
+          {Array.from({ length: 12 }, (_, m) => m).map((m) => {
+            const n = sumMonth(m);
+            return (
+              <TouchableOpacity key={m} style={[styles.yearCell, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => { setAnchor(new Date(anchor.getFullYear(), m, 1)); setView("month"); }}>
+                <Text style={[styles.yearMonth, { color: colors.text }]}>{monthShort(m, i18n.language)}</Text>
+                <Text style={[styles.yearCount, { color: n ? colors.primary : colors.textTertiary }]}>{n}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <GradientBackground>
@@ -149,12 +281,35 @@ export default function AgendaScreen({ navigation }) {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}><Icon name="back" size={26} color={colors.text} /></TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>{t("business.agenda.title")}</Text>
-        <TouchableOpacity onPress={() => setFullDay((v) => !v)}>
-          <Icon name="clock" size={22} color={fullDay ? colors.primary : colors.textSecondary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {/* Clock → edit working hours (FIX 5) */}
+          {!isReception && (
+            <TouchableOpacity onPress={openWorkingHours}>
+              <Icon name="clock" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+          {!isReception && (
+            <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primary }]} onPress={() => createEventAt()}>
+              <Icon name="plus" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Day strip */}
+      {/* View switcher: Day / Week / Month / Year */}
+      <View style={styles.viewRow}>
+        {VIEWS.map((v) => {
+          const on = view === v;
+          return (
+            <TouchableOpacity key={v} onPress={() => { setView(v); if (v !== "day" && selected === "all") setSelected(staff.find((s) => s.role === "instructor" || s.role === "owner")?.id || auth.currentUser?.uid); }} style={[styles.viewChip, { backgroundColor: on ? colors.text : colors.surfaceGlass }]}>
+              <Text style={[styles.viewText, { color: on ? colors.background : colors.textSecondary }]}>{t(`business.agenda.view.${v}`)}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Day strip (day view only) */}
+      {view === "day" && (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayStrip}>
         {days.map((d) => {
           const on = d.toDateString() === date.toDateString();
@@ -166,6 +321,7 @@ export default function AgendaScreen({ navigation }) {
           );
         })}
       </ScrollView>
+      )}
 
       {/* Instructor chips (All first) — hidden for reception */}
       {!isReception && (
@@ -195,22 +351,29 @@ export default function AgendaScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* Legend */}
-      <View style={styles.legend}>
-        {[
-          { c: colors.warning, k: t("business.agenda.legendEvent") },
-          { c: colors.primary, k: t("business.agenda.class") },
-          { c: colors.success, k: t("business.agenda.legendPrivate") },
-          { c: colors.textTertiary, k: t("business.agenda.blocked") },
-        ].map((l, i) => (
-          <View key={i} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: l.c }]} />
-            <Text style={[styles.legendText, { color: colors.textSecondary }]}>{l.k}</Text>
-          </View>
-        ))}
-      </View>
+      {/* Legend + full-day toggle (day view only) */}
+      {view === "day" && (
+        <View style={styles.legend}>
+          {[
+            { c: colors.warning, k: t("business.agenda.legendEvent") },
+            { c: colors.primary, k: t("business.agenda.class") },
+            { c: colors.success, k: t("business.agenda.legendPrivate") },
+            { c: colors.textTertiary, k: t("business.agenda.blocked") },
+          ].map((l, i) => (
+            <View key={i} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: l.c }]} />
+              <Text style={[styles.legendText, { color: colors.textSecondary }]}>{l.k}</Text>
+            </View>
+          ))}
+          <TouchableOpacity style={[styles.fullDayChip, { borderColor: fullDay ? colors.primary : colors.border }]} onPress={() => setFullDay((v) => !v)}>
+            <Text style={[styles.fullDayText, { color: fullDay ? colors.primary : colors.textTertiary }]}>{t("business.agenda.fullDay")}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {loading ? (
+      {view !== "day" ? (
+        renderCalendar()
+      ) : loading ? (
         <View style={styles.loading}><ActivityIndicator size="large" color={colors.primary} /></View>
       ) : selected === "all" ? (
         /* Director view — compact merged list grouped by time, with instructor. */
@@ -273,8 +436,11 @@ export default function AgendaScreen({ navigation }) {
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setSlotModal(null)}>
           <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>{slotModal ? `${pad2(Math.floor(slotModal.min / 60))}:00` : ""}</Text>
-            <TouchableOpacity style={[styles.sheetBtn, { backgroundColor: colors.primary }]} onPress={startNewSession}>
-              <Icon name="calendar" size={17} color="#fff" /><Text style={styles.sheetBtnText}>{t("business.agenda.newSession")}</Text>
+            <TouchableOpacity style={[styles.sheetBtn, { backgroundColor: colors.primary }]} onPress={() => createEventAt(slotModal.min)}>
+              <Icon name="plus" size={17} color="#fff" /><Text style={styles.sheetBtnText}>{t("business.agenda.createEvent")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.sheetBtnGhost, { borderColor: colors.border }]} onPress={startNewSession}>
+              <Icon name="calendar" size={16} color={colors.textSecondary} /><Text style={[styles.sheetBtnGhostText, { color: colors.textSecondary }]}>{t("business.agenda.newSession")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.sheetBtnGhost, { borderColor: colors.border }]} onPress={openBlockDraft}>
               <Icon name="lock" size={16} color={colors.textSecondary} /><Text style={[styles.sheetBtnGhostText, { color: colors.textSecondary }]}>{t("business.agenda.blockOff")}</Text>
@@ -301,6 +467,40 @@ export default function AgendaScreen({ navigation }) {
         </View>
       </Modal>
       <DurationWheelModal visible={durationWheel} value={String(blockDraft?.durationMin || 60)} onSelect={(v) => setBlockDraft((b) => ({ ...b, durationMin: parseInt(v, 10) || 60 }))} onClose={() => setDurationWheel(false)} />
+
+      {/* Working-hours editor (clock icon) — reuses the StaffScreen logic */}
+      <Modal visible={!!whEdit} transparent animationType="fade" onRequestClose={() => setWhEdit(null)}>
+        <View style={styles.centerBackdrop}>
+          <View style={[styles.editCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>{t("business.staff.workingHours")}</Text>
+            <Text style={[styles.whHint, { color: colors.textTertiary }]}>{t("business.staff.workingDays")}</Text>
+            <View style={styles.whDayRow}>
+              {[0, 1, 2, 3, 4, 5, 6].map((d) => {
+                const on = whEdit?.days.includes(d);
+                return (
+                  <TouchableOpacity key={d} onPress={() => toggleWhDay(d)} style={[styles.whDayChip, { borderColor: on ? colors.primary : colors.border, backgroundColor: on ? `${colors.primary}18` : "transparent" }]}>
+                    <Text style={[styles.whDayText, { color: on ? colors.primary : colors.textSecondary }]}>{weekdayNarrow(d, i18n.language)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.whTimeRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.whHint, { color: colors.textTertiary }]}>{t("business.staff.startTime")}</Text>
+                <TextInput style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]} value={whEdit?.start} onChangeText={(v) => setWhEdit((w) => ({ ...w, start: v }))} placeholder="07:00" placeholderTextColor={colors.textTertiary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.whHint, { color: colors.textTertiary }]}>{t("business.staff.endTime")}</Text>
+                <TextInput style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]} value={whEdit?.end} onChangeText={(v) => setWhEdit((w) => ({ ...w, end: v }))} placeholder="20:00" placeholderTextColor={colors.textTertiary} />
+              </View>
+            </View>
+            <View style={styles.editActions}>
+              <TouchableOpacity style={[styles.editBtn, { borderColor: colors.border, borderWidth: 1 }]} onPress={() => setWhEdit(null)}><Text style={[styles.editBtnText, { color: colors.textSecondary }]}>{t("business.common.cancel")}</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.editBtn, { backgroundColor: colors.primary }]} onPress={saveWH}><Text style={[styles.editBtnText, { color: "#fff" }]}>{t("business.agenda.save")}</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Requests inbox */}
       <Modal visible={showRequests} transparent animationType="slide" onRequestClose={() => setShowRequests(false)}>
@@ -333,6 +533,37 @@ function createStyles(colors) {
   return StyleSheet.create({
     header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 60, paddingBottom: 8 },
     headerTitle: { fontSize: 22, fontWeight: "800" },
+    headerActions: { flexDirection: "row", alignItems: "center", gap: 14 },
+    addBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+    viewRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingVertical: 6 },
+    viewChip: { flex: 1, paddingVertical: 8, borderRadius: 14, alignItems: "center" },
+    viewText: { fontSize: 12.5, fontWeight: "800" },
+    fullDayChip: { marginLeft: "auto", borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+    fullDayText: { fontSize: 11.5, fontWeight: "700" },
+    calContent: { paddingHorizontal: 16, paddingBottom: 30 },
+    weekRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 8 },
+    weekDayCol: { width: 44, alignItems: "center" },
+    weekDow: { fontSize: 10.5, fontWeight: "800", textTransform: "uppercase" },
+    weekNum: { fontSize: 18, fontWeight: "800" },
+    weekCount: { flex: 1, fontSize: 13.5, fontWeight: "600" },
+    calHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10 },
+    calTitle: { fontSize: 16, fontWeight: "800", textTransform: "capitalize" },
+    dowRow: { flexDirection: "row", marginBottom: 6 },
+    dowCell: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700" },
+    monthGrid: { flexDirection: "row", flexWrap: "wrap" },
+    monthCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center", gap: 3 },
+    monthDay: { fontSize: 13, fontWeight: "600" },
+    monthDot: { minWidth: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
+    monthDotText: { color: "#fff", fontSize: 9.5, fontWeight: "800" },
+    yearGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    yearCell: { width: "30%", flexGrow: 1, borderWidth: 1, borderRadius: 14, paddingVertical: 16, alignItems: "center", gap: 4 },
+    yearMonth: { fontSize: 13.5, fontWeight: "800", textTransform: "capitalize" },
+    yearCount: { fontSize: 18, fontWeight: "800" },
+    whHint: { fontSize: 12, fontWeight: "600", marginTop: 10, marginBottom: 6 },
+    whDayRow: { flexDirection: "row", gap: 6 },
+    whDayChip: { flex: 1, borderWidth: 1.5, borderRadius: 10, paddingVertical: 10, alignItems: "center" },
+    whDayText: { fontSize: 12, fontWeight: "800" },
+    whTimeRow: { flexDirection: "row", gap: 12, marginTop: 4 },
     dayStrip: { paddingHorizontal: 16, gap: 8, paddingVertical: 4 },
     dayCell: { width: 54, height: 62, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 3 },
     dayName: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },

@@ -170,6 +170,52 @@ export async function getDayItems(instructorUid, instructorName, date, bizId = g
 }
 
 /**
+ * Per-day item counts for one instructor across a date range (Week/Month/Year
+ * calendar views, kinlo_business/07 FIX 5). One fetch; classes expand across the
+ * range via their weekdays. Returns a map { 'YYYY-MM-DD': count }.
+ */
+export async function getRangeCounts(instructorUid, instructorName, fromDate, toDate, bizId = getMyBizId()) {
+  const counts = {};
+  if (!bizId || !instructorUid) return counts;
+  const isOwner = instructorUid === bizId;
+  const nameKey = (instructorName || "").trim().toLowerCase();
+  const mine = (uid, legacyName) => {
+    if (uid) return uid === instructorUid;
+    if (legacyName) return legacyName.trim().toLowerCase() === nameKey;
+    return isOwner;
+  };
+  const key = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const inRange = (d) => d >= fromDate && d <= toDate;
+  const bump = (d) => { const k = key(d); counts[k] = (counts[k] || 0) + 1; };
+
+  const [events, classes, bookings, blocks] = await Promise.all([
+    listHostEvents(bizId), listClasses(bizId), listBookings(bizId), listAgendaBlocks(instructorUid, bizId),
+  ]);
+
+  events.filter((e) => e.kind !== "class" && mine(e.instructorUid)).forEach((e) => {
+    const d = new Date(e.date);
+    if (inRange(d)) bump(d);
+  });
+  bookings.filter((b) => b.status === BOOKING_STATUS.CONFIRMED && mine(b.instructorUid || b.staffUid)).forEach((b) => {
+    const d = new Date(b.start);
+    if (inRange(d)) bump(d);
+  });
+  blocks.forEach((bl) => { const d = new Date(bl.start); if (inRange(d)) bump(d); });
+  // Classes: expand recurrence day by day across the range.
+  const myClasses = classes.filter((c) => mine(c.instructorUid, c.instructor));
+  if (myClasses.length) {
+    const cur = new Date(fromDate);
+    while (cur <= toDate) {
+      const onDay = classesOnWeekday(myClasses, cur.getDay()).length;
+      if (onDay) counts[key(cur)] = (counts[key(cur)] || 0) + onDay;
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+  return counts;
+}
+const pad2 = (n) => String(n).padStart(2, "0");
+
+/**
  * Director view (kinlo_business/06 FIX 5): every instructor's day merged, each
  * item tagged with its instructor. Returns { staff:[{uid,name}], items:[] }.
  */
