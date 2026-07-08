@@ -12,7 +12,9 @@ import { TYPE, SPACING, RADII } from "../constants/theme-tokens";
 export default function ListRow({
   icon,
   iconColor,
+  iconBg, // optional tile background (defaults to brandSoft)
   title,
+  titleBadge, // optional small chip after the title (e.g. NEW / CRM)
   subtitle,
   onPress,
   right, // custom right slot; default = chevron
@@ -34,14 +36,21 @@ export default function ListRow({
         activeOpacity={0.7}
       >
         {icon ? (
-          <View style={[styles.iconTile, { backgroundColor: colors.brandSoft }]}>
+          <View style={[styles.iconTile, { backgroundColor: iconBg || colors.brandSoft }]}>
             <Icon name={icon} size={18} color={iconColor || colors.primary} />
           </View>
         ) : null}
         <View style={styles.textWrap}>
-          <Text style={[TYPE.bodySemibold, { color: titleColor }]} numberOfLines={1}>
-            {title}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={[TYPE.bodySemibold, { color: titleColor }]} numberOfLines={1}>
+              {title}
+            </Text>
+            {titleBadge ? (
+              <View style={[styles.badge, { backgroundColor: `${colors.primary}1A` }]}>
+                <Text style={[styles.badgeText, { color: colors.primary }]}>{titleBadge}</Text>
+              </View>
+            ) : null}
+          </View>
           {subtitle ? (
             <Text style={[TYPE.caption, { color: colors.textTertiary }]} numberOfLines={1}>
               {subtitle}
@@ -78,5 +87,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   textWrap: { flex: 1, gap: 1 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 },
+  badgeText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.3, textTransform: "uppercase" },
   divider: { height: StyleSheet.hairlineWidth, marginLeft: 64 },
 });

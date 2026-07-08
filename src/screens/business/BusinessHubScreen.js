@@ -12,6 +12,7 @@ import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
 import ListRow from "../../components/ListRow";
 import SectionHeader from "../../components/SectionHeader";
+import ProBadge from "../../components/ProBadge";
 import { useTheme } from "../../contexts/ThemeContext";
 import { ELEVATION, RADII, SPACING } from "../../constants/theme-tokens";
 import { getBusiness } from "../../services/businessService";
@@ -84,11 +85,14 @@ export default function BusinessHubScreen({ navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 8 }}>
-          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-            {business.name}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+              {business.name}
+            </Text>
+            <ProBadge tier="pro" />
+          </View>
           <Text style={[styles.headerSub, { color: colors.textTertiary }]}>
-            {t(verticalLabelKey(business.vertical))} · {t("business.hub.proBadge")}
+            {t(verticalLabelKey(business.vertical))}
           </Text>
         </View>
         <TouchableOpacity onPress={() => navigation.navigate("BusinessSetup")}>
@@ -97,91 +101,118 @@ export default function BusinessHubScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SectionHeader title={t("business.hub.insightsSection")} />
+        <SectionHeader title={t("business.hub.overviewSection")} />
         <View style={card}>
           <ListRow
             icon="chart"
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}1A`}
             title={t("business.hub.dashboardTitle")}
             subtitle={t("business.hub.dashboardSubtitle")}
             onPress={() => navigation.navigate("BusinessDashboard")}
-          />
-          <ListRow
-            icon="analytics"
-            title={t("business.hub.momentumTitle")}
-            subtitle={t("business.hub.momentumSubtitle")}
-            onPress={() => navigation.navigate("MomentumBoard")}
             divider={false}
           />
         </View>
 
-        <SectionHeader title={t("business.hub.communitySection")} />
+        <SectionHeader title={t("business.hub.peopleMoneySection")} />
         <View style={card}>
           <ListRow
             icon="users"
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}1A`}
             title={t("business.hub.membersTitle")}
+            titleBadge={t("business.hub.crmBadge")}
             subtitle={t("business.hub.membersSubtitle", { count: business.memberCount || 0 })}
             onPress={() => navigation.navigate("BusinessMembers")}
-            divider={false}
           />
-        </View>
-
-        <SectionHeader title={t("business.hub.operationsSection")} />
-        <View style={card}>
           <ListRow
             icon="ticket"
+            iconColor={colors.primary}
+            iconBg={`${colors.primary}1A`}
             title={t("business.hub.packagesTitle")}
             subtitle={t("business.hub.packagesSubtitle")}
             onPress={() => navigation.navigate("BusinessPackages")}
           />
           <ListRow
-            icon="calendar"
-            title={t("business.hub.classesTitle")}
-            subtitle={t("business.hub.classesSubtitle")}
-            onPress={() => navigation.navigate("BusinessClasses")}
-          />
-          <ListRow
-            icon="calendarCheck"
-            title={t("business.hub.agendaTitle")}
-            subtitle={t("business.hub.agendaSubtitle")}
-            onPress={() => navigation.navigate("BusinessAgendaDay")}
-          />
-          <ListRow
-            icon="clock"
-            title={t("business.hub.sessionsTitle")}
-            subtitle={t("business.hub.sessionsSubtitle")}
-            onPress={() => navigation.navigate("BusinessAgenda")}
-          />
-          <ListRow
-            icon="qr"
-            title={t("business.hub.checkInTitle")}
-            subtitle={t("business.hub.checkInSubtitle")}
-            onPress={() => navigation.navigate("BusinessCheckIn")}
-          />
-          <ListRow
             icon="dollar"
+            iconColor={colors.success}
+            iconBg={`${colors.success}1A`}
             title={t("business.hub.financeTitle")}
             subtitle={t("business.hub.financeSubtitle")}
             onPress={() => navigation.navigate("BusinessFinance")}
           />
           <ListRow
-            icon="broadcast"
-            title={t("business.hub.automationsTitle")}
-            subtitle={t("business.hub.automationsSubtitle")}
-            onPress={() => navigation.navigate("BusinessAutomations")}
+            icon="qr"
+            iconColor={colors.success}
+            iconBg={`${colors.success}1A`}
+            title={t("business.hub.checkInTitle")}
+            subtitle={t("business.hub.checkInSubtitle")}
+            onPress={() => navigation.navigate("BusinessCheckIn")}
             divider={false}
           />
         </View>
 
-        <SectionHeader title={t("business.hub.settingsSection")} />
+        <SectionHeader title={t("business.hub.programmingSection")} />
         <View style={card}>
           <ListRow
+            icon="calendar"
+            iconColor={colors.error}
+            iconBg={`${colors.error}1A`}
+            title={t("business.hub.classesTitle")}
+            titleBadge={t("business.hub.newBadge")}
+            subtitle={t("business.hub.classesSubtitle")}
+            onPress={() => navigation.navigate("BusinessClasses")}
+          />
+          <ListRow
+            icon="calendarCheck"
+            iconColor={colors.error}
+            iconBg={`${colors.error}1A`}
+            title={t("business.hub.agendaTitle")}
+            titleBadge={t("business.hub.newBadge")}
+            subtitle={t("business.hub.agendaSubtitle")}
+            onPress={() => navigation.navigate("BusinessAgendaDay")}
+          />
+          <ListRow
+            icon="clock"
+            iconColor={colors.error}
+            iconBg={`${colors.error}1A`}
+            title={t("business.hub.sessionsTitle")}
+            subtitle={t("business.hub.sessionsSubtitle")}
+            onPress={() => navigation.navigate("BusinessAgenda")}
+            divider={false}
+          />
+        </View>
+
+        <SectionHeader title={t("business.hub.retentionOrgSection")} />
+        <View style={card}>
+          <ListRow
+            icon="analytics"
+            iconColor={colors.warning}
+            iconBg={`${colors.warning}1A`}
+            title={t("business.hub.momentumTitle")}
+            subtitle={t("business.hub.momentumSubtitle")}
+            onPress={() => navigation.navigate("MomentumBoard")}
+          />
+          <ListRow
+            icon="broadcast"
+            iconColor={colors.warning}
+            iconBg={`${colors.warning}1A`}
+            title={t("business.hub.automationsTitle")}
+            subtitle={t("business.hub.automationsSubtitle")}
+            onPress={() => navigation.navigate("BusinessAutomations")}
+          />
+          <ListRow
             icon="location"
+            iconColor={colors.textSecondary}
+            iconBg={`${colors.textTertiary}22`}
             title={t("business.hub.branchesTitle")}
             subtitle={t("business.hub.branchesSubtitle")}
             onPress={() => navigation.navigate("BusinessBranches")}
           />
           <ListRow
             icon="users"
+            iconColor={colors.textSecondary}
+            iconBg={`${colors.textTertiary}22`}
             title={t("business.hub.staffTitle")}
             subtitle={t("business.hub.staffSubtitle")}
             onPress={() => navigation.navigate("BusinessStaff")}
@@ -203,7 +234,8 @@ function createStyles(colors) {
       paddingTop: 60,
       paddingBottom: 12,
     },
-    headerTitle: { fontSize: 20, fontWeight: "800" },
+    titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    headerTitle: { fontSize: 20, fontWeight: "800", flexShrink: 1 },
     headerSub: { fontSize: 12, marginTop: 1 },
     content: { paddingBottom: SPACING.xxxl },
     card: { borderRadius: RADII.card, borderWidth: 1, marginHorizontal: SPACING.screen, overflow: "hidden" },
