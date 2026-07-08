@@ -24,6 +24,7 @@ import GradientBackground from "../../components/GradientBackground";
 import StatusPill from "../../components/business/StatusPill";
 import GuestCodeCard from "../../components/business/GuestCodeCard";
 import CreditCard from "../../components/business/CreditCard";
+import PricingTierToggle from "../../components/business/PricingTierToggle";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getBusiness } from "../../services/businessService";
 import {
@@ -32,6 +33,7 @@ import {
   deleteMember,
   regenerateInviteCode,
   MEMBER_STATUS,
+  PRICING_TIER,
 } from "../../services/businessMembersService";
 import { listPackages, assignPackage, adjustCredits, PACKAGE_KIND } from "../../services/businessPackagesService";
 import { markPresent, listMemberAttendance } from "../../services/businessAttendanceService";
@@ -89,6 +91,11 @@ export default function MemberRecordScreen({ route, navigation }) {
   const setStatus = async (status) => {
     setMember((m) => ({ ...m, status }));
     await updateMember(memberId, { status });
+  };
+
+  const setPricingTier = async (pricingTier) => {
+    setMember((m) => ({ ...m, pricingTier }));
+    await updateMember(memberId, { pricingTier });
   };
 
   const openAssign = async () => {
@@ -192,6 +199,22 @@ export default function MemberRecordScreen({ route, navigation }) {
               <StatusPill status={member.status} />
             </View>
           </View>
+        </View>
+
+        {/* Pricing tier (kinlo_business/05 §A) — locals get the special rate */}
+        <View style={[styles.tierCard, { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}33` }]}>
+          <View style={styles.tierHeader}>
+            <Icon name="location" size={18} color={colors.primary} />
+            <Text style={[styles.tierTitle, { color: colors.primary }]}>{t("business.pricingTier.title")}</Text>
+          </View>
+          <PricingTierToggle
+            value={member.pricingTier || PRICING_TIER.GENERAL}
+            onChange={setPricingTier}
+            t={t}
+          />
+          <Text style={[styles.tierHint, { color: colors.textSecondary }]}>
+            {t("business.pricingTier.memberHint", { name: (member.name || "").split(" ")[0] || t("business.members.unnamed") })}
+          </Text>
         </View>
 
         {/* Hand-settable status */}
@@ -410,6 +433,10 @@ function createStyles(colors) {
     name: { fontSize: 20, fontWeight: "800" },
     contact: { fontSize: 12.5, marginTop: 2 },
     sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", marginTop: 22, marginBottom: 10 },
+    tierCard: { borderWidth: 1, borderRadius: 16, padding: 16, marginTop: 18 },
+    tierHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+    tierTitle: { fontSize: 15, fontWeight: "800" },
+    tierHint: { fontSize: 12.5, lineHeight: 18, marginTop: 12 },
     statusRow: { flexDirection: "row", gap: 8 },
     statusChip: { borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 },
     attHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },

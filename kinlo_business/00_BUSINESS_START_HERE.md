@@ -1,11 +1,11 @@
-# Kinlo for Business — START HERE (Claude Code entry point)
+# Kinlo for Business — BUSINESS START HERE (Claude Code entry point)
 
 > **Scope:** ONLY the host **ERP/CRM (“Kinlo for Business”)** module. This package is self-contained — it does NOT depend on any other redesign/AI/i18n work. Build it into the **existing** Kinlo app.
 > **App:** Kinlo (Expo/React Native + Firebase). Anthropic **`callClaude` Cloud Function is already connected** (API key server-side) — reuse it, don’t rebuild it.
 
 ## The one prompt to give Claude Code
 ```
-Read kinlo_business/00_START_HERE.md and follow it. Build the Kinlo for Business (host ERP/CRM)
+Read kinlo_business/00_BUSINESS_START_HERE.md and follow it. Build the Kinlo for Business (host ERP/CRM)
 module into the EXISTING app, mounted in the Events tab when the host toggle is ON, gated to Pro.
 Build in the order below, pausing after each block for my review. Show the file plan before editing.
 Reuse the existing callClaude Cloud Function for all AI. Reference mockups in the repo root.
@@ -17,11 +17,12 @@ Hosts already reach management via the **Events tab with the host toggle ON**. M
 ## Files in this package
 | File | Contents |
 |---|---|
-| `00_START_HERE.md` | This index + rules + build order |
+| `00_BUSINESS_START_HERE.md` | This index + rules + build order |
 | `01_ERP_CORE.md` | Member CRM (manual add + CSV) · guest-code→QR · packages/credits · attendance · scheduling/instructors · finance · multi-branch · staff roles · vertical presets |
 | `02_ANALYTICS_MOMENTUM.md` | Ranged analytics (churn/active/recovered/prospects/projection) + **Momentum board** (Jira-style Kanban) |
 | `03_PRIVATE_SESSIONS.md` | Agenda & 1:1/couple/group sessions · availability · requests · credits · two-way reminders · rating/chat/join-community hooks |
 | `04_AUTOMATIONS.md` | Lifecycle automation engine · channel routing (Push+in-app+email+SMS now, WhatsApp phase 2) · SMS model 1 |
+| `05_PRICING_CREDITS_AND_AGENDA.md` | **Two-tier (Local/General) pricing** on events & classes · **membership credit deducted at check-in** · **24h Agenda** day view with block-off. Built on the host's real `CreateEventScreen.js`. |
 
 Reference mockups (open in a browser to match the UI):
 `Kinlo Host Business.dc.html` · `Kinlo Host Analytics & Kanban.dc.html` · `Kinlo Retention Kanban Pro.dc.html` · `Kinlo Private Sessions.dc.html`
@@ -36,6 +37,7 @@ Reference mockups (open in a browser to match the UI):
 7. **Private sessions & agenda** (`03`).
 8. **Automations** (`04`): rules engine + channel routing (SMS model 1).
 9. **Multi-branch + staff roles** (`01`) + **vertical presets**.
+10. **Two-tier pricing + credit-at-check-in + 24h Agenda** (`05`): extend the real `CreateEventScreen.js` (events + classes); add `pricingTier` to members; move membership-credit consumption to check-in (idempotent); build the per-staff 24h Agenda with block-off. *(pricing/credits can run alongside step 2; Agenda alongside step 6.)*
 
 ## Hard rules
 - **All-vertical:** not dance-only. Generic copy (“members / sessions / packages”); a **vertical preset** only swaps labels/defaults. Never hardcode “dance/alumno/clase”.

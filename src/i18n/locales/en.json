@@ -2660,6 +2660,15 @@
       "nameRequiredTitle": "Name required",
       "nameRequiredMsg": "Give your business a name to continue."
     },
+    "pricingTier": {
+      "title": "Pricing tier",
+      "local": "Local",
+      "general": "General",
+      "both": "Both",
+      "memberHint": "Locals pay your special price. Set Local & General prices when you create an event or class — {{name}} is auto-charged the Local rate at checkout.",
+      "localShort": "Local",
+      "generalShort": "General"
+    },
     "members": {
       "title": "Members",
       "searchPlaceholder": "Search {{count}} members",

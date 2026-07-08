@@ -21,7 +21,7 @@ When a Pro host enrolls someone manually:
 - Data: `members/{bizId}/people/{memberId}.inviteCode`, `redeemedAt`, `linkedUid`, `qrPassId`.
 
 ## 3. Packages & memberships (credits)
-- Products: class/session packs (e.g. 10), monthly unlimited, drop-in; price, validity/expiration.
+- Products: **credit packs** — a fixed **number of events/classes** (e.g. 10) with a host-set **expiration date**. **No unlimited plans.** Each plan has an **audience tier** (`local` / `general` / `both`) — see `05` §G.
 - **Auto-deduct** a credit on QR check-in (or session booking); **manual adjust** (+/–) with reason.
 - Expiring-credit + renewal reminders (feeds `04` automations).
 

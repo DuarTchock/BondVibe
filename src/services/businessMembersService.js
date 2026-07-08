@@ -33,6 +33,13 @@ export const MEMBER_STATUS = {
   INACTIVE: "inactive",
 };
 
+// Two-tier pricing (kinlo_business/05 §A): a member is charged the host's Local
+// or General price. Default general; locals get the special rate at checkout.
+export const PRICING_TIER = {
+  LOCAL: "local",
+  GENERAL: "general",
+};
+
 // Guest-code alphabet excludes ambiguous chars (0/O, 1/I/L) for read-aloud/SMS.
 const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 
@@ -137,6 +144,7 @@ export async function createMember(data = {}, businessName = "", bizId = getMyBi
     notes: data.notes ? [{ text: String(data.notes).trim(), at: new Date().toISOString() }] : [],
     planId: data.planId || null,
     creditBalance: 0,
+    pricingTier: data.pricingTier === PRICING_TIER.LOCAL ? PRICING_TIER.LOCAL : PRICING_TIER.GENERAL,
     balanceOwedCents: Math.max(0, Math.round(data.balanceOwedCents || 0)),
     branchId: data.branchId || null,
     inviteCode: generateGuestCode(businessName),
