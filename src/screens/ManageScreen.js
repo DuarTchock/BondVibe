@@ -22,6 +22,7 @@ import { TYPE, SPACING, RADII, BRAND, ELEVATION } from "../constants/theme-token
 import { getBusiness } from "../services/businessService";
 import { listMembers, MEMBER_STATUS } from "../services/businessMembersService";
 import { claimStaffInvites } from "../services/businessStaffService";
+import { useBusiness } from "../contexts/BusinessContext";
 
 export default function ManageScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -29,6 +30,8 @@ export default function ManageScreen({ navigation }) {
   const [business, setBusiness] = useState(null);
   const [memberStats, setMemberStats] = useState({ total: 0, active: 0, atRisk: 0 });
   const { allowed: bizAllowed, tier: bizTier } = useEntitlement("business_erp");
+  // BUG 32.2: the active business (own or a staff membership) + switcher.
+  const { businesses, activeBizId, switchBusiness } = useBusiness();
 
   useFocusEffect(
     useCallback(() => {
@@ -36,12 +39,15 @@ export default function ManageScreen({ navigation }) {
       if (!uid) return;
       // Auto-link any pending staff invites for this account (FIX 4).
       claimStaffInvites().catch(() => {});
-      // Real stats for the "Your business" card (only when a business exists).
-      getBusiness()
+      // Real stats for the "Your business" card — for the ACTIVE business, which
+      // for a staff member is the owner's business (BUG 32.2). Re-runs when the
+      // active business resolves or the user switches.
+      if (!activeBizId) { setBusiness(null); return; }
+      getBusiness(activeBizId)
         .then(async (b) => {
           setBusiness(b);
           if (!b) return;
-          const members = await listMembers();
+          const members = await listMembers({}, activeBizId);
           setMemberStats({
             total: members.length,
             active: members.filter((m) => (m.status || "active") === MEMBER_STATUS.ACTIVE).length,
@@ -49,7 +55,7 @@ export default function ManageScreen({ navigation }) {
           });
         })
         .catch(() => {});
-    }, [])
+    }, [activeBizId])
   );
 
   const card = [styles.card, ELEVATION.card, { backgroundColor: colors.surface, borderColor: colors.border }];
@@ -58,6 +64,50 @@ export default function ManageScreen({ navigation }) {
     <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Business switcher (BUG 32.2) — only when the user belongs to more than
+            one business (own + staff memberships). Picks the active one. */}
+        {businesses.length > 1 && (
+          <>
+            <SectionHeader title={t("manage.switchBusiness")} />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.switcherRow}
+            >
+              {businesses.map((b) => {
+                const on = b.bizId === activeBizId;
+                return (
+                  <TouchableOpacity
+                    key={b.bizId}
+                    activeOpacity={0.85}
+                    onPress={() => switchBusiness(b.bizId)}
+                    style={[
+                      styles.switcherChip,
+                      {
+                        backgroundColor: on ? `${colors.primary}1A` : colors.surface,
+                        borderColor: on ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Icon name="wallet" size={14} color={on ? colors.primary : colors.textTertiary} />
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.switcherText, { color: on ? colors.primary : colors.text }]}
+                    >
+                      {b.name}
+                    </Text>
+                    {!b.isOwner && (
+                      <Text style={[styles.switcherRole, { color: colors.textTertiary }]}>
+                        {t("manage.staffTag")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
+
         {/* Your business — the dark ERP/CRM card (mockup #1). When the host has a
             business, show real stats; otherwise a discovery row → paywall/setup. */}
         {business ? (
@@ -160,6 +210,20 @@ export default function ManageScreen({ navigation }) {
 const styles = StyleSheet.create({
   content: { paddingBottom: SPACING.xxxl },
   rowRight: { flexDirection: "row", alignItems: "center", gap: 6 },
+  // Business switcher (BUG 32.2)
+  switcherRow: { paddingHorizontal: SPACING.screen, gap: SPACING.sm, paddingVertical: 2 },
+  switcherChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: RADII.pill,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    maxWidth: 220,
+  },
+  switcherText: { fontSize: 13.5, fontWeight: "700", flexShrink: 1 },
+  switcherRole: { fontSize: 11, fontWeight: "700" },
   createBtn: {
     flexDirection: "row",
     alignItems: "center",

@@ -144,19 +144,32 @@ export async function removeRole(roleId, bizId = getMyBizId()) {
 }
 
 /**
- * The current user's permission map for a business. The owner (uid === bizId)
- * always has every area. A staff member gets their role's perms.
+ * The current user's permission map for a business. Ownership is determined by
+ * the staff role "owner" (BUG 32.2 — no longer the uid === bizId coincidence, so
+ * it survives an ownership transfer). The owner gets every area (null = all); a
+ * staff member gets their role's perms.
  */
 export async function getMyRolePerms(bizId = getMyBizId()) {
   const uid = auth.currentUser?.uid;
   if (!uid || !bizId) return null;
-  if (uid === bizId) return null; // owner → all allowed (roleAllows treats null as all)
   try {
     const staffSnap = await getDoc(doc(db, "businesses", bizId, "staff", uid));
     const roleId = staffSnap.exists() ? staffSnap.data().role : null;
-    if (!roleId) return null;
+    if (!roleId || roleId === "owner") return null; // owner → all allowed
     const roleSnap = await getDoc(doc(rolesCol(bizId), roleId));
     return roleSnap.exists() ? roleSnap.data().perms || null : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** The current user's staff role at a business ("owner" | role id | null). */
+export async function getMyStaffRole(bizId = getMyBizId()) {
+  const uid = auth.currentUser?.uid;
+  if (!uid || !bizId) return null;
+  try {
+    const snap = await getDoc(doc(db, "businesses", bizId, "staff", uid));
+    return snap.exists() ? snap.data().role || null : null;
   } catch (e) {
     return null;
   }

@@ -6,6 +6,7 @@ import { AuthProvider } from "./src/contexts/AuthContext";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { ThemeProvider } from "./src/contexts/ThemeContext";
 import { BusinessScopeProvider } from "./src/contexts/BusinessScopeContext";
+import { BusinessProvider } from "./src/contexts/BusinessContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 import KeyboardAccessory from "./src/components/KeyboardAccessory";
 import ErrorBoundary from "./src/components/ErrorBoundary";
@@ -329,9 +330,11 @@ function App() {
             merchantIdentifier="merchant.com.bondvibe.app"
             urlScheme="bondvibe"
           >
-            <BusinessScopeProvider>
-              <AppNavigator ref={navigationRef} />
-            </BusinessScopeProvider>
+            <BusinessProvider>
+              <BusinessScopeProvider>
+                <AppNavigator ref={navigationRef} />
+              </BusinessScopeProvider>
+            </BusinessProvider>
             <KeyboardAccessory />
           </StripeProvider>
         </ThemeProvider>

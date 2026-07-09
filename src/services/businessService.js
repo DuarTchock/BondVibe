@@ -20,8 +20,37 @@ import { DEFAULT_ROLES } from "../constants/businessRoles";
 
 export { VERTICAL_IDS, DEFAULT_VERTICAL };
 
-/** The current host's business id. v1: one business per owner → bizId = uid. */
-export const getMyBizId = () => auth.currentUser?.uid || null;
+// BUG 32.2 — active-business context. A staff member's data lives under the
+// OWNER's business, not their own uid, so `getMyBizId()` can no longer be the
+// signed-in uid. BusinessContext sets this module-level active bizId on mount
+// and on switch; every `bizId = getMyBizId()` default then targets the active
+// business with no per-call change. Falls back to the user's own uid (their own
+// business, or a not-yet-created one) when nothing is active.
+let activeBizId = null;
+export const setActiveBizId = (id) => { activeBizId = id || null; };
+export const getActiveBizId = () => activeBizId;
+
+/** The active business id (own business by default; a staff member's owner biz). */
+export const getMyBizId = () => activeBizId || auth.currentUser?.uid || null;
+
+/** This user's own business id (always their uid) — independent of active biz. */
+export const getOwnBizId = () => auth.currentUser?.uid || null;
+
+/**
+ * The user's staff memberships (BUG 32.2) from `users/{uid}.staffOf`, an array
+ * of `{ bizId, role }`. Written server-side when an invite is accepted (32.1).
+ * @returns {Promise<Array<{bizId:string, role:string}>>}
+ */
+export async function getStaffMemberships(uid = auth.currentUser?.uid) {
+  if (!uid) return [];
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    const arr = snap.exists() ? snap.data().staffOf : null;
+    return Array.isArray(arr) ? arr.filter((m) => m && m.bizId) : [];
+  } catch (e) {
+    return [];
+  }
+}
 
 const bizRef = (bizId) => doc(db, "businesses", bizId);
 
@@ -52,7 +81,8 @@ export async function hasBusiness(bizId = getMyBizId()) {
  * @returns {Promise<object|null>} the business doc
  */
 export async function createBusiness({ name, vertical }) {
-  const uid = getMyBizId();
+  // Always create under the user's OWN uid — never the active (staff) business.
+  const uid = getOwnBizId();
   if (!uid) return null;
   const v = VERTICAL_IDS.includes(vertical) ? vertical : DEFAULT_VERTICAL;
   const existing = await getBusiness(uid);
