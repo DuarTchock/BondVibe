@@ -730,6 +730,9 @@
     "title": "Chats de eventos",
     "upcoming": "Próximos",
     "past": "Pasados",
+    "filterAll": "Todos",
+    "filterWith": "Con mensajes",
+    "filterWithout": "Sin mensajes",
     "defaultEventName": "Evento",
     "emptyPast": "Aún no hay chats de eventos pasados.",
     "emptyUpcoming": "No hay chats de próximos eventos — únete a un evento para empezar a chatear."

@@ -15,7 +15,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import GradientBackground from "../components/GradientBackground";
 import Icon from "../components/Icon";
@@ -31,6 +31,8 @@ export default function EventChatsScreen({ navigation }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("upcoming"); // 'upcoming' | 'past'
+  const [msgFilter, setMsgFilter] = useState("all"); // 'all' | 'with' | 'without'
+  const [msgMap, setMsgMap] = useState({}); // eventId -> hasMessages (BUG 21)
 
   useFocusEffect(
     useCallback(() => {
@@ -60,7 +62,21 @@ export default function EventChatsScreen({ navigation }) {
           [...joinedSnap.docs, ...hostSnap.docs].forEach((d) => {
             byId[d.id] = { id: d.id, ...d.data() };
           });
-          if (alive) setEvents(Object.values(byId));
+          const list = Object.values(byId);
+          if (alive) setEvents(list);
+          // Which chats actually have messages (BUG 21) — one cheap limit(1)
+          // read per event, in parallel, so hosts can find silent groups.
+          const entries = await Promise.all(
+            list.map(async (e) => {
+              try {
+                const s = await getDocs(query(collection(db, "events", e.id, "messages"), limit(1)));
+                return [e.id, !s.empty];
+              } catch (_e) {
+                return [e.id, false];
+              }
+            })
+          );
+          if (alive) setMsgMap(Object.fromEntries(entries));
         } catch (e) {
           console.error("EventChats load:", e);
           if (alive) setEvents([]);
@@ -77,6 +93,11 @@ export default function EventChatsScreen({ navigation }) {
     .filter((e) =>
       tab === "past" ? isEventPast(e.date) : !isEventPast(e.date)
     )
+    .filter((e) => {
+      if (msgFilter === "with") return msgMap[e.id] === true;
+      if (msgFilter === "without") return msgMap[e.id] === false;
+      return true;
+    })
     .sort((a, b) => {
       const da = new Date(a.date).getTime();
       const db2 = new Date(b.date).getTime();
@@ -137,6 +158,26 @@ export default function EventChatsScreen({ navigation }) {
       <View style={styles.tabsContainer}>
         <Tab id="upcoming" label={t("eventChats.upcoming")} />
         <Tab id="past" label={t("eventChats.past")} />
+      </View>
+
+      {/* Message filter (BUG 21): find silent groups to activate. */}
+      <View style={styles.filterRow}>
+        {[
+          { id: "all", label: t("eventChats.filterAll") },
+          { id: "with", label: t("eventChats.filterWith") },
+          { id: "without", label: t("eventChats.filterWithout") },
+        ].map((f) => {
+          const on = msgFilter === f.id;
+          return (
+            <TouchableOpacity
+              key={f.id}
+              onPress={() => setMsgFilter(f.id)}
+              style={[styles.filterChip, { backgroundColor: on ? colors.primary : colors.surfaceGlass, borderColor: on ? colors.primary : colors.border }]}
+            >
+              <Text style={[styles.filterChipText, { color: on ? "#fff" : colors.textSecondary }]}>{f.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {loading ? (
@@ -220,6 +261,19 @@ function createStyles(colors) {
       alignItems: "center",
     },
     tabText: { fontSize: 14, fontWeight: "700" },
+    filterRow: {
+      flexDirection: "row",
+      gap: SPACING.sm,
+      paddingHorizontal: SPACING.screen,
+      marginBottom: SPACING.md,
+    },
+    filterChip: {
+      borderWidth: 1,
+      borderRadius: RADII.pill,
+      paddingVertical: 6,
+      paddingHorizontal: 14,
+    },
+    filterChipText: { fontSize: 12.5, fontWeight: "700" },
     list: {
       paddingHorizontal: SPACING.screen,
       paddingBottom: SPACING.xxxl,

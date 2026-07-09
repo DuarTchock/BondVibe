@@ -730,6 +730,9 @@
     "title": "Event chats",
     "upcoming": "Upcoming",
     "past": "Past",
+    "filterAll": "All",
+    "filterWith": "With messages",
+    "filterWithout": "Without messages",
     "defaultEventName": "Event",
     "emptyPast": "No past event chats yet.",
     "emptyUpcoming": "No upcoming event chats — join an event to start chatting."
