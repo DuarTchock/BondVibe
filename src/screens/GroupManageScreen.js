@@ -21,6 +21,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import AvatarPicker, { AvatarDisplay } from "../components/AvatarPicker";
 import PhoneInput from "../components/PhoneInput";
+import UserSearchField from "../components/UserSearchField";
 import { resolveGroupAvatar } from "../services/storageService";
 import {
   getGroup,
@@ -140,6 +141,17 @@ export default function GroupManageScreen({ route, navigation }) {
         },
       ]
     );
+  };
+
+  // Add a member by @handle (spec 10) — the search returns app users directly.
+  const handleAddByHandle = async (user) => {
+    if ((group.memberIds || []).includes(user.uid)) {
+      Alert.alert(t("groupManage.alreadyAMember"), t("groupManage.alreadyAMemberMessage", { name: user.name || `@${user.handle}` }));
+      return;
+    }
+    await addMembers(groupId, [user.uid]);
+    setGroup((g) => ({ ...g, memberIds: [...(g.memberIds || []), user.uid] }));
+    Alert.alert(t("groupManage.added"), t("groupManage.addedMessage", { name: user.name || `@${user.handle}` }));
   };
 
   const handleAddByEmail = async () => {
@@ -398,6 +410,12 @@ export default function GroupManageScreen({ route, navigation }) {
             trackColor={{ true: colors.primary }}
           />
         </View>
+
+        {/* Add by @handle (spec 10) */}
+        <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>
+          {t("groupManage.addByHandle")}
+        </Text>
+        <UserSearchField placeholder={t("userSearch.placeholder")} onSelect={handleAddByHandle} maxHeight={200} />
 
         {/* Add by email */}
         <Text style={[styles.label, { color: colors.textSecondary, marginTop: 20 }]}>

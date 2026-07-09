@@ -92,6 +92,14 @@
     "settingUp": "Preparando tu perfil…",
     "errorGeneric": "No se pudo reservar ese usuario. Intenta de nuevo."
   },
+  "userSearch": {
+    "placeholder": "Busca @usuario o nombre",
+    "noResults": "No se encontró a nadie. Prueba con su @usuario exacto."
+  },
+  "findPeople": {
+    "title": "Buscar personas",
+    "hint": "Busca por @usuario o nombre, y abre su perfil para enviar mensaje o seguir."
+  },
   "auth": {
     "emailPlaceholder": "Correo electrónico",
     "passwordPlaceholder": "Contraseña",
@@ -1410,6 +1418,7 @@
     "posting": "PUBLICACIONES",
     "onlyHostCanPost": "Solo el anfitrión puede publicar",
     "onlyHostCanPostHint": "Los miembros aún pueden leer y votar en encuestas",
+    "addByHandle": "AGREGAR POR @USUARIO",
     "addByEmail": "AGREGAR POR CORREO",
     "add": "Agregar",
     "addByPhone": "AGREGAR POR TELÉFONO",
@@ -3363,6 +3372,9 @@
       "endTime": "Fin",
       "invite": "Invitar staff",
       "sendInvite": "Enviar invitación",
+      "addByHandle": "Agregar por @usuario",
+      "handlePlaceholder": "Busca @usuario o nombre",
+      "orByEmail": "O invita por correo",
       "emailPlaceholder": "Su correo de Kinlo",
       "emailRequired": "Ingresa un correo.",
       "invitedTitle": "Staff agregado",

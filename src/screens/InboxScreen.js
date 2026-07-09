@@ -136,7 +136,9 @@ export default function InboxScreen({ navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[TYPE.titleLg, { color: colors.text }]}>{t("inbox.title")}</Text>
-        <View style={{ width: 26 }} />
+        <TouchableOpacity onPress={() => navigation.navigate("FindPeople")} hitSlop={hit} testID="inbox-find-people">
+          <Icon name="search" size={23} color={colors.text} />
+        </TouchableOpacity>
       </View>
 
       {loading ? (

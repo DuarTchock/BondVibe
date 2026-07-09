@@ -2815,7 +2815,35 @@ exports.inviteBusinessStaff = onCall(async (request) => {
   // Normalize: trim + lowercase so any real account email matches (incl. Gmail).
   const email = String((request.data && request.data.email) || "").trim().toLowerCase();
   const role = String((request.data && request.data.role) || "reception");
-  if (!email) throw new HttpsError("invalid-argument", "Email required.");
+  const handle = String((request.data && request.data.handle) || "")
+    .trim().toLowerCase().replace(/^@+/, "");
+
+  // Add by @handle (spec 10): resolve the handle → an existing app user and add
+  // them to staff directly (no email needed — search never exposes email).
+  if (handle) {
+    const hSnap = await db.collection("handles").doc(handle).get();
+    const targetUid = hSnap.exists ? hSnap.data().uid : null;
+    if (!targetUid) throw new HttpsError("not-found", "No user with that handle.");
+    if (targetUid === uid) throw new HttpsError("already-exists", "You're already the owner.");
+    let u = null;
+    try {
+      u = await admin.auth().getUser(targetUid);
+    } catch (e) {
+      u = null;
+    }
+    await db.collection("businesses").doc(bizId)
+      .collection("staff").doc(targetUid).set({
+        uid: targetUid,
+        role,
+        email: (u && u.email) || "",
+        name: (u && u.displayName) || "",
+        branchIds: [],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    return {uid: targetUid, role, name: (u && u.displayName) || "", pending: false};
+  }
+
+  if (!email) throw new HttpsError("invalid-argument", "Email or handle required.");
 
   let staff = null;
   try {

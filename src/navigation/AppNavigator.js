@@ -28,6 +28,7 @@ import SignupScreen from "../screens/SignupScreen";
 import LegalScreen from "../screens/LegalScreen";
 import ProfileSetupScreen from "../screens/ProfileSetupScreen";
 import ChooseHandleScreen from "../screens/ChooseHandleScreen";
+import FindPeopleScreen from "../screens/FindPeopleScreen";
 
 // Main Screens
 import HomeScreen from "../screens/HomeScreen";
@@ -682,6 +683,7 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="AiOptIn" component={AiOptInScreen} />
           <Stack.Screen name="AskKinlo" component={AskKinloScreen} />
           <Stack.Screen name="Inbox" component={InboxScreen} />
+          <Stack.Screen name="FindPeople" component={FindPeopleScreen} />
           <Stack.Screen name="YourWeek" component={YourWeekScreen} />
         </Stack.Navigator>
       </NavigationContainer>

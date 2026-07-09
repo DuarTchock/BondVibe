@@ -15,7 +15,8 @@ import { auth } from "../../services/firebase";
 import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
 import { useTheme } from "../../contexts/ThemeContext";
-import { listStaff, inviteStaff, updateStaffRole, removeStaff, getWorkingHours, setWorkingHours, listRoles, listStaffInvites } from "../../services/businessStaffService";
+import { listStaff, inviteStaff, inviteStaffByHandle, updateStaffRole, removeStaff, getWorkingHours, setWorkingHours, listRoles, listStaffInvites } from "../../services/businessStaffService";
+import UserSearchField from "../../components/UserSearchField";
 
 const weekdayShort = (i, lang) => new Date(2024, 0, 7 + i).toLocaleDateString(lang || "en", { weekday: "narrow" });
 
@@ -57,6 +58,17 @@ export default function StaffScreen({ navigation }) {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const roleName = (id) => roles.find((r) => r.id === id)?.name || t(`business.staff.role.${id}`, { defaultValue: id });
+
+  // Add an existing app user to the team by @handle (spec 10).
+  const doInviteByHandle = async (user) => {
+    const res = await inviteStaffByHandle(user.handle, role);
+    if (res.ok) {
+      setInviting(false); setEmail(""); load();
+      Alert.alert(t("business.staff.invitedTitle"), t("business.staff.invitedMsg", { name: res.name || user.name || `@${user.handle}` }));
+    } else {
+      Alert.alert(t("business.staff.failTitle"), res.error === "self" ? t("business.staff.selfMsg") : t("business.common.tryAgain"));
+    }
+  };
 
   const doInvite = async () => {
     if (!email.trim()) { Alert.alert(t("business.staff.emailRequired")); return; }
@@ -165,7 +177,6 @@ export default function StaffScreen({ navigation }) {
         <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <View style={[styles.sheet, { backgroundColor: colors.background }]}>
             <View style={styles.sheetHeader}><Text style={[styles.sheetTitle, { color: colors.text }]}>{t("business.staff.invite")}</Text><TouchableOpacity onPress={() => setInviting(false)}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity></View>
-            <TextInput style={[styles.input, inputStyle]} value={email} onChangeText={setEmail} placeholder={t("business.staff.emailPlaceholder")} placeholderTextColor={colors.textTertiary} keyboardType="email-address" autoCapitalize="none" />
             <Text style={[styles.roleHint, { color: colors.textTertiary, marginTop: 0, marginBottom: 8 }]}>{t("business.staff.pickRole")}</Text>
             <View style={styles.roleWrap}>
               {assignable.map((r) => {
@@ -173,6 +184,11 @@ export default function StaffScreen({ navigation }) {
                 return <TouchableOpacity key={r.id} onPress={() => setRole(r.id)} style={[styles.roleChip, { borderColor: on ? colors.primary : colors.border, backgroundColor: on ? `${colors.primary}14` : "transparent" }]}><Text style={[styles.segText, { color: on ? colors.primary : colors.textSecondary }]}>{r.name}</Text></TouchableOpacity>;
               })}
             </View>
+            {/* Add by @handle: search an existing app user → add with the role above. */}
+            <Text style={[styles.roleHint, { color: colors.textTertiary, marginBottom: 8 }]}>{t("business.staff.addByHandle")}</Text>
+            <UserSearchField placeholder={t("business.staff.handlePlaceholder")} onSelect={doInviteByHandle} maxHeight={200} />
+            <Text style={[styles.roleHint, { color: colors.textTertiary, marginTop: 14, marginBottom: 8 }]}>{t("business.staff.orByEmail")}</Text>
+            <TextInput style={[styles.input, inputStyle]} value={email} onChangeText={setEmail} placeholder={t("business.staff.emailPlaceholder")} placeholderTextColor={colors.textTertiary} keyboardType="email-address" autoCapitalize="none" />
             <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={doInvite}><Text style={styles.saveText}>{t("business.staff.sendInvite")}</Text></TouchableOpacity>
           </View>
         </KeyboardAvoidingView>

@@ -64,6 +64,24 @@ export async function inviteStaff(email, role) {
   }
 }
 
+/**
+ * Add a staff member by @handle (spec 10) — resolves an existing app user
+ * server-side and adds them directly. Returns { ok, name?, uid?, error? }.
+ */
+export async function inviteStaffByHandle(handle, role) {
+  try {
+    const fn = httpsCallable(getFunctions(), "inviteBusinessStaff");
+    const res = await fn({ handle: (handle || "").trim(), role });
+    return { ok: true, ...(res.data || {}) };
+  } catch (e) {
+    const code = e?.code || "";
+    let error = "failed";
+    if (code.includes("not-found")) error = "not_found";
+    else if (code.includes("already-exists")) error = "self";
+    return { ok: false, error };
+  }
+}
+
 export async function updateStaffRole(staffUid, role, bizId = getMyBizId()) {
   if (!bizId || !staffUid) return;
   await updateDoc(doc(db, "businesses", bizId, "staff", staffUid), { role });

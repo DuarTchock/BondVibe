@@ -127,6 +127,11 @@ export default function UserProfileScreen({ route, navigation }) {
               <Text style={[styles.name, { color: colors.text }]}>
                 {profile?.fullName || t("userProfile.defaultUserName")}
               </Text>
+              {!!(profile?.handle || profile?.handleLower) && (
+                <Text style={[styles.handle, { color: colors.primary }]}>
+                  @{profile.handle || profile.handleLower}
+                </Text>
+              )}
               {!!profile?.location && (
                 <Text style={[styles.location, { color: colors.textSecondary }]}>
                   {profile.location}
@@ -228,6 +233,7 @@ function createStyles(colors, isDark) {
     list: { paddingHorizontal: 20, paddingBottom: 40 },
     profileHeader: { alignItems: "center", marginBottom: 20, marginTop: 4 },
     name: { fontSize: 22, fontWeight: "700", marginTop: 12, letterSpacing: -0.3 },
+    handle: { fontSize: 14, fontWeight: "700", marginTop: 2 },
     location: { fontSize: 13, marginTop: 4 },
     bio: { fontSize: 14, lineHeight: 20, marginTop: 8, textAlign: "center" },
     statsRow: {

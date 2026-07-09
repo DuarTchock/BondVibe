@@ -92,6 +92,14 @@
     "settingUp": "Setting up your profile…",
     "errorGeneric": "Couldn't claim that handle. Please try again."
   },
+  "userSearch": {
+    "placeholder": "Search @handle or name",
+    "noResults": "No one found. Try their exact @handle."
+  },
+  "findPeople": {
+    "title": "Find people",
+    "hint": "Search by @handle or name, then open their profile to message or follow."
+  },
   "auth": {
     "emailPlaceholder": "Email",
     "passwordPlaceholder": "Password",
@@ -1410,6 +1418,7 @@
     "posting": "POSTING",
     "onlyHostCanPost": "Only host can post",
     "onlyHostCanPostHint": "Members can still read and vote in polls",
+    "addByHandle": "ADD BY @HANDLE",
     "addByEmail": "ADD BY EMAIL",
     "add": "Add",
     "addByPhone": "ADD BY PHONE",
@@ -3363,6 +3372,9 @@
       "endTime": "End",
       "invite": "Invite staff",
       "sendInvite": "Send invite",
+      "addByHandle": "Add by @handle",
+      "handlePlaceholder": "Search @handle or name",
+      "orByEmail": "Or invite by email",
       "emailPlaceholder": "Their Kinlo email",
       "emailRequired": "Enter an email.",
       "invitedTitle": "Staff added",
