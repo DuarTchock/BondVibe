@@ -58,28 +58,6 @@ export default function ManageScreen({ navigation }) {
     <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Create — the primary host action */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate("CreateEvent")}
-          activeOpacity={0.85}
-          testID="manage-create-event"
-        >
-          <LinearGradient
-            colors={BRAND.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.createBtn, ELEVATION.floatingBrand]}
-          >
-            <View style={styles.createIcon}>
-              <Icon name="add" size={22} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[TYPE.label, styles.createText]}>{t("manage.createEvent")}</Text>
-              <Text style={styles.createSub}>{t("manage.createEventSub")}</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
         {/* Your business — the dark ERP/CRM card (mockup #1). When the host has a
             business, show real stats; otherwise a discovery row → paywall/setup. */}
         {business ? (
@@ -141,28 +119,36 @@ export default function ManageScreen({ navigation }) {
           </View>
         )}
 
-        {/* This event — event-scoped ops only. Everything business-wide (members,
-            money, analytics, memberships) now lives in the single hub above, so
-            no metric appears twice (kinlo_business/06 FIX 1). */}
-        <SectionHeader title={t("manage.thisEvent")} />
-        <View style={card}>
+        {/* Quick access — just the two event-level shortcuts (BUG 2). Business-wide
+            tools (members, money, analytics, memberships, ratings) live in the hub
+            above; check-in is reachable inside each event and from the hub. */}
+        <SectionHeader title={t("manage.quickAccess")} />
+        <TouchableOpacity
+          onPress={() => navigation.navigate("CreateEvent")}
+          activeOpacity={0.85}
+          testID="manage-create-event"
+        >
+          <LinearGradient
+            colors={BRAND.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.createBtn, ELEVATION.floatingBrand]}
+          >
+            <View style={styles.createIcon}>
+              <Icon name="add" size={22} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[TYPE.label, styles.createText]}>{t("manage.createEvent")}</Text>
+              <Text style={styles.createSub}>{t("manage.createEventSub")}</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+        <View style={[card, { marginTop: SPACING.md }]}>
           <ListRow
             icon="calendar"
             title={t("manage.hostedEvents")}
             subtitle={t("manage.hostedEventsSubtitle")}
             onPress={() => navigation.navigate("MyEvents", { initialTab: "hosting" })}
-          />
-          <ListRow
-            icon="qr"
-            title={t("manage.checkInScanner")}
-            subtitle={t("manage.checkInScannerSubtitle")}
-            onPress={() => navigation.navigate("CheckInScanner")}
-          />
-          <ListRow
-            icon="star"
-            title={t("manage.ratings")}
-            subtitle={t("manage.ratingsSubtitle")}
-            onPress={() => navigation.navigate("RatingsOverview")}
             divider={false}
           />
         </View>
