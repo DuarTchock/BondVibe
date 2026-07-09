@@ -2746,8 +2746,8 @@
       "insightsSection": "Insights",
       "dashboardTitle": "Dashboard",
       "dashboardSubtitle": "Ranged analytics · AI read",
-      "momentumTitle": "Momentum board",
-      "momentumSubtitle": "At-risk → recovered · Kanban",
+      "momentumTitle": "Member health status",
+      "momentumSubtitle": "Who needs attention · at-risk → recovered",
       "operationsSection": "Operations",
       "packagesTitle": "Memberships & packages",
       "packagesSubtitle": "Credits · plans · expirations",
@@ -3023,7 +3023,8 @@
       }
     },
     "momentum": {
-      "title": "Momentum",
+      "title": "Member health status",
+      "healthStatus": "Health status",
       "cardTitle": "Card",
       "columns": {
         "atRisk": "At risk",

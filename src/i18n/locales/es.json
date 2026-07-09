@@ -2746,8 +2746,8 @@
       "insightsSection": "Análisis",
       "dashboardTitle": "Panel",
       "dashboardSubtitle": "Analítica por rango · lectura IA",
-      "momentumTitle": "Tablero Momentum",
-      "momentumSubtitle": "En riesgo → recuperado · Kanban",
+      "momentumTitle": "Estado de salud del miembro",
+      "momentumSubtitle": "Quién necesita atención · en riesgo → recuperado",
       "operationsSection": "Operación",
       "packagesTitle": "Membresías y paquetes",
       "packagesSubtitle": "Créditos · planes · vencimientos",
@@ -3023,7 +3023,8 @@
       }
     },
     "momentum": {
-      "title": "Momentum",
+      "title": "Estado de salud del miembro",
+      "healthStatus": "Estado de salud",
       "cardTitle": "Tarjeta",
       "columns": {
         "atRisk": "En riesgo",

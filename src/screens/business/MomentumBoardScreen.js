@@ -88,7 +88,18 @@ export default function MomentumBoardScreen({ navigation }) {
   const [movingCard, setMovingCard] = useState(null);
   const [pickMember, setPickMember] = useState(false);
   const [members, setMembers] = useState([]);
-  const [priorityFilter, setPriorityFilter] = useState(null);
+  // Multi-select health-status filter (BUG 24). Empty set = All.
+  const [priorityFilters, setPriorityFilters] = useState(new Set());
+
+  const toggleFilter = (p) => {
+    if (!p) { setPriorityFilters(new Set()); return; } // "All" clears the set
+    setPriorityFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p); // removing the last snaps back to All
+      else next.add(p);
+      return next;
+    });
+  };
 
   // ── Drag & drop (dependency-free) ──────────────────────────────────────────
   const armedRef = useRef(null);          // card id armed by a long-press
@@ -151,9 +162,10 @@ export default function MomentumBoardScreen({ navigation }) {
     .filter((c) => !c.archived)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-  const visibleCards = priorityFilter
-    ? cards.filter((c) => c.priority === priorityFilter)
-    : cards;
+  const allSelected = priorityFilters.size === 0;
+  const visibleCards = allSelected
+    ? cards
+    : cards.filter((c) => priorityFilters.has(c.priority));
 
   const onMove = async (col) => {
     const card = movingCard;
@@ -206,14 +218,15 @@ export default function MomentumBoardScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Priority filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+      {/* Health-status filter — multi-select (BUG 24) */}
+      <Text style={[styles.filterHeading, { color: colors.textTertiary }]}>{t("business.momentum.healthStatus")}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
         {PRIORITY_FILTERS.map((p) => {
-          const active = priorityFilter === p;
+          const active = p ? priorityFilters.has(p) : allSelected;
           return (
             <TouchableOpacity
               key={p || "all"}
-              onPress={() => setPriorityFilter(p)}
+              onPress={() => toggleFilter(p)}
               style={[styles.filterChip, { backgroundColor: active ? colors.text : colors.surfaceGlass }]}
             >
               <Text style={[styles.filterText, { color: active ? colors.background : colors.textSecondary }]}>
@@ -365,6 +378,8 @@ function createStyles(colors) {
     headerTitle: { flex: 1, fontSize: 20, fontWeight: "800" },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 14 },
     addBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+    filterHeading: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", paddingHorizontal: 20, marginBottom: 6 },
+    filterScroll: { flexGrow: 0 },
     filterRow: { paddingHorizontal: 20, gap: 8, paddingBottom: 10 },
     filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15 },
     filterText: { fontSize: 12, fontWeight: "700" },
