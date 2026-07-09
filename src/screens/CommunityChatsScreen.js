@@ -8,16 +8,19 @@ import {
   View,
   Text,
   FlatList,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import GradientBackground from "../components/GradientBackground";
 import Icon from "../components/Icon";
 import { useTheme } from "../contexts/ThemeContext";
-import { subscribeUserGroups } from "../services/hostGroupService";
+import { subscribeUserGroups, createGroup, joinGroupByCode } from "../services/hostGroupService";
 import { TYPE, SPACING, RADII, ELEVATION } from "../constants/theme-tokens";
 
 const hit = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -27,6 +30,44 @@ export default function CommunityChatsScreen({ navigation }) {
   const { t } = useTranslation();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Create a community + join-by-code, both reachable here (BUG 22).
+  const [createOpen, setCreateOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    const r = await createGroup(name, description, []);
+    setBusy(false);
+    if (r.success) {
+      setCreateOpen(false);
+      setName("");
+      setDescription("");
+      // Straight to management: the host sees the join code + can invite by
+      // email/phone there (BUG 22).
+      navigation.navigate("GroupManage", { groupId: r.groupId });
+    } else {
+      Alert.alert(t("communityChats.couldntCreate"), r.error || t("communityChats.tryAgain"));
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!joinCode.trim() || busy) return;
+    setBusy(true);
+    const r = await joinGroupByCode(joinCode);
+    setBusy(false);
+    if (r.success) {
+      setJoinOpen(false);
+      setJoinCode("");
+      if (r.groupId) navigation.navigate("GroupChat", { groupId: r.groupId });
+    } else {
+      Alert.alert(t("communityChats.couldntJoin"), r.error || t("communityChats.tryAgain"));
+    }
+  };
 
   useEffect(() => {
     const unsub = subscribeUserGroups((list) => {
@@ -52,7 +93,14 @@ export default function CommunityChatsScreen({ navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[TYPE.titleLg, { color: colors.text }]}>{t("communityChats.title")}</Text>
-        <View style={{ width: 26 }} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+          <TouchableOpacity onPress={() => setJoinOpen(true)} hitSlop={hit} testID="community-join">
+            <Icon name="ticket" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCreateOpen(true)} hitSlop={hit} testID="community-create">
+            <Icon name="add" size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -112,6 +160,64 @@ export default function CommunityChatsScreen({ navigation }) {
           }
         />
       )}
+
+      {/* Create a community chat (BUG 22) */}
+      <Modal visible={createOpen} transparent animationType="fade" onRequestClose={() => setCreateOpen(false)}>
+        <View style={styles.backdrop}>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>{t("communityChats.createTitle")}</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={name}
+              onChangeText={setName}
+              placeholder={t("communityChats.namePlaceholder")}
+              placeholderTextColor={colors.textTertiary}
+            />
+            <TextInput
+              style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder={t("communityChats.descPlaceholder")}
+              placeholderTextColor={colors.textTertiary}
+            />
+            <Text style={[styles.hint, { color: colors.textTertiary }]}>{t("communityChats.createHint")}</Text>
+            <View style={styles.actions}>
+              <TouchableOpacity style={[styles.btn, { borderColor: colors.border, borderWidth: 1 }]} onPress={() => setCreateOpen(false)}>
+                <Text style={[styles.btnText, { color: colors.textSecondary }]}>{t("common.cancel")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary, opacity: name.trim() ? 1 : 0.5 }]} onPress={handleCreate} disabled={busy || !name.trim()}>
+                <Text style={[styles.btnText, { color: "#fff" }]}>{busy ? t("communityChats.creating") : t("communityChats.create")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Join a community by its code (BUG 22 — the invitee accepts by joining) */}
+      <Modal visible={joinOpen} transparent animationType="fade" onRequestClose={() => setJoinOpen(false)}>
+        <View style={styles.backdrop}>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>{t("communityChats.joinTitle")}</Text>
+            <TextInput
+              style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              value={joinCode}
+              onChangeText={setJoinCode}
+              placeholder={t("communityChats.codePlaceholder")}
+              placeholderTextColor={colors.textTertiary}
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
+            <View style={styles.actions}>
+              <TouchableOpacity style={[styles.btn, { borderColor: colors.border, borderWidth: 1 }]} onPress={() => setJoinOpen(false)}>
+                <Text style={[styles.btnText, { color: colors.textSecondary }]}>{t("common.cancel")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary, opacity: joinCode.trim() ? 1 : 0.5 }]} onPress={handleJoin} disabled={busy || !joinCode.trim()}>
+                <Text style={[styles.btnText, { color: "#fff" }]}>{busy ? t("communityChats.joining") : t("communityChats.join")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </GradientBackground>
   );
 }
@@ -148,5 +254,13 @@ function createStyles(colors) {
       justifyContent: "center",
     },
     emptyText: { textAlign: "center", marginTop: 40 },
+    backdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)", padding: 28 },
+    card: { width: "100%", borderRadius: 20, padding: 20 },
+    cardTitle: { fontSize: 18, fontWeight: "800", marginBottom: 12 },
+    input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, marginBottom: 10 },
+    hint: { fontSize: 12, marginBottom: 6 },
+    actions: { flexDirection: "row", gap: 10, marginTop: 8 },
+    btn: { flex: 1, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+    btnText: { fontSize: 14, fontWeight: "800" },
   });
 }

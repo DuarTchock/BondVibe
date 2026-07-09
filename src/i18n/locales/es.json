@@ -724,7 +724,20 @@
     "defaultName": "Comunidad",
     "memberCount_one": "{{count}} miembro",
     "memberCount_other": "{{count}} miembros",
-    "empty": "Aún no tienes comunidades — únete a una con un código de invitación."
+    "empty": "Aún no tienes comunidades — únete a una con un código de invitación.",
+    "createTitle": "Crear una comunidad",
+    "namePlaceholder": "Nombre de la comunidad",
+    "descPlaceholder": "¿De qué trata? (opcional)",
+    "createHint": "Obtendrás un código para compartir y podrás invitar por correo o teléfono.",
+    "create": "Crear",
+    "creating": "Creando…",
+    "couldntCreate": "No se pudo crear la comunidad",
+    "joinTitle": "Unirse con un código",
+    "codePlaceholder": "Código de invitación",
+    "join": "Unirme",
+    "joining": "Uniéndome…",
+    "couldntJoin": "No se pudo unir",
+    "tryAgain": "Intenta de nuevo."
   },
   "eventChats": {
     "title": "Chats de eventos",

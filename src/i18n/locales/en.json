@@ -724,7 +724,20 @@
     "defaultName": "Community",
     "memberCount_one": "{{count}} member",
     "memberCount_other": "{{count}} members",
-    "empty": "No communities yet — join one with an invite code."
+    "empty": "No communities yet — join one with an invite code.",
+    "createTitle": "Create a community",
+    "namePlaceholder": "Community name",
+    "descPlaceholder": "What's it about? (optional)",
+    "createHint": "You'll get a join code to share, and can invite people by email or phone.",
+    "create": "Create",
+    "creating": "Creating…",
+    "couldntCreate": "Couldn't create the community",
+    "joinTitle": "Join with a code",
+    "codePlaceholder": "Invite code",
+    "join": "Join",
+    "joining": "Joining…",
+    "couldntJoin": "Couldn't join",
+    "tryAgain": "Please try again."
   },
   "eventChats": {
     "title": "Event chats",
