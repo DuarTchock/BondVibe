@@ -24,7 +24,7 @@ import { BRAND } from "../../constants/theme-tokens";
 import { auth } from "../../services/firebase";
 import { listStaff, getWorkingHours, setWorkingHours, isValidHM } from "../../services/businessStaffService";
 import {
-  getDayItems, getAllDayItems, getRangeCounts, createAgendaBlock, deleteAgendaBlock, AGENDA_ITEM_KIND,
+  getDayItems, getAllDayItems, getRangeCounts, createAgendaBlock, deleteAgendaBlock, AGENDA_ITEM_KIND, AGENDA_ITEM_SOURCE,
 } from "../../services/businessAgendaService";
 
 const VIEWS = ["day", "week", "month", "year"];
@@ -242,15 +242,27 @@ export default function AgendaScreen({ navigation }) {
     loadDay();
   };
 
+  // BUG 31: route by the item's SOURCE (true origin), not its display `kind`.
+  // A host can tag an event with agendaType "group_session" so it renders with
+  // the CLASS color — but it's still an event and must open EventDetail, not the
+  // class roster ("Class not found"). Fall back to the id prefix for any older
+  // item that predates the `source` field.
   const onItemPress = (item) => {
-    if (item.kind === AGENDA_ITEM_KIND.SESSION && item.bookingId) {
-      navigation.navigate("BusinessSessionDetail", { bookingId: item.bookingId });
-    } else if (item.kind === AGENDA_ITEM_KIND.EVENT) {
-      navigation.navigate("EventDetail", { eventId: item.id.replace("event_", "") });
-    } else if (item.kind === AGENDA_ITEM_KIND.CLASS) {
-      navigation.navigate("BusinessClassRoster", { classId: item.id.replace("class_", "") });
-    } else if (item.kind === AGENDA_ITEM_KIND.BLOCKED && !isReception) {
-      deleteAgendaBlock(item.id).then(loadDay);
+    const source =
+      item.source ||
+      (item.id?.startsWith("event_") ? AGENDA_ITEM_SOURCE.EVENT
+        : item.id?.startsWith("class_") ? AGENDA_ITEM_SOURCE.CLASS
+          : item.bookingId ? AGENDA_ITEM_SOURCE.SESSION
+            : AGENDA_ITEM_SOURCE.BLOCK);
+    switch (source) {
+      case AGENDA_ITEM_SOURCE.EVENT:
+        return navigation.navigate("EventDetail", { eventId: item.id.replace("event_", "") });
+      case AGENDA_ITEM_SOURCE.CLASS:
+        return navigation.navigate("BusinessClassRoster", { classId: item.id.replace("class_", "") });
+      case AGENDA_ITEM_SOURCE.SESSION:
+        return item.bookingId && navigation.navigate("BusinessSessionDetail", { bookingId: item.bookingId });
+      case AGENDA_ITEM_SOURCE.BLOCK:
+        return !isReception && deleteAgendaBlock(item.id).then(loadDay);
     }
   };
 

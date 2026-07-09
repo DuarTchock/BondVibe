@@ -25,6 +25,10 @@ import { listStaff, getWorkingHours } from "./businessStaffService";
 
 export const AGENDA_BLOCK_TYPE = { BLOCKED: "blocked", BUSY: "busy" };
 export const AGENDA_ITEM_KIND = { EVENT: "event", CLASS: "class", SESSION: "session", BLOCKED: "blocked" };
+// BUG 31: `source` is the item's TRUE origin (used for routing), independent of
+// the display `kind` (color/label, which can differ once a host tags an event
+// with an agendaType). Route by `source`, color by `kind`.
+export const AGENDA_ITEM_SOURCE = { EVENT: "event", CLASS: "class", SESSION: "session", BLOCK: "block" };
 
 // BUG 27.1: hosts can tag an event with an explicit scheduling classification
 // (agendaType) at creation. Map it to the agenda item kind that drives the
@@ -130,7 +134,7 @@ export async function getDayItems(instructorUid, instructorName, date, bizId = g
       if (!sameDay(start, date)) return;
       const end = new Date(start.getTime() + (e.durationMinutes || 180) * 60000);
       items.push({
-        id: `event_${e.id}`, kind: kindForEvent(e), start, end,
+        id: `event_${e.id}`, source: AGENDA_ITEM_SOURCE.EVENT, kind: kindForEvent(e), start, end,
         title: e.title || "Event",
         subtitle: [e.location, e.maxPeople ? `${(e.attendees || []).length}/${e.maxPeople}` : null].filter(Boolean).join(" · "),
         ...tag,
@@ -145,7 +149,7 @@ export async function getDayItems(instructorUid, instructorName, date, bizId = g
     const cap = c.capacity || 0;
     const booked = Array.isArray(c.roster) ? c.roster.length : 0;
     items.push({
-      id: `class_${c.id}`, kind: AGENDA_ITEM_KIND.CLASS, start, end,
+      id: `class_${c.id}`, source: AGENDA_ITEM_SOURCE.CLASS, kind: AGENDA_ITEM_KIND.CLASS, start, end,
       title: c.title || "Class",
       subtitle: [c.location, cap ? `${booked}/${cap}` : null].filter(Boolean).join(" · "),
       ...tag,
@@ -161,7 +165,7 @@ export async function getDayItems(instructorUid, instructorName, date, bizId = g
       if (!sameDay(start, date)) return;
       const end = new Date(start.getTime() + (b.durationMin || 60) * 60000);
       items.push({
-        id: `booking_${b.id}`, kind: AGENDA_ITEM_KIND.SESSION, start, end,
+        id: `booking_${b.id}`, source: AGENDA_ITEM_SOURCE.SESSION, kind: AGENDA_ITEM_KIND.SESSION, start, end,
         title: (b.members || []).map((m) => m.name).join(", ") || b.sessionTypeName || "Session",
         subtitle: [b.location, b.sessionTypeName].filter(Boolean).join(" · "),
         bookingId: b.id, ...tag,
@@ -173,7 +177,7 @@ export async function getDayItems(instructorUid, instructorName, date, bizId = g
     const start = new Date(bl.start);
     if (!sameDay(start, date)) return;
     items.push({
-      id: bl.id, kind: AGENDA_ITEM_KIND.BLOCKED, start, end: new Date(bl.end),
+      id: bl.id, source: AGENDA_ITEM_SOURCE.BLOCK, kind: AGENDA_ITEM_KIND.BLOCKED, start, end: new Date(bl.end),
       title: bl.label || "Unavailable", label: bl.label || null, ...tag,
     });
   });
