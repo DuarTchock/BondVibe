@@ -45,6 +45,7 @@ import {
   releaseMembershipReservation,
 } from "../services/membershipService";
 import { getMyPricingTierForHost } from "../services/businessMembersService";
+import { audienceAllows } from "../utils/membershipUtils";
 import { pesosTocentavos } from "../services/stripeService";
 import CancelEventModal from "../components/CancelEventModal";
 import MatchingEntryCard from "../components/MatchingEntryCard";
@@ -144,15 +145,20 @@ export default function EventDetailScreen({ route, navigation }) {
     if (!creatorId) return;
     let active = true;
     (async () => {
-      const [plans, membership, reservation, hostSnap, meSnap] = await Promise.all([
+      const [plans, membership, reservation, hostSnap, meSnap, myTier] = await Promise.all([
         getHostMembershipPlans(creatorId, { activeOnly: true }),
         getUsableMembershipForHost(creatorId),
         getUserReservationForEvent(eventId),
         getDoc(doc(db, "users", creatorId)),
         getDoc(doc(db, "users", auth.currentUser.uid)),
+        getMyPricingTierForHost(creatorId),
       ]);
       if (!active) return;
-      setHostHasPlans(plans.length > 0);
+      // Only surface "buy a membership" when the buyer's tier for THIS host can
+      // actually purchase a plan (BUG 5+10): local-only plans stay hidden from
+      // general members, who then just pay the General price at checkout.
+      const buyablePlans = plans.filter((p) => audienceAllows(p.audienceTier, myTier));
+      setHostHasPlans(buyablePlans.length > 0);
       setUsableMembership(membership);
       setUserReservation(reservation);
       setHostRating(hostSnap.exists() ? hostSnap.data().hostStats || null : null);
