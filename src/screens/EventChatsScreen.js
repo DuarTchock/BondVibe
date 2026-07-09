@@ -21,6 +21,7 @@ import GradientBackground from "../components/GradientBackground";
 import Icon from "../components/Icon";
 import { useTheme } from "../contexts/ThemeContext";
 import { isEventPast } from "../utils/eventFilters";
+import { useUnreadMessages } from "../hooks/useUnreadMessages";
 import { TYPE, SPACING, RADII, ELEVATION } from "../constants/theme-tokens";
 
 const hit = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -33,6 +34,8 @@ export default function EventChatsScreen({ navigation }) {
   const [tab, setTab] = useState("upcoming"); // 'upcoming' | 'past'
   const [msgFilter, setMsgFilter] = useState("all"); // 'all' | 'with' | 'without'
   const [msgMap, setMsgMap] = useState({}); // eventId -> hasMessages (BUG 21)
+  // Per-event unread counts, keyed by bare eventId (matches item.id) — BUG 26.
+  const { unreadByEvent } = useUnreadMessages();
 
   useFocusEffect(
     useCallback(() => {
@@ -187,7 +190,9 @@ export default function EventChatsScreen({ navigation }) {
           data={filtered}
           keyExtractor={(e) => e.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
+          renderItem={({ item }) => {
+            const unread = unreadByEvent[item.id] || 0;
+            return (
             <TouchableOpacity
               style={[
                 styles.row,
@@ -207,7 +212,11 @@ export default function EventChatsScreen({ navigation }) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text
-                  style={[TYPE.bodySemibold, { color: colors.text }]}
+                  style={[
+                    TYPE.bodySemibold,
+                    { color: colors.text },
+                    unread > 0 && { fontWeight: "800" },
+                  ]}
                   numberOfLines={1}
                 >
                   {item.title || t("eventChats.defaultEventName")}
@@ -219,9 +228,16 @@ export default function EventChatsScreen({ navigation }) {
                   {formatWhen(item.date)}
                 </Text>
               </View>
-              <Icon name="forward" size={16} color={colors.textTertiary} />
+              {unread > 0 ? (
+                <View style={[styles.unreadBubble, { backgroundColor: colors.error }]}>
+                  <Text style={styles.unreadText}>{unread > 9 ? "9+" : unread}</Text>
+                </View>
+              ) : (
+                <Icon name="forward" size={16} color={colors.textTertiary} />
+              )}
             </TouchableOpacity>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <Text
               style={[TYPE.caption, styles.emptyText, { color: colors.textTertiary }]}
@@ -296,5 +312,16 @@ function createStyles(colors) {
       justifyContent: "center",
     },
     emptyText: { textAlign: "center", marginTop: 40 },
+    // Per-event unread count bubble (BUG 26) — replaces the chevron on rows
+    // that have unread messages.
+    unreadBubble: {
+      minWidth: 22,
+      height: 22,
+      paddingHorizontal: 7,
+      borderRadius: 11,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    unreadText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   });
 }
