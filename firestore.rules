@@ -360,6 +360,17 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Ownership transfer requests (BUG 32.4). Created/decided only via Cloud
+    // Functions (requestOwnerTransfer / approveOwnerTransfer). Admins review;
+    // the two parties can read their own request.
+    match /ownerTransfers/{transferId} {
+      allow read: if isSignedIn() && (
+                     isAdmin() ||
+                     resource.data.fromUid == request.auth.uid ||
+                     resource.data.toUid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
     // ============================================
     // MEMBERSHIP RESERVATIONS (credit holds)
     // Created/redeemed/released only via Cloud Functions (Admin SDK).
@@ -705,8 +716,16 @@ service cloud.firestore {
     // Least-privilege: only the collections that exist today are allowed here;
     // later blocks (payments/attendance/…) add their own scoped rules.
     // ============================================
+    // BUG 32.4: ownership is the business doc's ownerUid (source of truth), so it
+    // survives a transfer — the new owner (uid != bizId) is recognized and the
+    // demoted old owner (uid == bizId) is not. At CREATE time the doc doesn't
+    // exist yet, so the bootstrap creator (uid == bizId) is used.
     function isBizOwnerUid(bizId) {
-      return isSignedIn() && request.auth.uid == bizId;
+      return isSignedIn() && (
+        !exists(/databases/$(database)/documents/businesses/$(bizId))
+          ? request.auth.uid == bizId
+          : get(/databases/$(database)/documents/businesses/$(bizId)).data.get('ownerUid', bizId) == request.auth.uid
+      );
     }
     // BUG 32.1: an "invited" (not-yet-accepted) staff record must NOT grant
     // access — only status "active" (or a legacy/owner doc with no status field)

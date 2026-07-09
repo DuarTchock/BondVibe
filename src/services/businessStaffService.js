@@ -99,6 +99,36 @@ export async function respondToStaffInvite(bizId, accept) {
   }
 }
 
+/**
+ * Request an ownership transfer to a validated host (BUG 32.4). Server verifies
+ * the caller is the owner and the recipient is a host. Returns { ok, transferId? }.
+ */
+export async function requestOwnerTransfer(toUid, bizId = getMyBizId()) {
+  try {
+    const fn = httpsCallable(getFunctions(), "requestOwnerTransfer");
+    const res = await fn({ bizId, toUid });
+    return { ok: true, ...(res.data || {}) };
+  } catch (e) {
+    const code = e?.code || "";
+    let error = "failed";
+    if (code.includes("failed-precondition")) error = "not_host";
+    else if (code.includes("already-exists")) error = "pending";
+    else if (code.includes("permission-denied")) error = "not_owner";
+    return { ok: false, error };
+  }
+}
+
+/** Admin: approve or reject an ownership transfer (BUG 32.4). */
+export async function approveOwnerTransfer(transferId, approve) {
+  try {
+    const fn = httpsCallable(getFunctions(), "approveOwnerTransfer");
+    const res = await fn({ transferId, approve: !!approve });
+    return { ok: true, ...(res.data || {}) };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
 export async function updateStaffRole(staffUid, role, bizId = getMyBizId()) {
   if (!bizId || !staffUid) return;
   await updateDoc(doc(db, "businesses", bizId, "staff", staffUid), { role });

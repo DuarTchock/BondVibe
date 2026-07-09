@@ -50,6 +50,7 @@ import {
   getSubscriptionConfig,
   updateSubscriptionConfig,
 } from "../services/configService";
+import { approveOwnerTransfer } from "../services/businessStaffService";
 
 export default function AdminDashboardScreen({ navigation }) {
   const { colors, isDark } = useTheme();
@@ -62,6 +63,10 @@ export default function AdminDashboardScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentRequest, setCurrentRequest] = useState(null);
   const [modalType, setModalType] = useState("approve");
+
+  // Owner transfers state (BUG 32.4)
+  const [pendingTransfers, setPendingTransfers] = useState([]);
+  const [transfersProcessing, setTransfersProcessing] = useState(null);
 
   // User Management state
   const [users, setUsers] = useState([]);
@@ -149,6 +154,9 @@ export default function AdminDashboardScreen({ navigation }) {
     if (authorized && activeTab === "crashes") {
       loadCrashes();
     }
+    if (authorized && activeTab === "transfers") {
+      loadTransfers();
+    }
     if (authorized && activeTab === "pricing" && !citiesList) {
       getDoc(doc(db, "config", "cities"))
         .then((snap) => {
@@ -166,6 +174,62 @@ export default function AdminDashboardScreen({ navigation }) {
       loadSubscriptions();
     }
   }, [authorized, activeTab, roleFilter]);
+
+  // BUG 32.4: pending ownership transfers awaiting admin approval.
+  const loadTransfers = async () => {
+    try {
+      const snap = await getDocs(
+        query(collection(db, "ownerTransfers"), where("status", "==", "pending_admin"))
+      );
+      const rows = await Promise.all(
+        snap.docs.map(async (d) => {
+          const tr = { id: d.id, ...d.data() };
+          try {
+            const [fromS, toS] = await Promise.all([
+              getDoc(doc(db, "users", tr.fromUid)),
+              getDoc(doc(db, "users", tr.toUid)),
+            ]);
+            tr.fromName = fromS.exists() ? (fromS.data().fullName || fromS.data().name || tr.fromUid) : tr.fromUid;
+            tr.toDisplay = toS.exists() ? (toS.data().fullName || toS.data().name || tr.toUid) : tr.toUid;
+            tr.toRole = toS.exists() ? (toS.data().role || "user") : "user";
+          } catch {
+            // best-effort
+          }
+          return tr;
+        })
+      );
+      setPendingTransfers(rows);
+    } catch {
+      setPendingTransfers([]);
+    }
+  };
+
+  const decideTransfer = (transfer, approve) => {
+    const doIt = async () => {
+      setTransfersProcessing(transfer.id);
+      const res = await approveOwnerTransfer(transfer.id, approve);
+      setTransfersProcessing(null);
+      if (res.ok) {
+        setPendingTransfers((prev) => prev.filter((tr) => tr.id !== transfer.id));
+      } else {
+        Alert.alert(t("adminDashboard.transfers.failTitle"), t("adminDashboard.transfers.failMsg"));
+      }
+    };
+    Alert.alert(
+      approve ? t("adminDashboard.transfers.confirmApproveTitle") : t("adminDashboard.transfers.confirmRejectTitle"),
+      approve
+        ? t("adminDashboard.transfers.confirmApproveMsg", { business: transfer.businessName || "", to: transfer.toDisplay || "" })
+        : t("adminDashboard.transfers.confirmRejectMsg"),
+      [
+        { text: t("adminDashboard.cancel"), style: "cancel" },
+        {
+          text: approve ? t("adminDashboard.transfers.approve") : t("adminDashboard.transfers.reject"),
+          style: approve ? "default" : "destructive",
+          onPress: doIt,
+        },
+      ]
+    );
+  };
 
   const loadPricing = async () => {
     const c = await getPricingConfig();
@@ -991,6 +1055,34 @@ export default function AdminDashboardScreen({ navigation }) {
             </Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.tab} onPress={() => setActiveTab("transfers")}>
+          <View
+            style={[
+              styles.tabGlass,
+              {
+                backgroundColor:
+                  activeTab === "transfers" ? `${colors.primary}33` : colors.surfaceGlass,
+                borderColor:
+                  activeTab === "transfers" ? `${colors.primary}66` : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeTab === "transfers" ? colors.primary : colors.textSecondary },
+              ]}
+            >
+              {t("adminDashboard.tabTransfers")}
+            </Text>
+            {pendingTransfers.length > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{pendingTransfers.length}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -1266,6 +1358,53 @@ export default function AdminDashboardScreen({ navigation }) {
                       {c.stack}
                     </Text>
                   )}
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {activeTab === "transfers" && (
+          <View style={styles.section}>
+            {pendingTransfers.length === 0 ? (
+              <Text style={{ color: colors.textSecondary, textAlign: "center", marginTop: 24 }}>
+                {t("adminDashboard.transfers.empty")}
+              </Text>
+            ) : (
+              pendingTransfers.map((tr) => (
+                <View
+                  key={tr.id}
+                  style={[styles.crashCard, { backgroundColor: colors.surfaceGlass, borderColor: colors.border }]}
+                >
+                  <Text style={[styles.crashMsg, { color: colors.text }]} numberOfLines={2}>
+                    {tr.businessName || tr.bizId}
+                  </Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: 12.5, marginTop: 6 }}>
+                    {t("adminDashboard.transfers.fromTo", { from: tr.fromName || tr.fromUid, to: tr.toDisplay || tr.toUid })}
+                  </Text>
+                  <Text style={{ color: tr.toRole === "host" || tr.toRole === "admin" ? colors.success : colors.error, fontSize: 12, marginTop: 4, fontWeight: "700" }}>
+                    {tr.toRole === "host" || tr.toRole === "admin"
+                      ? t("adminDashboard.transfers.recipientHost")
+                      : t("adminDashboard.transfers.recipientNotHost")}
+                  </Text>
+                  <View style={styles.transferActions}>
+                    <TouchableOpacity
+                      style={[styles.transferBtn, { borderColor: colors.border }]}
+                      disabled={transfersProcessing === tr.id}
+                      onPress={() => decideTransfer(tr, false)}
+                    >
+                      <Text style={[styles.transferBtnText, { color: colors.error }]}>{t("adminDashboard.transfers.reject")}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.transferBtn, { backgroundColor: colors.primary, borderColor: colors.primary, opacity: transfersProcessing === tr.id ? 0.6 : 1 }]}
+                      disabled={transfersProcessing === tr.id}
+                      onPress={() => decideTransfer(tr, true)}
+                    >
+                      <Text style={[styles.transferBtnText, { color: "#fff" }]}>
+                        {transfersProcessing === tr.id ? t("adminDashboard.transfers.working") : t("adminDashboard.transfers.approve")}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))
             )}
@@ -1646,6 +1785,15 @@ function createStyles(colors) {
       marginBottom: 10,
     },
     crashMsg: { fontSize: 14, fontWeight: "700" },
+    transferActions: { flexDirection: "row", gap: 10, marginTop: 12 },
+    transferBtn: {
+      flex: 1,
+      borderWidth: 1,
+      borderRadius: 999,
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    transferBtnText: { fontSize: 14, fontWeight: "800" },
     sectionTitle: {
       fontSize: 20,
       fontWeight: "700",

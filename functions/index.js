@@ -3137,6 +3137,152 @@ exports.onStaffWritten = onDocumentWritten(
   },
 );
 
+/**
+ * Request an ownership transfer (BUG 32.4, Phase 2). Only the CURRENT owner can
+ * initiate, and only to a VALIDATED host (users/{toUid}.role in host/admin). It
+ * creates an ownerTransfers request in status "pending_admin" and notifies Kinlo
+ * admins — nothing changes until an admin approves (approveOwnerTransfer).
+ */
+exports.requestOwnerTransfer = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const bizId = String((request.data && request.data.bizId) || "").trim();
+  const toUid = String((request.data && request.data.toUid) || "").trim();
+  if (!bizId || !toUid) throw new HttpsError("invalid-argument", "bizId and toUid required.");
+  if (toUid === uid) throw new HttpsError("invalid-argument", "You're already the owner.");
+
+  // Only the current owner (source of truth: business.ownerUid) may initiate.
+  const bizSnap = await db.collection("businesses").doc(bizId).get();
+  if (!bizSnap.exists) throw new HttpsError("not-found", "Business not found.");
+  const ownerUid = bizSnap.data().ownerUid || bizId;
+  if (ownerUid !== uid) throw new HttpsError("permission-denied", "Only the owner can transfer.");
+
+  // Recipient must be a validated host.
+  const toSnap = await db.collection("users").doc(toUid).get();
+  const toRole = toSnap.exists ? (toSnap.data().role || "user") : "user";
+  if (toRole !== "host" && toRole !== "admin") {
+    throw new HttpsError("failed-precondition", "Recipient must be a validated host.");
+  }
+
+  // One pending request at a time per business.
+  const existing = await db.collection("ownerTransfers")
+    .where("bizId", "==", bizId)
+    .where("status", "==", "pending_admin")
+    .limit(1)
+    .get();
+  if (!existing.empty) throw new HttpsError("already-exists", "A transfer is already pending.");
+
+  const bizName = bizSnap.data().name || "";
+  const toName = (toSnap.exists && (toSnap.data().fullName || toSnap.data().name)) || "";
+  const ref = await db.collection("ownerTransfers").add({
+    bizId,
+    fromUid: uid,
+    toUid,
+    toName,
+    businessName: bizName,
+    status: "pending_admin",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // Notify Kinlo admins.
+  const adminsSnap = await db.collection("users").where("role", "==", "admin").get();
+  await Promise.all(adminsSnap.docs.map((d) => db.collection("notifications").add({
+    userId: d.id,
+    type: "owner_transfer_request",
+    title: "Ownership transfer 🔑",
+    message: `${bizName || "A business"} requested an ownership transfer.`,
+    icon: "🔑",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    metadata: {transferId: ref.id, bizId, fromUid: uid, toUid},
+  })));
+
+  return {ok: true, transferId: ref.id};
+});
+
+/**
+ * Approve or reject an ownership transfer (BUG 32.4). Admin-only. On approve:
+ * the recipient's staff role becomes "owner" (active), the old owner is demoted
+ * to "manager", and businesses/{bizId}.ownerUid is updated — the source of truth
+ * for every owner check. The onStaffWritten trigger re-indexes both memberships.
+ */
+exports.approveOwnerTransfer = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid || !(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "Admin only.");
+  }
+  const transferId = String((request.data && request.data.transferId) || "").trim();
+  const approve = !!(request.data && request.data.approve);
+  const demoteRole = String((request.data && request.data.demoteRole) || "manager");
+  if (!transferId) throw new HttpsError("invalid-argument", "transferId required.");
+
+  const tRef = db.collection("ownerTransfers").doc(transferId);
+  const tSnap = await tRef.get();
+  if (!tSnap.exists) throw new HttpsError("not-found", "Transfer not found.");
+  const tr = tSnap.data();
+  if (tr.status !== "pending_admin") {
+    return {ok: true, status: tr.status}; // already decided — idempotent
+  }
+  const {bizId, fromUid, toUid} = tr;
+
+  if (!approve) {
+    await tRef.update({
+      status: "rejected",
+      decidedBy: uid,
+      decidedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.collection("notifications").add({
+      userId: fromUid,
+      type: "owner_transfer_result",
+      title: "Transfer declined",
+      message: "Your ownership transfer was not approved.",
+      icon: "🔑",
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: {transferId, bizId, approved: false},
+    });
+    return {ok: true, status: "rejected"};
+  }
+
+  // Approve: promote recipient, demote old owner, move ownership source-of-truth.
+  const staffCol = db.collection("businesses").doc(bizId).collection("staff");
+  await staffCol.doc(toUid).set({
+    uid: toUid,
+    role: "owner",
+    status: "active",
+    branchIds: [],
+    ownerSince: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+  await staffCol.doc(fromUid).set({
+    role: demoteRole,
+    status: "active",
+  }, {merge: true});
+  await db.collection("businesses").doc(bizId).update({
+    ownerUid: toUid,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  await tRef.update({
+    status: "approved",
+    decidedBy: uid,
+    decidedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  await Promise.all([toUid, fromUid].map((target) => db.collection("notifications").add({
+    userId: target,
+    type: "owner_transfer_result",
+    title: "Ownership transferred 🔑",
+    message: target === toUid ?
+      `${tr.businessName || "A business"} is now yours.` :
+      `Ownership of ${tr.businessName || "your business"} was transferred.`,
+    icon: "🔑",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    metadata: {transferId, bizId, approved: true},
+  })));
+
+  return {ok: true, status: "approved"};
+});
+
 // Session reminders (both sides) + the no-request Momentum detector.
 exports.businessSessionRemindersCron = onSchedule(
   {schedule: "every 2 hours"}, bizAutomations.sessionRemindersCron);

@@ -15,7 +15,7 @@ import { auth } from "../../services/firebase";
 import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
 import { useTheme } from "../../contexts/ThemeContext";
-import { listStaff, inviteStaff, inviteStaffByHandle, updateStaffRole, setStaffName, removeStaff, getWorkingHours, setWorkingHours, listRoles, listStaffInvites, isValidHM, staffDisplayName } from "../../services/businessStaffService";
+import { listStaff, inviteStaff, inviteStaffByHandle, updateStaffRole, setStaffName, removeStaff, getWorkingHours, setWorkingHours, listRoles, listStaffInvites, isValidHM, staffDisplayName, requestOwnerTransfer } from "../../services/businessStaffService";
 import UserSearchField from "../../components/UserSearchField";
 
 const weekdayShort = (i, lang) => new Date(2024, 0, 7 + i).toLocaleDateString(lang || "en", { weekday: "narrow" });
@@ -33,9 +33,27 @@ export default function StaffScreen({ navigation }) {
   const [whEdit, setWhEdit] = useState(null); // { id, days, start, end }
   const [editStaff, setEditStaff] = useState(null); // { id, name, role, isOwner } (32.3)
   const [savingEdit, setSavingEdit] = useState(false);
+  const [transferring, setTransferring] = useState(false); // owner-transfer sheet (32.4)
   const me = auth.currentUser?.uid;
 
   const assignable = roles.filter((r) => r.id !== "owner");
+  // BUG 32.4: only the current owner sees the transfer entry.
+  const iAmOwner = staff.find((s) => s.id === me)?.role === "owner";
+
+  // Pick a recipient (validated host) and request the transfer — Kinlo admin
+  // must approve before anything changes.
+  const doTransfer = async (user) => {
+    setTransferring(false);
+    const res = await requestOwnerTransfer(user.uid || user.id);
+    if (res.ok) {
+      Alert.alert(t("business.staff.transfer.requestedTitle"), t("business.staff.transfer.requestedMsg", { name: user.name || `@${user.handle}` }));
+    } else {
+      const msg = res.error === "not_host" ? t("business.staff.transfer.notHost")
+        : res.error === "pending" ? t("business.staff.transfer.alreadyPending")
+          : t("business.common.tryAgain");
+      Alert.alert(t("business.staff.transfer.failTitle"), msg);
+    }
+  };
 
   const openWorkingHours = (s) => {
     const wh = getWorkingHours(s);
@@ -204,8 +222,38 @@ export default function StaffScreen({ navigation }) {
               </View>
             );
           })}
+
+          {/* Transfer ownership (BUG 32.4) — owner only; admin-approved. */}
+          {iAmOwner && (
+            <TouchableOpacity
+              style={[styles.transferRow, { borderColor: colors.border }]}
+              onPress={() => setTransferring(true)}
+              activeOpacity={0.85}
+            >
+              <Icon name="refresh" size={17} color={colors.textSecondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.transferTitle, { color: colors.text }]}>{t("business.staff.transfer.entry")}</Text>
+                <Text style={[styles.transferSub, { color: colors.textTertiary }]}>{t("business.staff.transfer.entrySub")}</Text>
+              </View>
+              <Icon name="forward" size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
         </ScrollView>
       )}
+
+      {/* Transfer ownership sheet (32.4) — pick a validated host. */}
+      <Modal visible={transferring} transparent animationType="slide" onRequestClose={() => setTransferring(false)}>
+        <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>{t("business.staff.transfer.entry")}</Text>
+              <TouchableOpacity onPress={() => setTransferring(false)}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
+            </View>
+            <Text style={[styles.roleHint, { color: colors.textTertiary, marginTop: 0, marginBottom: 8 }]}>{t("business.staff.transfer.sheetHint")}</Text>
+            <UserSearchField placeholder={t("business.staff.handlePlaceholder")} onSelect={doTransfer} maxHeight={220} />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <Modal visible={inviting} transparent animationType="slide" onRequestClose={() => setInviting(false)}>
         <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -323,6 +371,17 @@ function createStyles(colors) {
     email: { fontSize: 12, marginTop: 2 },
     pendingChip: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
     pendingText: { fontSize: 11.5, fontWeight: "700" },
+    transferRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: 14,
+      marginTop: 6,
+    },
+    transferTitle: { fontSize: 14.5, fontWeight: "700" },
+    transferSub: { fontSize: 12, marginTop: 2 },
     roleBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
     roleText: { fontSize: 11.5, fontWeight: "700" },
     actions: { flexDirection: "row", gap: 12, marginLeft: 4 },
