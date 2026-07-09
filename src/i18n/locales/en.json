@@ -68,6 +68,8 @@
   },
   "translate": {
     "action": "Translate to {{lang}}",
+    "button": "Translate",
+    "pickTitle": "Translate to…",
     "freeTasteNote": "1 free this month · then Plus",
     "translatedBy": "Translated by Kinlo AI",
     "seeOriginal": "See original",
