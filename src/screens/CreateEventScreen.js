@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -249,9 +249,34 @@ export default function CreateEventScreen({ navigation, route }) {
     return false;
   };
 
-  // Restore an in-progress event draft (saved before the "create a membership
-  // plan" detour) so the host never loses their captured data. The draft only
-  // exists during that round-trip; restore it once, then clear it.
+  // BUG 30 Gap C: keep a live snapshot of the form so the beforeRemove listener
+  // can persist a draft with the LATEST values (no stale-closure risk), and a
+  // flag so we don't save a draft after a successful create.
+  const formStateRef = useRef({});
+  formStateRef.current = {
+    title, description, selectedCategory, selectedLanguages, selectedCity,
+    eventDate, recurrenceConfig, locationDetail, venueAddress, locationCoords,
+    placeId, durationMinutes, maxPeople, isFree, price, eventImages,
+    acceptsMembership, agendaType, listedPublicly,
+  };
+  const submittedRef = useRef(false);
+
+  // Persist the in-progress form. `reason` distinguishes the membership-plan
+  // detour (silent auto-restore) from a plain back-out (offer Resume/Discard).
+  const persistDraft = useCallback((reason) => {
+    const s = formStateRef.current;
+    return AsyncStorage.setItem(
+      EVENT_DRAFT_KEY,
+      JSON.stringify({
+        ...s,
+        eventDate: s.eventDate?.toISOString?.() || null,
+        reason,
+        savedAt: Date.now(),
+      }),
+    ).catch(() => {});
+  }, []);
+
+  // Restore an in-progress event draft so the host never loses captured data.
   const restoreDraft = useCallback((d) => {
     if (typeof d.title === "string") setTitle(d.title);
     if (typeof d.description === "string") setDescription(d.description);
@@ -270,6 +295,8 @@ export default function CreateEventScreen({ navigation, route }) {
     if (typeof d.price === "string") setPrice(d.price);
     if (Array.isArray(d.eventImages)) setEventImages(d.eventImages);
     if (typeof d.acceptsMembership === "boolean") setAcceptsMembership(d.acceptsMembership);
+    if (typeof d.agendaType === "string") setAgendaType(d.agendaType);
+    if (typeof d.listedPublicly === "boolean") setListedPublicly(d.listedPublicly);
   }, []);
 
   useFocusEffect(
@@ -279,17 +306,58 @@ export default function CreateEventScreen({ navigation, route }) {
           const raw = await AsyncStorage.getItem(EVENT_DRAFT_KEY);
           if (!raw) return;
           const d = JSON.parse(raw);
-          // Only restore a recent draft (guards against a stale abandoned one).
-          if (d.savedAt && Date.now() - d.savedAt < 2 * 60 * 60 * 1000) {
-            restoreDraft(d);
+          const fresh = d.savedAt && Date.now() - d.savedAt < 2 * 60 * 60 * 1000;
+          if (!fresh) {
+            await AsyncStorage.removeItem(EVENT_DRAFT_KEY);
+            return;
           }
-          await AsyncStorage.removeItem(EVENT_DRAFT_KEY);
+          // Membership-plan detour → silent auto-restore (round-trip, expected).
+          // A plain back-out → ask before clobbering a fresh form (Gap C).
+          if (d.reason === "backout") {
+            Alert.alert(
+              t("createEvent.draft.resumeTitle"),
+              t("createEvent.draft.resumeMsg"),
+              [
+                {
+                  text: t("createEvent.draft.discard"),
+                  style: "destructive",
+                  onPress: () => AsyncStorage.removeItem(EVENT_DRAFT_KEY).catch(() => {}),
+                },
+                {
+                  text: t("createEvent.draft.resume"),
+                  onPress: async () => {
+                    restoreDraft(d);
+                    await AsyncStorage.removeItem(EVENT_DRAFT_KEY).catch(() => {});
+                  },
+                },
+              ],
+            );
+          } else {
+            restoreDraft(d);
+            await AsyncStorage.removeItem(EVENT_DRAFT_KEY);
+          }
         } catch (e) {
           // ignore
         }
       })();
-    }, [restoreDraft])
+    }, [restoreDraft, t])
   );
+
+  // BUG 30 Gap C: backing out of Create Event (header back / swipe) saves the
+  // in-progress form as a draft so progress isn't lost — unless a create just
+  // succeeded (submittedRef) or the form is effectively empty. Navigating to a
+  // pushed sub-screen (e.g. the membership detour) doesn't pop this screen, so
+  // beforeRemove doesn't fire there — that path saves its own draft.
+  useEffect(() => {
+    const unsub = navigation.addListener("beforeRemove", () => {
+      const s = formStateRef.current;
+      const hasContent = !!(s.title?.trim() || s.description?.trim());
+      if (!submittedRef.current && hasContent) {
+        persistDraft("backout");
+      }
+    });
+    return unsub;
+  }, [navigation, persistDraft]);
 
   const formatDate = (date) => {
     const options = { month: "short", day: "numeric", year: "numeric" };
@@ -377,33 +445,8 @@ export default function CreateEventScreen({ navigation, route }) {
               text: t("createEvent.membershipPlansAlert.createPlan"),
               onPress: async () => {
                 // Persist the in-progress event so the detour to create a
-                // membership plan doesn't lose it.
-                try {
-                  await AsyncStorage.setItem(
-                    EVENT_DRAFT_KEY,
-                    JSON.stringify({
-                      title,
-                      description,
-                      selectedCategory,
-                      selectedLanguages,
-                      selectedCity,
-                      eventDate: eventDate?.toISOString?.() || null,
-                      recurrenceConfig,
-                      locationDetail,
-                      locationCoords,
-                      placeId,
-                      durationMinutes,
-                      maxPeople,
-                      isFree,
-                      price,
-                      eventImages,
-                      acceptsMembership,
-                      savedAt: Date.now(),
-                    })
-                  );
-                } catch (e) {
-                  // ignore
-                }
+                // membership plan doesn't lose it (silent-restore on return).
+                await persistDraft("membership");
                 navigation.navigate("MembershipPlans", { fromEventCreation: true });
               },
             },
@@ -770,6 +813,7 @@ export default function CreateEventScreen({ navigation, route }) {
             console.error("⚠️ Class image upload failed:", imageError);
           }
         }
+        submittedRef.current = true;
         await AsyncStorage.removeItem(EVENT_DRAFT_KEY).catch(() => {});
         setCreatedEventTitle(title.trim());
         setCreatedEventsCount(1);
@@ -872,7 +916,8 @@ export default function CreateEventScreen({ navigation, route }) {
         setCreatedEventId(firstEventId);
       }
 
-      // Event created — drop any saved draft.
+      // Event created — drop any saved draft (and suppress the back-out save).
+      submittedRef.current = true;
       await AsyncStorage.removeItem(EVENT_DRAFT_KEY).catch(() => {});
 
       setCreatedEventTitle(title.trim());

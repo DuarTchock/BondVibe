@@ -529,6 +529,12 @@
       "skip": "Skip conflicting dates",
       "goBack": "Go back"
     },
+    "draft": {
+      "resumeTitle": "Resume draft?",
+      "resumeMsg": "You have an unfinished event. Pick up where you left off?",
+      "resume": "Resume",
+      "discard": "Discard"
+    },
     "eventLength": "Event length",
     "maxPeople": "Max People",
     "priceLabel": "Price",

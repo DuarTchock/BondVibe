@@ -529,6 +529,12 @@
       "skip": "Omitir fechas en conflicto",
       "goBack": "Volver"
     },
+    "draft": {
+      "resumeTitle": "¿Retomar borrador?",
+      "resumeMsg": "Tienes un evento sin terminar. ¿Continuar donde lo dejaste?",
+      "resume": "Retomar",
+      "discard": "Descartar"
+    },
     "eventLength": "Duración del evento",
     "maxPeople": "Máximo de personas",
     "priceLabel": "Precio",
