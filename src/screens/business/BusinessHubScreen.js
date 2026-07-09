@@ -123,7 +123,10 @@ export default function BusinessHubScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Scope filter (kinlo_business/06 FIX 1): whole business or one event. */}
+        <SectionHeader title={t("business.hub.overviewSection")} />
+        {/* Analytics scope (BUG 17): whole business or one event. It scopes the
+            dashboard, so it lives in the Overview section — not floating above
+            every row at the hub top. */}
         <View style={[styles.scopeTrack, { backgroundColor: colors.surfaceGlass, borderColor: colors.border }]}>
           <TouchableOpacity
             style={[styles.scopeSeg, !isEventScoped && { backgroundColor: colors.primary }]}
@@ -150,9 +153,7 @@ export default function BusinessHubScreen({ navigation }) {
             <Text style={[styles.scopeClearText, { color: colors.primary }]}>{t("business.hub.scopeClear")}</Text>
           </TouchableOpacity>
         )}
-
-        <SectionHeader title={t("business.hub.overviewSection")} />
-        <View style={card}>
+        <View style={[card, { marginTop: SPACING.sm }]}>
           <ListRow
             icon="chart"
             iconColor={colors.primary}

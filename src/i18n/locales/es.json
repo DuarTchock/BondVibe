@@ -2662,7 +2662,7 @@
       "defaultName": "tu negocio",
       "proBadge": "PRO",
       "scopeWhole": "Todo el negocio",
-      "scopeEvent": "Este evento",
+      "scopeEvent": "Elegir evento",
       "scopeClear": "Limpiar · ver todo el negocio",
       "pickEvent": "Elige un evento",
       "noEvents": "Aún no hay eventos.",
