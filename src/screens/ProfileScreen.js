@@ -231,6 +231,9 @@ export default function ProfileScreen({ navigation }) {
                 <AvatarDisplay avatar={profile.avatar} size={66} name={profile.fullName} />
               </AvatarFrame>
               <Text style={[s.name, { color: colors.text }]}>{profile.fullName}</Text>
+              {!!(profile.handle || profile.handleLower) && (
+                <Text style={[s.handle, { color: colors.primary }]}>@{profile.handle || profile.handleLower}</Text>
+              )}
               <Text style={[s.email, { color: colors.textSecondary }]}>{auth.currentUser?.email}</Text>
 
               {profile.role === "host" && (
@@ -452,6 +455,7 @@ function createStyles(colors, isDark) {
     // User section
     userSection: { alignItems: "center", marginBottom: 16, gap: 6 },
     name: { fontSize: 22, fontWeight: "800", letterSpacing: -0.5, marginTop: 8 },
+    handle: { fontSize: 14, fontWeight: "700", letterSpacing: -0.2, marginTop: -2 },
     email: { fontSize: 13 },
     badge: {
       flexDirection: "row",
