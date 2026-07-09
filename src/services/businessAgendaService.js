@@ -295,11 +295,13 @@ export async function getAllDayItems(date, bizId = getMyBizId()) {
   if (!bizId) return { staff: [], items: [] };
   const staff = await listStaff(bizId);
   const instructors = staff.filter((s) => s.role === "owner" || s.role === "instructor");
+  // BUG 32.3: prefer the owner-set displayName for the instructor label.
+  const nameOf = (s) => s.displayName || s.name || s.email || "";
   const perDay = await Promise.all(
-    instructors.map((s) => getDayItems(s.id, s.name, date, bizId))
+    instructors.map((s) => getDayItems(s.id, nameOf(s), date, bizId))
   );
   return {
-    staff: instructors.map((s) => ({ uid: s.id, name: s.name })),
+    staff: instructors.map((s) => ({ uid: s.id, name: nameOf(s) })),
     items: perDay.flat().sort((a, b) => a.start - b.start),
   };
 }

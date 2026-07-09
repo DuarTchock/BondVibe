@@ -15,7 +15,7 @@ import { auth } from "../../services/firebase";
 import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
 import { useTheme } from "../../contexts/ThemeContext";
-import { listStaff, inviteStaff, inviteStaffByHandle, updateStaffRole, removeStaff, getWorkingHours, setWorkingHours, listRoles, listStaffInvites, isValidHM } from "../../services/businessStaffService";
+import { listStaff, inviteStaff, inviteStaffByHandle, updateStaffRole, setStaffName, removeStaff, getWorkingHours, setWorkingHours, listRoles, listStaffInvites, isValidHM, staffDisplayName } from "../../services/businessStaffService";
 import UserSearchField from "../../components/UserSearchField";
 
 const weekdayShort = (i, lang) => new Date(2024, 0, 7 + i).toLocaleDateString(lang || "en", { weekday: "narrow" });
@@ -31,6 +31,8 @@ export default function StaffScreen({ navigation }) {
   const [roles, setRoles] = useState([]);
   const [invites, setInvites] = useState([]);
   const [whEdit, setWhEdit] = useState(null); // { id, days, start, end }
+  const [editStaff, setEditStaff] = useState(null); // { id, name, role, isOwner } (32.3)
+  const [savingEdit, setSavingEdit] = useState(false);
   const me = auth.currentUser?.uid;
 
   const assignable = roles.filter((r) => r.id !== "owner");
@@ -89,13 +91,34 @@ export default function StaffScreen({ navigation }) {
     }
   };
 
-  const changeRole = (s) => {
-    const opts = assignable.map((r) => ({ text: r.name, onPress: () => updateStaffRole(s.id, r.id).then(load) }));
-    Alert.alert(t("business.staff.changeRole"), s.name || s.email, [...opts, { text: t("business.common.cancel"), style: "cancel" }]);
+  // BUG 32.3: the pencil now opens a name + role edit sheet (was a role-only
+  // alert). Allowed for every row including the owner/self — the owner's role
+  // stays locked (a business always needs an owner).
+  const openEdit = (s) => {
+    setEditStaff({
+      id: s.id,
+      name: s.displayName || s.name || "",
+      role: s.role,
+      isOwner: s.role === "owner",
+    });
+  };
+  const saveEdit = async () => {
+    if (!editStaff) return;
+    setSavingEdit(true);
+    try {
+      await setStaffName(editStaff.id, editStaff.name);
+      if (!editStaff.isOwner && editStaff.role) {
+        await updateStaffRole(editStaff.id, editStaff.role);
+      }
+    } finally {
+      setSavingEdit(false);
+      setEditStaff(null);
+      load();
+    }
   };
 
   const remove = (s) =>
-    Alert.alert(t("business.staff.removeTitle"), t("business.staff.removeMsg", { name: s.name || s.email }), [
+    Alert.alert(t("business.staff.removeTitle"), t("business.staff.removeMsg", { name: staffDisplayName(s, t("business.staff.member")) }), [
       { text: t("business.common.cancel"), style: "cancel" },
       { text: t("business.staff.remove"), style: "destructive", onPress: () => removeStaff(s.id).then(load) },
     ]);
@@ -150,7 +173,7 @@ export default function StaffScreen({ navigation }) {
               <View key={s.id} style={[styles.cardWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.cardTop}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.name, { color: colors.text }]}>{s.name || s.email || t("business.staff.member")}</Text>
+                    <Text style={[styles.name, { color: colors.text }]}>{staffDisplayName(s, t("business.staff.member"))}</Text>
                     <Text style={[styles.email, { color: colors.textTertiary }]} numberOfLines={1}>{s.email}</Text>
                     {s.status === "invited" && (
                       <View style={styles.pendingChip}>
@@ -162,12 +185,12 @@ export default function StaffScreen({ navigation }) {
                   <View style={[styles.roleBadge, { backgroundColor: s.role === "owner" ? `${colors.primary}18` : colors.surfaceGlass }]}>
                     <Text style={[styles.roleText, { color: s.role === "owner" ? colors.primary : colors.textSecondary }]}>{roleName(s.role)}</Text>
                   </View>
-                  {s.role !== "owner" && s.id !== me && (
-                    <View style={styles.actions}>
-                      <TouchableOpacity onPress={() => changeRole(s)}><Icon name="edit" size={18} color={colors.textSecondary} /></TouchableOpacity>
+                  <View style={styles.actions}>
+                    <TouchableOpacity onPress={() => openEdit(s)}><Icon name="edit" size={18} color={colors.textSecondary} /></TouchableOpacity>
+                    {s.role !== "owner" && s.id !== me && (
                       <TouchableOpacity onPress={() => remove(s)}><Icon name="close" size={18} color={colors.error} /></TouchableOpacity>
-                    </View>
-                  )}
+                    )}
+                  </View>
                 </View>
                 {canHaveHours && (
                   <TouchableOpacity style={[styles.whRow, { borderTopColor: colors.border }]} onPress={() => openWorkingHours(s)}>
@@ -233,6 +256,45 @@ export default function StaffScreen({ navigation }) {
             </View>
             <Text style={[styles.roleHint, { color: colors.textTertiary, marginTop: 8 }]}>{t("business.staff.timeFormatHint")}</Text>
             <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={saveWorkingHours}><Text style={styles.saveText}>{t("business.agenda.save")}</Text></TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit staff — name + role (BUG 32.3). Owner role is locked. */}
+      <Modal visible={!!editStaff} transparent animationType="slide" onRequestClose={() => setEditStaff(null)}>
+        <KeyboardAvoidingView style={styles.sheetBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>{t("business.staff.editTitle")}</Text>
+              <TouchableOpacity onPress={() => setEditStaff(null)}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
+            </View>
+            <Text style={[styles.roleHint, { color: colors.textTertiary, marginTop: 0, marginBottom: 8 }]}>{t("business.staff.nameLabel")}</Text>
+            <TextInput
+              style={[styles.input, inputStyle]}
+              value={editStaff?.name}
+              onChangeText={(v) => setEditStaff((e) => ({ ...e, name: v }))}
+              placeholder={t("business.staff.namePlaceholder")}
+              placeholderTextColor={colors.textTertiary}
+              maxLength={60}
+            />
+            {!editStaff?.isOwner && (
+              <>
+                <Text style={[styles.roleHint, { color: colors.textTertiary, marginBottom: 8 }]}>{t("business.staff.pickRole")}</Text>
+                <View style={styles.roleWrap}>
+                  {assignable.map((r) => {
+                    const on = editStaff?.role === r.id;
+                    return (
+                      <TouchableOpacity key={r.id} onPress={() => setEditStaff((e) => ({ ...e, role: r.id }))} style={[styles.roleChip, { borderColor: on ? colors.primary : colors.border, backgroundColor: on ? `${colors.primary}14` : "transparent" }]}>
+                        <Text style={[styles.segText, { color: on ? colors.primary : colors.textSecondary }]}>{r.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            )}
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: savingEdit ? 0.6 : 1 }]} onPress={saveEdit} disabled={savingEdit}>
+              <Text style={styles.saveText}>{savingEdit ? t("business.agenda.saving") : t("business.agenda.save")}</Text>
+            </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>

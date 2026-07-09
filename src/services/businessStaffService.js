@@ -104,6 +104,24 @@ export async function updateStaffRole(staffUid, role, bizId = getMyBizId()) {
   await updateDoc(doc(db, "businesses", bizId, "staff", staffUid), { role });
 }
 
+/**
+ * Set a staff member's display name (BUG 32.3, owner action). Falls in front of
+ * the account fullName/email so the owner can label any row — including their own.
+ */
+export async function setStaffName(staffUid, displayName, bizId = getMyBizId()) {
+  if (!bizId || !staffUid) return;
+  await updateDoc(doc(db, "businesses", bizId, "staff", staffUid), {
+    displayName: (displayName || "").trim(),
+  });
+}
+
+/** The best display name for a staff record (BUG 32.3 fallback chain). */
+export function staffDisplayName(s, fallback = "Staff member") {
+  return (
+    (s && (s.displayName || s.name || s.fullName || s.email)) || fallback
+  );
+}
+
 export async function removeStaff(staffUid, bizId = getMyBizId()) {
   if (!bizId || !staffUid) return;
   await deleteDoc(doc(db, "businesses", bizId, "staff", staffUid));

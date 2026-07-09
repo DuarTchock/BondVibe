@@ -93,7 +93,7 @@ export default function AgendaScreen({ navigation }) {
       const { items: it } = await getAllDayItems(date);
       setItems(it);
     } else {
-      const it = await getDayItems(selected, selStaff?.name, date);
+      const it = await getDayItems(selected, selStaff?.displayName || selStaff?.name, date);
       setItems(it);
     }
     const bk = await listBookings();
@@ -154,7 +154,7 @@ export default function AgendaScreen({ navigation }) {
     const msgs = [];
     if (conflict) {
       msgs.push(t("business.agenda.conflictMsg", {
-        name: conflict.instructorName || targetStaff?.name || t("business.agenda.you"),
+        name: conflict.instructorName || targetStaff?.displayName || targetStaff?.name || t("business.agenda.you"),
         title: conflict.title,
         range: `${hhmm(conflict.start)}–${hhmm(conflict.end)}`,
       }));
@@ -223,7 +223,7 @@ export default function AgendaScreen({ navigation }) {
   };
   const whTargets = [
     { id: "all", name: t("business.staff.allStaff") },
-    ...staff.filter((s) => s.role === "owner" || s.role === "instructor").map((s) => ({ id: s.id, name: s.name || t("business.agenda.you") })),
+    ...staff.filter((s) => s.role === "owner" || s.role === "instructor").map((s) => ({ id: s.id, name: s.displayName || s.name || t("business.agenda.you") })),
   ];
   const toggleWhDay = (d) => setWhEdit((w) => ({ ...w, days: w.days.includes(d) ? w.days.filter((x) => x !== d) : [...w.days, d] }));
   const saveWH = async () => {
@@ -268,7 +268,7 @@ export default function AgendaScreen({ navigation }) {
 
   const styles = createStyles(colors);
   const dayName = (d) => d.toLocaleDateString(i18n.language, { weekday: "short" }).toUpperCase();
-  const chips = [{ id: "all", name: t("business.agenda.all") }, ...staff.filter((s) => s.role === "owner" || s.role === "instructor").map((s) => ({ id: s.id, name: s.name || t("business.agenda.you") }))];
+  const chips = [{ id: "all", name: t("business.agenda.all") }, ...staff.filter((s) => s.role === "owner" || s.role === "instructor").map((s) => ({ id: s.id, name: s.displayName || s.name || t("business.agenda.you") }))];
   const countFor = (d) => counts[dateKey(d)] || 0;
 
   // Week / Month / Year calendars (FIX 5) — each cell drills into the Day grid.
