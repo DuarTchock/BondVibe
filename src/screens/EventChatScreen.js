@@ -69,10 +69,13 @@ export default function EventChatScreen({ route, navigation }) {
   const [carpoolForm, setCarpoolForm] = useState({
     seatsTotal: "",
     from: "",
+    fromAddress: "",
+    fromCoords: null,
     departureTime: "",
     departureDate: null,
     notes: "",
   });
+  const [showPickupSearch, setShowPickupSearch] = useState(false);
   const [showDepPicker, setShowDepPicker] = useState(false);
   const [creatingCarpool, setCreatingCarpool] = useState(false);
   const scrollViewRef = useRef();
@@ -456,6 +459,8 @@ export default function EventChatScreen({ route, navigation }) {
       setCarpoolForm({
         seatsTotal: "",
         from: "",
+        fromAddress: "",
+        fromCoords: null,
         departureTime: "",
         departureDate: null,
         notes: "",
@@ -463,6 +468,22 @@ export default function EventChatScreen({ route, navigation }) {
     } else {
       Alert.alert(t("eventChat.alerts.couldntOfferRideTitle"), result.error || t("eventChat.alerts.tryAgain"));
     }
+  };
+
+  // Pickup point chosen from the same Google Places sheet as Create Event
+  // (BUG 19): show the place name, keep the address + coords for the map.
+  const handlePickupSelected = (place) => {
+    setShowPickupSearch(false);
+    const { latitude, longitude, address, description, name } = place || {};
+    setCarpoolForm((f) => ({
+      ...f,
+      from: name || address || description || f.from,
+      fromAddress: address || description || "",
+      fromCoords:
+        typeof latitude === "number" && typeof longitude === "number"
+          ? { latitude, longitude }
+          : null,
+    }));
   };
 
   const openInMaps = (latitude, longitude) => {
@@ -990,14 +1011,14 @@ export default function EventChatScreen({ route, navigation }) {
               }
               keyboardType="number-pad"
             />
-            <TextInput
-              style={[styles.pollInput, { color: colors.text, borderColor: colors.border }]}
-              placeholder={t("eventChat.carpool.pickupPlaceholder")}
-              placeholderTextColor={colors.textTertiary}
-              value={carpoolForm.from}
-              onChangeText={(v) => setCarpoolForm((f) => ({ ...f, from: v }))}
-              maxLength={60}
-            />
+            <TouchableOpacity
+              style={[styles.pollInput, { borderColor: colors.border, justifyContent: "center" }]}
+              onPress={() => setShowPickupSearch(true)}
+            >
+              <Text style={{ color: carpoolForm.from ? colors.text : colors.textTertiary }} numberOfLines={1}>
+                {carpoolForm.from || t("eventChat.carpool.pickupPlaceholder")}
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.pollInput, { borderColor: colors.border, justifyContent: "center" }]}
               onPress={() => setShowDepPicker(true)}
@@ -1068,6 +1089,14 @@ export default function EventChatScreen({ route, navigation }) {
         onOpenChange={setShowPlaceSearch}
         onSelect={handlePlaceSelected}
         placeholder={t("eventChat.placeSearchPlaceholder")}
+      />
+
+      {/* Pickup point picker for the car pool (BUG 19) */}
+      <PlaceAutocomplete
+        open={showPickupSearch}
+        onOpenChange={setShowPickupSearch}
+        onSelect={handlePickupSelected}
+        placeholder={t("eventChat.carpool.pickupPlaceholder")}
       />
     </KeyboardAvoidingView>
   );

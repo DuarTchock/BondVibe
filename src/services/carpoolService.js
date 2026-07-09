@@ -41,6 +41,9 @@ export const createCarpool = async (eventId, input) => {
       driverName: input.driverName || "Driver",
       seatsTotal: seats,
       from: input.from.trim(),
+      // Full address + coords behind the pickup name, for tap-to-open-maps (BUG 19).
+      fromAddress: input.fromAddress?.trim() || "",
+      fromCoords: input.fromCoords || null,
       departureTime: input.departureTime?.trim() || "",
       notes: input.notes?.trim() || "",
       status: "open",

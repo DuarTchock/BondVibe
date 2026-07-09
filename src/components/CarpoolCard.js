@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from "react-native";
 import { doc, getDoc } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import Icon from "./Icon";
@@ -52,6 +52,15 @@ export default function CarpoolCard({ eventId, carpoolId, currentUserName }) {
     );
   }
 
+  // Pickup can open in maps when it came from the place picker (BUG 19).
+  const mappable = !!(carpool.fromCoords || carpool.fromAddress);
+  const openPickupMaps = () => {
+    const q = carpool.fromCoords
+      ? `${carpool.fromCoords.latitude},${carpool.fromCoords.longitude}`
+      : carpool.fromAddress || carpool.from;
+    if (q) Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`);
+  };
+
   const isDriver = uid === carpool.driverId;
   const approved = riders.filter((r) => r.status === "approved");
   const pending = riders.filter((r) => r.status === "requested");
@@ -81,17 +90,18 @@ export default function CarpoolCard({ eventId, carpoolId, currentUserName }) {
           {t("carpoolCard.hasHelped", { count: driverSeatsShared })}
         </Text>
       )}
-      <Text style={[styles.detail, { color: colors.textSecondary }]}>
-        <Icon name="location" size={12} color={colors.textSecondary} /> {t("carpoolCard.from")}{" "}
-        {carpool.from}
-        {carpool.departureTime ? (
-          <>
-            {" · "}
-            <Icon name="clock" size={12} color={colors.textSecondary} />{" "}
-            {carpool.departureTime}
-          </>
-        ) : null}
-      </Text>
+      <TouchableOpacity disabled={!mappable} onPress={openPickupMaps} activeOpacity={0.7}>
+        <Text style={[styles.detail, { color: mappable ? colors.primary : colors.textSecondary }]}>
+          <Icon name="location" size={12} color={mappable ? colors.primary : colors.textSecondary} /> {t("carpoolCard.from")}{" "}
+          {carpool.from}
+          {mappable ? ` · ${t("carpoolCard.openInMaps")}` : ""}
+        </Text>
+      </TouchableOpacity>
+      {!!carpool.departureTime && (
+        <Text style={[styles.detail, { color: colors.textSecondary }]}>
+          <Icon name="clock" size={12} color={colors.textSecondary} /> {carpool.departureTime}
+        </Text>
+      )}
       {!!carpool.notes && (
         <Text style={[styles.notes, { color: colors.textTertiary }]}>{carpool.notes}</Text>
       )}

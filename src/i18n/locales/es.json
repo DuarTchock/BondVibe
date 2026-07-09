@@ -2594,6 +2594,7 @@
     "hasHelped_one": "Ha ayudado a {{count}} persona a llegar a eventos",
     "hasHelped_other": "Ha ayudado a {{count}} personas a llegar a eventos",
     "from": "Desde",
+    "openInMaps": "Toca para abrir en mapas",
     "seatsLeft_one": "{{left}} de {{count}} lugar disponible",
     "seatsLeft_other": "{{left}} de {{count}} lugares disponibles",
     "approve": "Aprobar",
