@@ -511,6 +511,16 @@
     "membershipLetMembers": "Deja que tus miembros asistan a este evento usando un crédito de clase.",
     "featureThisEvent": "Destacar este evento",
     "featureThisEventDesc": "Aumenta la visibilidad con un lugar promocionado. Elegirás un plan justo después de crear el evento.",
+    "listPublicly": "Listar evento públicamente",
+    "listPubliclyDesc": "Muestra este evento en Descubrir y en la búsqueda. Desactívalo para un evento privado, solo por invitación.",
+    "agendaType": {
+      "label": "Tipo",
+      "placeholder": "Elige un tipo",
+      "general": "Evento general",
+      "group_session": "Sesión grupal",
+      "private_session": "Sesión privada",
+      "blocked": "Tiempo bloqueado (fuera de oficina)"
+    },
     "eventLength": "Duración del evento",
     "maxPeople": "Máximo de personas",
     "priceLabel": "Precio",

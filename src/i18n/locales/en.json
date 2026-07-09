@@ -511,6 +511,16 @@
     "membershipLetMembers": "Let your members attend this event using a class credit.",
     "featureThisEvent": "Feature this event",
     "featureThisEventDesc": "Boost visibility with a promoted spot. You'll pick a plan right after creating.",
+    "listPublicly": "List event publicly",
+    "listPubliclyDesc": "Show this event in Discover and search. Turn off for a private, invite-only event.",
+    "agendaType": {
+      "label": "Type",
+      "placeholder": "Choose a type",
+      "general": "General event",
+      "group_session": "Group session",
+      "private_session": "Private session",
+      "blocked": "Blocked time (OOO)"
+    },
     "eventLength": "Event length",
     "maxPeople": "Max People",
     "priceLabel": "Price",

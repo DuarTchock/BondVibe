@@ -149,6 +149,15 @@ export default function CreateEventScreen({ navigation, route }) {
   const [acceptsMembership, setAcceptsMembership] = useState(false);
   const [checkingPlans, setCheckingPlans] = useState(false);
 
+  // BUG 27: whether the event is listed in Discover/search (default on =
+  // preserves today's behavior). BUG 27.1: the scheduling classification the
+  // Agenda uses for the item's category/color. "blocked" (OOO) forces private.
+  const [listedPublicly, setListedPublicly] = useState(true);
+  const [agendaType, setAgendaType] = useState("general");
+  const isBlocked = agendaType === "blocked";
+  // A blocked/OOO slot is never public, regardless of the toggle.
+  const effectiveListedPublicly = isBlocked ? false : listedPublicly;
+
   // Filter out "all" from locations for create event
   const { cities: cityOptions } = useCities();
 
@@ -464,11 +473,12 @@ export default function CreateEventScreen({ navigation, route }) {
       );
       return;
     }
-    if (!maxPeople || parseInt(maxPeople) < 1) {
+    // A blocked/OOO slot needs no capacity or price (BUG 27.1) — relax those.
+    if (!isBlocked && (!maxPeople || parseInt(maxPeople) < 1)) {
       Alert.alert(t("createEvent.validation.invalidMaxPeopleTitle"), t("createEvent.validation.invalidMaxPeopleMsg"));
       return;
     }
-    if (!isFree && twoTier) {
+    if (!isBlocked && !isFree && twoTier) {
       if (!priceLocal || parseInt(priceLocal, 10) <= 0 || !priceGeneral || parseInt(priceGeneral, 10) <= 0) {
         Alert.alert(
           t("createEvent.validation.invalidPriceTitle"),
@@ -476,7 +486,7 @@ export default function CreateEventScreen({ navigation, route }) {
         );
         return;
       }
-    } else if (!isFree && (!price || parseFloat(price) <= 0)) {
+    } else if (!isBlocked && !isFree && (!price || parseFloat(price) <= 0)) {
       Alert.alert(
         t("createEvent.validation.invalidPriceTitle"),
         t("createEvent.validation.invalidPriceMsg")
@@ -610,12 +620,19 @@ export default function CreateEventScreen({ navigation, route }) {
         location: fullLocation,
         // Make the event searchable in discovery immediately (kinlo_business/07
         // FIX 9) — the onEventWritten trigger also maintains this on edits.
-        searchKeywords: buildEventSearchKeywords({
-          title: title.trim(),
-          location: fullLocation,
-          city: selectedCity,
-          category: selectedCategory,
-        }),
+        // BUG 27: only publicly-listed events carry searchKeywords; private
+        // ones write an empty array so they never surface in discovery/search.
+        searchKeywords: effectiveListedPublicly
+          ? buildEventSearchKeywords({
+              title: title.trim(),
+              location: fullLocation,
+              city: selectedCity,
+              category: selectedCategory,
+            })
+          : [],
+        // BUG 27 / 27.1: visibility + agenda classification persisted on the doc.
+        listedPublicly: effectiveListedPublicly,
+        agendaType,
         // Optional precise pin from the Places picker (null when typed free-text).
         locationCoords: locationCoords || null,
         placeId: placeId || null,
@@ -623,7 +640,7 @@ export default function CreateEventScreen({ navigation, route }) {
         venueAddress: venueAddress || null,
         // Event length in minutes (drives the "after event" matching window).
         durationMinutes: parseInt(durationMinutes, 10) || 180,
-        maxPeople: parseInt(maxPeople),
+        maxPeople: parseInt(maxPeople) || 0,
         // General price stays canonical (everything that reads `price` keeps
         // working). `priceLocal`/`twoTier` are additive (kinlo_business/05 §B).
         price: isFree ? 0 : twoTier ? parseInt(priceGeneral, 10) : parseFloat(price),
@@ -686,6 +703,10 @@ export default function CreateEventScreen({ navigation, route }) {
           currency: "MXN",
           acceptsMembership,
           creditCost: 1,
+          // BUG 27 / 27.1: carry visibility + agenda classification (mirrors
+          // the event payload).
+          listedPublicly: effectiveListedPublicly,
+          agendaType,
         };
         // Edit updates the existing class (FIX 7); otherwise create a new one.
         let created = null;
@@ -947,6 +968,21 @@ export default function CreateEventScreen({ navigation, route }) {
               setPrice(String(d.priceSuggestion.amount));
             }
           }}
+        />
+
+        {/* Type — drives the Agenda category/color (BUG 27.1). "Blocked time"
+            (OOO) makes the event private automatically. */}
+        <SelectDropdown
+          label={t("createEvent.agendaType.label")}
+          value={agendaType}
+          onValueChange={setAgendaType}
+          options={[
+            { id: "general", label: t("createEvent.agendaType.general") },
+            { id: "group_session", label: t("createEvent.agendaType.group_session") },
+            { id: "private_session", label: t("createEvent.agendaType.private_session") },
+            { id: "blocked", label: t("createEvent.agendaType.blocked") },
+          ]}
+          placeholder={t("createEvent.agendaType.placeholder")}
         />
 
         {/* Title */}
@@ -1366,6 +1402,48 @@ export default function CreateEventScreen({ navigation, route }) {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* List event publicly — gates discovery/search (BUG 27). Hidden for a
+            blocked/OOO slot, which is always private. */}
+        {!isBlocked && (
+          <View style={styles.field}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setListedPublicly((v) => !v)}
+              style={[
+                styles.membershipToggle,
+                {
+                  backgroundColor: listedPublicly
+                    ? `${colors.primary}1A`
+                    : colors.surfaceGlass,
+                  borderColor: listedPublicly ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={[styles.label, { color: colors.text, marginBottom: 2 }]}>
+                  {t("createEvent.listPublicly")}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  {t("createEvent.listPubliclyDesc")}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.switchTrack,
+                  { backgroundColor: listedPublicly ? colors.primary : colors.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.switchKnob,
+                    { alignSelf: listedPublicly ? "flex-end" : "flex-start" },
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Feature this event — routes to the paid promotion flow after create */}
         <View style={styles.field}>

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Platform,
   Modal,
+  Switch,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
@@ -88,6 +89,14 @@ export default function EditEventScreen({ route, navigation }) {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
 
+  // BUG 27 / 27.1: discovery visibility + agenda classification. "blocked" (OOO)
+  // forces private. The onEventWritten trigger rebuilds searchKeywords honoring
+  // listedPublicly, so we only persist these two flags here.
+  const [listedPublicly, setListedPublicly] = useState(true);
+  const [agendaType, setAgendaType] = useState("general");
+  const isBlocked = agendaType === "blocked";
+  const effectiveListedPublicly = isBlocked ? false : listedPublicly;
+
   useEffect(() => {
     loadEvent();
   }, []);
@@ -121,6 +130,8 @@ export default function EditEventScreen({ route, navigation }) {
           price: data.price?.toString() || "",
         });
         setTempDate(eventDate);
+        setAgendaType(data.agendaType || "general");
+        setListedPublicly(data.listedPublicly !== false);
         setCreatorId(data.creatorId || data.createdBy || data.hostId || null);
 
         // Load co-hosts (names) for management.
@@ -381,6 +392,10 @@ export default function EditEventScreen({ route, navigation }) {
         maxPeople: parseInt(form.maxAttendees) || 10,
         price: parseFloat(form.price) || 0,
         images: finalImageUrls,
+        // BUG 27 / 27.1: persist visibility + agenda classification. The
+        // onEventWritten trigger rebuilds searchKeywords honoring listedPublicly.
+        listedPublicly: effectiveListedPublicly,
+        agendaType,
         updatedAt: new Date().toISOString(),
       };
 
@@ -812,6 +827,21 @@ export default function EditEventScreen({ route, navigation }) {
           </ScrollView>
         </View>
 
+        {/* Type — drives the Agenda category/color (BUG 27.1). "Blocked time"
+            (OOO) makes the event private automatically. */}
+        <SelectDropdown
+          label={t("createEvent.agendaType.label")}
+          value={agendaType}
+          onValueChange={setAgendaType}
+          options={[
+            { id: "general", label: t("createEvent.agendaType.general") },
+            { id: "group_session", label: t("createEvent.agendaType.group_session") },
+            { id: "private_session", label: t("createEvent.agendaType.private_session") },
+            { id: "blocked", label: t("createEvent.agendaType.blocked") },
+          ]}
+          placeholder={t("createEvent.agendaType.placeholder")}
+        />
+
         {/* Language */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.text }]}>{t("editEvent.languageLabel")}</Text>
@@ -977,6 +1007,29 @@ export default function EditEventScreen({ route, navigation }) {
           placeholder={t("editEvent.selectDuration")}
           type="default"
         />
+
+        {/* List event publicly — gates discovery/search (BUG 27). Hidden for a
+            blocked/OOO slot, which is always private. */}
+        {!isBlocked && (
+          <View style={styles.section}>
+            <View style={styles.publicToggleRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={[styles.label, { color: colors.text, marginBottom: 2 }]}>
+                  {t("createEvent.listPublicly")}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  {t("createEvent.listPubliclyDesc")}
+                </Text>
+              </View>
+              <Switch
+                value={listedPublicly}
+                onValueChange={setListedPublicly}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+        )}
 
         {/* Max People & Price */}
         <View style={styles.rowSection}>
@@ -1193,6 +1246,11 @@ function createStyles(colors) {
     rowSection: {
       flexDirection: "row",
       marginBottom: 20,
+    },
+    // BUG 27: "List event publicly" toggle row.
+    publicToggleRow: {
+      flexDirection: "row",
+      alignItems: "center",
     },
     label: {
       fontSize: 13,

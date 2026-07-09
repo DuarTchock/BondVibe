@@ -26,6 +26,18 @@ import { listStaff, getWorkingHours } from "./businessStaffService";
 export const AGENDA_BLOCK_TYPE = { BLOCKED: "blocked", BUSY: "busy" };
 export const AGENDA_ITEM_KIND = { EVENT: "event", CLASS: "class", SESSION: "session", BLOCKED: "blocked" };
 
+// BUG 27.1: hosts can tag an event with an explicit scheduling classification
+// (agendaType) at creation. Map it to the agenda item kind that drives the
+// grid's category/color; unknown/absent → fall back to the structural EVENT.
+const AGENDA_TYPE_TO_KIND = {
+  general: AGENDA_ITEM_KIND.EVENT,
+  group_session: AGENDA_ITEM_KIND.CLASS,
+  private_session: AGENDA_ITEM_KIND.SESSION,
+  blocked: AGENDA_ITEM_KIND.BLOCKED,
+};
+const kindForEvent = (e) =>
+  (e.agendaType && AGENDA_TYPE_TO_KIND[e.agendaType]) || AGENDA_ITEM_KIND.EVENT;
+
 const blocksCol = (bizId) => collection(db, "businesses", bizId, "agendaBlocks");
 const blockRef = (bizId, id) => doc(db, "businesses", bizId, "agendaBlocks", id);
 
@@ -118,7 +130,7 @@ export async function getDayItems(instructorUid, instructorName, date, bizId = g
       if (!sameDay(start, date)) return;
       const end = new Date(start.getTime() + (e.durationMinutes || 180) * 60000);
       items.push({
-        id: `event_${e.id}`, kind: AGENDA_ITEM_KIND.EVENT, start, end,
+        id: `event_${e.id}`, kind: kindForEvent(e), start, end,
         title: e.title || "Event",
         subtitle: [e.location, e.maxPeople ? `${(e.attendees || []).length}/${e.maxPeople}` : null].filter(Boolean).join(" · "),
         ...tag,
