@@ -398,6 +398,8 @@
       "failedCancelAttendance": "No se pudo cancelar la asistencia.",
       "eventCancelledTitle": "Evento cancelado",
       "allRefunded": "Todos los asistentes han sido reembolsados.",
+      "hostCancelRefunded_one": "{{count}} asistente fue reembolsado por completo, incluidas todas las comisiones.",
+      "hostCancelRefunded_other": "{{count}} asistentes fueron reembolsados por completo, incluidas todas las comisiones.",
       "failedCancelEvent": "No se pudo cancelar el evento.",
       "notifCancelledTitle": "Evento cancelado",
       "notifCancelledMsg": "\"{{title}}\" ha sido cancelado. {{reason}}",

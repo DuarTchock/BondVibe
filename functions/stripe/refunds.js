@@ -551,10 +551,12 @@ exports.hostCancelEvent = functions.https.onCall(
         refundsProcessed: refundResults.length,
         refunds: refundResults,
         failedRefunds: failedRefunds,
+        // Host-cancel refunds gross — the host absorbs the fees (BUG 8), so the
+        // old "(Stripe fees retained)" wording was wrong.
         message:
           "Event cancelled. " +
           refundResults.length +
-          " refunds processed (Stripe fees retained).",
+          " attendees refunded in full (all fees included).",
       };
     } catch (error) {
       console.error("❌ Error cancelling event:", error);

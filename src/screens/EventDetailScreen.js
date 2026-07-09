@@ -572,9 +572,11 @@ export default function EventDetailScreen({ route, navigation }) {
           reason: cancellationReason,
         });
         if (result.data.success) {
+          // Localized, count-based confirmation (the server message is English
+          // only and is used for logs/API) — host-cancel refunds gross.
           Alert.alert(
             t("eventDetail.alerts.eventCancelledTitle"),
-            result.data.message || t("eventDetail.alerts.allRefunded")
+            t("eventDetail.alerts.hostCancelRefunded", { count: result.data.refundsProcessed || 0 })
           );
           navigation.navigate("MainTabs", { screen: "HomeTab" });
         } else {

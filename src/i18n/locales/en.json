@@ -398,6 +398,8 @@
       "failedCancelAttendance": "Failed to cancel attendance.",
       "eventCancelledTitle": "Event Cancelled",
       "allRefunded": "All attendees have been refunded.",
+      "hostCancelRefunded_one": "{{count}} attendee was refunded in full, including all fees.",
+      "hostCancelRefunded_other": "{{count}} attendees were refunded in full, including all fees.",
       "failedCancelEvent": "Failed to cancel event.",
       "notifCancelledTitle": "Event Cancelled",
       "notifCancelledMsg": "\"{{title}}\" has been cancelled. {{reason}}",
