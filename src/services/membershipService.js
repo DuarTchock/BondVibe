@@ -401,13 +401,22 @@ export const getUserReservationForEvent = async (eventId, userId = null) => {
 export const getEventReservations = async (eventId) => {
   try {
     if (!eventId) return [];
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
+    // Only the host reads an event's reservations. Constrain by hostId so the
+    // query is provably safe under the membershipReservations read rule
+    // (userId==self || hostId==self) — otherwise Firestore rejects it with
+    // "Missing or insufficient permissions". Status is filtered client-side to
+    // avoid needing a composite index.
     const q = query(
       collection(db, "membershipReservations"),
       where("eventId", "==", eventId),
-      where("status", "in", ["reserved", "redeemed"])
+      where("hostId", "==", uid)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return snapshot.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((r) => r.status === "reserved" || r.status === "redeemed");
   } catch (e) {
     console.error("❌ getEventReservations:", e);
     return [];
