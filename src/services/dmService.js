@@ -87,3 +87,21 @@ export const sendDM = async (threadId, text) => {
     return { success: false, error: e.message };
   }
 };
+
+/**
+ * Mark a thread read for me (spec 12) — stamps lastReadAt.{uid} so the Inbox
+ * unread dot clears. Merged nested write; participants may update per rules.
+ */
+export const markThreadRead = async (threadId) => {
+  const me = uid();
+  if (!me || !threadId) return;
+  try {
+    await setDoc(
+      doc(db, "dms", threadId),
+      { lastReadAt: { [me]: serverTimestamp() } },
+      { merge: true }
+    );
+  } catch (e) {
+    // best-effort
+  }
+};

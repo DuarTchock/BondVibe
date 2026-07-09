@@ -22,10 +22,12 @@ import GradientBackground from "../components/GradientBackground";
 import Icon from "../components/Icon";
 import ListRow from "../components/ListRow";
 import SectionHeader from "../components/SectionHeader";
+import CountPill from "../components/CountPill";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import { useTheme } from "../contexts/ThemeContext";
 import { getMyThreads } from "../services/dmService";
 import { getBlockedIds } from "../services/blockService";
+import { useInboxBadges, isThreadUnread } from "../hooks/useInboxBadge";
 import { TYPE, SPACING, RADII, AI, ELEVATION } from "../constants/theme-tokens";
 
 const normAvatar = (a) =>
@@ -37,6 +39,16 @@ export default function InboxScreen({ navigation }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const me = auth.currentUser?.uid;
+  const badges = useInboxBadges(); // per-category unread (spec 12)
+
+  // Count pill + chevron for a category row (default chevron when count is 0).
+  const rowRight = (n) =>
+    n > 0 ? (
+      <View style={styles.rowRight}>
+        <CountPill n={n} />
+        <Icon name="forward" size={18} color={colors.textTertiary} />
+      </View>
+    ) : undefined;
 
   useFocusEffect(
     useCallback(() => {
@@ -55,6 +67,7 @@ export default function InboxScreen({ navigation }) {
                 name: u.fullName || u.name || t("inbox.defaultUserName"),
                 avatar: u.avatar,
                 lastMessage: thread.lastMessage || "",
+                unread: isThreadUnread(thread, me),
               };
             })
           );
@@ -102,24 +115,28 @@ export default function InboxScreen({ navigation }) {
           title={t("inbox.eventChats")}
           subtitle={t("inbox.eventChatsSub")}
           onPress={() => navigation.navigate("EventChats")}
+          right={rowRight(badges.eventChats)}
         />
         <ListRow
           icon="heart"
           title={t("inbox.matchChats")}
           subtitle={t("inbox.matchChatsSub")}
           onPress={() => navigation.navigate("PeopleYouMet")}
+          right={rowRight(badges.matchChats)}
         />
         <ListRow
           icon="users"
           title={t("inbox.communityChats")}
           subtitle={t("inbox.communityChatsSub")}
           onPress={() => navigation.navigate("CommunityChats")}
+          right={rowRight(badges.communityChats)}
         />
         <ListRow
           icon="bell"
           title={t("inbox.notifications")}
           subtitle={t("inbox.notificationsSub")}
           onPress={() => navigation.navigate("Notifications")}
+          right={rowRight(badges.notifications)}
           divider={false}
         />
       </View>
@@ -157,15 +174,22 @@ export default function InboxScreen({ navigation }) {
             >
               <AvatarDisplay avatar={normAvatar(item.avatar)} size={42} />
               <View style={{ flex: 1 }}>
-                <Text style={[TYPE.bodySemibold, { color: colors.text }]} numberOfLines={1}>
+                <Text
+                  style={[TYPE.bodySemibold, { color: colors.text }, item.unread && styles.unreadName]}
+                  numberOfLines={1}
+                >
                   {item.name}
                 </Text>
                 {item.lastMessage ? (
-                  <Text style={[TYPE.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+                  <Text
+                    style={[TYPE.caption, { color: item.unread ? colors.text : colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
                     {item.lastMessage}
                   </Text>
                 ) : null}
               </View>
+              {item.unread && <View style={[styles.dmDot, { backgroundColor: colors.error }]} />}
               <Icon name="forward" size={16} color={colors.textTertiary} />
             </TouchableOpacity>
           )}
@@ -239,5 +263,8 @@ function createStyles(colors) {
       padding: SPACING.md,
     },
     emptyText: { textAlign: "center", marginTop: SPACING.lg },
+    rowRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+    unreadName: { fontWeight: "800" },
+    dmDot: { width: 9, height: 9, borderRadius: 5 },
   });
 }

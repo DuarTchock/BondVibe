@@ -27,6 +27,7 @@ import {
   getOrCreateThread,
   subscribeThreadMessages,
   sendDM,
+  markThreadRead,
 } from "../services/dmService";
 
 export default function DMChatScreen({ route, navigation }) {
@@ -45,7 +46,11 @@ export default function DMChatScreen({ route, navigation }) {
       const id = initialThreadId || (await getOrCreateThread(otherUid));
       if (!id) return;
       setThreadId(id);
-      unsub = subscribeThreadMessages(id, setMessages);
+      markThreadRead(id); // clear the Inbox unread dot on open (spec 12)
+      unsub = subscribeThreadMessages(id, (msgs) => {
+        setMessages(msgs);
+        markThreadRead(id); // keep it read while the chat is open
+      });
     })();
     return () => unsub();
   }, [initialThreadId, otherUid]);
