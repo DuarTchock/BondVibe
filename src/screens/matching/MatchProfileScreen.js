@@ -73,6 +73,11 @@ export default function MatchProfileScreen({ route, navigation }) {
     );
 
   const onSave = async () => {
+    // BUG 11: a match profile must say what you're looking for.
+    if (lookingFor.length === 0) {
+      Alert.alert(t("matching.profile.pickLookingForTitle"), t("matching.profile.pickLookingForMsg"));
+      return;
+    }
     setSaving(true);
     const res = await saveMatchProfile(eventId, {
       bio: bio.trim(),

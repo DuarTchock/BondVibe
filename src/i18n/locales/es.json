@@ -885,6 +885,8 @@
       "saveAndSee": "Guardar y ver quién estuvo aquí",
       "couldntSaveTitle": "No se pudo guardar",
       "tryAgain": "Intenta de nuevo.",
+      "pickLookingForTitle": "Elige qué estás buscando",
+      "pickLookingForMsg": "Elige al menos una opción —amistad, profesional o romántico— para poder emparejarte.",
       "visEveryone": "Todos en el evento",
       "visSameGender": "Solo el mismo género",
       "visOppositeGender": "Solo género opuesto",

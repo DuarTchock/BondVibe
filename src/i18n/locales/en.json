@@ -885,6 +885,8 @@
       "saveAndSee": "Save & see who was here",
       "couldntSaveTitle": "Couldn't save",
       "tryAgain": "Please try again.",
+      "pickLookingForTitle": "Pick what you're looking for",
+      "pickLookingForMsg": "Choose at least one — friends, professional or romantic — so we can match you.",
       "visEveryone": "Everyone at the event",
       "visSameGender": "Same gender only",
       "visOppositeGender": "Opposite gender only",

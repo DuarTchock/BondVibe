@@ -35,12 +35,13 @@ import { calculateCompatibility, isBigFive } from "../utils/personalityScoring";
 
 // ---- Enums (mirror §4 of the handoff) -------------------------------------
 export const MATCH_TYPES = ["friend", "professional", "romantic"];
+// BUG 11: only Everyone / Same gender / Opposite gender. "Organizer only" and
+// "Hidden for now" were removed — matching is opt-in already, so hiding is just
+// not opting in. Legacy profiles with those values still read fine.
 export const VISIBILITY_OPTIONS = [
   "everyone",
   "same_gender",
   "opposite_gender",
-  "organizer",
-  "hidden",
 ];
 export const OPENS_AT_OPTIONS = ["now", "1h_before", "after_checkin", "after_event"];
 export const CLOSES_AFTER_OPTIONS = ["24h", "3d", "1w", "forever"];
