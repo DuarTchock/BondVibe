@@ -244,7 +244,7 @@ export default function AgendaScreen({ navigation }) {
       const start = new Date(date); start.setDate(date.getDate() - date.getDay());
       const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
       return (
-        <ScrollView contentContainerStyle={styles.calContent}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.calContent}>
           {week.map((d) => {
             const n = countFor(d);
             return (
@@ -389,20 +389,24 @@ export default function AgendaScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* Legend + full-day toggle (day view only) */}
+      {/* Legend + full-day toggle (day view only). The legend chips live in their
+          own flex-wrapping group so the Full-day chip is pinned right and never
+          overlaps them (BUG 7). */}
       {view === "day" && (
         <View style={styles.legend}>
-          {[
-            { c: colors.warning, k: t("business.agenda.legendEvent") },
-            { c: colors.primary, k: t("business.agenda.class") },
-            { c: colors.success, k: t("business.agenda.legendPrivate") },
-            { c: colors.textTertiary, k: t("business.agenda.blocked") },
-          ].map((l, i) => (
-            <View key={i} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: l.c }]} />
-              <Text style={[styles.legendText, { color: colors.textSecondary }]}>{l.k}</Text>
-            </View>
-          ))}
+          <View style={styles.legendItems}>
+            {[
+              { c: colors.warning, k: t("business.agenda.legendEvent") },
+              { c: colors.primary, k: t("business.agenda.class") },
+              { c: colors.success, k: t("business.agenda.legendPrivate") },
+              { c: colors.textTertiary, k: t("business.agenda.blocked") },
+            ].map((l, i) => (
+              <View key={i} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: l.c }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>{l.k}</Text>
+              </View>
+            ))}
+          </View>
           <TouchableOpacity style={[styles.fullDayChip, { borderColor: fullDay ? colors.primary : colors.border }]} onPress={() => setFullDay((v) => !v)}>
             <Text style={[styles.fullDayText, { color: fullDay ? colors.primary : colors.textTertiary }]}>{t("business.agenda.fullDay")}</Text>
           </TouchableOpacity>
@@ -415,7 +419,7 @@ export default function AgendaScreen({ navigation }) {
         <View style={styles.loading}><ActivityIndicator size="large" color={colors.primary} /></View>
       ) : selected === "all" ? (
         /* Director view — compact merged list grouped by time, with instructor. */
-        <ScrollView contentContainerStyle={styles.allList}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.allList}>
           {items.length === 0 ? (
             <Text style={[styles.emptyAll, { color: colors.textTertiary }]}>{t("business.agenda.emptyDay")}</Text>
           ) : items.map((item) => (
@@ -432,8 +436,9 @@ export default function AgendaScreen({ navigation }) {
           ))}
         </ScrollView>
       ) : (
-        /* Single-instructor day grid */
-        <ScrollView contentContainerStyle={{ height: hours.length * HOUR_H + 96 }} showsVerticalScrollIndicator={false}>
+        /* Single-instructor day grid — flex:1 so it fills the space below the
+           chips + legend header and can't overlap them (BUG 7). */
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ height: hours.length * HOUR_H + 96 }} showsVerticalScrollIndicator={false}>
           {hours.map((h, idx) => (
             <TouchableOpacity key={h} activeOpacity={0.6} style={[styles.hourRow, { height: HOUR_H, borderTopColor: colors.border, top: idx * HOUR_H }]} onPress={() => openSlot(h * 60)}>
               <Text style={[styles.hourLabel, { color: colors.textTertiary }]}>{pad2(h)}:00</Text>
@@ -576,7 +581,7 @@ function createStyles(colors) {
     viewRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingVertical: 6 },
     viewChip: { flex: 1, paddingVertical: 8, borderRadius: 14, alignItems: "center" },
     viewText: { fontSize: 12.5, fontWeight: "800" },
-    fullDayChip: { marginLeft: "auto", borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+    fullDayChip: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
     fullDayText: { fontSize: 11.5, fontWeight: "700" },
     calContent: { paddingHorizontal: 16, paddingBottom: 30 },
     weekRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 8 },
@@ -613,7 +618,8 @@ function createStyles(colors) {
     staffName: { fontSize: 13.5, fontWeight: "700", maxWidth: 120 },
     reqBanner: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginTop: 4 },
     reqText: { flex: 1, fontSize: 13, fontWeight: "700" },
-    legend: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 20, paddingVertical: 8 },
+    legend: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingVertical: 8 },
+    legendItems: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 12 },
     legendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
     legendDot: { width: 9, height: 9, borderRadius: 3 },
     legendText: { fontSize: 11.5, fontWeight: "700" },
