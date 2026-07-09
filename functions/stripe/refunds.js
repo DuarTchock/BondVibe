@@ -87,6 +87,8 @@ function calculateRefundPercentage(eventDate, cancelledBy) {
  * @param {string} paymentIntentId - Stripe Payment Intent ID
  * @param {number} refundPercentage - Refund percentage (0.0 to 1.0)
  * @param {string} reason - Refund reason
+ * @param {boolean} [includeFees=false] - Refund gross (fees included); used for
+ *   host cancellations where the host absorbs the app + Stripe fees.
  * @return {Promise<object>} Refund result
  */
 async function processRefund(
@@ -94,6 +96,7 @@ async function processRefund(
   paymentIntentId,
   refundPercentage,
   reason,
+  includeFees = false,
 ) {
   try {
     console.log("💰 Processing refund:", {
@@ -142,7 +145,10 @@ async function processRefund(
 
     const platformFee = parseInt(metadata.platformFee) || 0;
     const stripeFee = parseInt(metadata.stripeFee) || calculateStripeFee(totalPaid);
-    const nonRefundableFees = platformFee + stripeFee;
+    // BUG 8: a host cancellation refunds GROSS — the attendee gets 100% back
+    // INCLUDING the app + Stripe fees; the host absorbs them. Attendee-initiated
+    // cancellations keep the fees non-refundable (tiered policy).
+    const nonRefundableFees = includeFees ? 0 : platformFee + stripeFee;
 
     console.log("💵 NEW Fee breakdown:", {
       totalPaid: totalPaid,
@@ -154,8 +160,9 @@ async function processRefund(
       feeModel: metadata.feeModel || "LEGACY",
     });
 
-    // Only the event price is refundable
-    const refundableAmount = eventPrice;
+    // Host-cancel refunds the full charge (fees included); attendee-cancel only
+    // the event price.
+    const refundableAmount = includeFees ? totalPaid : eventPrice;
     const maxRefundable = Math.max(0, refundableAmount - alreadyRefunded);
     const desiredRefund = Math.floor(refundableAmount * refundPercentage);
     const refundAmount = Math.min(desiredRefund, maxRefundable);
@@ -205,6 +212,7 @@ async function processRefund(
         totalPaid: totalPaid,
         eventPrice: eventPrice,
         feesRetained: nonRefundableFees,
+        stripeFeeRetained: nonRefundableFees,
         refundableAmount: refundableAmount,
         status: refund.status,
       },
@@ -455,11 +463,13 @@ exports.hostCancelEvent = functions.https.onCall(
           amount: paymentData.amount,
         });
 
+        // Host cancelled → refund 100% INCLUDING fees (host absorbs them).
         const refundResult = await processRefund(
           stripe,
           paymentData.paymentIntentId,
           1.0,
           "requested_by_customer",
+          true,
         );
 
         if (refundResult.success) {
@@ -480,26 +490,20 @@ exports.hostCancelEvent = functions.https.onCall(
             stripeFeeRetained: refundResult.refund.stripeFeeRetained,
           });
 
-          // Notify user (with Stripe fee info)
+          // Notify user — host cancel = full refund, all fees included.
           const refundPesos = (refundResult.refund.amount / 100).toFixed(2);
-          const stripeFeePesos = (
-            refundResult.refund.stripeFeeRetained / 100
-          ).toFixed(2);
 
           await db.collection("notifications").add({
             userId: paymentData.userId,
             type: "event_cancelled_refund",
-            title: "Event Cancelled - Refund Processed",
+            title: "Event Cancelled - Full Refund",
             message:
               "\"" +
               eventData.title +
-              "\" was cancelled. " +
-              "Refund of $" +
+              "\" was cancelled by the host. " +
+              "You were refunded $" +
               refundPesos +
-              " MXN processed " +
-              "(Stripe fee $" +
-              stripeFeePesos +
-              " MXN non-refundable).",
+              " MXN in full, including all fees.",
             icon: "💰",
             read: false,
             createdAt: new Date().toISOString(),
