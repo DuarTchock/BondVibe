@@ -15,6 +15,13 @@
   "notifications.membership.lowCredits.bodyOne": "Solo te queda {{count}} clase en \"{{plan}}\". Renueva para recargar.",
   "notifications.membership.lowCredits.bodyOther": "Solo te quedan {{count}} clases en \"{{plan}}\". Renueva para recargar.",
 
+  "notifications.carpool.request.title": "Solicitud de lugar 🚗",
+  "notifications.carpool.request.body": "{{name}} quiere un lugar en tu carpool",
+  "notifications.carpool.approved.title": "Viaje confirmado 🚗",
+  "notifications.carpool.approved.body": "¡Tienes un lugar en el auto de {{driver}}!",
+  "notifications.group.messageBlocked.title": "Mensaje bloqueado 🚫",
+  "notifications.group.messageBlocked.body": "Compartir datos de pago fuera de la plataforma no está permitido en BondVibe.",
+
   "notifications.event.waitlistPromoted.title": "¡Entraste! 🎉",
   "notifications.event.waitlistPromoted.body": "Se liberó un lugar en \"{{event}}\" — quedaste confirmado.",
   "notifications.event.waitlistPromoted.pushBody": "Se liberó un lugar en \"{{event}}\"",

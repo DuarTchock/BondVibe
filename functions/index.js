@@ -1638,11 +1638,19 @@ exports.onCarpoolRiderWritten = onDocumentWritten(
     const carpool = cpSnap.data();
 
     if (newRequest) {
+      // BUG 34: recipient = the DRIVER (in-app only). key+params; English
+      // fallback from the catalog.
+      const params = {name: after.name || "Someone"};
+      const tk = "notifications.carpool.request.title";
+      const bk = "notifications.carpool.request.body";
       await db.collection("notifications").add({
         userId: carpool.driverId,
         type: "carpool_request",
-        title: "Seat request 🚗",
-        message: `${after.name || "Someone"} wants a seat in your car pool`,
+        title: tPush(tk, "en", params),
+        message: tPush(bk, "en", params),
+        titleKey: tk,
+        bodyKey: bk,
+        params,
         icon: "🚗",
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1651,15 +1659,19 @@ exports.onCarpoolRiderWritten = onDocumentWritten(
       return;
     }
 
-    // Approved: notify the rider. The driver's carpoolStats.seatsShared is NOT
-    // credited here anymore (BUG 28.2) — approving a future ride shouldn't count
-    // as "helped." Credit happens once the event has ended, in
-    // creditCarpoolSeatsOnCompletion below.
+    // Approved: recipient = the RIDER (in-app only). seatsShared is credited on
+    // completion (BUG 28.2), not here. key+params; English fallback from catalog.
+    const params = {driver: carpool.driverName || "the driver"};
+    const tk = "notifications.carpool.approved.title";
+    const bk = "notifications.carpool.approved.body";
     await db.collection("notifications").add({
       userId: riderId,
       type: "carpool_approved",
-      title: "Ride confirmed 🚗",
-      message: `You've got a seat in ${carpool.driverName || "the"} car pool!`,
+      title: tPush(tk, "en", params),
+      message: tPush(bk, "en", params),
+      titleKey: tk,
+      bodyKey: bk,
+      params,
       icon: "🚗",
       read: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1779,11 +1791,18 @@ exports.onGroupMessage = onDocumentCreated(
         source: "server",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      // BUG 34: recipient = the SENDER (in-app only). key+params; English
+      // fallback from the catalog.
+      const bkTk = "notifications.group.messageBlocked.title";
+      const bkBk = "notifications.group.messageBlocked.body";
       await db.collection("notifications").add({
         userId: msg.senderId,
         type: "message_blocked",
-        title: "Message blocked 🚫",
-        message: "Sharing off-platform payment details isn't allowed on BondVibe.",
+        title: tPush(bkTk, "en", {}),
+        message: tPush(bkBk, "en", {}),
+        titleKey: bkTk,
+        bodyKey: bkBk,
+        params: {},
         icon: "🚫",
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1813,6 +1832,9 @@ exports.onGroupMessage = onDocumentCreated(
       "Someone";
     const preview = `${senderName}: ${msg.text || ""}`.slice(0, 140);
 
+    // BUG 34: recipients = the group members (sender already excluded above).
+    // This notification is USER CONTENT — the group name + "sender: message"
+    // preview — so it is NOT keyed/localized (same policy as event-chat/DM bodies).
     const pushes = [];
     for (const uid of recipients) {
       await db.collection("notifications").add({

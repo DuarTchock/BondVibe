@@ -1937,6 +1937,22 @@
         "bodyOther": "Only {{count}} classes left on \"{{plan}}\". Renew to top up."
       }
     },
+    "carpool": {
+      "request": {
+        "title": "Seat request 🚗",
+        "body": "{{name}} wants a seat in your car pool"
+      },
+      "approved": {
+        "title": "Ride confirmed 🚗",
+        "body": "You've got a seat in {{driver}}'s car pool!"
+      }
+    },
+    "group": {
+      "messageBlocked": {
+        "title": "Message blocked 🚫",
+        "body": "Sharing off-platform payment details isn't allowed on BondVibe."
+      }
+    },
     "event": {
       "waitlistPromoted": {
         "title": "You're in! 🎉",

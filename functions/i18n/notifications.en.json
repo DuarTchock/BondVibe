@@ -15,6 +15,13 @@
   "notifications.membership.lowCredits.bodyOne": "Only {{count}} class left on \"{{plan}}\". Renew to top up.",
   "notifications.membership.lowCredits.bodyOther": "Only {{count}} classes left on \"{{plan}}\". Renew to top up.",
 
+  "notifications.carpool.request.title": "Seat request 🚗",
+  "notifications.carpool.request.body": "{{name}} wants a seat in your car pool",
+  "notifications.carpool.approved.title": "Ride confirmed 🚗",
+  "notifications.carpool.approved.body": "You've got a seat in {{driver}}'s car pool!",
+  "notifications.group.messageBlocked.title": "Message blocked 🚫",
+  "notifications.group.messageBlocked.body": "Sharing off-platform payment details isn't allowed on BondVibe.",
+
   "notifications.event.waitlistPromoted.title": "You're in! 🎉",
   "notifications.event.waitlistPromoted.body": "A spot opened in \"{{event}}\" — you're confirmed.",
   "notifications.event.waitlistPromoted.pushBody": "A spot opened in \"{{event}}\"",

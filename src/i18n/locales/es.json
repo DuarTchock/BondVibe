@@ -1937,6 +1937,22 @@
         "bodyOther": "Solo te quedan {{count}} clases en \"{{plan}}\". Renueva para recargar."
       }
     },
+    "carpool": {
+      "request": {
+        "title": "Solicitud de lugar 🚗",
+        "body": "{{name}} quiere un lugar en tu carpool"
+      },
+      "approved": {
+        "title": "Viaje confirmado 🚗",
+        "body": "¡Tienes un lugar en el auto de {{driver}}!"
+      }
+    },
+    "group": {
+      "messageBlocked": {
+        "title": "Mensaje bloqueado 🚫",
+        "body": "Compartir datos de pago fuera de la plataforma no está permitido en BondVibe."
+      }
+    },
     "event": {
       "waitlistPromoted": {
         "title": "¡Entraste! 🎉",
