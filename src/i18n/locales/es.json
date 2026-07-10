@@ -1918,6 +1918,38 @@
       "body": "Crédito restaurado — {{event}}. Te quedan {{remaining}} en {{plan}}.",
       "undoneBody": "Se deshizo tu check-in en {{event}}."
     },
+    "event": {
+      "waitlistPromoted": {
+        "title": "¡Entraste! 🎉",
+        "body": "Se liberó un lugar en \"{{event}}\" — quedaste confirmado.",
+        "pushBody": "Se liberó un lugar en \"{{event}}\""
+      },
+      "joined": {
+        "paidTitleOne": "💰 ¡Nuevo asistente de pago!",
+        "paidTitleOther": "💰 ¡{{count}} nuevos asistentes de pago!",
+        "paidBodyOne": "{{name}} pagó ${{price}} MXN por \"{{event}}\"",
+        "paidBodyOther": "{{names}} se unieron a \"{{event}}\"",
+        "freeTitleOne": "👋 ¡Nuevo asistente!",
+        "freeTitleOther": "👋 ¡{{count}} nuevos asistentes!",
+        "freeBodyOne": "{{name}} se unió a \"{{event}}\"",
+        "freeBodyOther": "{{names}} se unieron a \"{{event}}\""
+      },
+      "cancelled": {
+        "titleOne": "🚫 Asistente canceló",
+        "titleOther": "🚫 {{count}} asistentes cancelaron",
+        "bodyOne": "{{name}} canceló su asistencia a \"{{event}}\"",
+        "bodyOther": "{{names}} cancelaron para \"{{event}}\""
+      },
+      "chat": {
+        "title": "{{sender}} en {{event}}"
+      },
+      "reminder": {
+        "h2Title": "Comienza pronto ⏰",
+        "h2Body": "\"{{event}}\" comienza en unas 2 horas.",
+        "h24Title": "Evento mañana ⏰",
+        "h24Body": "\"{{event}}\" será dentro de 24 horas."
+      }
+    },
     "welcomeTitle": "¡Bienvenido a Kinlo!",
     "welcomeMessage": "Comienza a explorar eventos y conectar con personas",
     "justNow": "Ahora mismo",

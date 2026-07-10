@@ -4,5 +4,26 @@
   "membership.checkedIn.body": "Ya tienes check-in en {{event}}.",
   "membership.restored.title": "Crédito restaurado",
   "membership.restored.body": "Crédito restaurado — {{event}}. Te quedan {{remaining}} en {{plan}}.",
-  "membership.restored.undoneBody": "Se deshizo tu check-in en {{event}}."
+  "membership.restored.undoneBody": "Se deshizo tu check-in en {{event}}.",
+
+  "notifications.event.waitlistPromoted.title": "¡Entraste! 🎉",
+  "notifications.event.waitlistPromoted.body": "Se liberó un lugar en \"{{event}}\" — quedaste confirmado.",
+  "notifications.event.waitlistPromoted.pushBody": "Se liberó un lugar en \"{{event}}\"",
+  "notifications.event.joined.paidTitleOne": "💰 ¡Nuevo asistente de pago!",
+  "notifications.event.joined.paidTitleOther": "💰 ¡{{count}} nuevos asistentes de pago!",
+  "notifications.event.joined.paidBodyOne": "{{name}} pagó ${{price}} MXN por \"{{event}}\"",
+  "notifications.event.joined.paidBodyOther": "{{names}} se unieron a \"{{event}}\"",
+  "notifications.event.joined.freeTitleOne": "👋 ¡Nuevo asistente!",
+  "notifications.event.joined.freeTitleOther": "👋 ¡{{count}} nuevos asistentes!",
+  "notifications.event.joined.freeBodyOne": "{{name}} se unió a \"{{event}}\"",
+  "notifications.event.joined.freeBodyOther": "{{names}} se unieron a \"{{event}}\"",
+  "notifications.event.cancelled.titleOne": "🚫 Asistente canceló",
+  "notifications.event.cancelled.titleOther": "🚫 {{count}} asistentes cancelaron",
+  "notifications.event.cancelled.bodyOne": "{{name}} canceló su asistencia a \"{{event}}\"",
+  "notifications.event.cancelled.bodyOther": "{{names}} cancelaron para \"{{event}}\"",
+  "notifications.event.chat.title": "{{sender}} en {{event}}",
+  "notifications.event.reminder.h2Title": "Comienza pronto ⏰",
+  "notifications.event.reminder.h2Body": "\"{{event}}\" comienza en unas 2 horas.",
+  "notifications.event.reminder.h24Title": "Evento mañana ⏰",
+  "notifications.event.reminder.h24Body": "\"{{event}}\" será dentro de 24 horas."
 }

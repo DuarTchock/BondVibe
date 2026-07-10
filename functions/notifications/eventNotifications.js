@@ -8,6 +8,7 @@ const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const {sendBatchPushNotifications} = require("./pushService");
 const {getAttendeeIds, getEventCreatorId} = require("../utils/eventHelpers");
+const {tPush} = require("../i18n");
 
 const db = admin.firestore();
 
@@ -61,11 +62,21 @@ exports.onEventAttendeesChanged = onDocumentUpdated(
           waitlist: admin.firestore.FieldValue.arrayRemove(...promoted),
         });
         for (const uid of promoted) {
+          // BUG 34: store key+params (localized in-app + push per recipient);
+          // the English title/message fallback is generated from the catalog, so
+          // no English literal lives at the call site.
+          const eventTitle = afterData.title || "an event";
+          const params = {event: eventTitle};
+          const tk = "notifications.event.waitlistPromoted.title";
+          const bk = "notifications.event.waitlistPromoted.body";
           await db.collection("notifications").add({
             userId: uid,
             type: "waitlist_promoted",
-            title: "You're in! 🎉",
-            message: `A spot opened in "${afterData.title || "an event"}" — you're confirmed.`,
+            title: tPush(tk, "en", params),
+            message: tPush(bk, "en", params),
+            titleKey: tk,
+            bodyKey: bk,
+            params,
             icon: "🎉",
             read: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -75,8 +86,10 @@ exports.onEventAttendeesChanged = onDocumentUpdated(
           if (u.exists && u.data().pushToken) {
             await sendBatchPushNotifications([{
               pushToken: u.data().pushToken,
-              title: "You're in! 🎉",
-              body: `A spot opened in "${afterData.title || "an event"}"`,
+              uid,
+              titleKey: "notifications.event.waitlistPromoted.title",
+              bodyKey: "notifications.event.waitlistPromoted.pushBody",
+              params,
               data: {type: "waitlist_promoted", eventId},
             }]);
           }
@@ -163,29 +176,24 @@ async function notifyHostOfNewAttendees(
       return;
     }
 
-    // Format notification message
-    let title;
-    let body;
-    if (eventPrice && eventPrice > 0) {
-      const priceMXN = (eventPrice / 100).toFixed(0);
-      title =
-        attendeeNames.length === 1 ?
-          "💰 New Paid Attendee!" :
-          `💰 ${attendeeNames.length} New Paid Attendees!`;
-      body =
-        attendeeNames.length === 1 ?
-          `${attendeeNames[0]} paid $${priceMXN} MXN for "${eventTitle}"` :
-          `${attendeeNames.join(", ")} joined "${eventTitle}"`;
-    } else {
-      title =
-        attendeeNames.length === 1 ?
-          "👋 New Attendee!" :
-          `👋 ${attendeeNames.length} New Attendees!`;
-      body =
-        attendeeNames.length === 1 ?
-          `${attendeeNames[0]} joined "${eventTitle}"` :
-          `${attendeeNames.join(", ")} joined "${eventTitle}"`;
-    }
+    // Format notification — BUG 34: pick a localized key by paid/free + count,
+    // pass params, and keep the English title/body as a fallback.
+    const n = attendeeNames.length;
+    const paid = !!(eventPrice && eventPrice > 0);
+    const priceMXN = paid ? (eventPrice / 100).toFixed(0) : null;
+    const grp = paid ? "paid" : "free";
+    const sfx = n === 1 ? "One" : "Other";
+    const titleKey = `notifications.event.joined.${grp}Title${sfx}`;
+    const bodyKey = `notifications.event.joined.${grp}Body${sfx}`;
+    const params = {
+      count: n,
+      name: attendeeNames[0],
+      names: attendeeNames.join(", "),
+      event: eventTitle,
+      price: priceMXN,
+    };
+    const title = tPush(titleKey, "en", params); // English fallback
+    const body = tPush(bodyKey, "en", params);
 
     // 1. Always write an in-app notification (the bubble), regardless of push.
     //    This is the single source of "someone joined" for free/paid/membership.
@@ -194,7 +202,10 @@ async function notifyHostOfNewAttendees(
       type: "event_joined",
       title,
       message: body,
-      icon: eventPrice && eventPrice > 0 ? "💰" : "👋",
+      titleKey,
+      bodyKey,
+      params,
+      icon: paid ? "💰" : "👋",
       read: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       metadata: {eventId, eventTitle},
@@ -206,8 +217,10 @@ async function notifyHostOfNewAttendees(
       await sendBatchPushNotifications([
         {
           pushToken,
-          title,
-          body,
+          uid: hostId,
+          titleKey,
+          bodyKey,
+          params,
           data: {type: "event_joined", eventId, eventTitle},
         },
       ]);
@@ -284,25 +297,25 @@ async function notifyHostOfCancellations(
       return;
     }
 
-    // Format notification message
-    let title;
-    let body;
+    // BUG 34: localized key by count; params carry the names/count/event.
+    const n = attendeeNames.length;
+    const sfx = n === 1 ? "One" : "Other";
+    const params = {
+      count: n,
+      name: attendeeNames[0],
+      names: attendeeNames.join(", "),
+      event: eventTitle,
+    };
 
-    if (attendeeNames.length === 1) {
-      title = "🚫 Attendee Cancelled";
-      body = `${attendeeNames[0]} cancelled their attendance for "${eventTitle}"`;
-    } else {
-      title = `🚫 ${attendeeNames.length} Attendees Cancelled`;
-      body = `${attendeeNames.join(", ")} cancelled for "${eventTitle}"`;
-    }
-
-    // Send push notification
+    // Send push notification (host only; no in-app bubble for cancellations).
     console.log("📤 Sending cancellation notification to host:", hostId);
     const notifications = [
       {
         pushToken,
-        title,
-        body,
+        uid: hostId,
+        titleKey: `notifications.event.cancelled.title${sfx}`,
+        bodyKey: `notifications.event.cancelled.body${sfx}`,
+        params,
         data: {
           type: "attendee_cancelled",
           eventId: eventId,

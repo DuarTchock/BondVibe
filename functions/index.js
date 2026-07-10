@@ -41,6 +41,7 @@ const {
 // Import push notification service
 const {sendBatchPushNotifications, sendPushNotification, unreadTotalForUser} =
   require("./notifications/pushService");
+const {tPush} = require("./i18n"); // BUG 34: localized notification strings
 const bizAutomations = require("./business/automations");
 
 // Import event helpers (attendee/creator normalization)
@@ -345,7 +346,11 @@ exports.onNewMessage = onDocumentCreated(
               const badge = (await unreadTotalForUser(userId)) + 1;
               notifications.push({
                 pushToken,
-                title: `${senderName} in ${eventTitle}`,
+                uid: userId,
+                // BUG 34: localize the title per recipient; the body is the
+                // user's message text (user content — left as-is).
+                titleKey: "notifications.event.chat.title",
+                params: {sender: senderName, event: eventTitle},
                 body: messageBody,
                 data: {
                   type: "event_message",
@@ -1468,21 +1473,25 @@ exports.sendEventReminders = onSchedule(
       const hours = (startMs - now) / 3600000;
       const reminders = e.remindersSent || {};
       let kind = null;
-      if (hours <= 2 && !reminders.h2) {
-        kind = {key: "h2", title: "Starting soon ⏰", suffix: "starts in about 2 hours."};
-      } else if (hours <= 24 && !reminders.h24) {
-        kind = {key: "h24", title: "Event tomorrow ⏰", suffix: "is happening within 24 hours."};
-      }
+      if (hours <= 2 && !reminders.h2) kind = {key: "h2"};
+      else if (hours <= 24 && !reminders.h24) kind = {key: "h24"};
       if (!kind) continue;
 
+      // BUG 34: localized per recipient (push) + rendered from key in-app.
       const title = e.title || "Your event";
+      const titleKey = `notifications.event.reminder.${kind.key}Title`;
+      const bodyKey = `notifications.event.reminder.${kind.key}Body`;
+      const params = {event: title};
       const pushes = [];
       for (const uid of getAttendeeIds(e.attendees)) {
         await db.collection("notifications").add({
           userId: uid,
           type: "event_reminder",
-          title: kind.title,
-          message: `"${title}" ${kind.suffix}`,
+          title: tPush(titleKey, "en", params), // English fallback
+          message: tPush(bodyKey, "en", params),
+          titleKey,
+          bodyKey,
+          params,
           icon: "⏰",
           read: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1492,8 +1501,10 @@ exports.sendEventReminders = onSchedule(
         if (u.exists && u.data().pushToken) {
           pushes.push({
             pushToken: u.data().pushToken,
-            title: kind.title,
-            body: `"${title}" ${kind.suffix}`,
+            uid,
+            titleKey,
+            bodyKey,
+            params,
             data: {type: "event_reminder", eventId: docSnap.id},
           });
         }

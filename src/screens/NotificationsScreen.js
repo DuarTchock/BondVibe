@@ -169,6 +169,12 @@ export default function NotificationsScreen({ navigation }) {
                 type: String(data.type || ""),
                 title: String(data.title || t("notifications.defaultTitle")),
                 message: String(data.message || ""),
+                // BUG 34: carry the i18n key + params so the card renders in the
+                // live app language (title/message above are only the fallback).
+                titleKey: data.titleKey ? String(data.titleKey) : undefined,
+                bodyKey: data.bodyKey ? String(data.bodyKey) : undefined,
+                params:
+                  data.params && typeof data.params === "object" ? data.params : {},
                 icon: String(data.icon || "bell"),
                 read: Boolean(data.read),
                 createdAt: createdAtValue,
@@ -183,6 +189,11 @@ export default function NotificationsScreen({ navigation }) {
                           : undefined,
                         eventId: data.metadata.eventId
                           ? String(data.metadata.eventId)
+                          : undefined,
+                        // Legacy BUG 33 membership fields (until those migrate).
+                        creditsRemaining: data.metadata.creditsRemaining,
+                        planName: data.metadata.planName
+                          ? String(data.metadata.planName)
                           : undefined,
                       }
                     : {},
@@ -380,13 +391,19 @@ export default function NotificationsScreen({ navigation }) {
         : null;
       const safeUnreadCount = notification.unreadCount || 0;
 
-      // BUG 33: localize the credit check-in / restore notifications in-app from
-      // their metadata, so they follow the current app language (the stored text
-      // is English). Other types render their stored title/message as before.
+      // BUG 34: render system notifications from their i18n key + params so the
+      // durable Inbox card follows the CURRENT app language (the stored
+      // title/message is only an English fallback for old clients). Falls back to
+      // the stored text for anything not yet keyed.
       let displayTitle = safeTitle;
       let displayMessage = safeMessage;
+      const params = notification.params || {};
       const md = notification.metadata || {};
-      if (notification.type === "membership_redeemed") {
+      if (notification.titleKey || notification.bodyKey) {
+        if (notification.titleKey) displayTitle = t(notification.titleKey, params);
+        if (notification.bodyKey) displayMessage = t(notification.bodyKey, params);
+      } else if (notification.type === "membership_redeemed") {
+        // Legacy BUG 33 membership docs (pre key+params migration).
         displayTitle = t("notifications.creditUsed.title");
         displayMessage = md.creditsRemaining == null
           ? t("notifications.checkedIn.body", { event: md.eventTitle || safeEventTitle || "" })

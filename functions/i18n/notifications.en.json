@@ -4,5 +4,26 @@
   "membership.checkedIn.body": "You're checked in to {{event}}.",
   "membership.restored.title": "Credit restored",
   "membership.restored.body": "Credit restored — {{event}}. {{remaining}} left on {{plan}}.",
-  "membership.restored.undoneBody": "Your check-in at {{event}} was undone."
+  "membership.restored.undoneBody": "Your check-in at {{event}} was undone.",
+
+  "notifications.event.waitlistPromoted.title": "You're in! 🎉",
+  "notifications.event.waitlistPromoted.body": "A spot opened in \"{{event}}\" — you're confirmed.",
+  "notifications.event.waitlistPromoted.pushBody": "A spot opened in \"{{event}}\"",
+  "notifications.event.joined.paidTitleOne": "💰 New Paid Attendee!",
+  "notifications.event.joined.paidTitleOther": "💰 {{count}} New Paid Attendees!",
+  "notifications.event.joined.paidBodyOne": "{{name}} paid ${{price}} MXN for \"{{event}}\"",
+  "notifications.event.joined.paidBodyOther": "{{names}} joined \"{{event}}\"",
+  "notifications.event.joined.freeTitleOne": "👋 New Attendee!",
+  "notifications.event.joined.freeTitleOther": "👋 {{count}} New Attendees!",
+  "notifications.event.joined.freeBodyOne": "{{name}} joined \"{{event}}\"",
+  "notifications.event.joined.freeBodyOther": "{{names}} joined \"{{event}}\"",
+  "notifications.event.cancelled.titleOne": "🚫 Attendee Cancelled",
+  "notifications.event.cancelled.titleOther": "🚫 {{count}} Attendees Cancelled",
+  "notifications.event.cancelled.bodyOne": "{{name}} cancelled their attendance for \"{{event}}\"",
+  "notifications.event.cancelled.bodyOther": "{{names}} cancelled for \"{{event}}\"",
+  "notifications.event.chat.title": "{{sender}} in {{event}}",
+  "notifications.event.reminder.h2Title": "Starting soon ⏰",
+  "notifications.event.reminder.h2Body": "\"{{event}}\" starts in about 2 hours.",
+  "notifications.event.reminder.h24Title": "Event tomorrow ⏰",
+  "notifications.event.reminder.h24Body": "\"{{event}}\" is happening within 24 hours."
 }

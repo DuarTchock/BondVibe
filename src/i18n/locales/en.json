@@ -1918,6 +1918,38 @@
       "body": "Credit restored — {{event}}. {{remaining}} left on {{plan}}.",
       "undoneBody": "Your check-in at {{event}} was undone."
     },
+    "event": {
+      "waitlistPromoted": {
+        "title": "You're in! 🎉",
+        "body": "A spot opened in \"{{event}}\" — you're confirmed.",
+        "pushBody": "A spot opened in \"{{event}}\""
+      },
+      "joined": {
+        "paidTitleOne": "💰 New Paid Attendee!",
+        "paidTitleOther": "💰 {{count}} New Paid Attendees!",
+        "paidBodyOne": "{{name}} paid ${{price}} MXN for \"{{event}}\"",
+        "paidBodyOther": "{{names}} joined \"{{event}}\"",
+        "freeTitleOne": "👋 New Attendee!",
+        "freeTitleOther": "👋 {{count}} New Attendees!",
+        "freeBodyOne": "{{name}} joined \"{{event}}\"",
+        "freeBodyOther": "{{names}} joined \"{{event}}\""
+      },
+      "cancelled": {
+        "titleOne": "🚫 Attendee Cancelled",
+        "titleOther": "🚫 {{count}} Attendees Cancelled",
+        "bodyOne": "{{name}} cancelled their attendance for \"{{event}}\"",
+        "bodyOther": "{{names}} cancelled for \"{{event}}\""
+      },
+      "chat": {
+        "title": "{{sender}} in {{event}}"
+      },
+      "reminder": {
+        "h2Title": "Starting soon ⏰",
+        "h2Body": "\"{{event}}\" starts in about 2 hours.",
+        "h24Title": "Event tomorrow ⏰",
+        "h24Body": "\"{{event}}\" is happening within 24 hours."
+      }
+    },
     "welcomeTitle": "Welcome to Kinlo!",
     "welcomeMessage": "Start exploring events and connect with people",
     "justNow": "Just now",
