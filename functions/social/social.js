@@ -7,6 +7,7 @@
 const {onDocumentWritten, onDocumentCreated} = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const {sendBatchPushNotifications} = require("../notifications/pushService");
+const {tPush, baseLang} = require("../i18n");
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
@@ -73,19 +74,28 @@ const onPostCreated = onDocumentCreated("posts/{postId}", async (event) => {
     followerIds.map((uid) => db.collection("users").doc(uid).get()),
   );
 
+  // BUG 34: recipients = the author's followers (never the actor). The title is
+  // the author's name and the body is the post text — both user content, left
+  // as-is. Only the empty-post FALLBACK body is system copy → localized per
+  // recipient via bodyKey (lang from the already-loaded follower doc).
   const notifications = [];
   for (const userDoc of userDocs) {
     if (!userDoc.exists) continue;
     const token = userDoc.data().pushToken;
     if (!token || !token.startsWith("ExponentPushToken[")) continue;
-    notifications.push({
+    const entry = {
       pushToken: token,
+      uid: userDoc.id,
       title: authorName || "Someone",
-      body: post.text ?
-        post.text.slice(0, 100) :
-        "shared a new post",
       data: {type: "NEW_POST", postId: event.params.postId, authorId},
-    });
+    };
+    if (post.text) {
+      entry.body = post.text.slice(0, 100); // user content
+    } else {
+      entry.lang = baseLang(userDoc.data().language);
+      entry.bodyKey = "notifications.social.newPost.body";
+    }
+    notifications.push(entry);
   }
 
   if (notifications.length > 0) {
@@ -108,18 +118,28 @@ const onFollowCreated = onDocumentCreated("follows/{docId}", async (event) => {
   if (!followerDoc.exists) return;
   const followerName = followerDoc.data().fullName || "Someone";
 
+  // BUG 34: recipient = the FOLLOWED user (followeeId), never the actor.
+  // key+params; English fallback from the catalog.
+  const tk = "notifications.social.newFollower.title";
+  const bk = "notifications.social.newFollower.body";
+  const params = {name: followerName};
+
   // Write in-app notification
   await db.collection("notifications").add({
     userId: followeeId,
     type: "NEW_FOLLOWER",
     fromUserId: followerId,
     fromUserName: followerName,
-    message: `${followerName} started following you`,
+    title: tPush(tk, "en", params),
+    message: tPush(bk, "en", params),
+    titleKey: tk,
+    bodyKey: bk,
+    params,
     read: false,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  // Send push notification to followee if they have a token
+  // Send push to the followee if they have a token — lang read from the SAME doc.
   const followeeDoc = await db.collection("users").doc(followeeId).get();
   if (!followeeDoc.exists) return;
   const pushToken = followeeDoc.data().pushToken;
@@ -127,8 +147,11 @@ const onFollowCreated = onDocumentCreated("follows/{docId}", async (event) => {
     await sendBatchPushNotifications([
       {
         pushToken,
-        title: "New follower",
-        body: `${followerName} started following you`,
+        uid: followeeId,
+        lang: baseLang(followeeDoc.data().language),
+        titleKey: tk,
+        bodyKey: bk,
+        params,
         data: {type: "NEW_FOLLOWER", fromUserId: followerId},
       },
     ]);

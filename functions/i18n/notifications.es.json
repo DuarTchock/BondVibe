@@ -22,6 +22,14 @@
   "notifications.group.messageBlocked.title": "Mensaje bloqueado 🚫",
   "notifications.group.messageBlocked.body": "Compartir datos de pago fuera de la plataforma no está permitido en BondVibe.",
 
+  "notifications.match.open.title": "El Match de la comunidad está abierto 🎉",
+  "notifications.match.open.body": "Mira quién estuvo en \"{{event}}\".",
+  "notifications.match.new.title": "Tienes un nuevo match 💜",
+  "notifications.match.new.body": "Alguien que te gustó también te dio like.",
+  "notifications.social.newFollower.title": "Nuevo seguidor",
+  "notifications.social.newFollower.body": "{{name}} empezó a seguirte",
+  "notifications.social.newPost.body": "compartió una nueva publicación",
+
   "notifications.event.waitlistPromoted.title": "¡Entraste! 🎉",
   "notifications.event.waitlistPromoted.body": "Se liberó un lugar en \"{{event}}\" — quedaste confirmado.",
   "notifications.event.waitlistPromoted.pushBody": "Se liberó un lugar en \"{{event}}\"",

@@ -1953,6 +1953,25 @@
         "body": "Sharing off-platform payment details isn't allowed on BondVibe."
       }
     },
+    "match": {
+      "open": {
+        "title": "Community Matching is open 🎉",
+        "body": "See who was at \"{{event}}\"."
+      },
+      "new": {
+        "title": "You have a new match 💜",
+        "body": "Someone you liked liked you back."
+      }
+    },
+    "social": {
+      "newFollower": {
+        "title": "New follower",
+        "body": "{{name}} started following you"
+      },
+      "newPost": {
+        "body": "shared a new post"
+      }
+    },
     "event": {
       "waitlistPromoted": {
         "title": "You're in! 🎉",

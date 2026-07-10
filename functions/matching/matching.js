@@ -13,6 +13,7 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const {sendBatchPushNotifications} = require("../notifications/pushService");
+const {tPush, baseLang} = require("../i18n");
 const {getEventCreatorId} = require("../utils/eventHelpers");
 
 const db = admin.firestore();
@@ -195,14 +196,22 @@ const advanceMatchingWindows = onSchedule(
           .doc(docSnap.id)
           .collection("attendees")
           .get();
+        // BUG 34: recipient = each opted-in attendee. key+params; English
+        // fallback from the catalog; push carries the recipient's own lang.
+        const tk = "notifications.match.open.title";
+        const bk = "notifications.match.open.body";
+        const params = {event: e.title || "your event"};
         const pushes = [];
         for (const p of profiles.docs) {
           const targetUid = p.id;
           await db.collection("notifications").add({
             userId: targetUid,
             type: "matching_open",
-            title: "Community Matching is open 🎉",
-            message: `See who was at "${e.title || "your event"}".`,
+            title: tPush(tk, "en", params),
+            message: tPush(bk, "en", params),
+            titleKey: tk,
+            bodyKey: bk,
+            params,
             icon: "🎉",
             read: false,
             createdAt: FieldValue.serverTimestamp(),
@@ -212,8 +221,11 @@ const advanceMatchingWindows = onSchedule(
           if (u.exists && u.data().pushToken) {
             pushes.push({
               pushToken: u.data().pushToken,
-              title: "Community Matching is open 🎉",
-              body: `See who was at "${e.title || "your event"}".`,
+              uid: targetUid,
+              lang: baseLang(u.data().language), // reuse the loaded user doc
+              titleKey: tk,
+              bodyKey: bk,
+              params,
               data: {type: "matching_open", eventId: docSnap.id},
             });
           }
@@ -307,27 +319,47 @@ const createLikeAndMaybeMatch = onCall(async (request) => {
     return {matched: false};
   });
 
-  // Notify the other person on a new match (outside the transaction).
+  // Notify BOTH matched users (outside the transaction). BUG 34: each push entry
+  // carries its OWN recipient uid + lang, read from that user's already-fetched
+  // doc (no double read) — a mixed-language pair gets each their own language.
   if (result.matched) {
-    const u = await toUserRef.get();
-    if (u.exists && u.data().pushToken) {
-      await sendBatchPushNotifications([{
-        pushToken: u.data().pushToken,
-        title: "You have a new match 💜",
-        body: "Someone you liked liked you back.",
-        data: {type: "new_match", eventId, matchId},
-      }]);
+    const tk = "notifications.match.new.title";
+    const bk = "notifications.match.new.body";
+    const params = {};
+    const recipients = [toUid, from];
+    for (const ruid of recipients) {
+      await db.collection("notifications").add({
+        userId: ruid,
+        type: "new_match",
+        title: tPush(tk, "en", params),
+        message: tPush(bk, "en", params),
+        titleKey: tk,
+        bodyKey: bk,
+        params,
+        icon: "💜",
+        read: false,
+        createdAt: FieldValue.serverTimestamp(),
+        metadata: {eventId, matchId},
+      });
     }
-    await db.collection("notifications").add({
-      userId: toUid,
-      type: "new_match",
-      title: "You have a new match 💜",
-      message: "Someone you liked liked you back.",
-      icon: "💜",
-      read: false,
-      createdAt: FieldValue.serverTimestamp(),
-      metadata: {eventId, matchId},
-    });
+    const [toDoc, fromDoc] = await Promise.all([toUserRef.get(), fromUserRef.get()]);
+    const docByUid = {[toUid]: toDoc, [from]: fromDoc};
+    const pushes = [];
+    for (const ruid of recipients) {
+      const d = docByUid[ruid];
+      if (d && d.exists && d.data().pushToken) {
+        pushes.push({
+          pushToken: d.data().pushToken,
+          uid: ruid,
+          lang: baseLang(d.data().language),
+          titleKey: tk,
+          bodyKey: bk,
+          params,
+          data: {type: "new_match", eventId, matchId},
+        });
+      }
+    }
+    if (pushes.length) await sendBatchPushNotifications(pushes);
   }
   return result;
 });

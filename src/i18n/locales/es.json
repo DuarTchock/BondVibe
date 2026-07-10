@@ -1953,6 +1953,25 @@
         "body": "Compartir datos de pago fuera de la plataforma no está permitido en BondVibe."
       }
     },
+    "match": {
+      "open": {
+        "title": "El Match de la comunidad está abierto 🎉",
+        "body": "Mira quién estuvo en \"{{event}}\"."
+      },
+      "new": {
+        "title": "Tienes un nuevo match 💜",
+        "body": "Alguien que te gustó también te dio like."
+      }
+    },
+    "social": {
+      "newFollower": {
+        "title": "Nuevo seguidor",
+        "body": "{{name}} empezó a seguirte"
+      },
+      "newPost": {
+        "body": "compartió una nueva publicación"
+      }
+    },
     "event": {
       "waitlistPromoted": {
         "title": "¡Entraste! 🎉",
