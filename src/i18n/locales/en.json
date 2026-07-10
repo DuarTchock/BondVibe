@@ -1906,6 +1906,18 @@
     "someone": "Someone",
     "defaultEventTitle": "Event",
     "defaultTitle": "Notification",
+    "creditUsed": {
+      "title": "Check-in confirmed",
+      "body": "1 credit used at {{event}}. {{remaining}} left on {{plan}}."
+    },
+    "checkedIn": {
+      "body": "You're checked in to {{event}}."
+    },
+    "creditRestored": {
+      "title": "Credit restored",
+      "body": "Credit restored — {{event}}. {{remaining}} left on {{plan}}.",
+      "undoneBody": "Your check-in at {{event}} was undone."
+    },
     "welcomeTitle": "Welcome to Kinlo!",
     "welcomeMessage": "Start exploring events and connect with people",
     "justNow": "Just now",

@@ -318,6 +318,8 @@ export default function NotificationsScreen({ navigation }) {
       case "membership_low_credits":
       case "membership_expiring":
       case "membership_expired":
+      case "membership_redeemed":
+      case "membership_restored":
         navigation.navigate("MyMemberships");
         break;
 
@@ -378,6 +380,24 @@ export default function NotificationsScreen({ navigation }) {
         : null;
       const safeUnreadCount = notification.unreadCount || 0;
 
+      // BUG 33: localize the credit check-in / restore notifications in-app from
+      // their metadata, so they follow the current app language (the stored text
+      // is English). Other types render their stored title/message as before.
+      let displayTitle = safeTitle;
+      let displayMessage = safeMessage;
+      const md = notification.metadata || {};
+      if (notification.type === "membership_redeemed") {
+        displayTitle = t("notifications.creditUsed.title");
+        displayMessage = md.creditsRemaining == null
+          ? t("notifications.checkedIn.body", { event: md.eventTitle || safeEventTitle || "" })
+          : t("notifications.creditUsed.body", { event: md.eventTitle || "", remaining: md.creditsRemaining, plan: md.planName || "" });
+      } else if (notification.type === "membership_restored") {
+        displayTitle = t("notifications.creditRestored.title");
+        displayMessage = md.creditsRemaining == null
+          ? t("notifications.creditRestored.undoneBody", { event: md.eventTitle || "" })
+          : t("notifications.creditRestored.body", { event: md.eventTitle || "", remaining: md.creditsRemaining, plan: md.planName || "" });
+      }
+
       return (
         <TouchableOpacity
           style={styles.notificationCard}
@@ -429,7 +449,7 @@ export default function NotificationsScreen({ navigation }) {
                 <Text
                   style={[styles.notificationTitle, { color: colors.text }]}
                 >
-                  {safeTitle}
+                  {displayTitle}
                 </Text>
                 {!notification.read && (
                   <View
@@ -457,7 +477,7 @@ export default function NotificationsScreen({ navigation }) {
                 ]}
                 numberOfLines={2}
               >
-                {safeMessage}
+                {displayMessage}
               </Text>
               <Text
                 style={[

@@ -39,7 +39,7 @@ const {
 } = require("./stripe/pricing");
 
 // Import push notification service
-const {sendBatchPushNotifications, unreadTotalForUser} =
+const {sendBatchPushNotifications, sendPushNotification, unreadTotalForUser} =
   require("./notifications/pushService");
 const bizAutomations = require("./business/automations");
 
@@ -1077,8 +1077,60 @@ exports.redeemMembershipCredit = onCall(async (request) => {
     return {
       creditsRemaining:
         membership.type === "credits" ? updates.creditsRemaining : null,
+      memberUid: reservation.userId,
+      eventTitle: reservation.eventTitle || "",
+      creditsDeducted: membership.type === "credits" ? cost : 0,
+      planName: membership.planName || "",
+      membershipId: reservation.membershipId,
     };
   });
+
+  // BUG 33: tell the attendee a credit was used (the moment their QR is scanned).
+  // Best-effort + non-blocking — the redemption already committed; a notification
+  // failure must NEVER roll back or fail the check-in.
+  if (!result.alreadyProcessed && result.memberUid) {
+    try {
+      const remaining = result.creditsRemaining; // number, or null for unlimited
+      const eventTitle = result.eventTitle || "your class";
+      const planName = result.planName || "your plan";
+      const title = "Check-in confirmed";
+      const body = remaining === null ?
+        `You're checked in to ${eventTitle}.` :
+        `1 credit used at ${eventTitle}. ${remaining} left on ${planName}.`;
+
+      await db.collection("notifications").add({
+        userId: result.memberUid,
+        type: "membership_redeemed",
+        title,
+        message: body,
+        icon: "🎟️",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        metadata: {
+          membershipId: result.membershipId,
+          reservationId,
+          eventTitle,
+          creditsDeducted: result.creditsDeducted,
+          creditsRemaining: remaining,
+          planName,
+        },
+      });
+
+      const memberSnap = await db.collection("users").doc(result.memberUid).get();
+      const token = memberSnap.exists ? memberSnap.data().pushToken : null;
+      if (token) {
+        const badge = await unreadTotalForUser(result.memberUid);
+        await sendPushNotification(token, {
+          title,
+          body,
+          data: {type: "membership_redeemed", membershipId: result.membershipId},
+          badge,
+        });
+      }
+    } catch (e) {
+      console.error("membership_redeemed notify failed:", e?.message || e);
+    }
+  }
 
   return {success: true, ...result};
 });
@@ -1124,7 +1176,13 @@ exports.undoMembershipRedemption = onCall(async (request) => {
       redeemedBy: admin.firestore.FieldValue.delete(),
     });
 
-    return {creditsRemaining: updates.creditsRemaining ?? null};
+    return {
+      creditsRemaining: updates.creditsRemaining ?? null,
+      memberUid: reservation.userId,
+      eventTitle: reservation.eventTitle || "",
+      planName: memSnap.exists ? (memSnap.data().planName || "") : "",
+      membershipId: reservation.membershipId,
+    };
   });
 
   // Best-effort audit: mark this reservation's redemption record(s) undone.
@@ -1144,6 +1202,51 @@ exports.undoMembershipRedemption = onCall(async (request) => {
     await batch.commit();
   } catch (e) {
     // audit cleanup is best-effort
+  }
+
+  // BUG 33: tell the attendee their credit was restored (the correction).
+  // Best-effort — must never fail the undo.
+  if (!result.alreadyProcessed && result.memberUid) {
+    try {
+      const remaining = result.creditsRemaining; // number, or null for unlimited
+      const eventTitle = result.eventTitle || "your class";
+      const planName = result.planName || "your plan";
+      const title = "Credit restored";
+      const body = remaining === null ?
+        `Your check-in at ${eventTitle} was undone.` :
+        `Credit restored — ${eventTitle}. ${remaining} left on ${planName}.`;
+
+      await db.collection("notifications").add({
+        userId: result.memberUid,
+        type: "membership_restored",
+        title,
+        message: body,
+        icon: "🎟️",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        metadata: {
+          membershipId: result.membershipId,
+          reservationId,
+          eventTitle,
+          creditsRemaining: remaining,
+          planName,
+        },
+      });
+
+      const memberSnap = await db.collection("users").doc(result.memberUid).get();
+      const token = memberSnap.exists ? memberSnap.data().pushToken : null;
+      if (token) {
+        const badge = await unreadTotalForUser(result.memberUid);
+        await sendPushNotification(token, {
+          title,
+          body,
+          data: {type: "membership_restored", membershipId: result.membershipId},
+          badge,
+        });
+      }
+    } catch (e) {
+      console.error("membership_restored notify failed:", e?.message || e);
+    }
   }
 
   return {success: true, ...result};
