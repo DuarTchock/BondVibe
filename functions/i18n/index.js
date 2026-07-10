@@ -64,19 +64,32 @@ async function getUserLang(uid) {
 }
 
 /**
- * Batch-resolve languages for many uids (one read per doc; deduped). Returns a
- * { uid: lang } map defaulting to "en".
+ * Batch-resolve languages for many uids (BUG 34) — chunked `in` queries (≤10),
+ * deduped. Returns a { uid: lang } map defaulting to "en" for every requested
+ * uid (so a missing doc or a failed chunk still yields English, never blank).
  * @param {string[]} uids
  * @return {Promise<Record<string,string>>}
  */
 async function getUserLangs(uids) {
   const unique = [...new Set((uids || []).filter(Boolean))];
   const out = {};
-  await Promise.all(
-    unique.map(async (uid) => {
-      out[uid] = await getUserLang(uid);
-    }),
-  );
+  unique.forEach((u) => {
+    out[u] = "en";
+  });
+  if (unique.length === 0) return out;
+  const db = admin.firestore();
+  for (let i = 0; i < unique.length; i += 10) {
+    const chunk = unique.slice(i, i + 10);
+    try {
+      const snap = await db.collection("users")
+        .where(admin.firestore.FieldPath.documentId(), "in", chunk).get();
+      snap.forEach((d) => {
+        out[d.id] = baseLang(d.data().language) || "en";
+      });
+    } catch (e) {
+      // leave English defaults for this chunk
+    }
+  }
   return out;
 }
 
