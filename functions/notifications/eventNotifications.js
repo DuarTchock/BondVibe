@@ -8,7 +8,7 @@ const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const {sendBatchPushNotifications} = require("./pushService");
 const {getAttendeeIds, getEventCreatorId} = require("../utils/eventHelpers");
-const {tPush} = require("../i18n");
+const {tPush, baseLang} = require("../i18n");
 
 const db = admin.firestore();
 
@@ -87,6 +87,7 @@ exports.onEventAttendeesChanged = onDocumentUpdated(
             await sendBatchPushNotifications([{
               pushToken: u.data().pushToken,
               uid,
+              lang: baseLang(u.data().language), // recipient = promoted attendee
               titleKey: "notifications.event.waitlistPromoted.title",
               bodyKey: "notifications.event.waitlistPromoted.pushBody",
               params,
@@ -217,7 +218,8 @@ async function notifyHostOfNewAttendees(
       await sendBatchPushNotifications([
         {
           pushToken,
-          uid: hostId,
+          uid: hostId, // recipient = the host
+          lang: baseLang(hostData.language), // reuse the already-loaded host doc
           titleKey,
           bodyKey,
           params,
@@ -312,7 +314,8 @@ async function notifyHostOfCancellations(
     const notifications = [
       {
         pushToken,
-        uid: hostId,
+        uid: hostId, // recipient = the host
+        lang: baseLang(hostData.language), // reuse the already-loaded host doc
         titleKey: `notifications.event.cancelled.title${sfx}`,
         bodyKey: `notifications.event.cancelled.body${sfx}`,
         params,

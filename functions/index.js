@@ -41,7 +41,7 @@ const {
 // Import push notification service
 const {sendBatchPushNotifications, sendPushNotification, unreadTotalForUser} =
   require("./notifications/pushService");
-const {tPush} = require("./i18n"); // BUG 34: localized notification strings
+const {tPush, baseLang} = require("./i18n"); // BUG 34: localized notification strings
 const bizAutomations = require("./business/automations");
 
 // Import event helpers (attendee/creator normalization)
@@ -346,7 +346,8 @@ exports.onNewMessage = onDocumentCreated(
               const badge = (await unreadTotalForUser(userId)) + 1;
               notifications.push({
                 pushToken,
-                uid: userId,
+                uid: userId, // recipient = each chat participant
+                lang: baseLang(userData.language), // reuse the loaded user doc
                 // BUG 34: localize the title per recipient; the body is the
                 // user's message text (user content — left as-is).
                 titleKey: "notifications.event.chat.title",
@@ -1098,16 +1099,21 @@ exports.redeemMembershipCredit = onCall(async (request) => {
       const remaining = result.creditsRemaining; // number, or null for unlimited
       const eventTitle = result.eventTitle || "your class";
       const planName = result.planName || "your plan";
-      const title = "Check-in confirmed";
-      const body = remaining === null ?
-        `You're checked in to ${eventTitle}.` :
-        `1 credit used at ${eventTitle}. ${remaining} left on ${planName}.`;
+      // BUG 34: key+params. No-credit (unlimited) keeps its own explicit bodyKey.
+      const titleKey = "notifications.creditUsed.title";
+      const bodyKey = remaining === null ?
+        "notifications.checkedIn.body" :
+        "notifications.creditUsed.body";
+      const params = {event: eventTitle, remaining, plan: planName};
 
       await db.collection("notifications").add({
         userId: result.memberUid,
         type: "membership_redeemed",
-        title,
-        message: body,
+        title: tPush(titleKey, "en", params),
+        message: tPush(bodyKey, "en", params),
+        titleKey,
+        bodyKey,
+        params,
         icon: "🎟️",
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1121,13 +1127,19 @@ exports.redeemMembershipCredit = onCall(async (request) => {
         },
       });
 
+      // Recipient = the membership holder. Read language from the SAME user doc
+      // as the push token (no double read).
       const memberSnap = await db.collection("users").doc(result.memberUid).get();
-      const token = memberSnap.exists ? memberSnap.data().pushToken : null;
+      const memberData = memberSnap.exists ? memberSnap.data() : {};
+      const token = memberData.pushToken;
       if (token) {
         const badge = await unreadTotalForUser(result.memberUid);
         await sendPushNotification(token, {
-          title,
-          body,
+          uid: result.memberUid,
+          lang: baseLang(memberData.language),
+          titleKey,
+          bodyKey,
+          params,
           data: {type: "membership_redeemed", membershipId: result.membershipId},
           badge,
         });
@@ -1216,16 +1228,21 @@ exports.undoMembershipRedemption = onCall(async (request) => {
       const remaining = result.creditsRemaining; // number, or null for unlimited
       const eventTitle = result.eventTitle || "your class";
       const planName = result.planName || "your plan";
-      const title = "Credit restored";
-      const body = remaining === null ?
-        `Your check-in at ${eventTitle} was undone.` :
-        `Credit restored — ${eventTitle}. ${remaining} left on ${planName}.`;
+      // BUG 34: key+params. No-credit (unlimited) keeps its own explicit bodyKey.
+      const titleKey = "notifications.creditRestored.title";
+      const bodyKey = remaining === null ?
+        "notifications.creditRestored.undoneBody" :
+        "notifications.creditRestored.body";
+      const params = {event: eventTitle, remaining, plan: planName};
 
       await db.collection("notifications").add({
         userId: result.memberUid,
         type: "membership_restored",
-        title,
-        message: body,
+        title: tPush(titleKey, "en", params),
+        message: tPush(bodyKey, "en", params),
+        titleKey,
+        bodyKey,
+        params,
         icon: "🎟️",
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1238,13 +1255,18 @@ exports.undoMembershipRedemption = onCall(async (request) => {
         },
       });
 
+      // Recipient = the membership holder. Language from the SAME user doc.
       const memberSnap = await db.collection("users").doc(result.memberUid).get();
-      const token = memberSnap.exists ? memberSnap.data().pushToken : null;
+      const memberData = memberSnap.exists ? memberSnap.data() : {};
+      const token = memberData.pushToken;
       if (token) {
         const badge = await unreadTotalForUser(result.memberUid);
         await sendPushNotification(token, {
-          title,
-          body,
+          uid: result.memberUid,
+          lang: baseLang(memberData.language),
+          titleKey,
+          bodyKey,
+          params,
           data: {type: "membership_restored", membershipId: result.membershipId},
           badge,
         });
@@ -1334,17 +1356,26 @@ exports.releaseMembershipReservation = onCall(async (request) => {
 // ============================================
 
 /**
- * Write an in-app notification.
+ * Write an in-app membership notification (BUG 34). Stores titleKey/bodyKey/
+ * params so the card renders in the recipient's live app language; the English
+ * title/message is generated from the catalog (tPush ".en") as a fallback — no
+ * English literal at the call site. These lifecycle reminders are in-app only.
  * @param {string} userId
- * @param {object} payload
+ * @param {object} payload {type, titleKey, bodyKey, params, icon, metadata}
  * @return {Promise<void>}
  */
 async function pushMembershipNotification(userId, payload) {
+  const {titleKey, bodyKey, params = {}, ...rest} = payload;
   await db.collection("notifications").add({
     userId,
     read: false,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    ...payload,
+    ...rest,
+    titleKey,
+    bodyKey,
+    params,
+    title: tPush(titleKey, "en", params),
+    message: tPush(bodyKey, "en", params),
   });
 }
 
@@ -1375,10 +1406,12 @@ exports.sendMembershipReminders = onSchedule(
           changed = true;
         }
         if (!reminders.expired) {
+          // Recipient = the membership holder (m.userId).
           await pushMembershipNotification(m.userId, {
             type: "membership_expired",
-            title: "Membership expired",
-            message: `Your "${m.planName}" has expired. Renew to keep attending.`,
+            titleKey: "notifications.membership.expired.title",
+            bodyKey: "notifications.membership.expired.body",
+            params: {plan: m.planName || ""},
             icon: "⌛",
             metadata: planMeta,
           });
@@ -1393,8 +1426,9 @@ exports.sendMembershipReminders = onSchedule(
         if (daysLeft <= 1 && !reminders.expiring1) {
           await pushMembershipNotification(m.userId, {
             type: "membership_expiring",
-            title: "Membership expires tomorrow",
-            message: `Your "${m.planName}" expires soon. Renew so you don't lose access.`,
+            titleKey: "notifications.membership.expiringTomorrow.title",
+            bodyKey: "notifications.membership.expiringTomorrow.body",
+            params: {plan: m.planName || ""},
             icon: "⏳",
             metadata: planMeta,
           });
@@ -1405,8 +1439,9 @@ exports.sendMembershipReminders = onSchedule(
         } else if (daysLeft <= 7 && !reminders.expiring7) {
           await pushMembershipNotification(m.userId, {
             type: "membership_expiring",
-            title: "Membership expiring soon",
-            message: `Your "${m.planName}" expires in ${daysLeft} days. Renew anytime.`,
+            titleKey: "notifications.membership.expiringSoon.title",
+            bodyKey: "notifications.membership.expiringSoon.body",
+            params: {plan: m.planName || "", days: daysLeft},
             icon: "⏳",
             metadata: planMeta,
           });
@@ -1426,10 +1461,9 @@ exports.sendMembershipReminders = onSchedule(
         ) {
           await pushMembershipNotification(m.userId, {
             type: "membership_low_credits",
-            title: "Running low on classes",
-            message: `Only ${remaining} class${
-              remaining === 1 ? "" : "es"
-            } left on "${m.planName}". Renew to top up.`,
+            titleKey: "notifications.membership.lowCredits.title",
+            bodyKey: `notifications.membership.lowCredits.body${remaining === 1 ? "One" : "Other"}`,
+            params: {count: remaining, plan: m.planName || ""},
             icon: "🎟️",
             metadata: planMeta,
           });
@@ -1501,7 +1535,8 @@ exports.sendEventReminders = onSchedule(
         if (u.exists && u.data().pushToken) {
           pushes.push({
             pushToken: u.data().pushToken,
-            uid,
+            uid, // recipient = each attendee
+            lang: baseLang(u.data().language), // reuse the loaded user doc
             titleKey,
             bodyKey,
             params,

@@ -1918,6 +1918,25 @@
       "body": "Credit restored — {{event}}. {{remaining}} left on {{plan}}.",
       "undoneBody": "Your check-in at {{event}} was undone."
     },
+    "membership": {
+      "expired": {
+        "title": "Membership expired",
+        "body": "Your \"{{plan}}\" has expired. Renew to keep attending."
+      },
+      "expiringTomorrow": {
+        "title": "Membership expires tomorrow",
+        "body": "Your \"{{plan}}\" expires soon. Renew so you don't lose access."
+      },
+      "expiringSoon": {
+        "title": "Membership expiring soon",
+        "body": "Your \"{{plan}}\" expires in {{days}} days. Renew anytime."
+      },
+      "lowCredits": {
+        "title": "Running low on classes",
+        "bodyOne": "Only {{count}} class left on \"{{plan}}\". Renew to top up.",
+        "bodyOther": "Only {{count}} classes left on \"{{plan}}\". Renew to top up."
+      }
+    },
     "event": {
       "waitlistPromoted": {
         "title": "You're in! 🎉",

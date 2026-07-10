@@ -1918,6 +1918,25 @@
       "body": "Crédito restaurado — {{event}}. Te quedan {{remaining}} en {{plan}}.",
       "undoneBody": "Se deshizo tu check-in en {{event}}."
     },
+    "membership": {
+      "expired": {
+        "title": "Membresía vencida",
+        "body": "Tu \"{{plan}}\" venció. Renueva para seguir asistiendo."
+      },
+      "expiringTomorrow": {
+        "title": "Tu membresía vence mañana",
+        "body": "Tu \"{{plan}}\" vence pronto. Renueva para no perder acceso."
+      },
+      "expiringSoon": {
+        "title": "Tu membresía vence pronto",
+        "body": "Tu \"{{plan}}\" vence en {{days}} días. Renueva cuando quieras."
+      },
+      "lowCredits": {
+        "title": "Te quedan pocas clases",
+        "bodyOne": "Solo te queda {{count}} clase en \"{{plan}}\". Renueva para recargar.",
+        "bodyOther": "Solo te quedan {{count}} clases en \"{{plan}}\". Renueva para recargar."
+      }
+    },
     "event": {
       "waitlistPromoted": {
         "title": "¡Entraste! 🎉",

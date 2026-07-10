@@ -190,11 +190,6 @@ export default function NotificationsScreen({ navigation }) {
                         eventId: data.metadata.eventId
                           ? String(data.metadata.eventId)
                           : undefined,
-                        // Legacy BUG 33 membership fields (until those migrate).
-                        creditsRemaining: data.metadata.creditsRemaining,
-                        planName: data.metadata.planName
-                          ? String(data.metadata.planName)
-                          : undefined,
                       }
                     : {},
               });
@@ -398,22 +393,8 @@ export default function NotificationsScreen({ navigation }) {
       let displayTitle = safeTitle;
       let displayMessage = safeMessage;
       const params = notification.params || {};
-      const md = notification.metadata || {};
-      if (notification.titleKey || notification.bodyKey) {
-        if (notification.titleKey) displayTitle = t(notification.titleKey, params);
-        if (notification.bodyKey) displayMessage = t(notification.bodyKey, params);
-      } else if (notification.type === "membership_redeemed") {
-        // Legacy BUG 33 membership docs (pre key+params migration).
-        displayTitle = t("notifications.creditUsed.title");
-        displayMessage = md.creditsRemaining == null
-          ? t("notifications.checkedIn.body", { event: md.eventTitle || safeEventTitle || "" })
-          : t("notifications.creditUsed.body", { event: md.eventTitle || "", remaining: md.creditsRemaining, plan: md.planName || "" });
-      } else if (notification.type === "membership_restored") {
-        displayTitle = t("notifications.creditRestored.title");
-        displayMessage = md.creditsRemaining == null
-          ? t("notifications.creditRestored.undoneBody", { event: md.eventTitle || "" })
-          : t("notifications.creditRestored.body", { event: md.eventTitle || "", remaining: md.creditsRemaining, plan: md.planName || "" });
-      }
+      if (notification.titleKey) displayTitle = t(notification.titleKey, params);
+      if (notification.bodyKey) displayMessage = t(notification.bodyKey, params);
 
       return (
         <TouchableOpacity
