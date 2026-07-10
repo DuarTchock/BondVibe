@@ -252,6 +252,13 @@ async function twilioWebhook(req, res) {
   res.status(200).send("<Response></Response>");
 }
 
+// Map a base language code to a full locale for date formatting (BUG 34).
+const LANG_TO_LOCALE = {
+  en: "en-US", es: "es-MX", fr: "fr-FR", de: "de-DE", pt: "pt-BR",
+  it: "it-IT", nl: "nl-NL", ja: "ja-JP", ko: "ko-KR", pl: "pl-PL",
+  ru: "ru-RU", uk: "uk-UA", zh: "zh-CN",
+};
+
 /**
  * Notify a linked app user with a localized SYSTEM message (BUG 34): push +
  * in-app. The body is a catalog key rendered in the recipient's language (title
@@ -259,6 +266,9 @@ async function twilioWebhook(req, res) {
  * ONCE for both the language and the push token (no double read). The stored
  * message is the English fallback; bodyKey/params let the in-app card re-render
  * in the live app language.
+ *
+ * A `whenAt` param (ISO/date) is formatted HERE into `when` using the RECIPIENT's
+ * locale, so non-English recipients get a localized weekday/time (not "Mon 3PM").
  */
 async function notifyLocalized(linkedUid, title, bodyKey, params) {
   if (!linkedUid) return;
@@ -266,10 +276,19 @@ async function notifyLocalized(linkedUid, title, bodyKey, params) {
   if (!u.exists) return;
   const data = u.data();
   const lang = baseLang(data.language);
+
+  const p = {...(params || {})};
+  if (p.whenAt) {
+    const locale = LANG_TO_LOCALE[lang] || "en-US";
+    p.when = new Date(p.whenAt).toLocaleString(locale,
+      {weekday: "short", hour: "numeric", minute: "2-digit"});
+    delete p.whenAt;
+  }
+
   if (data.pushToken) {
     try {
       await sendPushNotification(data.pushToken, {
-        uid: linkedUid, lang, title, bodyKey, params, data: {type: "business"},
+        uid: linkedUid, lang, title, bodyKey, params: p, data: {type: "business"},
       });
     } catch (e) {
       // best-effort
@@ -279,9 +298,9 @@ async function notifyLocalized(linkedUid, title, bodyKey, params) {
     userId: linkedUid,
     type: "business_message",
     title: title || "Kinlo",
-    message: tPush(bodyKey, "en", params),
+    message: tPush(bodyKey, "en", p),
     bodyKey,
-    params,
+    params: p,
     icon: "bell",
     read: false,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -303,8 +322,8 @@ async function sessionRemindersCron() {
     if (start < now) continue; // past
     const bizSnap = await db().collection("businesses").doc(bizId).get();
     const hostName = bizSnap.exists ? (bizSnap.data().name || "") : "";
-    const when = new Date(b.start).toLocaleString("en-US",
-      {weekday: "short", hour: "numeric", minute: "2-digit"});
+    // Pass the raw start; notifyLocalized formats {{when}} in each recipient's
+    // own locale (BUG 34) instead of a hardcoded en-US string.
     const patch = {};
     // Attendee reminder.
     if (b.reminderAttendeeAt && new Date(b.reminderAttendeeAt).getTime() <= now &&
@@ -318,7 +337,7 @@ async function sessionRemindersCron() {
           // Recipient = the ATTENDEE (member). Localized per recipient.
           await notifyLocalized(uid, hostName || "Kinlo",
             "notifications.automation.sessionReminderAttendee.body",
-            {session: b.sessionTypeName || "session", when});
+            {session: b.sessionTypeName || "session", whenAt: b.start});
         }
       }
       patch.reminderAttendeeSent = true;
@@ -328,7 +347,8 @@ async function sessionRemindersCron() {
         !b.reminderHostSent) {
       const names = (b.members || []).map((m) => m.name).join(", ");
       await notifyLocalized(bizId, "Kinlo",
-        "notifications.automation.sessionReminderHost.body", {names, when});
+        "notifications.automation.sessionReminderHost.body",
+        {names, whenAt: b.start});
       patch.reminderHostSent = true;
     }
     if (Object.keys(patch).length) await doc.ref.update(patch);
