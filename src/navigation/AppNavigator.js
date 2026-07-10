@@ -354,13 +354,58 @@ const AppNavigator = forwardRef((props, ref) => {
                 return;
               }
 
+              // BUG 36: evaluate the gates strictly — a gate is satisfied ONLY by
+              // an explicit true / non-empty string, never `undefined` (a partial
+              // doc must not fall through).
+              const legalAccepted = userData.legalAccepted === true;
+              const profileCompleted = userData.profileCompleted === true;
+              const hasHandle =
+                typeof userData.handleLower === "string" &&
+                userData.handleLower.trim().length > 0;
+              const needsHostType =
+                (userData.hostApproved || userData.role === "host") &&
+                !userData.hostConfig;
+              const destinationIsMainTabs =
+                legalAccepted && profileCompleted && hasHandle &&
+                !needsHostType && userData.aiOptIn !== undefined;
+
+              // Temporary guard log (BUG 36) — prints the exact fields + snapshot
+              // source at the routing decision so any stray branch is visible.
+              console.log("🧭 ROUTING", {
+                uid: user.uid,
+                legalAccepted,
+                profileCompleted,
+                handleLower: userData.handleLower,
+                aiOptIn: userData.aiOptIn,
+                fromCache: docSnapshot.metadata.fromCache,
+                hasPendingWrites: docSnapshot.metadata.hasPendingWrites,
+              });
+
+              // BUG 36 — never send a user BACKWARD into onboarding on a
+              // non-authoritative snapshot. A cache copy (fresh install / stale
+              // local doc) or a pending optimistic write can miss fields that are
+              // already set on the server, which is exactly what routed the two
+              // fully-onboarded accounts (@carlos/@jc_duarte) through phantom
+              // Legal → ProfileSetup. Only make an onboarding/gate decision on a
+              // server-confirmed snapshot; the fully-onboarded → MainTabs route is
+              // monotonic and safe from cache (keeps returning users working offline).
+              const serverConfirmed =
+                !docSnapshot.metadata.fromCache &&
+                !docSnapshot.metadata.hasPendingWrites;
+              if (!serverConfirmed && !destinationIsMainTabs) {
+                console.log(
+                  "⏳ Non-authoritative snapshot (cache/pending) for a gate — waiting for the server-confirmed snapshot",
+                );
+                return;
+              }
+
               // 2. Verify legal terms accepted
-              if (!userData.legalAccepted) {
+              if (!legalAccepted) {
                 console.log("⚖️ Legal not accepted - navigating to Legal");
                 navigateToRoute("Legal", { user });
               }
               // 3. Verify profile completed
-              else if (!userData.profileCompleted) {
+              else if (!profileCompleted) {
                 console.log(
                   "👤 Profile incomplete - navigating to ProfileSetup",
                 );
@@ -371,7 +416,7 @@ const AppNavigator = forwardRef((props, ref) => {
               //     backfilled here on their next launch. Like Legal/Profile it
               //     does NOT set hasReachedHome — claimHandle writes handleLower,
               //     this snapshot re-fires, and routing continues past this step.
-              else if (!userData.handleLower) {
+              else if (!hasHandle) {
                 console.log("🔗 No handle yet - navigating to ChooseHandle");
                 navigateToRoute("ChooseHandle", { user });
               }
@@ -380,10 +425,7 @@ const AppNavigator = forwardRef((props, ref) => {
               //    mid-session admin approvals won't interrupt the user.
               //    (role === "host" covers legacy hosts approved before the
               //    hostApproved flag existed.)
-              else if (
-                (userData.hostApproved || userData.role === "host") &&
-                !userData.hostConfig
-              ) {
+              else if (needsHostType) {
                 console.log(
                   "🎪 Host needs to select type - navigating to HostTypeSelection",
                 );
@@ -532,9 +574,24 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
-          <Stack.Screen name="Legal" component={LegalScreen} />
-          <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-          <Stack.Screen name="ChooseHandle" component={ChooseHandleScreen} />
+          {/* BUG 36: onboarding gates cannot be swiped past or backed out of —
+              the only way forward is completing each step (which writes its flag
+              and lets the router advance). */}
+          <Stack.Screen
+            name="Legal"
+            component={LegalScreen}
+            options={{ gestureEnabled: false, headerLeft: () => null, headerBackVisible: false }}
+          />
+          <Stack.Screen
+            name="ProfileSetup"
+            component={ProfileSetupScreen}
+            options={{ gestureEnabled: false, headerLeft: () => null, headerBackVisible: false }}
+          />
+          <Stack.Screen
+            name="ChooseHandle"
+            component={ChooseHandleScreen}
+            options={{ gestureEnabled: false, headerLeft: () => null, headerBackVisible: false }}
+          />
           <Stack.Screen
             name="HostTypeSelection"
             component={HostTypeSelectionScreen}
