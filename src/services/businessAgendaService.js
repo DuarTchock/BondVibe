@@ -200,7 +200,7 @@ const hmToMin = (t) => {
  * @returns {Promise<{conflict:boolean, conflictItem:object|null, outOfHours:boolean}>}
  */
 export async function checkInstructorAvailability(
-  { instructorUid, instructorName, start, durationMin },
+  { instructorUid, instructorName, start, durationMin, excludeItemId },
   bizId = getMyBizId()
 ) {
   const result = { conflict: false, conflictItem: null, outOfHours: false, workingHours: null };
@@ -221,6 +221,8 @@ export async function checkInstructorAvailability(
   // The caller distinguishes it via conflictItem.kind === BLOCKED to show the
   // clearer "marked unavailable" message.
   const conflictItem = items.find((it) => {
+    // Skip the item being edited so it doesn't conflict with its own slot (BUG 30).
+    if (excludeItemId && it.id === excludeItemId) return false;
     const s = new Date(it.start).getTime();
     const e = new Date(it.end).getTime();
     return startMs < e && endMs > s;

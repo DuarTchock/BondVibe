@@ -30,6 +30,8 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { findUserByEmail } from "../services/hostGroupService";
+import { checkInstructorAvailability, AGENDA_ITEM_KIND } from "../services/businessAgendaService";
+import { getMyBizId } from "../services/businessService";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -96,6 +98,9 @@ export default function EditEventScreen({ route, navigation }) {
   const [agendaType, setAgendaType] = useState("general");
   const isBlocked = agendaType === "blocked";
   const effectiveListedPublicly = isBlocked ? false : listedPublicly;
+  // BUG 30: the event's instructor (if any), to check the right agenda day when
+  // moving it to a new slot. Falls back to the owner's day for unassigned events.
+  const [eventInstructor, setEventInstructor] = useState({ uid: "", name: "" });
 
   useEffect(() => {
     loadEvent();
@@ -132,6 +137,7 @@ export default function EditEventScreen({ route, navigation }) {
         setTempDate(eventDate);
         setAgendaType(data.agendaType || "general");
         setListedPublicly(data.listedPublicly !== false);
+        setEventInstructor({ uid: data.instructorUid || "", name: data.instructorName || "" });
         setCreatorId(data.creatorId || data.createdBy || data.hostId || null);
 
         // Load co-hosts (names) for management.
@@ -350,7 +356,36 @@ export default function EditEventScreen({ route, navigation }) {
   };
 
   // Save event(s)
-  const saveEvent = async (updateAllFuture) => {
+  const saveEvent = async (updateAllFuture, skipAvailabilityCheck = false) => {
+    // BUG 30: warn if moving the event onto an occupied slot (warn-and-allow).
+    // Unassigned events live on the owner's agenda day; exclude this event so it
+    // doesn't clash with its own current slot.
+    if (!skipAvailabilityCheck) {
+      const checkUid = eventInstructor.uid || getMyBizId();
+      if (checkUid) {
+        const avail = await checkInstructorAvailability({
+          instructorUid: checkUid,
+          instructorName: eventInstructor.name,
+          start: new Date(form.date),
+          durationMin: parseInt(form.durationMinutes, 10) || 180,
+          excludeItemId: `event_${eventId}`,
+        });
+        if (avail.conflict && avail.conflictItem) {
+          const hm = (d) => { const x = new Date(d); return `${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
+          const isBlocked = avail.conflictItem.kind === AGENDA_ITEM_KIND.BLOCKED;
+          const msg = t(isBlocked ? "business.agenda.conflictBlockedMsg" : "business.agenda.conflictMsg", {
+            name: eventInstructor.name || t("business.agenda.you"),
+            title: avail.conflictItem.title,
+            range: `${hm(avail.conflictItem.start)}–${hm(avail.conflictItem.end)}`,
+          });
+          Alert.alert(t("business.agenda.placementWarnTitle"), msg, [
+            { text: t("business.common.cancel"), style: "cancel" },
+            { text: t("business.agenda.continueAnyway"), onPress: () => saveEvent(updateAllFuture, true) },
+          ]);
+          return;
+        }
+      }
+    }
     setSaving(true);
     try {
       // Process images first
