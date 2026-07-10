@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
+import { persistUserLanguage } from "../i18n";
 import { registerPushToken } from "../utils/messageService";
 import { logger } from "../utils/logger";
 import { ActivityIndicator, View } from "react-native";
@@ -317,6 +318,9 @@ const AppNavigator = forwardRef((props, ref) => {
       if (user) {
         console.log("👤 User logged in:", user.uid);
         console.log("📧 Email verified:", user.emailVerified);
+        // BUG 34: record the user's language so system notifications (push/SMS/
+        // in-app) can be localized server-side per recipient.
+        persistUserLanguage();
         console.log("🔄 Setting up Firestore listener for user:", user.uid);
 
         unsubscribeFirestore = onSnapshot(

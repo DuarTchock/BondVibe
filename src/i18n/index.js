@@ -64,29 +64,57 @@ AsyncStorage.getItem(STORAGE_KEY)
   .catch(() => {});
 
 /**
- * Switch the whole app's UI language and persist it (device + profile).
- * Firebase is required lazily so importing this module (e.g. for i18next init
- * in tests) never needs a live Firebase config.
- * @param {string} code one of APP_LANGUAGE_CODES (en/es today)
+ * Base language code for the profile field (BUG 34): 2-letter, except Belgian
+ * Dutch which shares the `nl` catalog (`nl-BE` → `nl`). Server-side notification
+ * localization (tPush/getUserLang) keys off this.
  */
-export async function setAppLanguage(code) {
-  if (!APP_LANGUAGE_CODES.includes(code)) return;
-  await i18n.changeLanguage(code);
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, code);
-  } catch (e) {
-    // non-fatal
-  }
+export const baseLangCode = (code) => {
+  if (!code) return "en";
+  const c = String(code);
+  if (c.toLowerCase().startsWith("nl")) return "nl";
+  return c.split("-")[0];
+};
+
+/**
+ * Persist the signed-in user's UI language to users/{uid}.language (BUG 34,
+ * best-effort). Called on login and on every language change so system
+ * notifications (push / SMS / in-app) can be localized per recipient.
+ * Firebase is required lazily so importing this module in tests never needs a
+ * live Firebase config.
+ * @param {string} [code] defaults to the active i18n language
+ */
+export async function persistUserLanguage(code = i18n.language) {
   try {
     const { doc, setDoc } = require("firebase/firestore");
     const { db, auth } = require("../services/firebase");
     const uid = auth.currentUser && auth.currentUser.uid;
     if (uid) {
-      await setDoc(doc(db, "users", uid), { language: code }, { merge: true });
+      await setDoc(doc(db, "users", uid), { language: baseLangCode(code) }, { merge: true });
     }
   } catch (e) {
     // non-fatal — device persistence already holds the choice
   }
+}
+
+// Keep users/{uid}.language in sync whenever the app language changes (covers
+// the LanguageSelector and the async persisted-choice apply above).
+i18n.on("languageChanged", (lng) => {
+  persistUserLanguage(lng);
+});
+
+/**
+ * Switch the whole app's UI language and persist it (device + profile).
+ * @param {string} code one of APP_LANGUAGE_CODES (en/es today)
+ */
+export async function setAppLanguage(code) {
+  if (!APP_LANGUAGE_CODES.includes(code)) return;
+  await i18n.changeLanguage(code); // fires languageChanged → persistUserLanguage
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY, code);
+  } catch (e) {
+    // non-fatal
+  }
+  await persistUserLanguage(code);
 }
 
 /** Current active language code. */

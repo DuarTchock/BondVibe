@@ -1,0 +1,8 @@
+{
+  "membership.redeemed.title": "Check-in confirmado",
+  "membership.redeemed.body": "Se usó 1 crédito en {{event}}. Te quedan {{remaining}} en {{plan}}.",
+  "membership.checkedIn.body": "Ya tienes check-in en {{event}}.",
+  "membership.restored.title": "Crédito restaurado",
+  "membership.restored.body": "Crédito restaurado — {{event}}. Te quedan {{remaining}} en {{plan}}.",
+  "membership.restored.undoneBody": "Se deshizo tu check-in en {{event}}."
+}
