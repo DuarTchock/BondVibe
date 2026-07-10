@@ -27,7 +27,6 @@ import {
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "./firebase";
-import { getActiveOwnerUid } from "./businessService";
 import { logger } from "../utils/logger";
 import {
   MEMBERSHIP_PLAN_TYPES,
@@ -79,13 +78,12 @@ export const createMembershipPlan = async (planData) => {
       ? planData.audienceTier
       : MEMBERSHIP_AUDIENCE.BOTH;
 
-    // BUG 32.6: a staff-created plan pays the business OWNER, not the staff
-    // creator. Null for a solo host → payout falls back to hostId (== creator).
-    const businessOwnerUid = await getActiveOwnerUid();
-
+    // BUG 32.6 / 32.7: a staff-created plan pays the business OWNER. The caller
+    // (screen) computes businessOwnerUid from the active hosting context and
+    // passes it in; null for a personal create → payout falls back to hostId.
     const planDoc = {
       hostId,
-      businessOwnerUid: businessOwnerUid || null,
+      businessOwnerUid: planData.businessOwnerUid || null,
       name: planData.name.trim(),
       description: planData.description?.trim() || "",
       terms: planData.terms?.trim() || "",

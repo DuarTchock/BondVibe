@@ -18,6 +18,9 @@ import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
+import { useBusiness } from "../contexts/BusinessContext";
+import { useMode } from "../contexts/ModeContext";
+import { resolveBusinessOwnerUid } from "../services/businessService";
 import useCities from "../hooks/useCities";
 import SelectDropdown from "../components/SelectDropdown";
 import DraftWithAI from "../components/ai/DraftWithAI";
@@ -52,6 +55,9 @@ const toPesos = (centavos) => (centavos ? String(centavos / 100) : "");
 export default function PublishVehicleScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
+  // BUG 32.7: stamp the payout owner only when acting as staff of a business.
+  const { businesses, activeBizId } = useBusiness();
+  const { isHosting } = useMode();
   const { cities } = useCities();
   const { vehicleId } = route.params || {};
   const editing = !!vehicleId;
@@ -142,7 +148,8 @@ export default function PublishVehicleScreen({ route, navigation }) {
       let id = vehicleId;
       if (!editing) {
         const providerId = await ensureProvider({ city: city.trim() });
-        id = await createVehicle({ ...payload, providerId, photos: [] });
+        const businessOwnerUid = resolveBusinessOwnerUid({ isHosting, activeBizId, businesses });
+        id = await createVehicle({ ...payload, providerId, photos: [], businessOwnerUid });
       }
       const photoUrls = await uploadVehiclePhotos(id, photos);
       await updateVehicle(id, { ...payload, photos: photoUrls });

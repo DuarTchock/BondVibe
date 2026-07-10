@@ -42,8 +42,9 @@ import { uploadEventImages } from "../services/storageService";
 import { getHostMembershipPlans } from "../services/membershipService";
 import { createClass, updateClass, getClass } from "../services/businessClassesService";
 import { checkInstructorAvailability, AGENDA_ITEM_KIND } from "../services/businessAgendaService";
-import { getMyBizId } from "../services/businessService";
+import { getMyBizId, resolveBusinessOwnerUid } from "../services/businessService";
 import { useBusiness } from "../contexts/BusinessContext";
+import { useMode } from "../contexts/ModeContext";
 import InstructorPicker from "../components/business/InstructorPicker";
 import { buildEventSearchKeywords } from "../utils/eventSearch";
 import { checkAccountStatus } from "../services/stripeConnectService";
@@ -64,10 +65,12 @@ const EVENT_DRAFT_KEY = "eventDraft";
 export default function CreateEventScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
   const { t, i18n } = useTranslation();
-  // BUG 32.6: within a business context, the payout owner is the active
-  // business's owner (staff-created events pay the owner, not the staff creator).
+  // BUG 32.6 / 32.7: only route payout to the business owner when creating in the
+  // explicit business-hosting flow (hosting mode + a foreign, staff-of business
+  // active). A personal create leaves businessOwnerUid unset → payout to self.
   const { businesses, activeBizId } = useBusiness();
-  const businessOwnerUid = businesses.find((b) => b.bizId === activeBizId)?.ownerUid || null;
+  const { isHosting } = useMode();
+  const businessOwnerUid = resolveBusinessOwnerUid({ isHosting, activeBizId, businesses });
 
   // A "class" reuses this exact screen (kinlo_business/06 FIX 2): mode:'class' +
   // an instructor + weekly-by-default recurrence. Everything else (two-tier

@@ -37,17 +37,22 @@ export const getMyBizId = () => activeBizId || auth.currentUser?.uid || null;
 export const getOwnBizId = () => auth.currentUser?.uid || null;
 
 /**
- * The owner uid of the active business (BUG 32.6) — who should be paid for
- * things created in the current business context. null when there's no active
- * business (a casual host), so callers fall back to the creator. Reads the
- * business doc's ownerUid (source of truth, survives a transfer).
- * @returns {Promise<string|null>}
+ * The payout owner to stamp on a create (BUG 32.6 / 32.7). Pure + testable.
+ *
+ * Only route payout to the business owner when the create genuinely happens in
+ * the business-hosting flow: the app is in hosting mode AND the active business
+ * is one the user does NOT own (they're acting as staff of someone else's
+ * business). Otherwise return null — a personal create (attending mode, own
+ * business, or no active business) leaves businessOwnerUid unset and payout
+ * falls back to the creator (getHostIdForPayout).
+ *
+ * @param {{ isHosting?: boolean, activeBizId?: string, businesses?: Array<{bizId:string, isOwner:boolean, ownerUid?:string}> }} ctx
+ * @returns {string|null}
  */
-export async function getActiveOwnerUid() {
-  const bizId = activeBizId;
-  if (!bizId) return null;
-  const biz = await getBusiness(bizId);
-  return biz?.ownerUid || bizId;
+export function resolveBusinessOwnerUid({ isHosting, activeBizId, businesses } = {}) {
+  const active = (businesses || []).find((b) => b.bizId === activeBizId);
+  const actingAsStaff = !!isHosting && !!active && !active.isOwner;
+  return actingAsStaff ? (active.ownerUid || null) : null;
 }
 
 /**

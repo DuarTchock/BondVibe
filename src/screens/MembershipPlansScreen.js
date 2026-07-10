@@ -18,6 +18,9 @@ import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
 import { auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
+import { useBusiness } from "../contexts/BusinessContext";
+import { useMode } from "../contexts/ModeContext";
+import { resolveBusinessOwnerUid } from "../services/businessService";
 import GradientBackground from "../components/GradientBackground";
 import KeyboardAccessory from "../components/KeyboardAccessory";
 import PricingTierToggle from "../components/business/PricingTierToggle";
@@ -57,6 +60,9 @@ export default function MembershipPlansScreen({ navigation, route }) {
     fromEventCreation ? navigation.navigate("CreateEvent") : navigation.goBack();
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
+  // BUG 32.7: stamp the payout owner only when acting as staff of a business.
+  const { businesses, activeBizId } = useBusiness();
+  const { isHosting } = useMode();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -110,6 +116,7 @@ export default function MembershipPlansScreen({ navigation, route }) {
       audienceTier: form.audienceTier,
       priceCentavos: Math.round(parseFloat(form.price) * 100),
       allowAutoRenew: form.allowAutoRenew,
+      businessOwnerUid: resolveBusinessOwnerUid({ isHosting, activeBizId, businesses }),
     };
 
     setSaving(true);
