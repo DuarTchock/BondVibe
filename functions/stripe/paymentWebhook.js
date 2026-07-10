@@ -7,6 +7,7 @@
 const {onRequest} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const {tPush} = require("../i18n"); // BUG 34: localized notification strings
 
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET_PAYMENTS");
@@ -270,17 +271,23 @@ async function handlePromotionPurchase(paymentIntent) {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  // 4. Notify the host
-  await db.collection("notifications").add({
-    userId: hostId,
-    type: "promotion_active",
-    title: "Your event is featured! ⭐",
-    message: `"${eventTitle}" is now featured for ${days} days.`,
-    icon: "⭐",
-    read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    metadata: {eventId, eventTitle},
-  });
+  // 4. Notify the host (recipient = the host). BUG 34: key+params.
+  {
+    const params = {event: eventTitle, days};
+    await db.collection("notifications").add({
+      userId: hostId,
+      type: "promotion_active",
+      title: tPush("notifications.payment.featured.title", "en", params),
+      message: tPush("notifications.payment.featured.body", "en", params),
+      titleKey: "notifications.payment.featured.title",
+      bodyKey: "notifications.payment.featured.body",
+      params,
+      icon: "⭐",
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: {eventId, eventTitle},
+    });
+  }
 
   console.log("✅ Promotion processing complete; featured until", expiresAt);
 }
@@ -337,13 +344,17 @@ async function handleRentalPayment(paymentIntent) {
     paidAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  // 3. Notify the partner/owner
+  // 3. Notify the partner/owner (recipient = the vehicle owner). BUG 34.
   if (rental.ownerId) {
+    const params = {amount: (amount / 100).toFixed(2)};
     await db.collection("notifications").add({
       userId: rental.ownerId,
       type: "rental_booked",
-      title: "New rental! 🛴",
-      message: `A rider booked your vehicle for $${(amount / 100).toFixed(2)} MXN.`,
+      title: tPush("notifications.payment.rentalBooked.title", "en", params),
+      message: tPush("notifications.payment.rentalBooked.body", "en", params),
+      titleKey: "notifications.payment.rentalBooked.title",
+      bodyKey: "notifications.payment.rentalBooked.body",
+      params,
       icon: "🛴",
       read: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -479,38 +490,48 @@ async function handleMembershipPurchase(paymentIntent) {
     userDoc.data().fullName || userDoc.data().name || "Someone" :
     "Someone";
 
-  // 4. Notify host
-  await db.collection("notifications").add({
-    userId: hostId,
-    type: "membership_sold",
-    title: "Membership sold! 🎟️",
-    message: `${userName} purchased "${planName}" for $${(amount / 100).toFixed(
-      2,
-    )} MXN`,
-    icon: "🎟️",
-    read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    metadata: {
-      planId,
-      planName,
-      membershipId: membershipRef.id,
-      userId,
-      buyerName: userName,
-      amountCentavos: amount,
-    },
-  });
+  // 4. Notify host (recipient = the host/seller). BUG 34: key+params.
+  {
+    const params = {name: userName, plan: planName, amount: (amount / 100).toFixed(2)};
+    await db.collection("notifications").add({
+      userId: hostId,
+      type: "membership_sold",
+      title: tPush("notifications.payment.membershipSold.title", "en", params),
+      message: tPush("notifications.payment.membershipSold.body", "en", params),
+      titleKey: "notifications.payment.membershipSold.title",
+      bodyKey: "notifications.payment.membershipSold.body",
+      params,
+      icon: "🎟️",
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: {
+        planId,
+        planName,
+        membershipId: membershipRef.id,
+        userId,
+        buyerName: userName,
+        amountCentavos: amount,
+      },
+    });
+  }
 
-  // 5. Notify buyer
-  await db.collection("notifications").add({
-    userId: userId,
-    type: "membership_purchased",
-    title: "Membership active! 🎉",
-    message: `Your "${planName}" is ready — ${creditsIncluded} classes available.`,
-    icon: "🎉",
-    read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    metadata: {planId, planName, membershipId: membershipRef.id},
-  });
+  // 5. Notify buyer (recipient = the buyer). BUG 34: key+params.
+  {
+    const params = {plan: planName, credits: creditsIncluded};
+    await db.collection("notifications").add({
+      userId: userId,
+      type: "membership_purchased",
+      title: tPush("notifications.payment.membershipPurchased.title", "en", params),
+      message: tPush("notifications.payment.membershipPurchased.body", "en", params),
+      titleKey: "notifications.payment.membershipPurchased.title",
+      bodyKey: "notifications.payment.membershipPurchased.body",
+      params,
+      icon: "🎉",
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      metadata: {planId, planName, membershipId: membershipRef.id},
+    });
+  }
 
   console.log("✅ Membership purchase processing complete");
 }

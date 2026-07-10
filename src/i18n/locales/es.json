@@ -2008,6 +2008,52 @@
         "oldBody": "La propiedad de {{business}} fue transferida."
       }
     },
+    "digest": {
+      "title": "Tu semana en Kinlo ✨",
+      "body": "La IA de Kinlo preparó tu semana — mira tus recomendaciones."
+    },
+    "automation": {
+      "sessionReminderAttendee": {
+        "body": "Recordatorio: {{session}} {{when}}"
+      },
+      "sessionReminderHost": {
+        "body": "Sesión pronto: {{names}} · {{when}}"
+      }
+    },
+    "business": {
+      "sessionRequest": {
+        "body": "solicitó una sesión"
+      }
+    },
+    "payment": {
+      "featured": {
+        "title": "¡Tu evento está destacado! ⭐",
+        "body": "\"{{event}}\" ahora está destacado por {{days}} días."
+      },
+      "rentalBooked": {
+        "title": "¡Nueva renta! 🛴",
+        "body": "Alguien reservó tu vehículo por ${{amount}} MXN."
+      },
+      "membershipSold": {
+        "title": "¡Membresía vendida! 🎟️",
+        "body": "{{name}} compró \"{{plan}}\" por ${{amount}} MXN"
+      },
+      "membershipPurchased": {
+        "title": "¡Membresía activa! 🎉",
+        "body": "Tu \"{{plan}}\" está lista — {{credits}} clases disponibles."
+      }
+    },
+    "refund": {
+      "attendeeCancelled": {
+        "title": "Asistente canceló",
+        "bodyRefund": "{{name}} canceló para \"{{event}}\". Reembolso: {{pct}}%",
+        "bodyNoRefund": "{{name}} canceló para \"{{event}}\". Sin reembolso"
+      },
+      "eventCancelled": {
+        "title": "Evento cancelado - Reembolso total",
+        "body": "\"{{event}}\" fue cancelado por el anfitrión. Se te reembolsó ${{amount}} MXN completo, incluidas todas las comisiones."
+      }
+    },
     "event": {
       "waitlistPromoted": {
         "title": "¡Entraste! 🎉",

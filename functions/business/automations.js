@@ -15,6 +15,7 @@
 const admin = require("firebase-admin");
 const {HttpsError} = require("firebase-functions/v2/https");
 const {sendPushNotification} = require("../notifications/pushService");
+const {tPush, baseLang} = require("../i18n");
 
 const db = () => admin.firestore();
 const SMS_MONTHLY_QUOTA = 200;
@@ -251,11 +252,40 @@ async function twilioWebhook(req, res) {
   res.status(200).send("<Response></Response>");
 }
 
-/** Notify a linked app user via push + in-app (used by session reminders). */
-async function notify(linkedUid, title, body) {
+/**
+ * Notify a linked app user with a localized SYSTEM message (BUG 34): push +
+ * in-app. The body is a catalog key rendered in the recipient's language (title
+ * is the business name / brand — user content, left as-is). Reads the user doc
+ * ONCE for both the language and the push token (no double read). The stored
+ * message is the English fallback; bodyKey/params let the in-app card re-render
+ * in the live app language.
+ */
+async function notifyLocalized(linkedUid, title, bodyKey, params) {
   if (!linkedUid) return;
-  await sendPush(linkedUid, title, body);
-  await sendInApp(linkedUid, title, body);
+  const u = await db().collection("users").doc(linkedUid).get();
+  if (!u.exists) return;
+  const data = u.data();
+  const lang = baseLang(data.language);
+  if (data.pushToken) {
+    try {
+      await sendPushNotification(data.pushToken, {
+        uid: linkedUid, lang, title, bodyKey, params, data: {type: "business"},
+      });
+    } catch (e) {
+      // best-effort
+    }
+  }
+  await db().collection("notifications").add({
+    userId: linkedUid,
+    type: "business_message",
+    title: title || "Kinlo",
+    message: tPush(bodyKey, "en", params),
+    bodyKey,
+    params,
+    icon: "bell",
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 }
 
 /**
@@ -285,18 +315,20 @@ async function sessionRemindersCron() {
           .collection("members").doc(m.memberId).get();
         const uid = mem.exists ? mem.data().linkedUid : null;
         if (uid) {
-          await notify(uid, hostName || "Kinlo",
-            `Reminder: ${b.sessionTypeName || "session"} ${when}`);
+          // Recipient = the ATTENDEE (member). Localized per recipient.
+          await notifyLocalized(uid, hostName || "Kinlo",
+            "notifications.automation.sessionReminderAttendee.body",
+            {session: b.sessionTypeName || "session", when});
         }
       }
       patch.reminderAttendeeSent = true;
     }
-    // Host reminder.
+    // Host reminder (recipient = the host's own account).
     if (b.reminderHostAt && new Date(b.reminderHostAt).getTime() <= now &&
         !b.reminderHostSent) {
       const names = (b.members || []).map((m) => m.name).join(", ");
-      await notify(bizId, "Kinlo",
-        `Session soon: ${names} · ${when}`);
+      await notifyLocalized(bizId, "Kinlo",
+        "notifications.automation.sessionReminderHost.body", {names, when});
       patch.reminderHostSent = true;
     }
     if (Object.keys(patch).length) await doc.ref.update(patch);

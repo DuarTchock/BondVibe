@@ -2008,6 +2008,52 @@
         "oldBody": "Ownership of {{business}} was transferred."
       }
     },
+    "digest": {
+      "title": "Your week on Kinlo ✨",
+      "body": "Kinlo AI curated your week — see your picks."
+    },
+    "automation": {
+      "sessionReminderAttendee": {
+        "body": "Reminder: {{session}} {{when}}"
+      },
+      "sessionReminderHost": {
+        "body": "Session soon: {{names}} · {{when}}"
+      }
+    },
+    "business": {
+      "sessionRequest": {
+        "body": "requested a session"
+      }
+    },
+    "payment": {
+      "featured": {
+        "title": "Your event is featured! ⭐",
+        "body": "\"{{event}}\" is now featured for {{days}} days."
+      },
+      "rentalBooked": {
+        "title": "New rental! 🛴",
+        "body": "A rider booked your vehicle for ${{amount}} MXN."
+      },
+      "membershipSold": {
+        "title": "Membership sold! 🎟️",
+        "body": "{{name}} purchased \"{{plan}}\" for ${{amount}} MXN"
+      },
+      "membershipPurchased": {
+        "title": "Membership active! 🎉",
+        "body": "Your \"{{plan}}\" is ready — {{credits}} classes available."
+      }
+    },
+    "refund": {
+      "attendeeCancelled": {
+        "title": "Attendee Cancelled",
+        "bodyRefund": "{{name}} cancelled for \"{{event}}\". Refund: {{pct}}%",
+        "bodyNoRefund": "{{name}} cancelled for \"{{event}}\". No refund"
+      },
+      "eventCancelled": {
+        "title": "Event Cancelled - Full Refund",
+        "body": "\"{{event}}\" was cancelled by the host. You were refunded ${{amount}} MXN in full, including all fees."
+      }
+    },
     "event": {
       "waitlistPromoted": {
         "title": "You're in! 🎉",

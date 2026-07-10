@@ -6,6 +6,7 @@
 const functions = require("firebase-functions/v2");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const {tPush} = require("../i18n"); // BUG 34: localized notification strings
 const {getAttendeeId} = require("../utils/eventHelpers");
 const {isAdminUid} = require("../lib/auth");
 const db = admin.firestore();
@@ -336,24 +337,28 @@ exports.cancelEventAttendance = functions.https.onCall(
         const userData = userDoc.data() || {};
         const userName = userData.name || userData.fullName || "Someone";
 
-        const refundMsg =
-          refundPercentage > 0 ?
-            "Refund: " + refundPercentage * 100 + "%" :
-            "No refund";
-
+        // Recipient = the host. BUG 34: key+params; refund/no-refund is a
+        // separate body key so both variants localize fully.
+        const pct = refundPercentage * 100;
+        const params = {name: userName, event: eventData.title, pct};
+        const bodyKey = refundPercentage > 0 ?
+          "notifications.refund.attendeeCancelled.bodyRefund" :
+          "notifications.refund.attendeeCancelled.bodyNoRefund";
         await db.collection("notifications").add({
           userId: eventData.creatorId,
           type: "attendee_cancelled",
-          title: "Attendee Cancelled",
-          message:
-            userName + " cancelled for \"" + eventData.title + "\". " + refundMsg,
+          title: tPush("notifications.refund.attendeeCancelled.title", "en", params),
+          message: tPush(bodyKey, "en", params),
+          titleKey: "notifications.refund.attendeeCancelled.title",
+          bodyKey,
+          params,
           icon: "🚫",
           read: false,
           createdAt: new Date().toISOString(),
           metadata: {
             eventId: eventId,
             eventTitle: eventData.title,
-            refundPercentage: refundPercentage * 100,
+            refundPercentage: pct,
           },
         });
       }
@@ -489,20 +494,18 @@ exports.hostCancelEvent = functions.https.onCall(
             stripeFeeRetained: refundResult.refund.stripeFeeRetained,
           });
 
-          // Notify user — host cancel = full refund, all fees included.
+          // Notify user (recipient = the refunded attendee). BUG 34: key+params.
           const refundPesos = (refundResult.refund.amount / 100).toFixed(2);
+          const params = {event: eventData.title, amount: refundPesos};
 
           await db.collection("notifications").add({
             userId: paymentData.userId,
             type: "event_cancelled_refund",
-            title: "Event Cancelled - Full Refund",
-            message:
-              "\"" +
-              eventData.title +
-              "\" was cancelled by the host. " +
-              "You were refunded $" +
-              refundPesos +
-              " MXN in full, including all fees.",
+            title: tPush("notifications.refund.eventCancelled.title", "en", params),
+            message: tPush("notifications.refund.eventCancelled.body", "en", params),
+            titleKey: "notifications.refund.eventCancelled.title",
+            bodyKey: "notifications.refund.eventCancelled.body",
+            params,
             icon: "💰",
             read: false,
             createdAt: new Date().toISOString(),

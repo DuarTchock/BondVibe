@@ -227,11 +227,16 @@ exports.sendWeeklyDigestPush = onSchedule(
       .filter((u) => u.pushToken);
     console.log(`✨ Weekly digest push → ${targets.length} users`);
     if (targets.length === 0) return;
+    // BUG 34: recipient = each opted-in user; localized per recipient from the
+    // language already on the loaded user doc (no double read).
     await sendBatchPushNotifications(
       targets.map((u) => ({
         pushToken: u.pushToken,
-        title: "Your week on Kinlo ✨",
-        body: "Kinlo AI curated your week — see your picks.",
+        uid: u.uid,
+        lang: baseLang(u.language),
+        titleKey: "notifications.digest.title",
+        bodyKey: "notifications.digest.body",
+        params: {},
         data: {type: "weekly_digest", screen: "YourWeek"},
       })),
     );
@@ -3579,12 +3584,15 @@ exports.requestBusinessSession = onCall(async (request) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-  // Nudge the host.
+  // Nudge the host (recipient = the host). Title is the member name (user
+  // content); the body is a localized system key (BUG 34).
   await db.collection("notifications").add({
     userId: bizId,
     type: "business_session_request",
     title: member.data().name || "New request",
-    message: "requested a session",
+    message: tPush("notifications.business.sessionRequest.body", "en", {}),
+    bodyKey: "notifications.business.sessionRequest.body",
+    params: {},
     icon: "calendarCheck",
     read: false,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
