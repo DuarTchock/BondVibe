@@ -1,4 +1,6 @@
 import Icon from "../components/Icon";
+import PlaceAutocomplete from "../components/PlaceAutocomplete";
+import { geocodeAddress } from "../utils/geocode";
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -65,11 +67,30 @@ export default function EditEventScreen({ route, navigation }) {
     date: new Date(),
     time: "",
     location: "",
+    locationCoords: null,
+    venueAddress: "",
+    placeId: null,
     durationMinutes: "180",
     maxAttendees: "",
     price: "",
   });
   const [loading, setLoading] = useState(true);
+
+  // F1 Phase 3: picking a place recaptures coords/address so the map pin stays
+  // in sync; a free-text entry clears the stale coords (re-geocoded on save).
+  const handlePlaceSelect = (place) => {
+    const hasCoords =
+      Number.isFinite(place?.latitude) && Number.isFinite(place?.longitude);
+    setForm((f) => ({
+      ...f,
+      location: place?.description || place?.address || f.location,
+      locationCoords: hasCoords
+        ? { latitude: place.latitude, longitude: place.longitude }
+        : null,
+      venueAddress: place?.address || null,
+      placeId: place?.placeId || null,
+    }));
+  };
   const [saving, setSaving] = useState(false);
   const [creatorId, setCreatorId] = useState(null);
   const [coHosts, setCoHosts] = useState([]); // [{ id, name }]
@@ -129,6 +150,9 @@ export default function EditEventScreen({ route, navigation }) {
           date: eventDate,
           time: data.time || "",
           location: data.location || "",
+          locationCoords: data.locationCoords || null,
+          venueAddress: data.venueAddress || "",
+          placeId: data.placeId || null,
           durationMinutes: data.durationMinutes?.toString() || "180",
           maxAttendees:
             data.maxAttendees?.toString() || data.maxPeople?.toString() || "",
@@ -416,12 +440,20 @@ export default function EditEventScreen({ route, navigation }) {
         finalImageUrls = existingUrls;
       }
 
+      // Keep the map pin in sync: exact coords from the picker, else geocode the
+      // (possibly edited) location text. null → the event stays "not on map".
+      let resolvedCoords = form.locationCoords;
+      if (!resolvedCoords) resolvedCoords = await geocodeAddress(form.location);
+
       const updateData = {
         title: form.title.trim(),
         description: form.description.trim(),
         category: form.category,
         language: form.language,
         location: form.location.trim(),
+        locationCoords: resolvedCoords || null,
+        venueAddress: form.venueAddress?.trim() || null,
+        placeId: form.placeId || null,
         durationMinutes: parseInt(form.durationMinutes, 10) || 180,
         maxAttendees: parseInt(form.maxAttendees) || 10,
         maxPeople: parseInt(form.maxAttendees) || 10,
@@ -1010,29 +1042,11 @@ export default function EditEventScreen({ route, navigation }) {
         {/* Location */}
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.text }]}>{t("editEvent.locationLabel")}</Text>
-          <View style={styles.inputWrapper}>
-            <Icon
-              name="location"
-              size={18}
-              tone="muted"
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={[
-                styles.input,
-                styles.inputWithIcon,
-                {
-                  backgroundColor: colors.surfaceGlass,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              value={form.location}
-              onChangeText={(text) => setForm({ ...form, location: text })}
-              placeholder={t("editEvent.locationPlaceholder")}
-              placeholderTextColor={colors.textTertiary}
-            />
-          </View>
+          <PlaceAutocomplete
+            value={form.location}
+            onSelect={handlePlaceSelect}
+            placeholder={t("editEvent.locationPlaceholder")}
+          />
         </View>
 
         {/* Event length — sets end time; drives when Community Matching opens */}

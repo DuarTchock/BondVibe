@@ -31,6 +31,7 @@ import GradientBackground from "../components/GradientBackground";
 import EventCreatedModal from "../components/EventCreatedModal";
 import SelectDropdown from "../components/SelectDropdown";
 import PlaceAutocomplete from "../components/PlaceAutocomplete";
+import { geocodeAddress } from "../utils/geocode";
 import EventImagePicker from "../components/EventImagePicker";
 import Icon from "../components/Icon";
 import {
@@ -525,21 +526,6 @@ export default function CreateEventScreen({ navigation, route }) {
       );
       return;
     }
-    // F1 Phase 3: coordinates are required going forward so the event can be
-    // pinned on the map — the venue must be picked from the place suggestions.
-    // (Availability blocks and business classes are exempt — not on discovery.)
-    if (
-      !isBlocked && !isClass &&
-      (!locationCoords ||
-        !Number.isFinite(locationCoords.latitude) ||
-        !Number.isFinite(locationCoords.longitude))
-    ) {
-      Alert.alert(
-        t("createEvent.validation.missingInfoTitle"),
-        t("createEvent.validation.missingCoordsMsg")
-      );
-      return;
-    }
     // A blocked/OOO slot needs no capacity or price (BUG 27.1) — relax those.
     if (!isBlocked && (!maxPeople || parseInt(maxPeople) < 1)) {
       Alert.alert(t("createEvent.validation.invalidMaxPeopleTitle"), t("createEvent.validation.invalidMaxPeopleMsg"));
@@ -702,6 +688,15 @@ export default function CreateEventScreen({ navigation, route }) {
         selectedCity
       )}`;
 
+      // F1 Phase 3: coords let the event be pinned on the map. Prefer the exact
+      // coords from the Places picker; if the host typed free-text, geocode the
+      // location (Google returns the city centroid for unlisted venues). A null
+      // result just means the event stays "not on map" — never a hard block.
+      let resolvedCoords = locationCoords;
+      if (!resolvedCoords && !isBlocked && !isClass) {
+        resolvedCoords = await geocodeAddress(fullLocation);
+      }
+
       // Generate recurrence group ID if recurring
       const recurrenceGroupId =
         recurrenceConfig.type !== "none"
@@ -758,8 +753,8 @@ export default function CreateEventScreen({ navigation, route }) {
         // BUG 27 / 27.1: visibility + agenda classification persisted on the doc.
         listedPublicly: effectiveListedPublicly,
         agendaType,
-        // Optional precise pin from the Places picker (null when typed free-text).
-        locationCoords: locationCoords || null,
+        // Coords for the map pin — exact from the Places picker, else geocoded.
+        locationCoords: resolvedCoords || null,
         placeId: placeId || null,
         // Full street address kept behind the venue name (BUG 3) for maps.
         venueAddress: venueAddress || null,
