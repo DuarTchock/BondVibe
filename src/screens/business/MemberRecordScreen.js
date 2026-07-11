@@ -221,6 +221,16 @@ export default function MemberRecordScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Digital membership / loyalty card (paper-stack) */}
+        <TouchableOpacity
+          style={[styles.cardLink, { backgroundColor: colors.primary }]}
+          onPress={() => navigation.navigate("BusinessMembershipCard", { memberId })}
+          activeOpacity={0.9}
+        >
+          <Icon name="qr" size={18} color="#fff" />
+          <Text style={styles.cardLinkText}>{t("business.record.viewCard")}</Text>
+        </TouchableOpacity>
+
         {/* Pricing tier (kinlo_business/05 §A) — locals get the special rate */}
         <View style={[styles.tierCard, { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}33` }]}>
           <View style={styles.tierHeader}>
@@ -453,6 +463,8 @@ function createStyles(colors) {
     name: { fontSize: 20, fontWeight: "800" },
     contact: { fontSize: 12.5, marginTop: 2 },
     sectionLabel: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", marginTop: 22, marginBottom: 10 },
+    cardLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 24, marginTop: 16 },
+    cardLinkText: { color: "#fff", fontSize: 14.5, fontWeight: "800" },
     tierCard: { borderWidth: 1, borderRadius: 16, padding: 16, marginTop: 18 },
     tierHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
     tierTitle: { fontSize: 15, fontWeight: "800" },

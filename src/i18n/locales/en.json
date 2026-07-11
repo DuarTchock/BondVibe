@@ -3121,6 +3121,7 @@
     "record": {
       "title": "Member",
       "notFound": "Member not found.",
+      "viewCard": "View membership card",
       "setStatus": "Status",
       "appAccess": "App access",
       "tags": "Tags",
@@ -3249,6 +3250,20 @@
       "defaultBusiness": "Business",
       "hint": "Show this to the host to get checked in.",
       "show": "Show"
+    },
+    "card": {
+      "title": "Membership card",
+      "classCredits": "Class credits",
+      "membership": "Membership",
+      "state": { "active": "Active", "expired": "Expired", "depleted": "No credits", "none": "No plan" },
+      "expires": "Expires {{date}}",
+      "showHint": "Show this at check-in",
+      "loyalty": "Loyalty",
+      "toReward_one": "{{count}} visit to your reward",
+      "toReward_other": "{{count}} visits to your reward",
+      "rewardReady": "Reward on your next visit 🎁",
+      "rewardsEarned_one": "{{count}} reward earned",
+      "rewardsEarned_other": "{{count}} rewards earned"
     },
     "redeem": {
       "title": "Link a business",

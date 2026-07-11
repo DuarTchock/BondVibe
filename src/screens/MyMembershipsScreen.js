@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
-import BusinessPassCard from "../components/business/BusinessPassCard";
+import MembershipCard from "../components/business/MembershipCard";
 import { getMyBusinessPasses } from "../services/businessPassService";
 import {
   getUserMemberships,
@@ -201,21 +201,30 @@ export default function MyMembershipsScreen({ navigation }) {
       {/* Business check-in pass */}
       <Modal visible={!!passModal} transparent animationType="fade" onRequestClose={() => setPassModal(null)}>
         <TouchableOpacity style={styles.passBackdrop} activeOpacity={1} onPress={() => setPassModal(null)}>
-          <View style={{ width: "100%", maxWidth: 360 }}>
-            <BusinessPassCard pass={passModal} />
-            <TouchableOpacity
-              style={[styles.requestBtn, { backgroundColor: colors.primary }]}
-              activeOpacity={0.85}
-              onPress={() => {
-                const p = passModal;
-                setPassModal(null);
-                navigation.navigate("BusinessRequestSession", { bizId: p.bizId, businessName: p.businessName });
-              }}
-            >
-              <Icon name="calendar" size={17} color="#fff" />
-              <Text style={styles.requestBtnText}>{t("business.request.entry")}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.passClose} onPress={() => setPassModal(null)} activeOpacity={0.8}>
+            <Icon name="close" size={20} color="#fff" />
+          </TouchableOpacity>
+          <ScrollView
+            style={{ maxHeight: "90%", width: "100%" }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 24, alignItems: "stretch" }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={{ width: "100%", maxWidth: 380, alignSelf: "center" }}>
+              {passModal && <MembershipCard pass={passModal} />}
+              <TouchableOpacity
+                style={[styles.requestBtn, { backgroundColor: colors.primary }]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  const p = passModal;
+                  setPassModal(null);
+                  navigation.navigate("BusinessRequestSession", { bizId: p.bizId, businessName: p.businessName });
+                }}
+              >
+                <Icon name="calendar" size={17} color="#fff" />
+                <Text style={styles.requestBtnText}>{t("business.request.entry")}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </TouchableOpacity>
       </Modal>
     </GradientBackground>
@@ -244,6 +253,7 @@ function createStyles(colors, isDark) {
     bizPassName: { flex: 1, fontSize: 14, fontWeight: "700" },
     bizPassAction: { fontSize: 13, fontWeight: "700" },
     passBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)", padding: 32 },
+    passClose: { position: "absolute", top: 54, right: 20, width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center", zIndex: 2 },
     requestBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 50, borderRadius: 25, marginTop: 16 },
     requestBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
     empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 },

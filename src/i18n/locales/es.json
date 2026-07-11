@@ -3121,6 +3121,7 @@
     "record": {
       "title": "Miembro",
       "notFound": "Miembro no encontrado.",
+      "viewCard": "Ver tarjeta de membresía",
       "setStatus": "Estado",
       "appAccess": "Acceso a la app",
       "tags": "Etiquetas",
@@ -3249,6 +3250,20 @@
       "defaultBusiness": "Negocio",
       "hint": "Muéstralo al anfitrión para que te registre.",
       "show": "Mostrar"
+    },
+    "card": {
+      "title": "Tarjeta de membresía",
+      "classCredits": "Créditos de clase",
+      "membership": "Membresía",
+      "state": { "active": "Activa", "expired": "Vencida", "depleted": "Sin créditos", "none": "Sin plan" },
+      "expires": "Vence {{date}}",
+      "showHint": "Muéstrala al hacer check-in",
+      "loyalty": "Lealtad",
+      "toReward_one": "{{count}} visita para tu premio",
+      "toReward_other": "{{count}} visitas para tu premio",
+      "rewardReady": "Premio en tu próxima visita 🎁",
+      "rewardsEarned_one": "{{count}} premio ganado",
+      "rewardsEarned_other": "{{count}} premios ganados"
     },
     "redeem": {
       "title": "Vincular un negocio",

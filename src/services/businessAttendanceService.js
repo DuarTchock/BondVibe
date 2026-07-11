@@ -16,14 +16,34 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  updateDoc,
+  increment,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { getMyBizId } from "./businessService";
-import { getMember } from "./businessMembersService";
+import { getMember, memberRefFor } from "./businessMembersService";
 import { adjustCredits, isPackageExpired } from "./businessPackagesService";
 import { audienceAllows } from "../utils/membershipUtils";
 
 export const ATTENDANCE_SOURCE = { QR: "qr", MANUAL: "manual" };
+
+// Digital loyalty card (dashboard handoff §paper-stack): a punch card of this
+// many visits earns one reward. A constant (no per-package loyalty config today).
+export const LOYALTY_STAMPS_PER_CARD = 10;
+
+/**
+ * Loyalty progress from a member's cumulative visit count. Pure — no reads.
+ * @param {number} visits member.visitsTotal (stamps auto-fill on attendance)
+ * @returns {{ size:number, rewardsEarned:number, filledInCycle:number }}
+ */
+export function loyaltyProgress(visits, size = LOYALTY_STAMPS_PER_CARD) {
+  const n = Math.max(0, Math.floor(Number(visits) || 0));
+  return {
+    size,
+    rewardsEarned: Math.floor(n / size),
+    filledInCycle: n % size,
+  };
+}
 
 const attendanceCol = (bizId) => collection(db, "businesses", bizId, "attendance");
 
@@ -52,6 +72,15 @@ export async function markPresent(member, opts = {}, bizId = getMyBizId()) {
     creditDeducted: !!hasCredits,
     createdAt: serverTimestamp(),
   });
+
+  // Loyalty stamp — every check-in punches the digital card. Denormalized onto
+  // the member doc so the attendee's own card can read it (the attendance ledger
+  // is host-scoped). Best-effort: loyalty must never block a check-in.
+  try {
+    await updateDoc(memberRefFor(bizId, member.id), { visitsTotal: increment(1) });
+  } catch (e) {
+    /* non-critical */
+  }
 
   let remaining = pkg ? member.creditBalance || 0 : null;
   if (hasCredits) {

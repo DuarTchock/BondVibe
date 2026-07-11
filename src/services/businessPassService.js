@@ -53,6 +53,7 @@ export async function getMyBusinessPasses() {
         memberName: data.name || "",
         activePackage: data.activePackage || null,
         creditBalance: typeof data.creditBalance === "number" ? data.creditBalance : null,
+        visitsTotal: typeof data.visitsTotal === "number" ? data.visitsTotal : 0,
       };
     });
   } catch (e) {
