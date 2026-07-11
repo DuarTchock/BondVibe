@@ -7,6 +7,7 @@
  */
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const {FieldValue} = require("firebase-admin/firestore");
 const {validateHandle} = require("./lib/handles");
 const {isAdminUid} = require("./lib/auth");
 
@@ -70,7 +71,7 @@ exports.claimHandle = onCall(async (request) => {
     if (hSnap.exists && hSnap.data().uid && hSnap.data().uid !== uid) {
       throw new HttpsError("already-exists", MESSAGES.taken);
     }
-    tx.set(handleRef, {uid, claimedAt: admin.firestore.FieldValue.serverTimestamp()});
+    tx.set(handleRef, {uid, claimedAt: FieldValue.serverTimestamp()});
     tx.set(userRef, {handle: displayForm(request.data.handle), handleLower: v.handleLower}, {merge: true});
   });
 
@@ -120,11 +121,11 @@ exports.adminReassignHandle = onCall(async (request) => {
       // Tombstone — a handle is never recycled to a different person.
       tx.set(
         db.collection("handles").doc(oldLower),
-        {uid: null, releasedAt: admin.firestore.FieldValue.serverTimestamp(), formerUid: targetUid},
+        {uid: null, releasedAt: FieldValue.serverTimestamp(), formerUid: targetUid},
         {merge: true},
       );
     }
-    tx.set(handleRef, {uid: targetUid, claimedAt: admin.firestore.FieldValue.serverTimestamp()});
+    tx.set(handleRef, {uid: targetUid, claimedAt: FieldValue.serverTimestamp()});
     tx.set(userRef, {handle: displayForm(request.data.handle), handleLower: v.handleLower}, {merge: true});
   });
 

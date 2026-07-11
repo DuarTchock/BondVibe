@@ -6,6 +6,7 @@
  * so a notification NEVER renders blank.
  */
 const admin = require("firebase-admin");
+const {FieldPath} = require("firebase-admin/firestore");
 
 // Add a language here as its catalog file lands (slice 5). English is required.
 const CATALOGS = {
@@ -82,7 +83,7 @@ async function getUserLangs(uids) {
     const chunk = unique.slice(i, i + 10);
     try {
       const snap = await db.collection("users")
-        .where(admin.firestore.FieldPath.documentId(), "in", chunk).get();
+        .where(FieldPath.documentId(), "in", chunk).get();
       snap.forEach((d) => {
         out[d.id] = baseLang(d.data().language) || "en";
       });

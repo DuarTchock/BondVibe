@@ -9,6 +9,7 @@
 const {onRequest} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const {FieldValue} = require("firebase-admin/firestore");
 const {calculateCheckoutAmount} = require("./stripe/pricing");
 
 const mpToken = defineSecret("MERCADOPAGO_ACCESS_TOKEN");
@@ -147,11 +148,11 @@ exports.mercadoPagoWebhook = onRequest(
         currency: "mxn",
         status: "succeeded",
         hostPayoutOwed: payment.metadata?.event_price ?? null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
 
       await db.collection("events").doc(eventId).update({
-        attendees: admin.firestore.FieldValue.arrayUnion(userId),
+        attendees: FieldValue.arrayUnion(userId),
       });
 
       return res.status(200).send("ok");

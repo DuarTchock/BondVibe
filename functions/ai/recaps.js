@@ -7,7 +7,7 @@
  */
 
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
-const admin = require("firebase-admin");
+const {FieldValue} = require("firebase-admin/firestore");
 const {getAiConfig, callAnthropic} = require("./foundation");
 
 const MAX_RECAP_IMAGES = 3;
@@ -87,7 +87,7 @@ function buildOnRecapPhotoCreated(db, anthropicKey) {
         attendeeIds: attendees.slice(0, 100),
         likeCount: 0,
         commentCount: 0,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
       await evRef.update({recapPostId: postRef.id});
     },

@@ -8,6 +8,7 @@ const {onRequest} = require("firebase-functions/v2/https");
 const {verifyBearer, isAdminUid} = require("../lib/auth");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const {FieldValue} = require("firebase-admin/firestore");
 
 // Define Stripe secret
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
@@ -56,7 +57,7 @@ exports.createConnectAccount = onRequest(
             "stripeConnect.payoutsEnabled": existing.payouts_enabled,
             "stripeConnect.detailsSubmitted": existing.details_submitted,
             "stripeConnect.lastUpdated":
-              admin.firestore.FieldValue.serverTimestamp(),
+              FieldValue.serverTimestamp(),
           });
           console.log("♻️ Reusing existing Stripe account:", existingId);
           return res.json({success: true, accountId: existing.id, reused: true});
@@ -103,9 +104,9 @@ exports.createConnectAccount = onRequest(
         "stripeConnect.detailsSubmitted": account.details_submitted,
         "stripeConnect.onboardingCompleted": false,
         "stripeConnect.lastUpdated":
-          admin.firestore.FieldValue.serverTimestamp(),
+          FieldValue.serverTimestamp(),
         "hostConfig.type": "paid", // Upgrade to paid when creating Stripe
-        "hostConfig.updatedAt": admin.firestore.FieldValue.serverTimestamp(),
+        "hostConfig.updatedAt": FieldValue.serverTimestamp(),
       });
 
       res.json({
@@ -182,7 +183,7 @@ exports.createAccountLink = onRequest(
       await admin.firestore().collection("users").doc(userId).update({
         "stripeConnect.onboardingUrl": accountLink.url,
         "stripeConnect.lastUpdated":
-          admin.firestore.FieldValue.serverTimestamp(),
+          FieldValue.serverTimestamp(),
       });
 
       res.json({
@@ -275,7 +276,7 @@ exports.getAccountStatus = onRequest(
         "stripeConnect.detailsSubmitted": account.details_submitted,
         "stripeConnect.onboardingCompleted": account.details_submitted,
         "stripeConnect.lastUpdated":
-          admin.firestore.FieldValue.serverTimestamp(),
+          FieldValue.serverTimestamp(),
       };
 
       // ✅ NEW: Auto-update canCreatePaidEvents when account is active
@@ -283,7 +284,7 @@ exports.getAccountStatus = onRequest(
         updateData["hostConfig.canCreatePaidEvents"] = true;
         updateData["hostConfig.type"] = "paid";
         updateData["hostConfig.updatedAt"] =
-          admin.firestore.FieldValue.serverTimestamp();
+          FieldValue.serverTimestamp();
         console.log(
           "✅ Setting canCreatePaidEvents = true (account fully active)",
         );
@@ -381,11 +382,11 @@ exports.stripeConnectWebhook = onRequest(
             "stripeConnect.detailsSubmitted": account.details_submitted,
             "stripeConnect.onboardingCompleted": account.details_submitted,
             "stripeConnect.lastUpdated":
-              admin.firestore.FieldValue.serverTimestamp(),
+              FieldValue.serverTimestamp(),
             "hostConfig.canCreatePaidEvents": isFullyActive,
             "hostConfig.type": "paid",
             "hostConfig.updatedAt":
-              admin.firestore.FieldValue.serverTimestamp(),
+              FieldValue.serverTimestamp(),
           };
 
           await usersRef.doc(userId).update(updateData);

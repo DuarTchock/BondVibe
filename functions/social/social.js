@@ -6,11 +6,11 @@
  */
 const {onDocumentWritten, onDocumentCreated} = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
+const {FieldValue} = require("firebase-admin/firestore");
 const {sendBatchPushNotifications} = require("../notifications/pushService");
 const {tPush, baseLang} = require("../i18n");
 
 const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
 
 /**
  * +1 when a subdoc is created, -1 when deleted, 0 otherwise.
@@ -136,7 +136,7 @@ const onFollowCreated = onDocumentCreated("follows/{docId}", async (event) => {
     bodyKey: bk,
     params,
     read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
 
   // Send push to the followee if they have a token — lang read from the SAME doc.

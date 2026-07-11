@@ -12,13 +12,12 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
+const {FieldValue, Timestamp} = require("firebase-admin/firestore");
 const {sendBatchPushNotifications} = require("../notifications/pushService");
 const {tPush, baseLang} = require("../i18n");
 const {getEventCreatorId} = require("../utils/eventHelpers");
 
 const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
-const Timestamp = admin.firestore.Timestamp;
 
 const MATCH_TYPES = ["friend", "professional", "romantic"];
 const OPENS_AT = ["now", "1h_before", "after_checkin", "after_event"];

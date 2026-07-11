@@ -7,6 +7,7 @@
 const {onRequest} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const {FieldValue, Timestamp} = require("firebase-admin/firestore");
 const {tPush} = require("../i18n"); // BUG 34: localized notification strings
 
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
@@ -86,7 +87,7 @@ async function handleProCheckoutCompleted(session) {
       isPremium: true,
       stripeProCustomerId: session.customer || null,
       stripeProSubscriptionId: session.subscription || null,
-      proSince: admin.firestore.FieldValue.serverTimestamp(),
+      proSince: FieldValue.serverTimestamp(),
     },
     {merge: true},
   );
@@ -140,7 +141,7 @@ async function handlePlusCheckoutCompleted(session) {
       plan: "kinlo_plus",
       stripePlusCustomerId: session.customer || null,
       stripePlusSubscriptionId: session.subscription || null,
-      plusSince: admin.firestore.FieldValue.serverTimestamp(),
+      plusSince: FieldValue.serverTimestamp(),
     },
     {merge: true},
   );
@@ -245,7 +246,7 @@ async function handlePromotionPurchase(paymentIntent) {
     amount,
     currency,
     status: "succeeded",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     metadata,
   });
 
@@ -253,7 +254,7 @@ async function handlePromotionPurchase(paymentIntent) {
   await db.collection("events").doc(eventId).update({
     featured: true,
     featuredTier: tier || "standard",
-    featuredUntil: admin.firestore.Timestamp.fromDate(expiresAt),
+    featuredUntil: Timestamp.fromDate(expiresAt),
   });
 
   // 3. Promotion record
@@ -264,11 +265,11 @@ async function handlePromotionPurchase(paymentIntent) {
     planId,
     tier: tier || "standard",
     amountCentavos: amount,
-    startsAt: admin.firestore.Timestamp.fromDate(now),
-    expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+    startsAt: Timestamp.fromDate(now),
+    expiresAt: Timestamp.fromDate(expiresAt),
     paymentId: paymentIntentId,
     status: "active",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
 
   // 4. Notify the host (recipient = the host). BUG 34: key+params.
@@ -284,7 +285,7 @@ async function handlePromotionPurchase(paymentIntent) {
       params,
       icon: "⭐",
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {eventId, eventTitle},
     });
   }
@@ -334,14 +335,14 @@ async function handleRentalPayment(paymentIntent) {
     amount,
     currency,
     status: "succeeded",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     metadata,
   });
 
   // 2. Confirm the reservation
   await rentalRef.update({
     status: "active",
-    paidAt: admin.firestore.FieldValue.serverTimestamp(),
+    paidAt: FieldValue.serverTimestamp(),
   });
 
   // 3. Notify the partner/owner (recipient = the vehicle owner). BUG 34.
@@ -357,7 +358,7 @@ async function handleRentalPayment(paymentIntent) {
       params,
       icon: "🛴",
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {rentalId, vehicleId: vehicleId || rental.vehicleId},
     });
   }
@@ -394,7 +395,7 @@ async function handleEventTicketPurchase(paymentIntent) {
     amount: amount,
     currency: currency,
     status: "succeeded",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     metadata: metadata,
   };
 
@@ -407,7 +408,7 @@ async function handleEventTicketPurchase(paymentIntent) {
   console.log("👥 Adding user to event attendees...");
   const eventRef = db.collection("events").doc(eventId);
   await eventRef.update({
-    attendees: admin.firestore.FieldValue.arrayUnion(userId),
+    attendees: FieldValue.arrayUnion(userId),
   });
   console.log("✅ User added to attendees");
 
@@ -454,7 +455,7 @@ async function handleMembershipPurchase(paymentIntent) {
     amount,
     currency,
     status: "succeeded",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     metadata,
   });
   console.log("✅ Membership payment record saved");
@@ -474,13 +475,13 @@ async function handleMembershipPurchase(paymentIntent) {
     creditsTotal: creditsIncluded,
     creditsRemaining: creditsIncluded,
     audienceTier,
-    purchasedAt: admin.firestore.Timestamp.fromDate(now),
-    expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+    purchasedAt: Timestamp.fromDate(now),
+    expiresAt: Timestamp.fromDate(expiresAt),
     status: "active",
     autoRenew: false,
     paymentId: paymentIntentId,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
   console.log("✅ Membership created:", membershipRef.id);
 
@@ -503,7 +504,7 @@ async function handleMembershipPurchase(paymentIntent) {
       params,
       icon: "🎟️",
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {
         planId,
         planName,
@@ -528,7 +529,7 @@ async function handleMembershipPurchase(paymentIntent) {
       params,
       icon: "🎉",
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {planId, planName, membershipId: membershipRef.id},
     });
   }

@@ -51,7 +51,7 @@ const {getAttendeeIds, getEventCreatorId, getHostIdForPayout} = require("./utils
 const {
   snapApproxGrid, deriveArea, deriveVenue, coordFromData, coordsEqual,
 } = require("./lib/eventLocation");
-// Modular FieldValue — same as admin.firestore.FieldValue in prod, but stub-safe
+// Modular FieldValue — same as FieldValue in prod, but stub-safe
 // under the functions emulator (whose admin stub drops the namespaced statics).
 const {FieldValue} = require("firebase-admin/firestore");
 
@@ -201,7 +201,7 @@ exports.createNotification = onCall(async (request) => {
     metadata,
     relatedEventId: d.relatedEventId ? str(d.relatedEventId, 128) : null,
     relatedUserId: d.relatedUserId ? str(d.relatedUserId, 128) : null,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
   return {ok: true};
 });
@@ -430,7 +430,7 @@ exports.onNewMessage = onDocumentCreated(
               unreadCount: currentCount + 1,
               lastMessage: messageBody,
               lastSender: senderName,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
               read: false,
             });
             console.log(`📝 Updated notification for ${userId} (${currentCount + 1} messages)`);
@@ -444,8 +444,8 @@ exports.onNewMessage = onDocumentCreated(
               unreadCount: 1,
               lastMessage: messageBody,
               lastSender: senderName,
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
               read: false,
             });
             console.log(`📝 Created notification for ${userId}`);
@@ -1039,12 +1039,12 @@ exports.reserveMembershipCredit = onCall(async (request) => {
     creditCost,
     membershipType: chosen.type,
     status: "reserved",
-    reservedAt: admin.firestore.FieldValue.serverTimestamp(),
+    reservedAt: FieldValue.serverTimestamp(),
   });
 
   // Add the user to the event attendees.
   await db.collection("events").doc(eventId).update({
-    attendees: admin.firestore.FieldValue.arrayUnion(uid),
+    attendees: FieldValue.arrayUnion(uid),
   });
 
   return {success: true, reservationId: reservationRef.id};
@@ -1079,7 +1079,7 @@ exports.redeemMembershipCredit = onCall(async (request) => {
     const membership = memSnap.data();
 
     const cost = reservation.creditCost || 1;
-    const updates = {updatedAt: admin.firestore.FieldValue.serverTimestamp()};
+    const updates = {updatedAt: FieldValue.serverTimestamp()};
     // Credit-based deduction (idempotent via the reservation.status guard above).
     // A legacy unlimited membership has creditsRemaining == null and rides out
     // its expiry without being decremented.
@@ -1092,7 +1092,7 @@ exports.redeemMembershipCredit = onCall(async (request) => {
 
     tx.update(resRef, {
       status: "redeemed",
-      redeemedAt: admin.firestore.FieldValue.serverTimestamp(),
+      redeemedAt: FieldValue.serverTimestamp(),
       redeemedBy: uid,
     });
 
@@ -1105,7 +1105,7 @@ exports.redeemMembershipCredit = onCall(async (request) => {
       eventId: reservation.eventId,
       eventTitle: reservation.eventTitle || "",
       creditsDeducted: membership.type === "credits" ? cost : 0,
-      redeemedAt: admin.firestore.FieldValue.serverTimestamp(),
+      redeemedAt: FieldValue.serverTimestamp(),
       redeemedBy: uid,
       status: "redeemed",
     });
@@ -1146,7 +1146,7 @@ exports.redeemMembershipCredit = onCall(async (request) => {
         params,
         icon: "🎟️",
         read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         metadata: {
           membershipId: result.membershipId,
           reservationId,
@@ -1210,7 +1210,7 @@ exports.undoMembershipRedemption = onCall(async (request) => {
     const memRef = db.collection("memberships").doc(reservation.membershipId);
     const memSnap = await tx.get(memRef);
     const cost = reservation.creditCost || 1;
-    const updates = {updatedAt: admin.firestore.FieldValue.serverTimestamp()};
+    const updates = {updatedAt: FieldValue.serverTimestamp()};
     if (memSnap.exists && typeof memSnap.data().creditsRemaining === "number") {
       updates.creditsRemaining = memSnap.data().creditsRemaining + cost;
       if (memSnap.data().status === "depleted") updates.status = "active";
@@ -1219,8 +1219,8 @@ exports.undoMembershipRedemption = onCall(async (request) => {
 
     tx.update(resRef, {
       status: "reserved",
-      redeemedAt: admin.firestore.FieldValue.delete(),
-      redeemedBy: admin.firestore.FieldValue.delete(),
+      redeemedAt: FieldValue.delete(),
+      redeemedBy: FieldValue.delete(),
     });
 
     return {
@@ -1243,7 +1243,7 @@ exports.undoMembershipRedemption = onCall(async (request) => {
     snap.forEach((d) =>
       batch.update(d.ref, {
         status: "undone",
-        undoneAt: admin.firestore.FieldValue.serverTimestamp(),
+        undoneAt: FieldValue.serverTimestamp(),
       }),
     );
     await batch.commit();
@@ -1275,7 +1275,7 @@ exports.undoMembershipRedemption = onCall(async (request) => {
         params,
         icon: "🎟️",
         read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         metadata: {
           membershipId: result.membershipId,
           reservationId,
@@ -1352,7 +1352,7 @@ exports.releaseMembershipReservation = onCall(async (request) => {
           );
           const u = {
             creditsRemaining: remaining,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           };
           if (remaining === 0) u.status = "depleted";
           tx.update(memRef, u);
@@ -1360,19 +1360,19 @@ exports.releaseMembershipReservation = onCall(async (request) => {
       }
       tx.update(resRef, {
         status: "forfeited",
-        releasedAt: admin.firestore.FieldValue.serverTimestamp(),
+        releasedAt: FieldValue.serverTimestamp(),
       });
     });
   } else {
     await resRef.update({
       status: "released",
-      releasedAt: admin.firestore.FieldValue.serverTimestamp(),
+      releasedAt: FieldValue.serverTimestamp(),
     });
   }
 
   // Remove the attendee from the event regardless.
   await db.collection("events").doc(reservation.eventId).update({
-    attendees: admin.firestore.FieldValue.arrayRemove(reservation.userId),
+    attendees: FieldValue.arrayRemove(reservation.userId),
   });
 
   return {success: true, forfeited: forfeit};
@@ -1399,7 +1399,7 @@ async function pushMembershipNotification(userId, payload) {
   await db.collection("notifications").add({
     userId,
     read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     ...rest,
     titleKey,
     bodyKey,
@@ -1505,7 +1505,7 @@ exports.sendMembershipReminders = onSchedule(
       }
 
       if (changed) {
-        updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+        updates.updatedAt = FieldValue.serverTimestamp();
         await docSnap.ref.update(updates);
       }
     }
@@ -1558,7 +1558,7 @@ exports.sendEventReminders = onSchedule(
           params,
           icon: "⏰",
           read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           metadata: {eventId: docSnap.id, eventTitle: title},
         });
         const u = await db.collection("users").doc(uid).get();
@@ -1683,7 +1683,7 @@ exports.onCarpoolRiderWritten = onDocumentWritten(
         params,
         icon: "🚗",
         read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         metadata: {eventId, eventTitle: carpool.eventTitle || ""},
       });
       return;
@@ -1704,7 +1704,7 @@ exports.onCarpoolRiderWritten = onDocumentWritten(
       params,
       icon: "🚗",
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {eventId, eventTitle: carpool.eventTitle || ""},
     });
   },
@@ -1766,7 +1766,7 @@ exports.creditCarpoolSeatsOnCompletion = onSchedule(
             cp.ref,
             {
               seatsCredited: true,
-              creditedAt: admin.firestore.FieldValue.serverTimestamp(),
+              creditedAt: FieldValue.serverTimestamp(),
             },
             {merge: true},
           );
@@ -1778,7 +1778,7 @@ exports.creditCarpoolSeatsOnCompletion = onSchedule(
           await db.collection("users").doc(carpool.driverId).set(
             {
               carpoolStats: {
-                seatsShared: admin.firestore.FieldValue.increment(approved),
+                seatsShared: FieldValue.increment(approved),
               },
             },
             {merge: true},
@@ -1819,7 +1819,7 @@ exports.onGroupMessage = onDocumentCreated(
         content: String(msg.text || "").slice(0, 500),
         status: "open",
         source: "server",
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
       // BUG 34: recipient = the SENDER (in-app only). key+params; English
       // fallback from the catalog.
@@ -1835,7 +1835,7 @@ exports.onGroupMessage = onDocumentCreated(
         params: {},
         icon: "🚫",
         read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         metadata: {groupId},
       });
       console.log("🚫 Blocked prohibited group message:", guard.reason);
@@ -1874,7 +1874,7 @@ exports.onGroupMessage = onDocumentCreated(
         message: preview,
         icon: "💬",
         read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         metadata: {groupId, groupName: group.name || ""},
       });
       const u = await db.collection("users").doc(uid).get();
@@ -1922,8 +1922,8 @@ exports.joinGroupByCode = onCall(async (request) => {
     );
   }
   await groupDoc.ref.update({
-    memberIds: admin.firestore.FieldValue.arrayUnion(uid),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    memberIds: FieldValue.arrayUnion(uid),
+    updatedAt: FieldValue.serverTimestamp(),
   });
   return {groupId: groupDoc.id, groupName: groupDoc.data().name || ""};
 });
@@ -1966,9 +1966,9 @@ exports.redeemBusinessGuestCode = onCall(async (request) => {
   if (!mine) {
     await target.ref.update({
       linkedUid: uid,
-      redeemedAt: admin.firestore.FieldValue.serverTimestamp(),
+      redeemedAt: FieldValue.serverTimestamp(),
       qrPassId: require("crypto").randomUUID(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
   }
 
@@ -2077,11 +2077,11 @@ exports.joinEvent = onCall(async (request) => {
       if (waitlist.includes(uid)) {
         return {success: true, waitlisted: true, already: true};
       }
-      tx.update(ref, {waitlist: admin.firestore.FieldValue.arrayUnion(uid)});
+      tx.update(ref, {waitlist: FieldValue.arrayUnion(uid)});
       return {success: true, waitlisted: true, position: waitlist.length + 1};
     }
 
-    tx.update(ref, {attendees: admin.firestore.FieldValue.arrayUnion(uid)});
+    tx.update(ref, {attendees: FieldValue.arrayUnion(uid)});
     return {success: true};
   });
 });
@@ -2481,7 +2481,6 @@ exports.deleteUserAccount = onRequest(
 
       console.log("🗑️ Starting FULL account deletion for user:", userId);
       const counts = {};
-      const FieldValue = admin.firestore.FieldValue;
 
       // Helper: delete every doc a query returns (recursively, so any
       // subcollections go too). Failures on one query never abort the rest —
@@ -2693,7 +2692,7 @@ exports.onNewHostRequest = onDocumentCreated(
             requestId: requestId,
             requesterId: requestData.userId,
           },
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
 
         console.log("📝 Created in-app notification for admin:", adminDoc.id);
@@ -3105,8 +3104,8 @@ exports.reserveVehicle = onCall({secrets: [stripeSecretKey]}, async (request) =>
       } : {}),
       // Free vehicles skip payment and confirm immediately.
       status: isFree ? "active" : "reserved",
-      reservedAt: admin.firestore.FieldValue.serverTimestamp(),
-      ...(isFree ? {paidAt: admin.firestore.FieldValue.serverTimestamp()} : {}),
+      reservedAt: FieldValue.serverTimestamp(),
+      ...(isFree ? {paidAt: FieldValue.serverTimestamp()} : {}),
     });
     return {rentalId: rentalRef.id};
   });
@@ -3173,7 +3172,7 @@ exports.completeRental = onCall(async (request) => {
 
   await rRef.update({
     status: "completed",
-    completedAt: admin.firestore.FieldValue.serverTimestamp(),
+    completedAt: FieldValue.serverTimestamp(),
   });
   await releaseVehicleRange(r.vehicleId, rentalId);
   return {success: true};
@@ -3204,7 +3203,7 @@ exports.expireVehicleReservations = onSchedule(
       }
       await docSnap.ref.update({
         status: "cancelled",
-        cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+        cancelledAt: FieldValue.serverTimestamp(),
       });
       await releaseVehicleRange(r.vehicleId, docSnap.id);
       expired++;
@@ -3266,7 +3265,7 @@ exports.inviteBusinessStaff = onCall(async (request) => {
       icon: "👥",
       read: false,
       resolved: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {bizId, role: roleVal, businessName: bizName || "", fromUid: uid, fromName: ownerName || ""},
     });
   };
@@ -3293,7 +3292,7 @@ exports.inviteBusinessStaff = onCall(async (request) => {
         branchIds: [],
         status: "invited",
         invitedBy: uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       }, {merge: true});
     await notifyInvite(targetUid, role);
     return {uid: targetUid, role, name: (u && u.displayName) || "", pending: false, invited: true};
@@ -3321,7 +3320,7 @@ exports.inviteBusinessStaff = onCall(async (request) => {
         branchIds: [],
         status: "invited",
         invitedBy: uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       }, {merge: true});
     await notifyInvite(staff.uid, role);
     return {uid: staff.uid, role, name: staff.displayName || "", email, pending: false, invited: true};
@@ -3335,7 +3334,7 @@ exports.inviteBusinessStaff = onCall(async (request) => {
     role,
     status: "pending",
     invitedBy: uid,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
   return {pending: true, email, role};
 });
@@ -3384,7 +3383,7 @@ exports.claimStaffInvites = onCall(async (request) => {
       branchIds: [],
       status: "invited",
       invitedBy: inv.invitedBy || inv.bizId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     }, {merge: true});
     // BUG 34: recipient = the INVITEE. key+params; English fallback from catalog.
     const inviteParams = {business: bizName || "A business", role: inv.role};
@@ -3399,7 +3398,7 @@ exports.claimStaffInvites = onCall(async (request) => {
       icon: "👥",
       read: false,
       resolved: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {
         bizId: inv.bizId,
         role: inv.role,
@@ -3411,7 +3410,7 @@ exports.claimStaffInvites = onCall(async (request) => {
     await d.ref.update({
       status: "claimed",
       claimedBy: uid,
-      claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+      claimedAt: FieldValue.serverTimestamp(),
     });
   }
   return {claimed: snap.size};
@@ -3441,7 +3440,7 @@ exports.respondToStaffInvite = onCall(async (request) => {
   if (accept) {
     await ref.update({
       status: "active",
-      acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      acceptedAt: FieldValue.serverTimestamp(),
     });
     return {ok: true, status: "active", role: data.role || null};
   }
@@ -3523,7 +3522,7 @@ exports.requestOwnerTransfer = onCall(async (request) => {
     toName,
     businessName: bizName,
     status: "pending_admin",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
 
   // Notify Kinlo admins (recipient = each admin; in-app only). BUG 34: key+params.
@@ -3539,7 +3538,7 @@ exports.requestOwnerTransfer = onCall(async (request) => {
     params: otrParams,
     icon: "🔑",
     read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     metadata: {transferId: ref.id, bizId, fromUid: uid, toUid},
   })));
 
@@ -3575,7 +3574,7 @@ exports.approveOwnerTransfer = onCall(async (request) => {
     await tRef.update({
       status: "rejected",
       decidedBy: uid,
-      decidedAt: admin.firestore.FieldValue.serverTimestamp(),
+      decidedAt: FieldValue.serverTimestamp(),
     });
     // Recipient = the requesting OWNER (in-app only). BUG 34: key+params.
     await db.collection("notifications").add({
@@ -3588,7 +3587,7 @@ exports.approveOwnerTransfer = onCall(async (request) => {
       params: {},
       icon: "🔑",
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {transferId, bizId, approved: false},
     });
     return {ok: true, status: "rejected"};
@@ -3601,7 +3600,7 @@ exports.approveOwnerTransfer = onCall(async (request) => {
     role: "owner",
     status: "active",
     branchIds: [],
-    ownerSince: admin.firestore.FieldValue.serverTimestamp(),
+    ownerSince: FieldValue.serverTimestamp(),
   }, {merge: true});
   await staffCol.doc(fromUid).set({
     role: demoteRole,
@@ -3609,12 +3608,12 @@ exports.approveOwnerTransfer = onCall(async (request) => {
   }, {merge: true});
   await db.collection("businesses").doc(bizId).update({
     ownerUid: toUid,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
   await tRef.update({
     status: "approved",
     decidedBy: uid,
-    decidedAt: admin.firestore.FieldValue.serverTimestamp(),
+    decidedAt: FieldValue.serverTimestamp(),
   });
 
   // Recipients = the NEW owner (toUid) and the demoted OLD owner (fromUid) — each
@@ -3636,7 +3635,7 @@ exports.approveOwnerTransfer = onCall(async (request) => {
       params,
       icon: "🔑",
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {transferId, bizId, approved: true},
     });
   }));
@@ -3682,8 +3681,8 @@ exports.requestBusinessSession = onCall(async (request) => {
       reminderHostAt: null,
       reminderAttendeeAt: null,
       notes: String(d.notes || "").slice(0, 500) || null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
   // Nudge the host (recipient = the host). Title is the member name (user
   // content); the body is a localized system key (BUG 34).
@@ -3696,7 +3695,7 @@ exports.requestBusinessSession = onCall(async (request) => {
     params: {},
     icon: "calendarCheck",
     read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
   return {bookingId: ref.id};
 });

@@ -6,6 +6,7 @@
 
 const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
+const {FieldValue} = require("firebase-admin/firestore");
 const {sendBatchPushNotifications} = require("./pushService");
 const {getAttendeeIds, getEventCreatorId} = require("../utils/eventHelpers");
 const {tPush, baseLang} = require("../i18n");
@@ -58,8 +59,8 @@ exports.onEventAttendeesChanged = onDocumentUpdated(
       const promoted = waitlist.slice(0, max - afterAttendees.length);
       if (promoted.length > 0) {
         await db.doc(`events/${eventId}`).update({
-          attendees: admin.firestore.FieldValue.arrayUnion(...promoted),
-          waitlist: admin.firestore.FieldValue.arrayRemove(...promoted),
+          attendees: FieldValue.arrayUnion(...promoted),
+          waitlist: FieldValue.arrayRemove(...promoted),
         });
         for (const uid of promoted) {
           // BUG 34: store key+params (localized in-app + push per recipient);
@@ -79,7 +80,7 @@ exports.onEventAttendeesChanged = onDocumentUpdated(
             params,
             icon: "🎉",
             read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             metadata: {eventId, eventTitle: afterData.title || ""},
           });
           const u = await db.collection("users").doc(uid).get();
@@ -208,7 +209,7 @@ async function notifyHostOfNewAttendees(
       params,
       icon: paid ? "💰" : "👋",
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       metadata: {eventId, eventTitle},
     });
     console.log("✅ In-app notification written for host:", hostId);

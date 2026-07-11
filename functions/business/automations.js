@@ -13,6 +13,7 @@
  */
 /* eslint-disable require-jsdoc, valid-jsdoc */
 const admin = require("firebase-admin");
+const {FieldValue} = require("firebase-admin/firestore");
 const {HttpsError} = require("firebase-functions/v2/https");
 const {sendPushNotification} = require("../notifications/pushService");
 const {tPush, baseLang} = require("../i18n");
@@ -77,7 +78,7 @@ async function sendInApp(linkedUid, hostName, body) {
     message: body,
     icon: "bell",
     read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
   return {status: "sent"};
 }
@@ -146,7 +147,7 @@ async function sendToMember(bizId, member, body, channels, hostName, ruleId, quo
     body,
     status: result.status,
     reason: result.reason || null,
-    ts: admin.firestore.FieldValue.serverTimestamp(),
+    ts: FieldValue.serverTimestamp(),
   });
   return {channel, ...result};
 }
@@ -303,7 +304,7 @@ async function notifyLocalized(linkedUid, title, bodyKey, params) {
     params: p,
     icon: "bell",
     read: false,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
 }
 
@@ -399,8 +400,8 @@ async function momentumDetectorCron() {
           reminder: {on: false, at: null}, checklist: [], channel: "push",
           activity: [{type: "created", text: "Auto: no upcoming session",
             at: new Date().toISOString()}],
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         });
     }
   }

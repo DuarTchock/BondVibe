@@ -89,7 +89,9 @@ const arrVals = (f) => (f?.arrayValue?.values || []).map((v) => v.stringValue);
   chk("host CANNOT self-feature on create", await createDoc(`events?documentId=${ev}x`, {
     title: s("x"), creatorId: s(host.uid), featured: b(true),
   }, host.headers), 403);
-  chk("attendee joins (attendees only)", await patchDoc(`events/${ev}?updateMask.fieldPaths=attendees`, { attendees: arr([member.uid, outsider.uid]) }, outsider.headers), 200);
+  // Joining is server-side (joinEvent CF / payment webhook) — a client CANNOT
+  // self-add to attendees[] directly; the rule only allows self-REMOVAL (leave).
+  chk("attendee CANNOT self-add via patch (join is server-side)", await patchDoc(`events/${ev}?updateMask.fieldPaths=attendees`, { attendees: arr([member.uid, outsider.uid]) }, outsider.headers), 403);
   chk("attendee CANNOT set averageRating", await patchDoc(`events/${ev}?updateMask.fieldPaths=averageRating`, { averageRating: { doubleValue: 5 } }, member.headers), 403);
   chk("host CANNOT set featured via update", await patchDoc(`events/${ev}?updateMask.fieldPaths=featured`, { featured: b(true) }, host.headers), 403);
 
@@ -126,11 +128,12 @@ const arrVals = (f) => (f?.arrayValue?.values || []).map((v) => v.stringValue);
 
   // ---- RATINGS ----
   section("Ratings");
-  const ratingId = `e2er_${Date.now()}`;
+  // Ratings use a deterministic id (eventId_uid) — one rating per user per event.
+  const ratingId = `${ev}_${member.uid}`;
   chk("attendee creates rating", await createDoc(`ratings?documentId=${ratingId}`, {
     eventId: s(ev), hostId: s(host.uid), userId: s(member.uid), rating: i(5), comment: s("Great"),
   }, member.headers), 200);
-  chk("non-attendee CANNOT rate", await createDoc(`ratings?documentId=${ratingId}b`, {
+  chk("non-attendee CANNOT rate", await createDoc(`ratings?documentId=${ev}_${stranger.uid}`, {
     eventId: s(ev), hostId: s(host.uid), userId: s(stranger.uid), rating: i(1),
   }, stranger.headers), 403);
   chk("rating reply by party (host)", await createDoc(`ratings/${ratingId}/messages?documentId=rm1`, {
@@ -200,22 +203,27 @@ const arrVals = (f) => (f?.arrayValue?.values || []).map((v) => v.stringValue);
 
   // ---- CARPOOL TRIGGER (loyalty reward + notifications) ----
   section("Carpool trigger (reward + notifications)");
-  // onCarpoolRiderWritten: request → driver notified; approve → rider notified + driver seatsShared++.
-  let seatsShared = 0;
-  for (let k = 0; k < 12 && seatsShared < 1; k++) {
+  // onCarpoolRiderWritten: request → driver notified; approve → rider notified.
+  // seatsShared is credited on event COMPLETION (creditCarpoolSeatsOnCompletion
+  // daily sweep, BUG 28.2), NOT on approve — so it must still be 0 right after.
+  // Poll (~15s) for onCarpoolRiderWritten to write the request notification —
+  // this also gives the approve notification time to land before its check.
+  let reqNotif = { rows: [] };
+  for (let k = 0; k < 10; k++) {
     await sleep(1500);
-    const f = await getFields(`users/${member.uid}`, member.headers);
-    seatsShared = parseInt(
-      f?.carpoolStats?.mapValue?.fields?.seatsShared?.integerValue || "0", 10);
+    reqNotif = await runQuery({
+      from: [{ collectionId: "notifications" }],
+      where: { compositeFilter: { op: "AND", filters: [
+        { fieldFilter: { field: { fieldPath: "userId" }, op: "EQUAL", value: s(member.uid) } },
+        { fieldFilter: { field: { fieldPath: "type" }, op: "EQUAL", value: s("carpool_request") } },
+      ] } },
+    }, member.headers);
+    if (reqNotif.rows.length >= 1) break;
   }
-  chk("approving a rider increments driver carpoolStats.seatsShared", seatsShared >= 1, true);
-  const reqNotif = await runQuery({
-    from: [{ collectionId: "notifications" }],
-    where: { compositeFilter: { op: "AND", filters: [
-      { fieldFilter: { field: { fieldPath: "userId" }, op: "EQUAL", value: s(member.uid) } },
-      { fieldFilter: { field: { fieldPath: "type" }, op: "EQUAL", value: s("carpool_request") } },
-    ] } },
-  }, member.headers);
+  const cf = await getFields(`users/${member.uid}`, member.headers);
+  const seatsShared = parseInt(
+    cf?.carpoolStats?.mapValue?.fields?.seatsShared?.integerValue || "0", 10);
+  chk("approve does NOT pre-credit seatsShared (credited on completion)", seatsShared, 0);
   chk("driver got a seat-request notification", reqNotif.rows.length >= 1, true);
   const appNotif = await runQuery({
     from: [{ collectionId: "notifications" }],
