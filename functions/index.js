@@ -2128,7 +2128,10 @@ exports.onEventWritten = onDocumentWritten("events/{eventId}", async (event) => 
   // changed, so the self-update below doesn't cause an infinite trigger loop.
   const exact = coordFromData(data.locationCoords);
   const approx = snapApproxGrid(exact);
-  const area = deriveArea(data.location, data.city);
+  // Always carry a coarse `area` on a gated doc so list cards have a safe label
+  // (never the venue) — fall back to the city when the location has no parseable
+  // area but we still have coords to gate.
+  const area = deriveArea(data.location, data.city) || (approx ? data.city || null : null);
 
   const gatingPatch = {};
   if (area && data.area !== area) gatingPatch.area = area;

@@ -348,7 +348,11 @@
     "reserveToUnlock": "Reserva tu lugar para ver la ubicación exacta",
     "joinToUnlock": "Únete para ver la ubicación exacta",
     "revealedTitle": "Ubicación exacta",
-    "noMapLocation": "Este evento aún no tiene ubicación en el mapa"
+    "noMapLocation": "Este evento aún no tiene ubicación en el mapa",
+    "reserve": "Reservar",
+    "exactLocation": "Ubicación exacta",
+    "locked": "Bloqueado",
+    "unlocked": "Desbloqueado"
   },
   "eventDetail": {
     "errorNotFoundTitle": "Evento no encontrado",

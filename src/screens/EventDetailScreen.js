@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  Linking,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { StatusBar } from "expo-status-bar";
@@ -51,6 +50,7 @@ import CancelEventModal from "../components/CancelEventModal";
 import MatchingEntryCard from "../components/MatchingEntryCard";
 import EventImageGallery from "../components/EventImageGallery";
 import EventRatings from "../components/EventRatings";
+import EventLocationBlock from "../components/EventLocationBlock";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useFocusEffect } from "@react-navigation/native";
 import { usePremium } from "../hooks/usePremium";
@@ -627,6 +627,13 @@ export default function EventDetailScreen({ route, navigation }) {
 
   const styles = createStyles(colors);
 
+  // F2: participant = creator/co-host or already joined → sees the exact location.
+  const isParticipant =
+    !!event &&
+    (isJoined ||
+      (event.creatorId || event.createdBy) === auth.currentUser?.uid ||
+      (Array.isArray(event.coHosts) && event.coHosts.includes(auth.currentUser?.uid)));
+
   if (loading) {
     return (
       <View
@@ -690,22 +697,7 @@ export default function EventDetailScreen({ route, navigation }) {
 
   const eventTitle = event.title || t("myEvents.untitledEvent");
   const eventCategory = event.category || "";
-  const eventLocation = event.location || t("myEvents.locationTBD");
-  // Prefer a precise pin (lat,lng) from the Places picker; fall back to a text
-  // search by the location string. place_id sharpens the pin when present.
-  const mapsQuery =
-    event.locationCoords &&
-    typeof event.locationCoords.latitude === "number" &&
-    typeof event.locationCoords.longitude === "number"
-      ? `${event.locationCoords.latitude},${event.locationCoords.longitude}`
-      : event.venueAddress || eventLocation;
-  const mapsUrl = event.placeId
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        mapsQuery
-      )}&query_place_id=${event.placeId}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        mapsQuery
-      )}`;
+  // Location display + Open-in-Maps now live in <EventLocationBlock> (F2-gated).
   const eventDescription = event.description || t("eventDetail.noDescription");
   const eventPrice = typeof event.price === "number" ? event.price : 0;
   const eventStatus = event.status || "active";
@@ -987,52 +979,17 @@ export default function EventDetailScreen({ route, navigation }) {
               </View>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.infoCard}
-            activeOpacity={event.location ? 0.85 : 1}
-            disabled={!event.location}
-            onPress={() => event.location && Linking.openURL(mapsUrl)}
-          >
-            <View
-              style={[
-                styles.infoGlass,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.borderStrong,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.infoIconCircle,
-                  { backgroundColor: `${colors.primary}15` },
-                ]}
-              >
-                <Icon name="location" size={22} color={colors.primary} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text
-                  style={[styles.infoLabel, { color: colors.textSecondary }]}
-                >
-                  {t("eventDetail.locationLabel")}
-                </Text>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {eventLocation}
-                </Text>
-                {/* Full street address behind the venue name (BUG 3). */}
-                {!!event.venueAddress && (
-                  <Text style={[styles.infoLabel, { color: colors.textSecondary, marginTop: 2 }]}>
-                    {event.venueAddress}
-                  </Text>
-                )}
-                {!!event.location && (
-                  <Text style={[styles.infoLabel, { color: colors.primary, marginTop: 2 }]}>
-                    {t("eventDetail.openInMaps")}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </TouchableOpacity>
+          {/* F2 gated location — locked (approx circle + reserve) vs unlocked
+              (exact pin + address + Open in Maps). Reuses resolveEventLocation. */}
+          <Text style={[styles.infoLabel, { color: colors.textSecondary, marginLeft: 4, marginBottom: 8 }]}>
+            {t("eventDetail.locationLabel")}
+          </Text>
+          <EventLocationBlock
+            event={event}
+            eventId={eventId}
+            isParticipant={isParticipant}
+            onReserve={isParticipant ? null : handleJoinLeave}
+          />
           <TouchableOpacity
             style={styles.infoCard}
             activeOpacity={0.85}

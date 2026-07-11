@@ -41,6 +41,7 @@ import EventMap from "../components/search/EventMap";
 import ListMapToggle from "../components/search/ListMapToggle";
 import EventFilters, { activeFilterCount } from "../components/search/EventFilters";
 import FiltersSheet from "../components/search/FiltersSheet";
+import { coarseLocationLabel } from "../utils/eventLocation";
 
 const PAGE_SIZE = 20;
 const mapEventDocs = (docs) =>
@@ -352,6 +353,7 @@ export default function SearchEventsScreen({ navigation, route }) {
   const EventCard = ({ event }) => {
     const isPast = isEventPast(event.date);
     const CategoryIcon = getCategoryIcon(event.category);
+    const loc = coarseLocationLabel(event); // F2: area for gated, never the venue
 
     return (
       <TouchableOpacity
@@ -430,8 +432,11 @@ export default function SearchEventsScreen({ navigation, route }) {
               style={[styles.metaText, { color: colors.textSecondary }]}
               numberOfLines={1}
             >
-              {event.location}
+              {loc.label || (loc.gated ? t("eventLocation.approxArea") : "")}
             </Text>
+            {loc.gated && (
+              <Icon name="lock" size={11} color={colors.textTertiary} type="ui" style={{ marginLeft: 4 }} />
+            )}
           </View>
 
           <View style={styles.attendeesRow}>

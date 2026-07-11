@@ -108,6 +108,22 @@ export const resolveEventLocation = (event, opts = {}) => {
 };
 
 /**
+ * Coarse label for a LIST CARD — the area for a gated event (never the venue /
+ * street), else the legacy location string. `gated` drives a small lock hint.
+ * @param {object} event
+ * @returns {{ label: string, gated: boolean }}
+ */
+export const coarseLocationLabel = (event) => {
+  const gated = isGatedEvent(event);
+  return {
+    // A gated event NEVER falls back to `location` (the venue) — only its coarse
+    // `area`; empty when a gated doc lacks an area (caller shows a generic hint).
+    label: gated ? (event.area || "") : ((event && event.location) || ""),
+    gated,
+  };
+};
+
+/**
  * The single line to show where a full address string is expected. Exact →
  * the real address; locked → the coarse area + a hint; never blank.
  * @param {ReturnType<typeof resolveEventLocation>} resolved

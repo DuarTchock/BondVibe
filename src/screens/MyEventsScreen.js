@@ -340,8 +340,14 @@ export default function MyEventsScreen({ navigation, route }) {
               style={[styles.metaText, { color: colors.textSecondary }]}
               numberOfLines={1}
             >
-              {event.location || t("myEvents.locationTBD")}
+              {/* F2: gated → area (never the venue); legacy → location. */}
+              {event.area || event.approxCoords
+                ? event.area || t("eventLocation.approxArea")
+                : event.location || t("myEvents.locationTBD")}
             </Text>
+            {(event.area || event.approxCoords) && (
+              <Icon name="lock" size={11} color={colors.textTertiary} style={{ marginLeft: 4 }} />
+            )}
           </View>
 
           <View style={styles.attendeesRow}>

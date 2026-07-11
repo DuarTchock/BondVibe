@@ -8,6 +8,7 @@ import {
   isGatedEvent,
   resolveEventLocation,
   locationDisplayLabel,
+  coarseLocationLabel,
   APPROX_GRID_DEG,
 } from '../src/utils/eventLocation';
 
@@ -118,6 +119,21 @@ describe('resolveEventLocation', () => {
   it('legacy doc with no coords at all still renders its address string, no map pin', () => {
     const r = resolveEventLocation({ location: 'Some place, Tulum' }, { isParticipant: false });
     expect(r).toMatchObject({ legacy: true, exact: true, address: 'Some place, Tulum', coords: null });
+  });
+});
+
+describe('coarseLocationLabel (list cards)', () => {
+  it('gated event → area, marked gated (never the venue)', () => {
+    expect(
+      coarseLocationLabel({ area: 'Tulum Centro', location: 'Casa Azul, Tulum', approxCoords: { latitude: 20.21, longitude: -87.47 } }),
+    ).toEqual({ label: 'Tulum Centro', gated: true });
+  });
+  it('legacy event → location string, not gated', () => {
+    expect(coarseLocationLabel({ location: 'Casa Azul, Tulum' })).toEqual({ label: 'Casa Azul, Tulum', gated: false });
+  });
+  it('empty/undefined → blank, not gated', () => {
+    expect(coarseLocationLabel({})).toEqual({ label: '', gated: false });
+    expect(coarseLocationLabel(null)).toEqual({ label: '', gated: false });
   });
 });
 

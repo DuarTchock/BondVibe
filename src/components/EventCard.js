@@ -6,6 +6,7 @@ import Sizes from '../constants/Sizes';
 import Icon from './Icon';
 import { useTheme } from '../contexts/ThemeContext';
 import { formatMXN } from '../utils/pricing';
+import { coarseLocationLabel } from '../utils/eventLocation';
 
 export default function EventCard({ event, onPress }) {
   const { colors } = useTheme();
@@ -19,6 +20,7 @@ export default function EventCard({ event, onPress }) {
   const spotsLeft = event.maxAttendees - event.currentAttendees;
   const isAlmostFull = spotsLeft <= 2;
   const isFree = event.price === 0;
+  const loc = coarseLocationLabel(event); // F2: area for gated events, never the venue
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
@@ -64,7 +66,12 @@ export default function EventCard({ event, onPress }) {
             color={colors.textSecondary}
             style={styles.detailIcon}
           />
-          <Text style={styles.detailText}>{event.location}</Text>
+          <Text style={styles.detailText}>
+            {loc.label || (loc.gated ? t("eventLocation.approxArea") : "")}
+          </Text>
+          {loc.gated && (
+            <Icon name="lock" size={11} color={colors.textTertiary} style={{ marginLeft: 4 }} />
+          )}
         </View>
 
         <View style={styles.detailRow}>
