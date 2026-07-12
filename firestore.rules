@@ -851,6 +851,17 @@ service cloud.firestore {
       }
     }
 
+    // Collection-group read of a member's OWN linked records. The attendee pass /
+    // digital membership card side (getMyBusinessPasses) runs
+    // collectionGroup("members").where(linkedUid == uid); a collection-group query
+    // is NOT authorized by the nested businesses/{bizId}/members rule — it needs
+    // this recursive-wildcard rule. Scoped to linkedUid == uid so a member can
+    // only read their own records across every business (staff/owner writes stay
+    // governed by the nested rule above).
+    match /{path=**}/members/{memberId} {
+      allow read: if isSignedIn() && resource.data.linkedUid == request.auth.uid;
+    }
+
     // ============================================
     // DEFAULT DENY ALL
     // ============================================

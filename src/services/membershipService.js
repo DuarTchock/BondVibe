@@ -266,11 +266,19 @@ export const getUserMemberships = async (userId = null) => {
 export const getMembershipRedemptions = async (membershipId) => {
   try {
     if (!membershipId) return [];
+    // Scope the query to the caller's own redemptions: the membershipRedemptions
+    // rule allows read only when userId == uid (or hostId == uid), so a query
+    // filtered by membershipId alone is rejected as unprovable. This screen shows
+    // the user's OWN membership, so filter by userId (rule-compliant) and narrow
+    // to this membership client-side.
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
     const snap = await getDocs(
-      query(collection(db, "membershipRedemptions"), where("membershipId", "==", membershipId))
+      query(collection(db, "membershipRedemptions"), where("userId", "==", uid))
     );
     return snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((r) => r.membershipId === membershipId)
       .sort((a, b) => toMillis(b.redeemedAt) - toMillis(a.redeemedAt));
   } catch (e) {
     console.error("❌ getMembershipRedemptions:", e);
