@@ -13,6 +13,11 @@ jobs:
   test:
     name: Jest + i18n parity
     runs-on: ubuntu-latest
+    # Run in a non-UTC zone (before the node process starts) — duration.test.js's
+    # round-5 BUG 4 tz-regression tests require it; setting process.env.TZ at
+    # runtime isn't reliably picked up by Node, so it must come from the env.
+    env:
+      TZ: America/Mexico_City
     steps:
       - uses: actions/checkout@v4
 
