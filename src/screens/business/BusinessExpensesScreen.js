@@ -1,11 +1,11 @@
 /**
  * BusinessExpensesScreen — Expenses & P&L (dashboard handoff §8). The missing
- * half of Finance: expense categories + receipt photos + a real net profit /
- * margin over a range, with CSV export. Reuses businessRanges, formatCentavos,
- * revenueSummary and the Finance Share/CSV pattern. Net margin also flows into
- * the Dashboard KPIs (see computeDashboard).
+ * half of Finance: a real net profit / margin over a range, with an Income |
+ * Expenses toggle (income by method · expenses by category + ledger) under a
+ * single fixed P&L card. Reuses businessRanges, revenueSummary, expenseSummary
+ * and the Finance Share/CSV pattern. Net margin also flows into the Dashboard.
  */
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -21,10 +21,12 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 import Icon from "../../components/Icon";
 import GradientBackground from "../../components/GradientBackground";
+import DateField from "../../components/DateField";
 import { useTheme } from "../../contexts/ThemeContext";
 import {
   listPaymentsInRange,
   revenueSummary,
+  PAYMENT_METHODS,
 } from "../../services/businessPaymentsService";
 import {
   listExpensesInRange,
@@ -33,50 +35,63 @@ import {
   EXPENSE_CATEGORIES,
 } from "../../services/businessExpensesService";
 import { RANGE_IDS, DEFAULT_RANGE, rangeBounds, rangeLabelKey } from "../../constants/businessRanges";
-import { formatCentavos } from "../../utils/pricing";
+import { formatCentavos, formatCentavosCompact } from "../../utils/pricing";
 import { FONTS } from "../../constants/theme-tokens";
 
 const PL_GRADIENT = ["#0E3D33", "#155C4B"]; // P&L summary card (135°)
-const PL_POSITIVE = "#C3E88D"; // AI-positive accent for a healthy margin
+const PL_EYEBROW = "#9FDCC7";
+const PL_POSITIVE = "#C3E88D";
+const PL_LOSS = "#F8B4A0";
 
 export default function BusinessExpensesScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const [rangeId, setRangeId] = useState(DEFAULT_RANGE);
+  const [customFrom, setCustomFrom] = useState(null);
+  const [customTo, setCustomTo] = useState(null);
+  const [tab, setTab] = useState("income"); // income | expenses
   const [payments, setPayments] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const bounds = rangeBounds(rangeId);
+  const bounds = useMemo(
+    () => rangeBounds(rangeId, { from: customFrom, to: customTo }),
+    [rangeId, customFrom, customTo],
+  );
+  const fromIso = bounds.from.toISOString();
+  const toIso = bounds.to.toISOString();
 
   const load = useCallback(async () => {
     setLoading(true);
     const [pays, exps] = await Promise.all([
-      listPaymentsInRange(bounds.from.toISOString(), bounds.to.toISOString()),
-      listExpensesInRange(bounds.from.toISOString(), bounds.to.toISOString()),
+      listPaymentsInRange(fromIso, toIso),
+      listExpensesInRange(fromIso, toIso),
     ]);
     setPayments(pays);
     setExpenses(exps);
     setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangeId]);
+  }, [fromIso, toIso]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const revenue = revenueSummary(payments).total;
+  const rev = revenueSummary(payments);
   const exp = expenseSummary(expenses);
-  const pl = profitLoss(revenue, exp.total);
+  const pl = profitLoss(rev.total, exp.total);
   const maxCat = Math.max(1, ...Object.values(exp.byCategory));
+  const periodLabel = t(rangeLabelKey(rangeId));
 
   const onExport = async () => {
     const rows = [
       ["metric", "value"],
-      ["range", t(rangeLabelKey(rangeId))],
-      ["revenue", (revenue / 100).toFixed(2)],
+      ["range", periodLabel],
+      ["income", (rev.total / 100).toFixed(2)],
       ["expenses", (exp.total / 100).toFixed(2)],
       ["net_profit", (pl.net / 100).toFixed(2)],
       ["margin_pct", pl.marginPct ?? ""],
@@ -97,6 +112,7 @@ export default function BusinessExpensesScreen({ navigation }) {
   };
 
   const styles = createStyles(colors);
+  const cardBorder = isDark ? colors.border : "#ECE8F2";
 
   return (
     <GradientBackground>
@@ -111,16 +127,38 @@ export default function BusinessExpensesScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      {/* Period selector */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.rangeRow}>
-        {RANGE_IDS.filter((r) => r !== "custom").map((id) => {
+        {RANGE_IDS.filter((r) => r !== "total").map((id) => {
           const active = rangeId === id;
           return (
-            <TouchableOpacity key={id} onPress={() => setRangeId(id)} style={[styles.rangeChip, { backgroundColor: active ? colors.text : colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.rangeText, { color: active ? colors.background : colors.textSecondary }]}>{t(rangeLabelKey(id))}</Text>
+            <TouchableOpacity
+              key={id}
+              onPress={() => setRangeId(id)}
+              style={[
+                styles.rangeChip,
+                active
+                  ? { backgroundColor: isDark ? colors.text : "#171523" }
+                  : { backgroundColor: colors.surface, borderColor: cardBorder, borderWidth: 1 },
+              ]}
+            >
+              <Text style={[active ? styles.rangeTextActive : styles.rangeTextInactive, { color: active ? (isDark ? colors.background : "#F5F3F9") : colors.textSecondary }]}>
+                {t(rangeLabelKey(id))}
+              </Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
+      {rangeId === "custom" && (
+        <View style={styles.customRow}>
+          <View style={{ flex: 1 }}>
+            <DateField label={t("business.expense.from")} value={customFrom} onChange={setCustomFrom} onClear={() => setCustomFrom(null)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <DateField label={t("business.expense.to")} value={customTo} onChange={setCustomTo} onClear={() => setCustomTo(null)} minimumDate={customFrom || undefined} />
+          </View>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loading}>
@@ -128,74 +166,109 @@ export default function BusinessExpensesScreen({ navigation }) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* P&L summary — real gradient card + soft dark shadow */}
+          {/* P&L summary — Net profit is the hero at the top; 3 sub-metrics below. */}
           <View style={styles.plShadow}>
             <LinearGradient colors={PL_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.plCard}>
-              <View style={styles.plTopRow}>
-                <View style={styles.plCol}>
-                  <Text style={styles.plColLabel}>{t("business.expense.revenue")}</Text>
-                  <Text style={styles.plColValue}>{formatCentavos(revenue)}</Text>
-                </View>
-                <View style={styles.plCol}>
-                  <Text style={styles.plColLabel}>{t("business.expense.expensesLabel")}</Text>
-                  <Text style={styles.plColValue}>−{formatCentavos(exp.total)}</Text>
-                </View>
-              </View>
-              <View style={styles.plDivider} />
-              <Text style={styles.plNetLabel}>{t("business.expense.netProfit")}</Text>
-              <Text style={[styles.plNetValue, { color: pl.net >= 0 ? PL_POSITIVE : "#F8B4A0" }]}>
-                {pl.net < 0 ? "−" : ""}{formatCentavos(Math.abs(pl.net))}
+              <Text style={styles.plEyebrow}>{t("business.expense.netEyebrow", { period: periodLabel })}</Text>
+              <Text style={[styles.plNet, { color: pl.net >= 0 ? PL_POSITIVE : PL_LOSS }]}>
+                {pl.net < 0 ? "−" : ""}{formatCentavosCompact(Math.abs(pl.net))}
               </Text>
-              {pl.marginPct != null && (
-                <Text style={styles.plMargin}>{t("business.expense.margin", { pct: pl.marginPct })}</Text>
-              )}
-            </LinearGradient>
-          </View>
-
-          {/* By category */}
-          {exp.total > 0 && (
-            <>
-              <Text style={[styles.eyebrow, { color: colors.textTertiary }]}>{t("business.expense.byCategory")}</Text>
-              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                {EXPENSE_CATEGORIES.filter((c) => exp.byCategory[c]).map((c, i) => (
-                  <View key={c} style={[styles.catRow, i > 0 && { marginTop: 14 }]}>
-                    <View style={styles.catTop}>
-                      <Text style={[styles.catName, { color: colors.text }]}>{t(`business.expense.category.${c}`)}</Text>
-                      <Text style={[styles.catAmount, { color: colors.text }]}>{formatCentavos(exp.byCategory[c])}</Text>
-                    </View>
-                    <View style={[styles.barTrack, { backgroundColor: `${colors.primary}18` }]}>
-                      <View style={[styles.barFill, { width: `${Math.round((exp.byCategory[c] / maxCat) * 100)}%`, backgroundColor: colors.primary }]} />
-                    </View>
+              <View style={styles.plSubRow}>
+                {[
+                  { label: t("business.expense.income"), value: formatCentavosCompact(rev.total), tone: "#fff" },
+                  { label: t("business.expense.expensesLabel"), value: `−${formatCentavosCompact(exp.total)}`, tone: "#fff" },
+                  { label: t("business.expense.marginLabel"), value: pl.marginPct == null ? "—" : `${pl.marginPct}%`, tone: PL_POSITIVE },
+                ].map((s) => (
+                  <View key={s.label} style={styles.plSubCol}>
+                    <Text style={styles.plSubLabel}>{s.label}</Text>
+                    <Text style={[styles.plSubValue, { color: s.tone }]}>{s.value}</Text>
                   </View>
                 ))}
               </View>
-            </>
-          )}
+            </LinearGradient>
+          </View>
 
-          {/* Ledger */}
-          <Text style={[styles.eyebrow, { color: colors.textTertiary }]}>{t("business.expense.ledger")}</Text>
-          {expenses.length === 0 ? (
-            <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.emptyText, { color: colors.textTertiary }]}>{t("business.expense.noExpenses")}</Text>
-            </View>
-          ) : (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              {expenses.slice(0, 30).map((x, i) => (
-                <View key={x.id} style={[styles.expRow, i > 0 && { borderTopColor: colors.divider || "#F0ECF6", borderTopWidth: StyleSheet.hairlineWidth }]}>
-                  <View style={[styles.expIcon, { backgroundColor: `${colors.primary}12` }]}>
-                    <Icon name="wallet" size={16} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.expCat, { color: colors.text }]}>{t(`business.expense.category.${x.category}`)}</Text>
-                    <Text style={[styles.expMeta, { color: colors.textTertiary }]}>
-                      {t(`business.payment.method.${x.method}`)} · {new Date(x.date).toLocaleDateString()}
-                      {x.receiptUrl ? " · 📎" : ""}
-                    </Text>
-                  </View>
-                  <Text style={[styles.expAmount, { color: colors.text }]}>−{formatCentavos(x.amountCents)}</Text>
+          {/* Income | Expenses toggle */}
+          <View style={styles.toggleTrack}>
+            {[
+              { id: "income", label: t("business.expense.income") },
+              { id: "expenses", label: t("business.expense.expensesLabel") },
+            ].map((seg) => {
+              const active = tab === seg.id;
+              return (
+                <TouchableOpacity key={seg.id} style={[styles.toggleSeg, active && { backgroundColor: colors.success }]} onPress={() => setTab(seg.id)} activeOpacity={0.85}>
+                  <Text style={[active ? styles.toggleTextActive : styles.toggleTextInactive, { color: active ? "#fff" : colors.textSecondary }]}>{seg.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {tab === "income" ? (
+            /* INCOME — by method */
+            rev.total > 0 ? (
+              <>
+                <Text style={[styles.eyebrow, { color: colors.textTertiary }]}>{t("business.expense.byMethod")}</Text>
+                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: cardBorder }]}>
+                  {PAYMENT_METHODS.filter((m) => rev.byMethod[m]).map((m, i) => (
+                    <View key={m} style={[styles.methodRow, i > 0 && { borderTopColor: colors.divider || "#F0ECF6", borderTopWidth: StyleSheet.hairlineWidth }]}>
+                      <Text style={[styles.methodName, { color: colors.text }]}>{t(`business.payment.method.${m}`)}</Text>
+                      <Text style={[styles.methodAmount, { color: colors.text }]}>{formatCentavos(rev.byMethod[m])}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
+              </>
+            ) : (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: cardBorder }]}>
+                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>{t("business.expense.noIncome")}</Text>
+              </View>
+            )
+          ) : (
+            /* EXPENSES — by category + ledger */
+            <>
+              {exp.total > 0 && (
+                <>
+                  <Text style={[styles.eyebrow, { color: colors.textTertiary }]}>{t("business.expense.byCategory")}</Text>
+                  <View style={[styles.card, { backgroundColor: colors.surface, borderColor: cardBorder }]}>
+                    {EXPENSE_CATEGORIES.filter((c) => exp.byCategory[c]).map((c, i) => (
+                      <View key={c} style={[i > 0 && { marginTop: 14 }]}>
+                        <View style={styles.catTop}>
+                          <Text style={[styles.catName, { color: colors.text }]}>{t(`business.expense.category.${c}`)}</Text>
+                          <Text style={[styles.catAmount, { color: colors.text }]}>{formatCentavos(exp.byCategory[c])}</Text>
+                        </View>
+                        <View style={[styles.barTrack, { backgroundColor: `${colors.primary}18` }]}>
+                          <View style={[styles.barFill, { width: `${Math.round((exp.byCategory[c] / maxCat) * 100)}%`, backgroundColor: colors.primary }]} />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              <Text style={[styles.eyebrow, { color: colors.textTertiary }]}>{t("business.expense.ledger")}</Text>
+              {expenses.length === 0 ? (
+                <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: cardBorder }]}>
+                  <Text style={[styles.emptyText, { color: colors.textTertiary }]}>{t("business.expense.noExpenses")}</Text>
+                </View>
+              ) : (
+                <View style={[styles.card, { backgroundColor: colors.surface, borderColor: cardBorder }]}>
+                  {expenses.slice(0, 30).map((x, i) => (
+                    <View key={x.id} style={[styles.expRow, i > 0 && { borderTopColor: colors.divider || "#F0ECF6", borderTopWidth: StyleSheet.hairlineWidth }]}>
+                      <View style={[styles.expIcon, { backgroundColor: `${colors.primary}12` }]}>
+                        <Icon name="wallet" size={16} color={colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.expCat, { color: colors.text }]}>{t(`business.expense.category.${x.category}`)}</Text>
+                        <Text style={[styles.expMeta, { color: colors.textTertiary }]}>
+                          {t(`business.payment.method.${x.method}`)} · {new Date(x.date).toLocaleDateString()}
+                          {x.receiptUrl ? " · 📎" : ""}
+                        </Text>
+                      </View>
+                      <Text style={[styles.expAmount, { color: colors.text }]}>−{formatCentavos(x.amountCents)}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       )}
@@ -215,11 +288,13 @@ function createStyles(colors) {
     header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 18, paddingTop: 60, paddingBottom: 8 },
     headerTitle: { fontFamily: FONTS.display, fontSize: 19, letterSpacing: -0.4 },
     rangeRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 10, alignItems: "center" },
-    rangeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15, borderWidth: 1 },
-    rangeText: { fontFamily: FONTS.bodyBold, fontSize: 12 },
+    rangeChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15 },
+    rangeTextActive: { fontFamily: FONTS.bodyBold, fontSize: 12 },
+    rangeTextInactive: { fontFamily: FONTS.bodySemibold, fontSize: 12 },
+    customRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingBottom: 8 },
     loading: { flex: 1, justifyContent: "center", alignItems: "center" },
     content: { paddingHorizontal: 16, paddingBottom: 40 },
-    // P&L card
+    // P&L card — Net profit hero first
     plShadow: {
       borderRadius: 18,
       shadowColor: "rgba(42,30,61,1)",
@@ -228,19 +303,24 @@ function createStyles(colors) {
       shadowOffset: { width: 0, height: 14 },
       elevation: 8,
     },
-    plCard: { borderRadius: 18, padding: 18 },
-    plTopRow: { flexDirection: "row", gap: 16 },
-    plCol: { flex: 1 },
-    plColLabel: { fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 0.6, textTransform: "uppercase", color: "rgba(255,255,255,0.65)" },
-    plColValue: { fontFamily: FONTS.display, fontSize: 18, color: "#fff", marginTop: 4, letterSpacing: -0.3 },
-    plDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.18)", marginVertical: 14 },
-    plNetLabel: { fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 0.6, textTransform: "uppercase", color: "rgba(255,255,255,0.65)" },
-    plNetValue: { fontFamily: FONTS.display, fontSize: 34, marginTop: 4, letterSpacing: -1 },
-    plMargin: { fontFamily: FONTS.bodySemibold, fontSize: 12.5, color: "rgba(255,255,255,0.8)", marginTop: 4 },
-    // eyebrow + cards
-    eyebrow: { fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 0.6, textTransform: "uppercase", marginTop: 22, marginBottom: 9, paddingHorizontal: 4 },
+    plCard: { borderRadius: 18, padding: 20 },
+    plEyebrow: { fontFamily: FONTS.bodySemibold, fontSize: 11.5, letterSpacing: 0.3, color: PL_EYEBROW },
+    plNet: { fontFamily: FONTS.display, fontSize: 32, letterSpacing: -1, marginTop: 6 },
+    plSubRow: { flexDirection: "row", marginTop: 16, gap: 12 },
+    plSubCol: { flex: 1 },
+    plSubLabel: { fontFamily: FONTS.bodySemibold, fontSize: 10.5, letterSpacing: 0.4, textTransform: "uppercase", color: PL_EYEBROW },
+    plSubValue: { fontFamily: FONTS.display, fontSize: 16, letterSpacing: -0.3, marginTop: 4 },
+    // toggle
+    toggleTrack: { flexDirection: "row", backgroundColor: "#E7E3F0", borderRadius: 12, padding: 3, marginTop: 16 },
+    toggleSeg: { flex: 1, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+    toggleTextActive: { fontFamily: FONTS.bodyExtra, fontSize: 13.5 },
+    toggleTextInactive: { fontFamily: FONTS.bodyBold, fontSize: 13.5 },
+    // sections
+    eyebrow: { fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 0.6, textTransform: "uppercase", marginTop: 20, marginBottom: 9, paddingHorizontal: 4 },
     card: { borderWidth: 1, borderRadius: 16, padding: 15 },
-    catRow: {},
+    methodRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
+    methodName: { fontFamily: FONTS.bodySemibold, fontSize: 14 },
+    methodAmount: { fontFamily: FONTS.display, fontSize: 14, letterSpacing: -0.2 },
     catTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 7 },
     catName: { fontFamily: FONTS.bodySemibold, fontSize: 13.5 },
     catAmount: { fontFamily: FONTS.display, fontSize: 13.5, letterSpacing: -0.2 },
@@ -251,7 +331,7 @@ function createStyles(colors) {
     expCat: { fontFamily: FONTS.bodySemibold, fontSize: 14 },
     expMeta: { fontFamily: FONTS.bodyMedium, fontSize: 11.5, marginTop: 2 },
     expAmount: { fontFamily: FONTS.display, fontSize: 14, letterSpacing: -0.2 },
-    emptyCard: { borderWidth: 1, borderRadius: 16, padding: 16, alignItems: "center" },
+    emptyCard: { borderWidth: 1, borderRadius: 16, padding: 16, alignItems: "center", marginTop: 9 },
     emptyText: { fontFamily: FONTS.bodyMedium, fontSize: 13, textAlign: "center" },
     footer: { paddingHorizontal: 16, paddingBottom: 28, paddingTop: 6 },
     addBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 54, borderRadius: 27 },
