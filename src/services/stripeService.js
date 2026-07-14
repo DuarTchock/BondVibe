@@ -3,7 +3,7 @@
  * NEW MODEL: User pays fees on top of event price
  */
 
-const FUNCTIONS_BASE_URL = 'https://us-central1-bondvibe-dev.cloudfunctions.net';
+const FUNCTIONS_BASE_URL = 'https://us-central1-kinlo-app-dev.cloudfunctions.net';
 
 // Fee configuration (mirror of backend)
 const FEES = {

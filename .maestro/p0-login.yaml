@@ -1,7 +1,7 @@
 # P0 helper — email/password login. Credentials come from env so nothing is
 # hardcoded:  maestro test -e KINLO_EMAIL=... -e KINLO_PASSWORD=... p0-login.yaml
 # Handles: dev-client launcher, LogBox overlay, already-logged-in sessions.
-appId: com.bondvibe.app
+appId: com.kinlo.app
 ---
 - launchApp:
     clearState: false

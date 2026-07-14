@@ -17,7 +17,7 @@ import {
 import { db, auth } from "./firebase";
 
 const FUNCTIONS_BASE_URL =
-  "https://us-central1-bondvibe-dev.cloudfunctions.net";
+  "https://us-central1-kinlo-app-dev.cloudfunctions.net";
 
 // Display catalog — mirrors functions/stripe/promotions.js.
 export const PROMOTION_PLANS = [

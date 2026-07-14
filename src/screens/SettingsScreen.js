@@ -76,7 +76,7 @@ export default function SettingsScreen({ navigation }) {
       await AsyncStorage.setItem("@account_deleting", "true");
       const token = await auth.currentUser.getIdToken();
       const response = await fetch(
-        "https://us-central1-bondvibe-dev.cloudfunctions.net/deleteUserAccount",
+        "https://us-central1-kinlo-app-dev.cloudfunctions.net/deleteUserAccount",
         {
           method: "POST",
           headers: {

@@ -14,7 +14,7 @@ const {calculateCheckoutAmount} = require("./stripe/pricing");
 
 const mpToken = defineSecret("MERCADOPAGO_ACCESS_TOKEN");
 const MP_API = "https://api.mercadopago.com";
-const PROJECT = process.env.GCLOUD_PROJECT || "bondvibe-dev";
+const PROJECT = process.env.GCLOUD_PROJECT || "kinlo-app-dev";
 const WEBHOOK_URL = `https://us-central1-${PROJECT}.cloudfunctions.net/mercadoPagoWebhook`;
 const RETURN_URL = `https://${PROJECT}.web.app/payment-success.html`;
 

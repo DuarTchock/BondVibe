@@ -8,7 +8,7 @@ const admin = require("firebase-admin");
 // Initialize Firebase Admin with explicit project ID
 if (!admin.apps.length) {
   admin.initializeApp({
-    projectId: "bondvibe-dev", // Add this line
+    projectId: "kinlo-app-dev", // Add this line
   });
 }
 

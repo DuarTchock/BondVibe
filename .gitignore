@@ -38,9 +38,9 @@ functions/firebase-debug.log
 firebase-debug.log
 firestore-debug.log
 .firebase/
-bondvibe-dev-firebase-adminsdk-*.json
+kinlo-app-dev-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
-bondvibe-dev-firebase-adminsdk-*.json
+kinlo-app-dev-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
 bondvibe-app-firebase-adminsdk.json
 cleanup-firebase.js

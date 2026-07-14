@@ -1,7 +1,7 @@
 # E2E — attendee core journey: login → 5 tabs → search → wall(AI) → inbox → profile.
 # Requires the AI-opted-in test account (p0.smoke). Run:
 #   maestro --device <sim> test .maestro/e2e-attendee.yaml
-appId: com.bondvibe.app
+appId: com.kinlo.app
 ---
 - launchApp
 - extendedWaitUntil:

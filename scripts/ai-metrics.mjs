@@ -4,7 +4,7 @@
  * collection and prints per-feature health: call counts, ok/fallback/denied
  * rates, latency p50/p95, and token spend.
  *
- * Usage:  node scripts/ai-metrics.mjs [--project bondvibe-dev] [--days 7]
+ * Usage:  node scripts/ai-metrics.mjs [--project kinlo-app-dev] [--days 7]
  * Auth:   uses your gcloud user credentials (gcloud auth print-access-token).
  *
  * Targets from the spec: fallback rate <2% · non-chat latency p95 <2.5s.
@@ -15,7 +15,7 @@ const arg = (name, dflt) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? process.argv[i + 1] : dflt;
 };
-const PROJECT = arg("project", "bondvibe-dev");
+const PROJECT = arg("project", "kinlo-app-dev");
 const DAYS = Number(arg("days", "7"));
 
 const token = execSync("gcloud auth print-access-token").toString().trim();

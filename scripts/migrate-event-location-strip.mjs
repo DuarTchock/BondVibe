@@ -21,7 +21,7 @@
  *      address). Un-migrated events (no gating fields) and events whose private
  *      doc is missing/empty are SKIPPED — so no attendee ever loses the address.
  *
- * Usage:   node scripts/migrate-event-location-strip.mjs [--project bondvibe-dev] [--apply --build-shipped]
+ * Usage:   node scripts/migrate-event-location-strip.mjs [--project kinlo-app-dev] [--apply --build-shipped]
  * Default: DRY RUN (prints the plan, writes nothing).
  * Auth:    gcloud user credentials (Owner/Editor). REST bypasses rules.
  *          gcloud auth print-access-token
@@ -33,7 +33,7 @@ const arg = (name, dflt) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? process.argv[i + 1] : dflt;
 };
-const PROJECT = arg("project", "bondvibe-dev");
+const PROJECT = arg("project", "kinlo-app-dev");
 const APPLY = process.argv.includes("--apply");
 const BUILD_SHIPPED = process.argv.includes("--build-shipped");
 const token = execSync("gcloud auth print-access-token").toString().trim();

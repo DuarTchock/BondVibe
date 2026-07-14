@@ -9,7 +9,7 @@ import Constants from "expo-constants";
 import { auth } from "./firebase";
 
 const PROJECT =
-  Constants.expoConfig?.extra?.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "bondvibe-dev";
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "kinlo-app-dev";
 const FN_URL = `https://us-central1-${PROJECT}.cloudfunctions.net/createMercadoPagoPreference`;
 
 /** Create a Checkout Pro preference; returns { preferenceId, initPoint, sandboxInitPoint }. */

@@ -1,7 +1,7 @@
 # P0 smoke — authed 5-tab shell. Requires a signed-in session (run
 # p0-login.yaml first). Verifies: all 5 tabs render and switch, header
 # actions reachable, Rentals/Wall/Events/Profile roots paint.
-appId: com.bondvibe.app
+appId: com.kinlo.app
 ---
 - launchApp:
     clearState: false

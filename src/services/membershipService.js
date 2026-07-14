@@ -41,7 +41,7 @@ import {
 } from "../utils/membershipUtils";
 
 const FUNCTIONS_BASE_URL =
-  "https://us-central1-bondvibe-dev.cloudfunctions.net";
+  "https://us-central1-kinlo-app-dev.cloudfunctions.net";
 
 // Re-export pure helpers so existing imports from this service keep working.
 export {
