@@ -115,7 +115,7 @@ export default function SignupScreen({ navigation }) {
           user.email,
         );
         const actionCodeSettings = {
-          url: "https://bondvibe-dev.web.app",
+          url: "https://kinlo-app-dev.web.app",
           handleCodeInApp: false,
         };
         await sendEmailVerification(user, actionCodeSettings);

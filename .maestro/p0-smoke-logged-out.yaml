@@ -1,5 +1,5 @@
 # P0 smoke — logged-out shell: Welcome renders with auth entry points.
-appId: com.bondvibe.app
+appId: com.kinlo.app
 ---
 - launchApp:
     clearState: false

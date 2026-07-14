@@ -192,7 +192,7 @@ export default function LoginScreen({ navigation }) {
 
     try {
       const actionCodeSettings = {
-        url: "https://bondvibe-dev.web.app",
+        url: "https://kinlo-app-dev.web.app",
         handleCodeInApp: false,
       };
       await sendPasswordResetEmail(auth, email.trim(), actionCodeSettings);

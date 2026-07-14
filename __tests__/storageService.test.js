@@ -42,7 +42,7 @@ describe('storageService', () => {
     };
 
     it('should extract path from standard Firebase Storage URL', () => {
-      const url = 'https://firebasestorage.googleapis.com/v0/b/bondvibe-dev.appspot.com/o/events%2Fabc123%2Fimage_0.jpg?alt=media&token=xyz';
+      const url = 'https://firebasestorage.googleapis.com/v0/b/kinlo-app-dev.appspot.com/o/events%2Fabc123%2Fimage_0.jpg?alt=media&token=xyz';
       
       const path = extractPathFromUrl(url);
       

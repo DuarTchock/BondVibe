@@ -6,7 +6,7 @@
  * functions/lib/auth.js), after which promoteToAdmin/revokeAdmin keep claims
  * in sync.
  *
- * Usage:  node scripts/migrate-admin-claims.mjs [--project bondvibe-dev]
+ * Usage:  node scripts/migrate-admin-claims.mjs [--project kinlo-app-dev]
  * Auth:   your gcloud user credentials (must be Owner/Editor on the project).
  *         gcloud auth print-access-token
  *
@@ -20,7 +20,7 @@ const arg = (name, dflt) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? process.argv[i + 1] : dflt;
 };
-const PROJECT = arg("project", "bondvibe-dev");
+const PROJECT = arg("project", "kinlo-app-dev");
 const token = execSync("gcloud auth print-access-token").toString().trim();
 
 const authHeaders = {

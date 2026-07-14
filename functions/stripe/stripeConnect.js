@@ -172,8 +172,8 @@ exports.createAccountLink = onRequest(
       // Create account link
       const accountLink = await stripe.accountLinks.create({
         account: accountId,
-        refresh_url: "https://bondvibe-dev.firebaseapp.com/stripe/refresh",
-        return_url: "https://bondvibe-dev.firebaseapp.com/stripe/return",
+        refresh_url: "https://kinlo-app-dev.firebaseapp.com/stripe/refresh",
+        return_url: "https://kinlo-app-dev.firebaseapp.com/stripe/return",
         type: "account_onboarding",
       });
 

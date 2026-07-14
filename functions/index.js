@@ -2792,7 +2792,7 @@ exports.adminResetPassword = onCall(async (request) => {
 // BONDVIBE PRO — subscription checkout (Stripe)
 // ============================================
 
-const HOSTING_ORIGIN = `https://${process.env.GCLOUD_PROJECT || "bondvibe-dev"}.web.app`;
+const HOSTING_ORIGIN = `https://${process.env.GCLOUD_PROJECT || "kinlo-app-dev"}.web.app`;
 const PRO_RETURN_URL = `${HOSTING_ORIGIN}/pro-return.html`;
 const PLUS_RETURN_URL = `${HOSTING_ORIGIN}/plus-return.html`;
 

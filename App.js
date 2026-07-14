@@ -327,8 +327,8 @@ function App() {
         <ThemeProvider>
           <StripeProvider
             publishableKey={STRIPE_PUBLISHABLE_KEY}
-            merchantIdentifier="merchant.com.bondvibe.app"
-            urlScheme="bondvibe"
+            merchantIdentifier="merchant.com.kinlo.app"
+            urlScheme="kinlo"
           >
             <BusinessProvider>
               <BusinessScopeProvider>

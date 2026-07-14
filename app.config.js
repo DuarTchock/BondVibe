@@ -1,12 +1,13 @@
 // Dynamic Expo config. Everything lives in app.json; this file only injects the
-// billable Google Maps keys from the environment (.env, gitignored, or EAS env
-// vars) so they never sit in the committed public repo.
+// native Android Google Maps SDK key from the environment (GOOGLE_MAPS_ANDROID_API_KEY
+// in .env, gitignored) so it never sits in the committed repo.
 //
-//   EXPO_PUBLIC_GOOGLE_PLACES_API_KEY → Places + Geocoding (client web calls)
-//   GOOGLE_MAPS_ANDROID_API_KEY       → native Google Maps SDK on Android
+// The web Places/Geocoding key (EXPO_PUBLIC_GOOGLE_PLACES_API_KEY) is NOT injected
+// here: Expo inlines EXPO_PUBLIC_* vars into the JS bundle from .env at build time,
+// and the client reads it via process.env. Injecting it into `extra` made `eas`
+// commands serialize it back into app.json — so we keep it out of the config.
 //
-// iOS uses Apple Maps (no key needed), so there is no iOS maps key here. See
-// .env.example for the required variables and the Cloud Console restrictions.
+// iOS uses Apple Maps (no key needed). See .env.example.
 const appJson = require("./app.json");
 const expo = appJson.expo;
 
@@ -14,12 +15,6 @@ const androidMapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY || "";
 
 module.exports = () => ({
   ...expo,
-  extra: {
-    ...expo.extra,
-    // Read at runtime via Constants.expoConfig.extra (PlaceAutocomplete, geocode).
-    EXPO_PUBLIC_GOOGLE_PLACES_API_KEY:
-      process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || null,
-  },
   android: {
     ...expo.android,
     config: {

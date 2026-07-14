@@ -14,7 +14,7 @@
  * credited/stamped; carpools on future events are left un-credited for the
  * daily sweep to pick up when their event ends.
  *
- * Usage:   node scripts/migrate-carpool-seats.mjs [--project bondvibe-dev] [--apply]
+ * Usage:   node scripts/migrate-carpool-seats.mjs [--project kinlo-app-dev] [--apply]
  * Default: DRY RUN (prints the plan, writes nothing). Pass --apply to write.
  * Auth:    your gcloud user credentials (Owner/Editor on the project).
  *          gcloud auth print-access-token
@@ -28,7 +28,7 @@ const arg = (name, dflt) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? process.argv[i + 1] : dflt;
 };
-const PROJECT = arg("project", "bondvibe-dev");
+const PROJECT = arg("project", "kinlo-app-dev");
 const APPLY = process.argv.includes("--apply");
 const token = execSync("gcloud auth print-access-token").toString().trim();
 

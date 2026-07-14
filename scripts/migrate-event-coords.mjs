@@ -10,7 +10,7 @@
  * so F2 stays intact — non-participants still see an approximate circle, not a
  * pin. Events that can't be geocoded are left as-is ("N not on map").
  *
- * Usage:   node scripts/migrate-event-coords.mjs [--project bondvibe-dev] [--key <mapsKey>] [--apply]
+ * Usage:   node scripts/migrate-event-coords.mjs [--project kinlo-app-dev] [--key <mapsKey>] [--apply]
  * Default: DRY RUN (prints the plan, writes nothing). Pass --apply to write.
  * Auth:    gcloud user credentials (Owner/Editor). The Maps key needs the
  *          Geocoding API enabled (defaults to app.json's EXPO_PUBLIC_GOOGLE_PLACES_API_KEY).
@@ -24,7 +24,7 @@ const arg = (name, dflt) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? process.argv[i + 1] : dflt;
 };
-const PROJECT = arg("project", "bondvibe-dev");
+const PROJECT = arg("project", "kinlo-app-dev");
 const APPLY = process.argv.includes("--apply");
 const GEOCODE_KEY = arg("key", process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY);
 if (!GEOCODE_KEY) {

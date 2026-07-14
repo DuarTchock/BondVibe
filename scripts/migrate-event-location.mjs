@@ -9,7 +9,7 @@
  * additive). Phase B (a separate script/deploy, after soak) strips them once
  * every reader uses the fallback resolver.
  *
- * Usage:   node scripts/migrate-event-location.mjs [--project bondvibe-dev] [--apply]
+ * Usage:   node scripts/migrate-event-location.mjs [--project kinlo-app-dev] [--apply]
  * Default: DRY RUN (prints the plan, writes nothing). Pass --apply to write.
  * Auth:    your gcloud user credentials (Owner/Editor). REST with an owner token
  *          bypasses security rules, so it can write the server-only fields.
@@ -23,7 +23,7 @@ const arg = (name, dflt) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? process.argv[i + 1] : dflt;
 };
-const PROJECT = arg("project", "bondvibe-dev");
+const PROJECT = arg("project", "kinlo-app-dev");
 const APPLY = process.argv.includes("--apply");
 const token = execSync("gcloud auth print-access-token").toString().trim();
 
