@@ -188,7 +188,7 @@ const TAB_META = {
   HomeTab: { labelKey: "navigation.tabs.home", icon: "discover" },
   WallTab: { labelKey: "navigation.tabs.wall", icon: "wall" },
   EventsTab: { labelKey: "navigation.tabs.events", icon: "events" },
-  RentalsTab: { labelKey: "navigation.tabs.rentals", icon: "bike" },
+  ServicesTab: { labelKey: "navigation.tabs.services", icon: "services" },
   BusinessTab: { labelKey: "navigation.tabs.business", icon: "business" },
 };
 
@@ -240,7 +240,7 @@ function MainTabs() {
       <Tab.Screen name="HomeTab" component={HomeScreen} />
       <Tab.Screen name="WallTab" component={FeedScreen} />
       <Tab.Screen name="EventsTab" component={EventsTabRoot} />
-      <Tab.Screen name="RentalsTab" component={RentalHubScreen} />
+      <Tab.Screen name="ServicesTab" component={MarketplaceExploreScreen} />
       {canManageBusiness && (
         <Tab.Screen
           name="BusinessTab"
@@ -280,7 +280,7 @@ const AppNavigator = forwardRef((props, ref) => {
 
   const AUTH_SCREENS = ["Welcome", "Login", "Signup"];
   // Inside MainTabs the "current route" is the focused tab, not "MainTabs".
-  const TAB_ROUTES = ["HomeTab", "WallTab", "EventsTab", "RentalsTab", "BusinessTab"];
+  const TAB_ROUTES = ["HomeTab", "WallTab", "EventsTab", "ServicesTab", "BusinessTab"];
 
   const navigateToRoute = (routeName, { user = null, params = {} } = {}) => {
     setInitialUser(user);
