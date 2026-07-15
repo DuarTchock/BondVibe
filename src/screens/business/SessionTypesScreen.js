@@ -16,22 +16,30 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { listSessionTypes, createSessionType, updateSessionType, deleteSessionType, capacityKind } from "../../services/businessSessionsService";
 import { formatCentavos } from "../../utils/pricing";
 import { SERVICE_VERTICALS } from "../../services/marketplaceService";
+import { getHostMembershipPlans } from "../../services/membershipService";
+import { getMyBizId } from "../../services/businessService";
 
 export default function SessionTypesScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const [types, setTypes] = useState([]);
+  const [hostPlans, setHostPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState(null); // { id?, name, capacityMax, durationMin, price, description }
 
   const load = useCallback(async () => {
-    setTypes(await listSessionTypes());
+    const [tys, plans] = await Promise.all([
+      listSessionTypes(),
+      getHostMembershipPlans(getMyBizId(), { activeOnly: true }).catch(() => []),
+    ]);
+    setTypes(tys);
+    setHostPlans(Array.isArray(plans) ? plans : []);
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const openNew = () => setEdit({ name: "", capacityMax: "1", durationMin: "60", price: "", description: "", publicListing: false, vertical: null, locationMode: "at_business", bookingMode: "slot", city: "" });
-  const openEdit = (ty) => setEdit({ id: ty.id, name: ty.name, capacityMax: String(ty.capacityMax), durationMin: String(ty.durationMin), price: ty.priceCents ? String(ty.priceCents / 100) : "", description: ty.description || "", publicListing: ty.publicListing === true, vertical: ty.vertical || null, locationMode: ty.locationMode || "at_business", bookingMode: ty.bookingMode || "slot", city: ty.city || "" });
+  const openNew = () => setEdit({ name: "", capacityMax: "1", durationMin: "60", price: "", description: "", publicListing: false, vertical: null, locationMode: "at_business", bookingMode: "slot", city: "", planPackageId: null });
+  const openEdit = (ty) => setEdit({ id: ty.id, name: ty.name, capacityMax: String(ty.capacityMax), durationMin: String(ty.durationMin), price: ty.priceCents ? String(ty.priceCents / 100) : "", description: ty.description || "", publicListing: ty.publicListing === true, vertical: ty.vertical || null, locationMode: ty.locationMode || "at_business", bookingMode: ty.bookingMode || "slot", city: ty.city || "", planPackageId: ty.planPackageId || null });
 
   const save = async () => {
     if (!edit.name.trim()) { Alert.alert(t("business.sessionType.nameRequired")); return; }
@@ -44,6 +52,7 @@ export default function SessionTypesScreen({ navigation }) {
       locationMode: edit.locationMode,
       bookingMode: edit.bookingMode,
       city: edit.city,
+      planPackageId: edit.planPackageId || null,
     };
     if (edit.id) await updateSessionType(edit.id, { name: edit.name.trim(), capacityMax: parseInt(edit.capacityMax, 10) || 1, durationMin: parseInt(edit.durationMin, 10) || 60, price: edit.price, description: edit.description.trim() || null, ...mkt });
     else await createSessionType({ ...edit, ...mkt });
@@ -148,6 +157,24 @@ export default function SessionTypesScreen({ navigation }) {
                   })}
                 </View>
                 <TextInput style={[styles.input, inputStyle]} value={edit?.city} onChangeText={(v) => setEdit((e) => ({ ...e, city: v }))} placeholder={t("rentals.hub.city")} placeholderTextColor={colors.textTertiary} />
+                {hostPlans.length > 0 && (
+                  <View>
+                    <Text style={[styles.capHint, { color: colors.textTertiary }]}>{t("marketplace.host.linkPlan")}</Text>
+                    <View style={styles.chipsWrap}>
+                      <TouchableOpacity onPress={() => setEdit((e) => ({ ...e, planPackageId: null }))} style={[styles.chip, { borderColor: !edit?.planPackageId ? colors.primary : colors.border, backgroundColor: !edit?.planPackageId ? colors.brandSoft : "transparent" }]}>
+                        <Text style={[styles.chipTxt, { color: !edit?.planPackageId ? colors.primary : colors.textSecondary }]}>{t("marketplace.host.noPlan")}</Text>
+                      </TouchableOpacity>
+                      {hostPlans.map((p) => {
+                        const active = edit?.planPackageId === p.id;
+                        return (
+                          <TouchableOpacity key={p.id} onPress={() => setEdit((e) => ({ ...e, planPackageId: p.id }))} style={[styles.chip, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.brandSoft : "transparent" }]}>
+                            <Text style={[styles.chipTxt, { color: active ? colors.primary : colors.textSecondary }]} numberOfLines={1}>{p.name}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
                 {edit?.locationMode === "at_customer" && (
                   <Text style={[styles.capHint, { color: colors.warning }]}>{t("marketplace.host.verifyNote")}</Text>
                 )}

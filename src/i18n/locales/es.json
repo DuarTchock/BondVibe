@@ -1215,6 +1215,8 @@
       "requestQuote": "Pedir cotización",
       "fromPrice": "Desde {{price}}",
       "quoteFree": "Cotización gratis",
+      "viewPlan": "Ver plan",
+      "plan": "Plan",
       "hostedBy": "Anfitrión: {{name}}",
       "verified": "Verificado",
       "notFound": "Servicio no encontrado."
@@ -1259,7 +1261,9 @@
       "bookingMode": "Reserva",
       "bookingSlot": "Reservar horario",
       "bookingQuote": "Pedir cotización",
-      "verifyNote": "A domicilio exige verificación + seguro"
+      "verifyNote": "A domicilio exige verificación + seguro",
+      "linkPlan": "Vincular un plan (opcional)",
+      "noPlan": "Sin plan"
     }
   },
   "adminDashboard": {

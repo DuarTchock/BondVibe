@@ -15,6 +15,7 @@ import { FONTS } from "../constants/theme-tokens";
 import Icon from "../components/Icon";
 import { formatCentavos } from "../utils/pricing";
 import { getListing, getListingBusiness } from "../services/marketplaceService";
+import { getMembershipPlan } from "../services/membershipService";
 import { VERTICAL_META } from "./MarketplaceExploreScreen";
 
 const capacityKindKey = (n) =>
@@ -34,6 +35,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
 
   const [listing, setListing] = useState(null);
   const [business, setBusiness] = useState(null);
+  const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,6 +43,15 @@ export default function ServiceDetailScreen({ route, navigation }) {
       const [l, b] = await Promise.all([getListing(bizId, listingId), getListingBusiness(bizId)]);
       setListing(l);
       setBusiness(b);
+      // Plan variant (P2): a service linked to a membership plan → reuse the
+      // existing membership checkout instead of a per-slot booking.
+      if (l && l.planPackageId) {
+        try {
+          setPlan(await getMembershipPlan(l.planPackageId));
+        } catch (e) {
+          /* plan unavailable — falls back to slot/quote */
+        }
+      }
       setLoading(false);
     })();
   }, [bizId, listingId]);
@@ -65,17 +76,27 @@ export default function ServiceDetailScreen({ route, navigation }) {
   }
 
   const meta = VERTICAL_META[listing.vertical] || VERTICAL_META.wellness;
-  const isQuote = listing.bookingMode === "quote" || !listing.priceCents;
+  const isPlan = !!plan;
+  const isQuote = !isPlan && (listing.bookingMode === "quote" || !listing.priceCents);
+  const priceCents = isPlan ? plan.priceCentavos || 0 : listing.priceCents;
+  const ctaLabel = isPlan
+    ? t("marketplace.detail.viewPlan")
+    : isQuote
+    ? t("marketplace.detail.requestQuote")
+    : t("marketplace.detail.bookSlot");
 
   const onBook = () => {
-    // Quote / free → the existing on-demand request flow (host confirms).
-    // Paid slot → the transactional reserve-and-pay checkout (M4).
-    if (isQuote) {
+    if (isPlan) {
+      // Plan → the existing membership checkout (multi-session package).
+      navigation.navigate("MembershipCheckout", { plan });
+    } else if (isQuote) {
+      // Quote / free → the existing on-demand request flow (host confirms).
       navigation.navigate("BusinessRequestSession", {
         bizId,
         businessName: business?.name || listing.name,
       });
     } else {
+      // Paid slot → the transactional reserve-and-pay checkout (M4).
       navigation.navigate("ServiceCheckout", { bizId, listingId: listing.id });
     }
   };
@@ -145,10 +166,14 @@ export default function ServiceDetailScreen({ route, navigation }) {
       <View style={[s.bookBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <View>
           <Text style={[s.priceLabel, { color: colors.textSecondary }]}>
-            {isQuote ? t("marketplace.detail.quoteFree") : t("marketplace.detail.fromPrice", { price: "" }).trim()}
+            {isPlan
+              ? t("marketplace.detail.plan")
+              : isQuote
+              ? t("marketplace.detail.quoteFree")
+              : t("marketplace.detail.fromPrice", { price: "" }).trim()}
           </Text>
-          {!isQuote && (
-            <Text style={[s.price, { color: colors.text }]}>{formatCentavos(listing.priceCents)}</Text>
+          {(isPlan || !isQuote) && (
+            <Text style={[s.price, { color: colors.text }]}>{formatCentavos(priceCents)}</Text>
           )}
         </View>
         <TouchableOpacity
@@ -156,9 +181,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
           activeOpacity={0.9}
           onPress={onBook}
         >
-          <Text style={s.ctaTxt}>
-            {isQuote ? t("marketplace.detail.requestQuote") : t("marketplace.detail.bookSlot")}
-          </Text>
+          <Text style={s.ctaTxt}>{ctaLabel}</Text>
         </TouchableOpacity>
       </View>
     </View>

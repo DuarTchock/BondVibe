@@ -1215,6 +1215,8 @@
       "requestQuote": "Request a quote",
       "fromPrice": "From {{price}}",
       "quoteFree": "Free quote",
+      "viewPlan": "View plan",
+      "plan": "Plan",
       "hostedBy": "Hosted by {{name}}",
       "verified": "Verified",
       "notFound": "Service not found."
@@ -1259,7 +1261,9 @@
       "bookingMode": "Booking",
       "bookingSlot": "Book a time",
       "bookingQuote": "Request a quote",
-      "verifyNote": "At-home needs verification + insurance"
+      "verifyNote": "At-home needs verification + insurance",
+      "linkPlan": "Link a plan (optional)",
+      "noPlan": "No plan"
     }
   },
   "adminDashboard": {
