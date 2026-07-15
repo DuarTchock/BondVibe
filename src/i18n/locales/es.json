@@ -1192,6 +1192,61 @@
     "benefitOne": "Una aprobación — todas las capacidades de host",
     "alreadyHost": "¿Ya estás aprobado para eventos? Listo — solo continúa."
   },
+  "marketplace": {
+    "tab": "Marketplace",
+    "searchPh": "¿Qué necesitas?",
+    "nearYou": "Servicios cerca de ti",
+    "vertical": {
+      "beauty": "Belleza",
+      "wellness": "Bienestar",
+      "home": "Hogar",
+      "auto": "Auto",
+      "rentals": "Rentas"
+    },
+    "detail": {
+      "duration": "{{min}} min",
+      "oneToOne": "1:1",
+      "couple": "Pareja",
+      "group": "Grupo",
+      "atStudio": "En el estudio",
+      "atCustomer": "A domicilio",
+      "online": "En línea",
+      "bookSlot": "Reservar horario",
+      "requestQuote": "Pedir cotización",
+      "fromPrice": "Desde {{price}}",
+      "quoteFree": "Cotización gratis",
+      "hostedBy": "Anfitrión: {{name}}",
+      "verified": "Verificado",
+      "notFound": "Servicio no encontrado."
+    },
+    "empty": {
+      "title": "Aún no hay servicios",
+      "body": "No hay anuncios aquí por ahora. Vuelve pronto."
+    },
+    "error": {
+      "title": "No se pudieron cargar los servicios",
+      "retry": "Reintentar"
+    },
+    "checkout": {
+      "title": "Confirmar reserva",
+      "kinloFee": "Cargo Kinlo",
+      "total": "Total",
+      "pay": "Confirmar y pagar {{amount}}",
+      "secure": "Seguro · precio validado en servidor"
+    },
+    "host": {
+      "publishRow": "Publicar al marketplace",
+      "publishSubtitle": "Expón tus servicios por vertical + ubicación",
+      "listOnMkt": "Listar en el marketplace",
+      "listHint": "Muestra este servicio a compradores que exploran el marketplace",
+      "whereHappen": "¿Dónde ocurre?",
+      "vertical": "Vertical",
+      "bookingMode": "Reserva",
+      "bookingSlot": "Reservar horario",
+      "bookingQuote": "Pedir cotización",
+      "verifyNote": "A domicilio exige verificación + seguro"
+    }
+  },
   "adminDashboard": {
     "unknown": "Desconocido",
     "accessDeniedTitle": "Acceso denegado",
@@ -3050,6 +3105,11 @@
       "overviewSection": "Resumen",
       "peopleMoneySection": "Personas y dinero",
       "programmingSection": "Programación",
+      "marketplaceSection": "Marketplace",
+      "marketplaceTitle": "Publicar al marketplace",
+      "marketplaceSubtitle": "Expón un servicio por vertical + ubicación",
+      "marketplaceBrowseTitle": "Explorar marketplace",
+      "marketplaceBrowseSubtitle": "Ve servicios cerca de ti",
       "retentionOrgSection": "Retención y organización",
       "crmBadge": "CRM",
       "newBadge": "Nuevo",

@@ -890,6 +890,15 @@ service cloud.firestore {
       allow read: if isSignedIn() && resource.data.linkedUid == request.auth.uid;
     }
 
+    // Marketplace browse (Marketplace P1): a collectionGroup('sessionTypes')
+    // query for public listings needs this recursive-wildcard rule — the nested
+    // businesses/{bizId}/sessionTypes rule does NOT authorize collection-group
+    // reads. Scoped to publicListing==true so only published services are
+    // exposed cross-business; private (staff-only) types stay hidden.
+    match /{path=**}/sessionTypes/{id} {
+      allow read: if isSignedIn() && resource.data.get('publicListing', false) == true;
+    }
+
     // ============================================
     // DEFAULT DENY ALL
     // ============================================

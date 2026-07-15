@@ -278,9 +278,24 @@
         { "fieldPath": "users", "arrayConfig": "CONTAINS" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sessionTypes",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "publicListing", "order": "ASCENDING" },
+        { "fieldPath": "vertical", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
+    {
+      "collectionGroup": "sessionTypes",
+      "fieldPath": "publicListing",
+      "indexes": [
+        { "queryScope": "COLLECTION_GROUP", "order": "ASCENDING" }
+      ]
+    },
     {
       "collectionGroup": "attendees",
       "fieldPath": "userId",

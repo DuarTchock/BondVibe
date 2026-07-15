@@ -174,6 +174,32 @@ export default function BusinessHubScreen({ navigation }) {
           />
         </View>
 
+        {/* Marketplace (Marketplace P1 — M5): expose services publicly + browse. */}
+        <SectionHeader title={t("business.hub.marketplaceSection")} />
+        <View style={card}>
+          {allows("marketplace") && (
+            <ListRow
+              icon="tag"
+              iconColor={colors.primary}
+              iconBg={`${colors.primary}1A`}
+              title={t("business.hub.marketplaceTitle")}
+              subtitle={t("business.hub.marketplaceSubtitle")}
+              onPress={() => navigation.navigate("BusinessSessionTypes")}
+            />
+          )}
+          {allows("marketplace") && (
+            <ListRow
+              icon="search"
+              iconColor={colors.secondary}
+              iconBg={`${colors.secondary}1A`}
+              title={t("business.hub.marketplaceBrowseTitle")}
+              subtitle={t("business.hub.marketplaceBrowseSubtitle")}
+              onPress={() => navigation.navigate("Marketplace")}
+              divider={false}
+            />
+          )}
+        </View>
+
         <SectionHeader title={t("business.hub.retentionOrgSection")} />
         <View style={card}>
           {allows("momentum") && (

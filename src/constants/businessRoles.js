@@ -19,6 +19,7 @@ export const BUSINESS_AREAS = [
   "momentum",
   "branches",
   "staff",
+  "marketplace",
 ];
 
 const allAreas = (value) =>

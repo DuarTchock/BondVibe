@@ -78,6 +78,12 @@ export async function listSessionTypes(bizId = getMyBizId()) {
   const snap = await getDocs(col(bizId, "sessionTypes"));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
+// Marketplace field sanitizers — shared by create + update so a SessionType
+// never carries `undefined` (Firestore rejects it) and enum fields stay valid.
+const LOCATION_MODES = ["at_business", "at_customer", "online"];
+export const cleanLocationMode = (m) => (LOCATION_MODES.includes(m) ? m : "at_business");
+export const cleanBookingMode = (m) => (m === "quote" ? "quote" : "slot");
+
 export async function createSessionType(data, bizId = getMyBizId()) {
   const payload = {
     name: (data.name || "").trim(),
@@ -85,6 +91,14 @@ export async function createSessionType(data, bizId = getMyBizId()) {
     durationMin: parseInt(data.durationMin, 10) || 60,
     priceCents: Math.max(0, Math.round((parseFloat(data.price) || 0) * 100)),
     description: (data.description || "").trim() || null,
+    // ── Marketplace exposure (Marketplace P1). A service = a public SessionType.
+    publicListing: data.publicListing === true,
+    vertical: data.vertical || null, // 'beauty'|'wellness'|'home'|'auto'
+    locationMode: cleanLocationMode(data.locationMode),
+    bookingMode: cleanBookingMode(data.bookingMode), // 'slot' | 'quote'
+    photos: Array.isArray(data.photos) ? data.photos : [],
+    city: (data.city || "").trim() || null,
+    planPackageId: data.planPackageId || null, // wellness: link to a package (P2)
     createdAt: serverTimestamp(),
   };
   const r = await addDoc(col(bizId, "sessionTypes"), payload);
@@ -96,6 +110,13 @@ export async function updateSessionType(id, patch, bizId = getMyBizId()) {
     clean.priceCents = Math.max(0, Math.round((parseFloat(clean.price) || 0) * 100));
     delete clean.price;
   }
+  // Coerce marketplace fields when present so we never write undefined/invalid.
+  if ("publicListing" in clean) clean.publicListing = clean.publicListing === true;
+  if ("locationMode" in clean) clean.locationMode = cleanLocationMode(clean.locationMode);
+  if ("bookingMode" in clean) clean.bookingMode = cleanBookingMode(clean.bookingMode);
+  if ("photos" in clean && !Array.isArray(clean.photos)) clean.photos = [];
+  if ("vertical" in clean && !clean.vertical) clean.vertical = null;
+  if ("city" in clean) clean.city = (clean.city || "").trim() || null;
   await updateDoc(ref(bizId, "sessionTypes", id), clean);
 }
 export async function deleteSessionType(id, bizId = getMyBizId()) {

@@ -1192,6 +1192,61 @@
     "benefitOne": "One approval — every host capability",
     "alreadyHost": "Already approved for events? You're all set — just continue."
   },
+  "marketplace": {
+    "tab": "Marketplace",
+    "searchPh": "What do you need?",
+    "nearYou": "Services near you",
+    "vertical": {
+      "beauty": "Beauty",
+      "wellness": "Wellness",
+      "home": "Home",
+      "auto": "Auto",
+      "rentals": "Rentals"
+    },
+    "detail": {
+      "duration": "{{min}} min",
+      "oneToOne": "1:1",
+      "couple": "Couple",
+      "group": "Group",
+      "atStudio": "At the studio",
+      "atCustomer": "At your place",
+      "online": "Online",
+      "bookSlot": "Book a slot",
+      "requestQuote": "Request a quote",
+      "fromPrice": "From {{price}}",
+      "quoteFree": "Free quote",
+      "hostedBy": "Hosted by {{name}}",
+      "verified": "Verified",
+      "notFound": "Service not found."
+    },
+    "empty": {
+      "title": "No services yet",
+      "body": "No listings here right now. Check back soon."
+    },
+    "error": {
+      "title": "Couldn't load services",
+      "retry": "Retry"
+    },
+    "checkout": {
+      "title": "Confirm booking",
+      "kinloFee": "Kinlo fee",
+      "total": "Total",
+      "pay": "Confirm & pay {{amount}}",
+      "secure": "Secure · price validated on server"
+    },
+    "host": {
+      "publishRow": "Publish to marketplace",
+      "publishSubtitle": "Expose your services by vertical + location",
+      "listOnMkt": "List on marketplace",
+      "listHint": "Show this service to buyers browsing the marketplace",
+      "whereHappen": "Where does it happen?",
+      "vertical": "Vertical",
+      "bookingMode": "Booking",
+      "bookingSlot": "Book a time",
+      "bookingQuote": "Request a quote",
+      "verifyNote": "At-home needs verification + insurance"
+    }
+  },
   "adminDashboard": {
     "unknown": "Unknown",
     "accessDeniedTitle": "Access denied",
@@ -3050,6 +3105,11 @@
       "overviewSection": "Overview",
       "peopleMoneySection": "People & money",
       "programmingSection": "Programming",
+      "marketplaceSection": "Marketplace",
+      "marketplaceTitle": "Publish to marketplace",
+      "marketplaceSubtitle": "Expose a service by vertical + location",
+      "marketplaceBrowseTitle": "Browse marketplace",
+      "marketplaceBrowseSubtitle": "See services near you",
       "retentionOrgSection": "Retention & org",
       "crmBadge": "CRM",
       "newBadge": "New",
