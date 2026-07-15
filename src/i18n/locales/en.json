@@ -1263,7 +1263,16 @@
       "bookingQuote": "Request a quote",
       "verifyNote": "At-home needs verification + insurance",
       "linkPlan": "Link a plan (optional)",
-      "noPlan": "No plan"
+      "noPlan": "No plan",
+      "verifyBlock": "Get your business verified + insured to publish at-home services."
+    },
+    "intake": {
+      "title": "The host will ask for",
+      "address": "Address",
+      "photos": "Photos of the job",
+      "window": "Time window",
+      "vehicle": "Your vehicle",
+      "symptom": "What's wrong"
     }
   },
   "adminDashboard": {

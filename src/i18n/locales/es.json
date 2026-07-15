@@ -1263,7 +1263,16 @@
       "bookingQuote": "Pedir cotización",
       "verifyNote": "A domicilio exige verificación + seguro",
       "linkPlan": "Vincular un plan (opcional)",
-      "noPlan": "Sin plan"
+      "noPlan": "Sin plan",
+      "verifyBlock": "Verifica y asegura tu negocio para publicar servicios a domicilio."
+    },
+    "intake": {
+      "title": "El anfitrión te pedirá",
+      "address": "Dirección",
+      "photos": "Fotos del trabajo",
+      "window": "Ventana horaria",
+      "vehicle": "Tu vehículo",
+      "symptom": "Qué falla"
     }
   },
   "adminDashboard": {

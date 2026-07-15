@@ -159,6 +159,20 @@ export default function ServiceDetailScreen({ route, navigation }) {
           {!!listing.description && (
             <Text style={[s.desc, { color: colors.textSecondary }]}>{listing.description}</Text>
           )}
+
+          {/* P3: per-vertical intake preview (Home/Auto fieldsSchema). */}
+          {Array.isArray(listing.fieldsSchema) && listing.fieldsSchema.length > 0 && (
+            <View style={s.intake}>
+              <Text style={[s.intakeTitle, { color: colors.textSecondary }]}>{t("marketplace.intake.title")}</Text>
+              <View style={s.intakeChips}>
+                {listing.fieldsSchema.map((f) => (
+                  <View key={f} style={[s.intakeChip, { backgroundColor: colors.brandSoft }]}>
+                    <Text style={[s.intakeChipTxt, { color: colors.primary }]}>{t(`marketplace.intake.${f}`)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -243,6 +257,11 @@ function createStyles(colors, isDark) {
     verifiedPill: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
     verifiedTxt: { fontFamily: FONTS.bodyBold, fontSize: 10.5 },
     desc: { fontFamily: FONTS.bodyMedium, fontSize: 14, lineHeight: 21, marginTop: 18 },
+    intake: { marginTop: 20 },
+    intakeTitle: { fontFamily: FONTS.bodyBold, fontSize: 10.5, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 10 },
+    intakeChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    intakeChip: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
+    intakeChipTxt: { fontFamily: FONTS.bodySemibold, fontSize: 12.5 },
     bookBar: {
       position: "absolute",
       left: 0,

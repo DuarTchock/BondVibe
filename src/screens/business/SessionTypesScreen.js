@@ -17,23 +17,26 @@ import { listSessionTypes, createSessionType, updateSessionType, deleteSessionTy
 import { formatCentavos } from "../../utils/pricing";
 import { SERVICE_VERTICALS } from "../../services/marketplaceService";
 import { getHostMembershipPlans } from "../../services/membershipService";
-import { getMyBizId } from "../../services/businessService";
+import { getMyBizId, getBusiness } from "../../services/businessService";
 
 export default function SessionTypesScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
   const [types, setTypes] = useState([]);
   const [hostPlans, setHostPlans] = useState([]);
+  const [biz, setBiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState(null); // { id?, name, capacityMax, durationMin, price, description }
 
   const load = useCallback(async () => {
-    const [tys, plans] = await Promise.all([
+    const [tys, plans, b] = await Promise.all([
       listSessionTypes(),
       getHostMembershipPlans(getMyBizId(), { activeOnly: true }).catch(() => []),
+      getBusiness().catch(() => null),
     ]);
     setTypes(tys);
     setHostPlans(Array.isArray(plans) ? plans : []);
+    setBiz(b);
     setLoading(false);
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -44,6 +47,12 @@ export default function SessionTypesScreen({ navigation }) {
   const save = async () => {
     if (!edit.name.trim()) { Alert.alert(t("business.sessionType.nameRequired")); return; }
     if (edit.publicListing && !edit.vertical) { Alert.alert(t("marketplace.host.vertical"), t("marketplace.host.listHint")); return; }
+    // P3: publishing an at-home service needs a verified + insured business
+    // (mirrors the firestore.rules gate; the server is the guarantee).
+    if (edit.publicListing && edit.locationMode === "at_customer" && !(biz && biz.verified && biz.insured)) {
+      Alert.alert(t("marketplace.host.verifyNote"), t("marketplace.host.verifyBlock"));
+      return;
+    }
     // Marketplace exposure fields (Marketplace P1 — M5). Only meaningful when
     // publicListing is on, but always persisted so toggling off is clean.
     const mkt = {

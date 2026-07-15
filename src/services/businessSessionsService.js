@@ -83,6 +83,12 @@ export async function listSessionTypes(bizId = getMyBizId()) {
 const LOCATION_MODES = ["at_business", "at_customer", "online"];
 export const cleanLocationMode = (m) => (LOCATION_MODES.includes(m) ? m : "at_business");
 export const cleanBookingMode = (m) => (m === "quote" ? "quote" : "slot");
+/** Buyer-intake fields collected per vertical (Marketplace P3). */
+export const fieldsSchemaFor = (vertical) => {
+  if (vertical === "home") return ["address", "photos", "window"];
+  if (vertical === "auto") return ["vehicle", "symptom"];
+  return [];
+};
 
 export async function createSessionType(data, bizId = getMyBizId()) {
   const payload = {
@@ -99,6 +105,7 @@ export async function createSessionType(data, bizId = getMyBizId()) {
     photos: Array.isArray(data.photos) ? data.photos : [],
     city: (data.city || "").trim() || null,
     planPackageId: data.planPackageId || null, // wellness: link to a package (P2)
+    fieldsSchema: fieldsSchemaFor(data.vertical), // home/auto intake fields (P3)
     createdAt: serverTimestamp(),
   };
   const r = await addDoc(col(bizId, "sessionTypes"), payload);
@@ -116,6 +123,7 @@ export async function updateSessionType(id, patch, bizId = getMyBizId()) {
   if ("bookingMode" in clean) clean.bookingMode = cleanBookingMode(clean.bookingMode);
   if ("photos" in clean && !Array.isArray(clean.photos)) clean.photos = [];
   if ("vertical" in clean && !clean.vertical) clean.vertical = null;
+  if ("vertical" in clean) clean.fieldsSchema = fieldsSchemaFor(clean.vertical);
   if ("city" in clean) clean.city = (clean.city || "").trim() || null;
   await updateDoc(ref(bizId, "sessionTypes", id), clean);
 }

@@ -768,6 +768,13 @@ service cloud.firestore {
     function bizStaffRole(bizId) {
       return get(/databases/$(database)/documents/businesses/$(bizId)/staff/$(request.auth.uid)).data.role;
     }
+    // Marketplace P3: a business may publish an AT-HOME (at_customer) service only
+    // if it is both verified and insured (admin-granted flags). This is the
+    // server-side guarantee behind the at-home publish gate.
+    function bizVerifiedInsured(bizId) {
+      let b = get(/databases/$(database)/documents/businesses/$(bizId)).data;
+      return b.get('verified', false) == true && b.get('insured', false) == true;
+    }
 
     match /businesses/{bizId} {
       allow read: if isBizStaff(bizId) || isBizOwnerUid(bizId);
@@ -850,9 +857,14 @@ service cloud.firestore {
         // Exposing a service to the public marketplace (publicListing==true) is
         // gated by the SAME unified host approval as rentals. Private
         // (staff-only) session types stay editable by any staff/owner.
+        // Publishing needs an approved host; publishing an AT-HOME service also
+        // needs a verified + insured business (Marketplace P3).
         allow create, update: if (isBizStaff(bizId) || isBizOwnerUid(bizId)) &&
                                  (request.resource.data.get('publicListing', false) != true ||
-                                  isApprovedHost());
+                                  isApprovedHost()) &&
+                                 (request.resource.data.get('publicListing', false) != true ||
+                                  request.resource.data.get('locationMode', 'at_business') != 'at_customer' ||
+                                  bizVerifiedInsured(bizId));
         allow delete: if isBizStaff(bizId) || isBizOwnerUid(bizId);
       }
       match /availability/{id} {
