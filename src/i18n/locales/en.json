@@ -244,7 +244,15 @@
     "adminPendingRequest_other": "{{count}} pending requests",
     "adminManage": "Manage host requests and events",
     "browseByCommunity": "BROWSE BY COMMUNITY",
-    "seeAll": "See all"
+    "seeAll": "See all",
+    "marketplace": {
+      "title": "Services near you",
+      "seeAll": "See all",
+      "empty": "No services yet",
+      "error": "Couldn't load services",
+      "retry": "Retry",
+      "rentalsCard": "Cars, scooters & bikes"
+    }
   },
   "wall": {
     "askKinlo": "Ask Kinlo",

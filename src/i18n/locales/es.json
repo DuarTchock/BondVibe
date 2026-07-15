@@ -244,7 +244,15 @@
     "adminPendingRequest_other": "{{count}} solicitudes pendientes",
     "adminManage": "Administra solicitudes de host y eventos",
     "browseByCommunity": "EXPLORA POR COMUNIDAD",
-    "seeAll": "Ver todo"
+    "seeAll": "Ver todo",
+    "marketplace": {
+      "title": "Servicios cerca de ti",
+      "seeAll": "Ver todo",
+      "empty": "Aún no hay servicios",
+      "error": "No se pudieron cargar los servicios",
+      "retry": "Reintentar",
+      "rentalsCard": "Autos, scooters y bicis"
+    }
   },
   "wall": {
     "askKinlo": "Pregúntale a Kinlo",

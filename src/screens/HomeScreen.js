@@ -22,6 +22,7 @@ import { useMode } from "../contexts/ModeContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { BRAND, ELEVATION } from "../constants/theme-tokens";
 import { useFocusEffect } from "@react-navigation/native";
+import MarketplaceRow from "../components/MarketplaceRow";
 import { EVENT_CATEGORIES } from "../utils/eventCategories";
 import Icon, { getCategoryIcon } from "../components/Icon";
 import RatingModal from "../components/RatingModal";
@@ -190,6 +191,9 @@ export default function HomeScreen({ navigation }) {
             {t("home.searchPlaceholder")}
           </Text>
         </TouchableOpacity>
+
+        {/* Marketplace — "Services near you" carousel (M0) */}
+        <MarketplaceRow navigation={navigation} />
 
         {/* Pending Ratings Section */}
         {pendingRatingEvents.length > 0 && (
