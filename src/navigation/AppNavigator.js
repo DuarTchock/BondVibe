@@ -122,6 +122,9 @@ import EventRosterScreen from "../screens/EventRosterScreen";
 import ConnectScreen from "../screens/ConnectScreen";
 import RentalHubScreen from "../screens/RentalHubScreen";
 import VehicleDetailScreen from "../screens/VehicleDetailScreen";
+import MarketplaceExploreScreen from "../screens/MarketplaceExploreScreen";
+import ServiceDetailScreen from "../screens/ServiceDetailScreen";
+import ServiceCheckoutScreen from "../screens/ServiceCheckoutScreen";
 import RentalCheckoutScreen from "../screens/RentalCheckoutScreen";
 import ActiveRentalScreen from "../screens/ActiveRentalScreen";
 import MyRentalsScreen from "../screens/MyRentalsScreen";
@@ -185,7 +188,7 @@ const TAB_META = {
   HomeTab: { labelKey: "navigation.tabs.home", icon: "discover" },
   WallTab: { labelKey: "navigation.tabs.wall", icon: "wall" },
   EventsTab: { labelKey: "navigation.tabs.events", icon: "events" },
-  RentalsTab: { labelKey: "navigation.tabs.rentals", icon: "bike" },
+  ServicesTab: { labelKey: "navigation.tabs.services", icon: "services" },
   BusinessTab: { labelKey: "navigation.tabs.business", icon: "business" },
 };
 
@@ -237,7 +240,7 @@ function MainTabs() {
       <Tab.Screen name="HomeTab" component={HomeScreen} />
       <Tab.Screen name="WallTab" component={FeedScreen} />
       <Tab.Screen name="EventsTab" component={EventsTabRoot} />
-      <Tab.Screen name="RentalsTab" component={RentalHubScreen} />
+      <Tab.Screen name="ServicesTab" component={MarketplaceExploreScreen} />
       {canManageBusiness && (
         <Tab.Screen
           name="BusinessTab"
@@ -277,7 +280,7 @@ const AppNavigator = forwardRef((props, ref) => {
 
   const AUTH_SCREENS = ["Welcome", "Login", "Signup"];
   // Inside MainTabs the "current route" is the focused tab, not "MainTabs".
-  const TAB_ROUTES = ["HomeTab", "WallTab", "EventsTab", "RentalsTab", "BusinessTab"];
+  const TAB_ROUTES = ["HomeTab", "WallTab", "EventsTab", "ServicesTab", "BusinessTab"];
 
   const navigateToRoute = (routeName, { user = null, params = {} } = {}) => {
     setInitialUser(user);
@@ -800,6 +803,9 @@ const AppNavigator = forwardRef((props, ref) => {
           <Stack.Screen name="Connect" component={ConnectScreen} />
           <Stack.Screen name="RentalHub" component={RentalHubScreen} />
           <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} />
+          <Stack.Screen name="Marketplace" component={MarketplaceExploreScreen} />
+          <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
+          <Stack.Screen name="ServiceCheckout" component={ServiceCheckoutScreen} />
           <Stack.Screen name="RentalCheckout" component={RentalCheckoutScreen} />
           <Stack.Screen name="ActiveRental" component={ActiveRentalScreen} />
           <Stack.Screen name="MyRentals" component={MyRentalsScreen} />

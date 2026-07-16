@@ -25,6 +25,20 @@ service cloud.firestore {
               get(/databases/$(database)/documents/users/$(request.auth.uid))
                 .data.role == 'admin');
     }
+
+    // Approved host: the admin-granted `hostApproved` flag OR the legacy
+    // role=='host'. This is the ONE unified gate — the same account that may
+    // create events may publish a rental vehicle AND expose a public
+    // marketplace listing (publicListing==true). get() is request-cached, so
+    // the two reads below bill as one. Missing fields default to not-approved.
+    function isApprovedHost() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.get('hostApproved', false) == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.get('role', 'user') == 'host'
+      );
+    }
     
     function isEventParticipant(eventId) {
       let eventData = get(/databases/$(database)/documents/events/$(eventId)).data;
@@ -476,7 +490,10 @@ service cloud.firestore {
                      (resource.data.hostId == request.auth.uid ||
                       (resource.data.memberIds != null &&
                        request.auth.uid in resource.data.memberIds));
-      allow create: if isSignedIn() &&
+      // BUG 42: creating a community requires an approved host — the same unified
+      // gate as vehicles + marketplace listings. Joining by code goes through a
+      // Cloud Function (Admin SDK), so it stays open to everyone.
+      allow create: if isSignedIn() && isApprovedHost() &&
                        request.resource.data.hostId == request.auth.uid;
       // Only the host can rename / change members / delete.
       allow update, delete: if isSignedIn() &&
@@ -572,7 +589,9 @@ service cloud.firestore {
     // the reservation transaction is the source of truth against double-booking.
     match /vehicles/{vehicleId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() &&
+      // P0 unified-host gate: only an approved host may list a vehicle. This
+      // closes the model-A hole where any signed-in user could create a vehicle.
+      allow create: if isSignedIn() && isApprovedHost() &&
                        request.resource.data.ownerId == request.auth.uid;
       allow update: if isSignedIn() &&
                        (resource.data.ownerId == request.auth.uid || isAdmin());
@@ -752,6 +771,13 @@ service cloud.firestore {
     function bizStaffRole(bizId) {
       return get(/databases/$(database)/documents/businesses/$(bizId)/staff/$(request.auth.uid)).data.role;
     }
+    // Marketplace P3: a business may publish an AT-HOME (at_customer) service only
+    // if it is both verified and insured (admin-granted flags). This is the
+    // server-side guarantee behind the at-home publish gate.
+    function bizVerifiedInsured(bizId) {
+      let b = get(/databases/$(database)/documents/businesses/$(bizId)).data;
+      return b.get('verified', false) == true && b.get('insured', false) == true;
+    }
 
     match /businesses/{bizId} {
       allow read: if isBizStaff(bizId) || isBizOwnerUid(bizId);
@@ -831,7 +857,18 @@ service cloud.firestore {
       // the requestBusinessSession Cloud Function (Admin SDK).
       match /sessionTypes/{id} {
         allow read: if isSignedIn();
-        allow write: if isBizStaff(bizId) || isBizOwnerUid(bizId);
+        // Exposing a service to the public marketplace (publicListing==true) is
+        // gated by the SAME unified host approval as rentals. Private
+        // (staff-only) session types stay editable by any staff/owner.
+        // Publishing needs an approved host; publishing an AT-HOME service also
+        // needs a verified + insured business (Marketplace P3).
+        allow create, update: if (isBizStaff(bizId) || isBizOwnerUid(bizId)) &&
+                                 (request.resource.data.get('publicListing', false) != true ||
+                                  isApprovedHost()) &&
+                                 (request.resource.data.get('publicListing', false) != true ||
+                                  request.resource.data.get('locationMode', 'at_business') != 'at_customer' ||
+                                  bizVerifiedInsured(bizId));
+        allow delete: if isBizStaff(bizId) || isBizOwnerUid(bizId);
       }
       match /availability/{id} {
         allow read: if isSignedIn();
@@ -866,6 +903,23 @@ service cloud.firestore {
     // governed by the nested rule above).
     match /{path=**}/members/{memberId} {
       allow read: if isSignedIn() && resource.data.linkedUid == request.auth.uid;
+    }
+
+    // Marketplace browse (Marketplace P1): a collectionGroup('sessionTypes')
+    // query for public listings needs this recursive-wildcard rule — the nested
+    // businesses/{bizId}/sessionTypes rule does NOT authorize collection-group
+    // reads. Scoped to publicListing==true so only published services are
+    // exposed cross-business; private (staff-only) types stay hidden.
+    match /{path=**}/sessionTypes/{id} {
+      allow read: if isSignedIn() && resource.data.get('publicListing', false) == true;
+    }
+
+    // Marketplace buyers read their OWN service bookings across businesses
+    // (Marketplace P1 · M4). A collectionGroup('bookings') query needs this
+    // recursive-wildcard rule; the nested businesses/{bizId}/bookings rule is
+    // staff/owner-only. Scoped to buyerUid == uid. Writes stay CF-only (money).
+    match /{path=**}/bookings/{id} {
+      allow read: if isSignedIn() && resource.data.get('buyerUid', null) == request.auth.uid;
     }
 
     // ============================================

@@ -83,10 +83,17 @@ describe("HomeScreen", () => {
     await waitFor(() => expect(queryByTestId("home-create-fab")).toBeNull());
   });
 
-  it("shows Admin Dashboard for admins", async () => {
+  it("no longer shows Admin Dashboard in Home (moved to Profile)", async () => {
     setUser({ fullName: "Admin", role: "admin" });
+    const { queryByText, getByTestId } = render(<HomeScreen navigation={nav} />);
+    await waitFor(() => getByTestId("home-search"));
+    expect(queryByText("Admin Dashboard")).toBeNull();
+  });
+
+  it("renders the Events and Services carousels", async () => {
     const { getByText } = render(<HomeScreen navigation={nav} />);
-    await waitFor(() => expect(getByText("Admin Dashboard")).toBeTruthy());
+    await waitFor(() => expect(getByText("Events near you")).toBeTruthy());
+    expect(getByText("Services near you")).toBeTruthy();
   });
 
   it("navigates to a category when its card is pressed", async () => {

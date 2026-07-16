@@ -7,6 +7,7 @@
       "wall": "Muro",
       "events": "Eventos",
       "rentals": "Rentas",
+      "services": "Servicios",
       "profile": "Perfil",
       "business": "Negocio"
     }
@@ -243,7 +244,22 @@
     "adminPendingRequest_other": "{{count}} solicitudes pendientes",
     "adminManage": "Administra solicitudes de host y eventos",
     "browseByCommunity": "EXPLORA POR COMUNIDAD",
-    "seeAll": "Ver todo"
+    "seeAll": "Ver todo",
+    "marketplace": {
+      "title": "Servicios cerca de ti",
+      "seeAll": "Ver todo",
+      "empty": "Aún no hay servicios",
+      "error": "No se pudieron cargar los servicios",
+      "retry": "Reintentar",
+      "rentalsCard": "Autos, scooters y bicis"
+    },
+    "events": {
+      "title": "Eventos cerca de ti",
+      "seeAll": "Ver todo",
+      "empty": "No hay eventos próximos",
+      "error": "No se pudieron cargar los eventos",
+      "retry": "Reintentar"
+    }
   },
   "wall": {
     "askKinlo": "Pregúntale a Kinlo",
@@ -1175,6 +1191,104 @@
       "emptyTitle": "Aún no hay vehículos",
       "emptyText": "Publica tu primer vehículo para empezar a ganar.",
       "noPhoto": "Sin foto"
+    },
+    "host": {
+      "becomeTitle": "Publica tu vehículo en Kinlo",
+      "becomeBody": "Publicar vehículos y crear eventos usan una sola cuenta de host aprobado. Solo una solicitud rápida.",
+      "becomeCta": "Conviértete en host",
+      "alreadyHost": "¿Ya organizas eventos? Ya estás aprobado — empieza a publicar."
+    }
+  },
+  "hostGate": {
+    "title": "Conviértete en host de Kinlo",
+    "body": "Una sola cuenta de host aprobado desbloquea eventos, rentas y anuncios del marketplace — una sola solicitud rápida.",
+    "cta": "Conviértete en host",
+    "benefitEvents": "Crea y vende boletos para eventos",
+    "benefitRentals": "Publica vehículos en renta",
+    "benefitOne": "Una aprobación — todas las capacidades de host",
+    "alreadyHost": "¿Ya estás aprobado para eventos? Listo — solo continúa."
+  },
+  "marketplace": {
+    "tab": "Marketplace",
+    "searchPh": "¿Qué necesitas?",
+    "nearYou": "Servicios cerca de ti",
+    "vertical": {
+      "beauty": "Belleza",
+      "wellness": "Bienestar",
+      "home": "Hogar",
+      "auto": "Auto",
+      "rentals": "Rentas"
+    },
+    "detail": {
+      "duration": "{{min}} min",
+      "oneToOne": "1:1",
+      "couple": "Pareja",
+      "group": "Grupo",
+      "atStudio": "En el estudio",
+      "atCustomer": "A domicilio",
+      "online": "En línea",
+      "bookSlot": "Reservar horario",
+      "requestQuote": "Pedir cotización",
+      "fromPrice": "Desde {{price}}",
+      "quoteFree": "Cotización gratis",
+      "viewPlan": "Ver plan",
+      "plan": "Plan",
+      "hostedBy": "Anfitrión: {{name}}",
+      "verified": "Verificado",
+      "notFound": "Servicio no encontrado."
+    },
+    "empty": {
+      "title": "Aún no hay servicios",
+      "body": "No hay anuncios aquí por ahora. Vuelve pronto."
+    },
+    "error": {
+      "title": "No se pudieron cargar los servicios",
+      "retry": "Reintentar"
+    },
+    "checkout": {
+      "title": "Confirmar reserva",
+      "pickDate": "Elige una fecha",
+      "pickTime": "Elige un horario",
+      "service": "Servicio",
+      "kinloFee": "Cargo Kinlo",
+      "processingFee": "Cargo por procesamiento",
+      "total": "Total",
+      "cardDetails": "Datos de la tarjeta",
+      "pay": "Confirmar y pagar {{amount}}",
+      "secure": "Seguro · precio validado en servidor",
+      "needTime": "Elige primero una fecha y un horario.",
+      "incompleteCard": "Ingresa los datos completos de la tarjeta.",
+      "slotFull": "Ese horario se acaba de ocupar. Elige otro.",
+      "payoutsNotReady": "Este anfitrión aún no termina la configuración de pagos.",
+      "quoteOnly": "Este servicio es solo por cotización.",
+      "paymentFailed": "Pago fallido",
+      "failedTitle": "No se pudo reservar",
+      "failed": "Hubo un problema. Inténtalo de nuevo.",
+      "booked": "¡Reservado!",
+      "bookedMsg": "Tu reserva está confirmada. El anfitrión fue notificado."
+    },
+    "host": {
+      "publishRow": "Publicar al marketplace",
+      "publishSubtitle": "Expón tus servicios por vertical + ubicación",
+      "listOnMkt": "Listar en el marketplace",
+      "listHint": "Muestra este servicio a compradores que exploran el marketplace",
+      "whereHappen": "¿Dónde ocurre?",
+      "vertical": "Vertical",
+      "bookingMode": "Reserva",
+      "bookingSlot": "Reservar horario",
+      "bookingQuote": "Pedir cotización",
+      "verifyNote": "A domicilio exige verificación + seguro",
+      "linkPlan": "Vincular un plan (opcional)",
+      "noPlan": "Sin plan",
+      "verifyBlock": "Verifica y asegura tu negocio para publicar servicios a domicilio."
+    },
+    "intake": {
+      "title": "El anfitrión te pedirá",
+      "address": "Dirección",
+      "photos": "Fotos del trabajo",
+      "window": "Ventana horaria",
+      "vehicle": "Tu vehículo",
+      "symptom": "Qué falla"
     }
   },
   "adminDashboard": {
@@ -1481,6 +1595,10 @@
     "saved": "Guardado",
     "spotifyPlaylistSaved": "Tu playlist de Spotify ya está en el grupo.",
     "playlistRemoved": "Playlist eliminada.",
+    "playlistRemovedToast": "Playlist quitada",
+    "removePlaylistTitle": "¿Quitar playlist?",
+    "removePlaylist": "Quitar",
+    "invalidSpotifyLink": "Enlace de Spotify no válido",
     "couldntSave": "No se pudo guardar",
     "newInviteCode": "¿Nuevo código de invitación?",
     "newInviteCodeMessage": "El enlace/código actual dejará de funcionar.",
@@ -3035,6 +3153,11 @@
       "overviewSection": "Resumen",
       "peopleMoneySection": "Personas y dinero",
       "programmingSection": "Programación",
+      "marketplaceSection": "Marketplace",
+      "marketplaceTitle": "Publicar al marketplace",
+      "marketplaceSubtitle": "Expón un servicio por vertical + ubicación",
+      "marketplaceBrowseTitle": "Explorar marketplace",
+      "marketplaceBrowseSubtitle": "Ve servicios cerca de ti",
       "retentionOrgSection": "Retención y organización",
       "crmBadge": "CRM",
       "newBadge": "Nuevo",

@@ -50,7 +50,7 @@ export default function MyRentalsScreen({ navigation }) {
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.myRentals.title")}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate("MainTabs", { screen: "RentalsTab" })}>
+        <TouchableOpacity onPress={() => navigation.navigate("RentalHub")}>
           <Text style={[styles.link, { color: colors.primary }]}>{t("rentals.myRentals.rent")}</Text>
         </TouchableOpacity>
       </View>
@@ -72,7 +72,7 @@ export default function MyRentalsScreen({ navigation }) {
               </Text>
               <TouchableOpacity
                 style={[styles.cta, { backgroundColor: colors.primary }]}
-                onPress={() => navigation.navigate("MainTabs", { screen: "RentalsTab" })}
+                onPress={() => navigation.navigate("RentalHub")}
                 activeOpacity={0.85}
               >
                 <Text style={styles.ctaTxt}>{t("rentals.myRentals.browseVehicles")}</Text>

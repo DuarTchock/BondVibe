@@ -7,6 +7,7 @@
       "wall": "Wall",
       "events": "Events",
       "rentals": "Rentals",
+      "services": "Services",
       "profile": "Profile",
       "business": "Business"
     }
@@ -243,7 +244,22 @@
     "adminPendingRequest_other": "{{count}} pending requests",
     "adminManage": "Manage host requests and events",
     "browseByCommunity": "BROWSE BY COMMUNITY",
-    "seeAll": "See all"
+    "seeAll": "See all",
+    "marketplace": {
+      "title": "Services near you",
+      "seeAll": "See all",
+      "empty": "No services yet",
+      "error": "Couldn't load services",
+      "retry": "Retry",
+      "rentalsCard": "Cars, scooters & bikes"
+    },
+    "events": {
+      "title": "Events near you",
+      "seeAll": "See all",
+      "empty": "No upcoming events",
+      "error": "Couldn't load events",
+      "retry": "Retry"
+    }
   },
   "wall": {
     "askKinlo": "Ask Kinlo",
@@ -1175,6 +1191,104 @@
       "emptyTitle": "No vehicles yet",
       "emptyText": "Publish your first vehicle to start earning.",
       "noPhoto": "No photo"
+    },
+    "host": {
+      "becomeTitle": "List your vehicle on Kinlo",
+      "becomeBody": "Publishing vehicles and creating events use one approved host account. Just one quick request.",
+      "becomeCta": "Become a host",
+      "alreadyHost": "Already host events? You're approved — start listing."
+    }
+  },
+  "hostGate": {
+    "title": "Become a Kinlo host",
+    "body": "One approved host account unlocks events, rentals, and marketplace listings — a single quick request.",
+    "cta": "Become a host",
+    "benefitEvents": "Create and sell tickets to events",
+    "benefitRentals": "List vehicles for rent",
+    "benefitOne": "One approval — every host capability",
+    "alreadyHost": "Already approved for events? You're all set — just continue."
+  },
+  "marketplace": {
+    "tab": "Marketplace",
+    "searchPh": "What do you need?",
+    "nearYou": "Services near you",
+    "vertical": {
+      "beauty": "Beauty",
+      "wellness": "Wellness",
+      "home": "Home",
+      "auto": "Auto",
+      "rentals": "Rentals"
+    },
+    "detail": {
+      "duration": "{{min}} min",
+      "oneToOne": "1:1",
+      "couple": "Couple",
+      "group": "Group",
+      "atStudio": "At the studio",
+      "atCustomer": "At your place",
+      "online": "Online",
+      "bookSlot": "Book a slot",
+      "requestQuote": "Request a quote",
+      "fromPrice": "From {{price}}",
+      "quoteFree": "Free quote",
+      "viewPlan": "View plan",
+      "plan": "Plan",
+      "hostedBy": "Hosted by {{name}}",
+      "verified": "Verified",
+      "notFound": "Service not found."
+    },
+    "empty": {
+      "title": "No services yet",
+      "body": "No listings here right now. Check back soon."
+    },
+    "error": {
+      "title": "Couldn't load services",
+      "retry": "Retry"
+    },
+    "checkout": {
+      "title": "Confirm booking",
+      "pickDate": "Pick a date",
+      "pickTime": "Pick a time",
+      "service": "Service",
+      "kinloFee": "Kinlo fee",
+      "processingFee": "Processing fee",
+      "total": "Total",
+      "cardDetails": "Card details",
+      "pay": "Confirm & pay {{amount}}",
+      "secure": "Secure · price validated on server",
+      "needTime": "Pick a date and time first.",
+      "incompleteCard": "Please enter complete card details.",
+      "slotFull": "That time was just taken. Pick another.",
+      "payoutsNotReady": "This host hasn't finished payout setup yet.",
+      "quoteOnly": "This service is quote-only.",
+      "paymentFailed": "Payment failed",
+      "failedTitle": "Couldn't book",
+      "failed": "There was a problem. Please try again.",
+      "booked": "Booked!",
+      "bookedMsg": "Your booking is confirmed. The host has been notified."
+    },
+    "host": {
+      "publishRow": "Publish to marketplace",
+      "publishSubtitle": "Expose your services by vertical + location",
+      "listOnMkt": "List on marketplace",
+      "listHint": "Show this service to buyers browsing the marketplace",
+      "whereHappen": "Where does it happen?",
+      "vertical": "Vertical",
+      "bookingMode": "Booking",
+      "bookingSlot": "Book a time",
+      "bookingQuote": "Request a quote",
+      "verifyNote": "At-home needs verification + insurance",
+      "linkPlan": "Link a plan (optional)",
+      "noPlan": "No plan",
+      "verifyBlock": "Get your business verified + insured to publish at-home services."
+    },
+    "intake": {
+      "title": "The host will ask for",
+      "address": "Address",
+      "photos": "Photos of the job",
+      "window": "Time window",
+      "vehicle": "Your vehicle",
+      "symptom": "What's wrong"
     }
   },
   "adminDashboard": {
@@ -1481,6 +1595,10 @@
     "saved": "Saved",
     "spotifyPlaylistSaved": "Your Spotify playlist is now on the group.",
     "playlistRemoved": "Playlist removed.",
+    "playlistRemovedToast": "Playlist removed",
+    "removePlaylistTitle": "Remove playlist?",
+    "removePlaylist": "Remove",
+    "invalidSpotifyLink": "Invalid Spotify link",
     "couldntSave": "Couldn't save",
     "newInviteCode": "New invite code?",
     "newInviteCodeMessage": "The current link/code will stop working.",
@@ -3035,6 +3153,11 @@
       "overviewSection": "Overview",
       "peopleMoneySection": "People & money",
       "programmingSection": "Programming",
+      "marketplaceSection": "Marketplace",
+      "marketplaceTitle": "Publish to marketplace",
+      "marketplaceSubtitle": "Expose a service by vertical + location",
+      "marketplaceBrowseTitle": "Browse marketplace",
+      "marketplaceBrowseSubtitle": "See services near you",
       "retentionOrgSection": "Retention & org",
       "crmBadge": "CRM",
       "newBadge": "New",

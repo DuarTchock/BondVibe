@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useContext } from "react";
 import {
   View,
   Text,
@@ -24,7 +24,8 @@ import ListRow from "../components/ListRow";
 import SectionHeader from "../components/SectionHeader";
 import { getAvailableVehicles, getRentalCities, VEHICLE_TYPES } from "../services/rentalService";
 import { formatCentavos } from "../utils/pricing";
-import { ELEVATION, RADII, SPACING } from "../constants/theme-tokens";
+import { ELEVATION, RADII, SPACING, FONTS } from "../constants/theme-tokens";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 
 const toISO = (d) => (d ? new Date(d).toISOString() : undefined);
 
@@ -33,6 +34,8 @@ export default function RentalHubScreen({ route, navigation }) {
   const { t } = useTranslation();
   const { isHosting } = useMode();
   const { isHost } = useUserRole();
+  // Raw context (null outside a SafeAreaProvider, e.g. in tests) — default to 0.
+  const insets = useContext(SafeAreaInsetsContext);
   const { eventId, eventTitle } = route.params || {};
   const TYPE_LABEL = {
     scooter: t("rentals.hub.typeScooter"),
@@ -96,9 +99,18 @@ export default function RentalHubScreen({ route, navigation }) {
   return (
     <GradientBackground>
       <StatusBar style={isDark ? "light" : "dark"} />
-      {/* Tab root — AppHeader is provided by the tab navigator. */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.hub.title")}</Text>
+      {/* Pushed screen (Rentals category inside Services): respect the safe-area
+          top so the header clears the status bar, + a back chevron to Services. */}
+      <View style={[styles.header, { paddingTop: (insets?.top ?? 0) + 8 }]}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Icon name="back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{t("rentals.hub.title")}</Text>
+        </View>
         <TouchableOpacity onPress={() => navigation.navigate("MyRentals")}>
           <Text style={[styles.link, { color: colors.primary }]}>{t("rentals.hub.myRentals")}</Text>
         </TouchableOpacity>
@@ -345,9 +357,10 @@ function createStyles(colors, isDark) {
       justifyContent: "space-between",
       alignItems: "center",
       paddingHorizontal: 20,
-      paddingTop: 4,
-      paddingBottom: 12,
+      // paddingTop is set dynamically to the safe-area top inset.
+      paddingBottom: 16,
     },
+    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
     fleetCard: {
       borderRadius: RADII.card,
       borderWidth: 1,
@@ -355,8 +368,8 @@ function createStyles(colors, isDark) {
       marginBottom: SPACING.md,
       overflow: "hidden",
     },
-    headerTitle: { fontSize: 20, fontWeight: "800" },
-    link: { fontSize: 14, fontWeight: "700" },
+    headerTitle: { fontFamily: FONTS.display, fontSize: 20, letterSpacing: -0.4 },
+    link: { fontFamily: FONTS.bodyBold, fontSize: 14 },
     eventBanner: {
       marginHorizontal: 20,
       borderWidth: 1,

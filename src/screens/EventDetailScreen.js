@@ -994,7 +994,7 @@ export default function EventDetailScreen({ route, navigation }) {
             style={styles.infoCard}
             activeOpacity={0.85}
             onPress={() =>
-              navigation.navigate("MainTabs", { screen: "RentalsTab", params: { eventId, eventTitle } })
+              navigation.navigate("RentalHub", { eventId, eventTitle })
             }
           >
             <View
