@@ -100,13 +100,14 @@ async function generateForUser(me, nowMs) {
   ]);
   const excluded = new Set((exclSnap.exists ? exclSnap.data().excluded : []) || []);
   const myCommunities = new Set((mine && mine.communities) || meUser.communities || []);
-  const crossCommunity = mm.crossCommunity !== false; // default on
+  // Privacy default (P3): you only see people who share ≥1 community with you.
+  // The cross-community SETTING (P4) is opt-in — it broadens discovery beyond
+  // your shared communities. Default OFF keeps the "only shared community" rule.
+  const crossCommunity = mm.crossCommunity === true;
 
   const ranked = poolSnap.docs
     .map((d) => ({uid: d.id, ...d.data()}))
     .filter((p) => p.uid !== me && !excluded.has(p.uid))
-    // Cross-community rule (P3): a candidate only appears if we share ≥1
-    // community — unless the user opted into cross-community discovery.
     .filter((p) => {
       if (crossCommunity) return true;
       const theirs = p.communities || [];

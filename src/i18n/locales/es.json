@@ -927,6 +927,18 @@
       "emptyTitle": "Aún no hay a quién sugerir",
       "emptyBody": "A medida que más gente de tus comunidades se una, tu grupo semanal se irá llenando — nunca inventamos matches."
     },
+    "groups": {
+      "title": "Grupos para ti",
+      "cardTitle": "Grupo de {{count}}",
+      "join": "Unirme",
+      "joinedCount": "{{count}} se unieron — el chat abre en 3",
+      "active": "{{count}} en el chat",
+      "waiting": "Ya estás dentro — esperando a que el grupo se llene",
+      "openChat": "Abrir chat",
+      "chatEmpty": "Saluda a tu grupo",
+      "emptyTitle": "Aún no hay grupos",
+      "emptyBody": "Cuando suficientes personas de tus comunidades se unan, te sugeriremos grupos pequeños de 4 a 6 — nunca inventados."
+    },
     "type": { "friend": "Amigos", "professional": "Profesional", "romantic": "Romántico", "brand": "Nuevo" },
     "groupPref": { "one_on_one": "Uno a uno", "small_group": "Grupo pequeño", "group": "Grupo grande" },
     "interest": { "music": "Música", "travel": "Viajes", "fitness": "Fitness", "food": "Comida", "art": "Arte", "gaming": "Videojuegos", "reading": "Lectura", "movies": "Cine", "photography": "Fotografía", "hiking": "Senderismo", "yoga": "Yoga", "tech": "Tecnología", "fashion": "Moda", "cooking": "Cocina", "sports": "Deportes", "dancing": "Baile", "coffee": "Café", "nature": "Naturaleza", "volunteering": "Voluntariado", "startups": "Startups" },

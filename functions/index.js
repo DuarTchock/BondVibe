@@ -70,6 +70,11 @@ exports.requestCuratedSet = curated.requestCuratedSet;
 exports.generateWeeklyCuratedSets = curated.generateWeeklyCuratedSets;
 exports.requestMatchIntro = curated.requestMatchIntro;
 
+// Matchmaking v2 — community-scoped groups of 4-6 (P3). Chat activates at 3+.
+const matchGroups = require("./matching/groups");
+exports.formMatchGroups = matchGroups.formMatchGroups;
+exports.joinMatchGroup = matchGroups.joinMatchGroup;
+
 // Social layer — server-maintained post counts.
 const social = require("./social/social");
 exports.onPostLikeWritten = social.onPostLikeWritten;

@@ -800,6 +800,32 @@ service cloud.firestore {
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // Match groups (P3): server-formed clusters of 4-6. A candidate can see the
+    // suggestion; joining is server-only (joinMatchGroup transaction caps size +
+    // flips the chat on at 3+). A joined member may only touch lastMessage.
+    match /matchGroups/{groupId} {
+      allow read: if isSignedIn() &&
+                     (request.auth.uid in resource.data.get('candidates', []) ||
+                      request.auth.uid in resource.data.get('joined', []));
+      allow create, delete: if false; // formMatchGroups (Admin SDK) only
+      allow update: if isSignedIn() &&
+                       request.auth.uid in resource.data.get('joined', []) &&
+                       request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['lastMessage', 'updatedAt']);
+
+      match /messages/{messageId} {
+        function group() {
+          return get(/databases/$(database)/documents/matchGroups/$(groupId)).data;
+        }
+        allow read: if isSignedIn() && request.auth.uid in group().get('joined', []);
+        allow create: if isSignedIn() &&
+                         request.auth.uid in group().get('joined', []) &&
+                         group().get('chatActive', false) == true &&
+                         request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
     // ============================================
     // APP CONFIG (pricing knobs) — admin-writable, world-readable so clients
     // can show accurate fee estimates that match what the server charges.

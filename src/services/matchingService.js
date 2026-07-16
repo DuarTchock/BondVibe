@@ -33,6 +33,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "./firebase";
 import { isBigFive } from "../utils/personalityScoring";
 import { computeAffinity } from "../utils/computeAffinity";
+import { syncMatchPool } from "./matchPoolService";
 import {
   isProfileComplete,
   sanitizeIds,
@@ -201,6 +202,17 @@ export const saveMatchProfile = async (eventId, profile) => {
       energy: profile.energy,
       groupPref: profile.groupPref,
     });
+    // Canonical, user-level matchmaking profile (P3) — the cross-community pool
+    // and the curated generator read this, not the event-scoped copy.
+    const canonicalProfile = {
+      interests: profile.interests ?? [],
+      funnyTags: sanitizeIds(profile.funnyTags, FUNNY_TAG_IDS),
+      lookingFor: profile.lookingFor ?? [],
+      energy: sanitizeEnergy(profile.energy),
+      groupPref: GROUP_PREFS.includes(profile.groupPref) ? profile.groupPref : null,
+      pro: sanitizePro(profile.pro),
+      personality: isBigFive(u.personality) ? u.personality : null,
+    };
     await setDoc(
       doc(db, "users", me),
       {
@@ -209,9 +221,19 @@ export const saveMatchProfile = async (eventId, profile) => {
           profileComplete: complete,
           enabled: u.matchmaking?.enabled ?? true,
         },
+        matchProfile: canonicalProfile,
       },
       { merge: true }
     );
+    // Refresh the cross-community pool doc (best-effort; the set generator reads
+    // it). Only surfaces the user once their profile is complete + enabled.
+    if (complete) {
+      try {
+        await syncMatchPool();
+      } catch (e) {
+        /* non-fatal — the weekly batch will pick it up */
+      }
+    }
     return { success: true, profileComplete: complete };
   } catch (e) {
     console.error("❌ saveMatchProfile:", e);
