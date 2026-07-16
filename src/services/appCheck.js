@@ -65,29 +65,68 @@ function currentChannel() {
   }
 }
 
-let nativeReady = null; // Promise<AppCheck> — the native instance, started lazily
+let nativeMods; // undefined = unprobed · null = unavailable · object = ready
+let nativeReady = null; // Promise<AppCheck>
 let registered = false;
+
+/**
+ * Probe the native modules ONCE. Returns null when the binary predates them —
+ * which is a real, expected state, not just a dev accident:
+ *   • Metro serving new JS onto an older simulator/dev build, and
+ *   • an `eas update` OTA landing on a build without the native module.
+ * In that case App Check must vanish completely rather than make every Firebase
+ * call attempt a token it can never get. Cached so we warn once, not per call.
+ * @returns {object|null}
+ */
+function loadNative() {
+  if (nativeMods !== undefined) return nativeMods;
+  try {
+    // Required lazily so a JS-only context (tests, web) never loads native just
+    // by importing this file.
+    const { getApp } = require("@react-native-firebase/app");
+    const mod = require("@react-native-firebase/app-check");
+    const appCheckNs = mod?.default;
+    const { initializeAppCheck, getToken } = mod || {};
+    if (
+      typeof getApp !== "function" ||
+      typeof appCheckNs !== "function" ||
+      typeof initializeAppCheck !== "function" ||
+      typeof getToken !== "function"
+    ) {
+      throw new Error("RNFirebase App Check exports missing");
+    }
+    getApp(); // throws when the native RNFBAppModule isn't in the binary
+    nativeMods = { getApp, appCheckNs, initializeAppCheck, getToken };
+  } catch (e) {
+    console.warn(
+      "App Check: native module unavailable — attestation disabled for this build.",
+      "Rebuild natively (expo run:ios / eas build) to enable it.",
+      `(${e?.message})`
+    );
+    nativeMods = null;
+  }
+  return nativeMods;
+}
 
 /** Start (once) the native attestation provider. */
 function ensureNative() {
   if (nativeReady) return nativeReady;
+  const mods = loadNative();
+  if (!mods) return Promise.reject(new Error("App Check native unavailable"));
   nativeReady = (async () => {
-    // Required lazily so a JS-only context (tests, web) never loads the native
-    // module just by importing this file.
-    const { getApp } = require("@react-native-firebase/app");
-    const appCheckNs = require("@react-native-firebase/app-check").default;
-    const { initializeAppCheck } = require("@react-native-firebase/app-check");
-
-    const provider = appCheckNs().newReactNativeFirebaseAppCheckProvider();
+    const provider = mods.appCheckNs().newReactNativeFirebaseAppCheckProvider();
     const { apple, android } = pickProviders({
       isDev: __DEV__,
       channel: currentChannel(),
     });
     provider.configure({ apple, android, isTokenAutoRefreshEnabled: true });
-    return initializeAppCheck(getApp(), { provider, isTokenAutoRefreshEnabled: true });
+    return mods.initializeAppCheck(mods.getApp(), {
+      provider,
+      isTokenAutoRefreshEnabled: true,
+    });
   })().catch((e) => {
     // Never let attestation break the app: with enforcement off, a missing token
-    // is harmless. Reset so a later call can retry.
+    // is harmless. Reset so a later call can retry a transient failure.
     console.warn("App Check: native init failed —", e?.message);
     nativeReady = null;
     throw e;
@@ -127,13 +166,18 @@ function expiryFromJwt(token) {
  */
 export function initAppCheck() {
   if (registered) return true;
+  // Probe FIRST. Without the native module there's no token to be had, so
+  // registering the provider anyway would make the web SDK attempt (and log) a
+  // failed App Check fetch on every auth/Firestore/callable call. Staying
+  // unregistered is the honest degrade: no attestation, no noise, no overhead.
+  const mods = loadNative();
+  if (!mods) return false;
   try {
     initWebAppCheck(getWebApp(), {
       provider: new CustomProvider({
         getToken: async () => {
           const instance = await ensureNative();
-          const { getToken } = require("@react-native-firebase/app-check");
-          const { token } = await getToken(instance, false);
+          const { token } = await mods.getToken(instance, false);
           return { token, expireTimeMillis: expiryFromJwt(token) };
         },
       }),
