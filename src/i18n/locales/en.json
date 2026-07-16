@@ -910,6 +910,7 @@
       "building": "Building",
       "signal": { "interests": "Shared interests", "intention": "Same intention", "bigfive": "Personality", "context": "Shared context", "format": "How you meet", "industry": "Industry", "complement": "Complementary" }
     },
+    "bigfive": { "openness": "Openness", "extraversion": "Extraversion", "agreeableness": "Agreeableness" },
     "curated": {
       "title": "Your week on Kinlo",
       "intro": "We handpicked {{count}} people we think you'll click with.",
@@ -1098,6 +1099,12 @@
       "proRolePlaceholder": "Your role (e.g. Product designer)",
       "incompleteTitle": "Complete your profile",
       "incompleteMsg": "Pick what you're looking for, at least 3 interests, a funny tag, your energy and how you like to meet.",
+      "personalityLabel": "Personality (Big Five)",
+      "personalityCta": "Take the personality test",
+      "personalityCtaSub": "5 minutes — it powers your best matches.",
+      "personalityDone": "Personality complete",
+      "personalityRedo": "Redo",
+      "bigFiveRequired": "Take the quick personality test to finish your profile.",
       "couldntSaveTitle": "Couldn't save",
       "tryAgain": "Please try again.",
       "pickLookingForTitle": "Pick what you're looking for",

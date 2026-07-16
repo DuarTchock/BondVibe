@@ -18,8 +18,9 @@ import {
 } from "react-native";
 import { doc, getDoc } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
-import { db } from "../../services/firebase";
+import { db, auth } from "../../services/firebase";
 import { useTheme } from "../../contexts/ThemeContext";
+import { isBigFive } from "../../utils/personalityScoring";
 import Icon from "../../components/Icon";
 import { MatchHeader, PrimaryButton, Chip } from "./matchUi";
 import {
@@ -59,7 +60,18 @@ export default function MatchProfileScreen({ route, navigation }) {
   const [lookingFor, setLookingFor] = useState([]);
   const [icebreaker, setIcebreaker] = useState("");
   const [visibility, setVisibility] = useState("everyone");
+  const [personality, setPersonality] = useState(null); // Big Five (unified here)
   const [saving, setSaving] = useState(false);
+
+  // Big Five now lives INSIDE the match profile. Re-read on focus so it updates
+  // right after the user finishes the quiz and returns here.
+  const loadPersonality = React.useCallback(async () => {
+    const me = auth.currentUser?.uid;
+    if (!me) return;
+    const uSnap = await getDoc(doc(db, "users", me));
+    setPersonality(uSnap.exists() ? uSnap.data().personality || null : null);
+  }, []);
+  useEffect(() => navigation.addListener("focus", loadPersonality), [navigation, loadPersonality]);
 
   useEffect(() => {
     (async () => {
@@ -69,6 +81,7 @@ export default function MatchProfileScreen({ route, navigation }) {
       ]);
       const evTypes = eSnap.exists() ? eSnap.data()?.matching?.types || [] : [];
       setTypes(evTypes);
+      await loadPersonality();
       if (existing) {
         setBio(existing.bio || "");
         setProfession(existing.profession || "");
@@ -92,9 +105,14 @@ export default function MatchProfileScreen({ route, navigation }) {
     setter((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
   const onSave = async () => {
-    const draft = { lookingFor, interests, funnyTags, energy, groupPref };
+    const draft = { lookingFor, interests, funnyTags, energy, groupPref, personality };
     if (!isProfileComplete(draft)) {
-      Alert.alert(t("matching.profile.incompleteTitle"), t("matching.profile.incompleteMsg"));
+      // Big Five is part of "complete" now — point them at the quiz if it's the
+      // only thing missing.
+      const msg = !isBigFive(personality)
+        ? t("matching.profile.bigFiveRequired")
+        : t("matching.profile.incompleteMsg");
+      Alert.alert(t("matching.profile.incompleteTitle"), msg);
       return;
     }
     setSaving(true);
@@ -221,6 +239,23 @@ export default function MatchProfileScreen({ route, navigation }) {
         {label(t("matching.profile.learningLabel"))}
         {catalogChips(learning, LEARNING, "learning", toggleIn(setLearning))}
 
+        {/* Personality (Big Five) — unified INTO the match profile. Reuses the
+            existing quiz + scoring; shows status + mini-bars, or a CTA. */}
+        {label(t("matching.profile.personalityLabel"))}
+        <BigFiveSection
+          s={s}
+          colors={colors}
+          t={t}
+          personality={personality}
+          onStart={() =>
+            navigation.navigate("PersonalityQuiz", {
+              returnTo: "MatchProfile",
+              eventId,
+              eventTitle,
+            })
+          }
+        />
+
         <Text style={[s.label, { marginTop: 6 }]}>{t("matching.profile.lookingForLabel")}</Text>
         <View style={s.chips}>
           {(types.length ? types : ["friend", "professional", "romantic"]).map((ty) => {
@@ -285,6 +320,59 @@ export default function MatchProfileScreen({ route, navigation }) {
       <View style={s.footer}>
         <PrimaryButton label={t("matching.profile.saveAndSee")} onPress={onSave} loading={saving} />
       </View>
+    </View>
+  );
+}
+
+/** Big Five section — completed state (mini-bars + redo) or a start-quiz CTA. */
+function BigFiveSection({ s, colors, t, personality, onStart }) {
+  const done = isBigFive(personality);
+  if (!done) {
+    return (
+      <TouchableOpacity style={s.bigFiveCta} onPress={onStart} activeOpacity={0.85}>
+        <View style={s.bigFiveCtaIcon}>
+          <Icon name="ai" size={20} color="#7C3AED" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.bigFiveCtaTitle, { color: colors.text }]}>
+            {t("matching.profile.personalityCta")}
+          </Text>
+          <Text style={[s.bigFiveCtaSub, { color: colors.textSecondary }]}>
+            {t("matching.profile.personalityCtaSub")}
+          </Text>
+        </View>
+        <Icon name="forward" size={20} color={colors.textTertiary} />
+      </TouchableOpacity>
+    );
+  }
+  // Show three representative traits (matches the mock: Openness/Extraversion/
+  // Agreeableness). Values are 0–100 from personalityScoring.
+  const bars = [
+    { key: "openness", value: personality.OPENNESS },
+    { key: "extraversion", value: personality.EXTRAVERSION },
+    { key: "agreeableness", value: personality.AGREEABLENESS },
+  ];
+  return (
+    <View style={[s.bigFiveCard, { borderColor: colors.border }]}>
+      <View style={s.bigFiveHead}>
+        <View style={s.bigFiveDone}>
+          <Icon name="check" size={13} color="#1F8A6E" />
+          <Text style={s.bigFiveDoneText}>{t("matching.profile.personalityDone")}</Text>
+        </View>
+        <TouchableOpacity onPress={onStart} hitSlop={8}>
+          <Text style={[s.bigFiveRedo, { color: "#7C3AED" }]}>{t("matching.profile.personalityRedo")}</Text>
+        </TouchableOpacity>
+      </View>
+      {bars.map((b) => (
+        <View key={b.key} style={s.bigFiveRow}>
+          <Text style={[s.bigFiveLabel, { color: colors.textSecondary }]}>
+            {t(`matchmaking.bigfive.${b.key}`)}
+          </Text>
+          <View style={[s.bigFiveTrack, { backgroundColor: "#EDE9F6" }]}>
+            <View style={[s.bigFiveFill, { width: `${Math.max(0, Math.min(100, b.value || 0))}%` }]} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -355,6 +443,33 @@ function createStyles(colors) {
     energyDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5 },
     energyLabels: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
     energyLabel: { fontSize: 12, fontWeight: "600" },
+    // Big Five (unified into the match profile)
+    bigFiveCta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceGlass,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 16,
+    },
+    bigFiveCtaIcon: {
+      width: 40, height: 40, borderRadius: 12, backgroundColor: "#EDE4FC",
+      alignItems: "center", justifyContent: "center",
+    },
+    bigFiveCtaTitle: { fontSize: 14.5, fontWeight: "700", color: colors.text },
+    bigFiveCtaSub: { fontSize: 12.5, marginTop: 2, color: colors.textSecondary },
+    bigFiveCard: { borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 16 },
+    bigFiveHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+    bigFiveDone: { flexDirection: "row", alignItems: "center", gap: 5 },
+    bigFiveDoneText: { fontSize: 12.5, fontWeight: "700", color: "#1F8A6E" },
+    bigFiveRedo: { fontSize: 13, fontWeight: "700" },
+    bigFiveRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 },
+    bigFiveLabel: { flex: 0.4, fontSize: 12.5, fontWeight: "600" },
+    bigFiveTrack: { flex: 0.6, height: 7, borderRadius: 4, overflow: "hidden" },
+    bigFiveFill: { height: 7, borderRadius: 4, backgroundColor: "#7C3AED" },
     footer: { paddingHorizontal: 24, paddingBottom: 28, paddingTop: 8 },
   });
 }
