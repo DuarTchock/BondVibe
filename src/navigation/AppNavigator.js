@@ -134,6 +134,8 @@ import VehicleBookingsScreen from "../screens/VehicleBookingsScreen";
 // Social layer (feed / posts / DMs / profiles)
 import FeedScreen from "../screens/FeedScreen";
 import CreatePostScreen from "../screens/CreatePostScreen";
+import CommunityWallScreen from "../screens/wall/CommunityWallScreen";
+import MomentViewerScreen from "../screens/wall/MomentViewerScreen";
 import PostDetailScreen from "../screens/PostDetailScreen";
 import DMListScreen from "../screens/DMListScreen";
 import DMChatScreen from "../screens/DMChatScreen";
@@ -819,6 +821,8 @@ const AppNavigator = forwardRef((props, ref) => {
           {/* Social layer */}
           <Stack.Screen name="Feed" component={FeedScreen} />
           <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+          <Stack.Screen name="CommunityWall" component={CommunityWallScreen} />
+          <Stack.Screen name="MomentViewer" component={MomentViewerScreen} options={{ presentation: "modal" }} />
           <Stack.Screen name="PostDetail" component={PostDetailScreen} />
           <Stack.Screen name="DMList" component={DMListScreen} />
           <Stack.Screen name="DMChat" component={DMChatScreen} />

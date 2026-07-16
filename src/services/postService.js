@@ -18,9 +18,11 @@ import {
   limit as qLimit,
   serverTimestamp,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "./firebase";
 import { getFollowing } from "./followService";
 import { getBlockedIds } from "./blockService";
+import { stripUndefined } from "../utils/firestoreClean";
 
 const uid = () => auth.currentUser?.uid || null;
 
@@ -31,23 +33,61 @@ const chunk = (arr, n) => {
 };
 
 /** Create a post authored by the current user. */
-export const createPost = async ({ text, images = [] }) => {
+/**
+ * Create a post. Wall v2 (P0) enriches it — but stays backward compatible: old
+ * posts without communityId/authorFunnyTag/mediaType still render fine, and the
+ * legacy `images` array is preserved alongside the new `mediaUrls`.
+ * @param {object} p { text, images?, mediaUrls?, mediaType?, communityId?,
+ *   authorFunnyTag?, cta?, isHostPost? }
+ */
+export const createPost = async ({
+  text,
+  images = [],
+  mediaUrls,
+  mediaType = "photo",
+  communityId = null,
+  authorFunnyTag,
+  cta = null,
+  isHostPost = false,
+}) => {
   const me = uid();
   const body = (text || "").trim();
-  if (!me || (!body && images.length === 0)) return { success: false };
+  const media = Array.isArray(mediaUrls) && mediaUrls.length ? mediaUrls : images;
+  if (!me || (!body && media.length === 0)) return { success: false };
   try {
     const userSnap = await getDoc(doc(db, "users", me));
     const u = userSnap.exists() ? userSnap.data() : {};
-    const ref = await addDoc(collection(db, "posts"), {
-      authorId: me,
-      authorName: u.fullName || u.name || "Someone",
-      authorAvatar: u.avatar ?? null,
-      text: body,
-      images,
-      likeCount: 0,
-      commentCount: 0,
-      createdAt: serverTimestamp(),
-    });
+    // Denormalize the author's headline funny tag (from their match profile) so
+    // the card can show context without an extra read. Explicit arg wins.
+    const funnyTag =
+      authorFunnyTag ?? (u.matchProfile?.funnyTags?.[0] ?? null);
+    const resolvedMediaType = media.length > 1 ? "carousel" : mediaType;
+    // Denormalize the community name for the card's context line (P2).
+    let communityName = null;
+    if (communityId) {
+      const cSnap = await getDoc(doc(db, "hostGroups", communityId));
+      communityName = cSnap.exists() ? cSnap.data().name || null : null;
+    }
+    const ref = await addDoc(
+      collection(db, "posts"),
+      stripUndefined({
+        authorId: me,
+        authorName: u.fullName || u.name || "Someone",
+        authorAvatar: u.avatar ?? null,
+        text: body,
+        images: media, // legacy field kept for backcompat
+        mediaUrls: media, // v2 canonical
+        mediaType: resolvedMediaType,
+        communityId,
+        communityName,
+        authorFunnyTag: funnyTag,
+        isHostPost: !!isHostPost,
+        cta: cta || null,
+        likeCount: 0,
+        commentCount: 0,
+        createdAt: serverTimestamp(),
+      })
+    );
     return { success: true, id: ref.id };
   } catch (e) {
     console.error("❌ createPost:", e);
@@ -125,6 +165,46 @@ export const getUserPosts = async (userId, max = 50) => {
 export const getPost = async (postId) => {
   const s = await getDoc(doc(db, "posts", postId));
   return s.exists() ? { id: s.id, ...s.data() } : null;
+};
+
+/** A community's wall — posts tagged with that communityId, newest first (P2). */
+export const getCommunityPosts = async (communityId, max = 50) => {
+  if (!communityId) return [];
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, "posts"),
+        where("communityId", "==", communityId),
+        orderBy("createdAt", "desc"),
+        qLimit(max)
+      )
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error("❌ getCommunityPosts:", e);
+    return [];
+  }
+};
+
+/** Record a post impression / CTA tap (Wall v2 · P2). Server maintains the
+ *  counters; best-effort, never blocks the UI. */
+export const recordPostEvent = async (postId, type) => {
+  try {
+    const fn = httpsCallable(getFunctions(), "recordPostEvent");
+    await fn({ postId, type });
+  } catch {
+    // best-effort — stats are non-critical
+  }
+};
+
+/** Read a post's reach stats (owner only, per rules). Returns null if denied. */
+export const getPostStats = async (postId) => {
+  try {
+    const s = await getDoc(doc(db, "postStats", postId));
+    return s.exists() ? s.data() : { views: 0, ctaClicks: 0 };
+  } catch {
+    return null;
+  }
 };
 
 export const deletePost = async (postId) => {

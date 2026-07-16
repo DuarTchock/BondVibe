@@ -267,6 +267,54 @@
     "curatedForYou": "Curado para ti por Kinlo AI",
     "imIn": "Yo voy",
     "interested": "Interesado",
+    "tabs": { "forYou": "Para ti", "following": "Siguiendo", "discover": "Descubre" },
+    "discover": {
+      "soonTitle": "Descubrir está en camino",
+      "soonBody": "Únete al matchmaking y te sugeriremos personas, comunidades y eventos por afinidad real — nunca un directorio global.",
+      "people": "Personas con tu vibra",
+      "communities": "Comunidades que te quedan",
+      "events": "Eventos para ti",
+      "noPeople": "Aún no hay matches — a medida que más gente de tus comunidades se una, aparecerán aquí.",
+      "memberCount_one": "{{count}} miembro",
+      "memberCount_other": "{{count}} miembros",
+      "optInTitle": "Activa Descubre",
+      "optInBody": "Únete al matchmaking para conocer gente por afinidad real — la que sí verás en persona."
+    },
+    "upsell": {
+      "morePeople_one": "+{{count}} más con tu vibra",
+      "morePeople_other": "+{{count}} más con tu vibra",
+      "unlockPlus": "Desbloquea a todos con Kinlo Plus"
+    },
+    "community": {
+      "title": "Comunidad",
+      "wall": "Muro",
+      "events": "Eventos",
+      "members": "Miembros",
+      "joined": "Unido",
+      "emptyWall": "Aún no hay publicaciones — sé el primero en compartir algo aquí.",
+      "eventsSoon": "Los eventos de esta comunidad aparecerán aquí.",
+      "membersSoon": "La lista de miembros aparecerá aquí."
+    },
+    "hostPost": {
+      "badge": "HOST",
+      "reserve": "Reservar",
+      "ctaTitle": { "event": "Ver el evento", "service": "Ver el servicio", "community": "Abrir la comunidad" }
+    },
+    "pro": { "badge": "PRO", "views": "Vistas", "taps": "Toques", "ctr": "CTR" },
+    "compose": {
+      "postTo": "Publicando en {{name}}",
+      "asHost": "Publicar como host",
+      "carousel": "Carrusel",
+      "video": "Video",
+      "asMoment": "Compartir como Moment (24h)"
+    },
+    "moments": {
+      "yours": "Tu moment",
+      "add": "Añadir",
+      "consent": "Los Moments desaparecen tras 24 horas. Quien te sigue puede verlos hasta entonces.",
+      "gone": "Este moment ya expiró",
+      "videoNote": "Vista previa de video — reproducción pronto"
+    },
     "empty": {
       "text": "Sigue a otras personas y comparte tu primera publicación para llenar tu muro.",
       "cta": "Crear publicación",

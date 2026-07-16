@@ -75,6 +75,18 @@ const matchGroups = require("./matching/groups");
 exports.formMatchGroups = matchGroups.formMatchGroups;
 exports.joinMatchGroup = matchGroups.joinMatchGroup;
 
+// Wall v2 — Descubre: affinity people discovery + server-side freemium gate (P1).
+const wallDiscover = require("./wall/discover");
+exports.discoverForYou = wallDiscover.discoverForYou;
+
+// Wall v2 — post reach stats (P2, Pro): server-side impression/CTA counters.
+const wallPostStats = require("./wall/postStats");
+exports.recordPostEvent = wallPostStats.recordPostEvent;
+
+// Wall v2 — Moments 24h TTL: hourly server-side purge of expired items (P3).
+const wallMoments = require("./wall/moments");
+exports.purgeExpiredMoments = wallMoments.purgeExpiredMoments;
+
 // Social layer — server-maintained post counts.
 const social = require("./social/social");
 exports.onPostLikeWritten = social.onPostLikeWritten;
