@@ -252,6 +252,13 @@
       "error": "No se pudieron cargar los servicios",
       "retry": "Reintentar",
       "rentalsCard": "Autos, scooters y bicis"
+    },
+    "events": {
+      "title": "Eventos cerca de ti",
+      "seeAll": "Ver todo",
+      "empty": "No hay eventos próximos",
+      "error": "No se pudieron cargar los eventos",
+      "retry": "Reintentar"
     }
   },
   "wall": {

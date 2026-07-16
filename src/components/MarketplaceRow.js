@@ -119,11 +119,11 @@ export default function MarketplaceRow({ navigation }) {
 
 function createStyles(colors) {
   return StyleSheet.create({
-    wrap: { marginTop: 8, marginBottom: 8 },
-    head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+    wrap: { marginTop: 8, marginBottom: 18 },
+    head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingHorizontal: 24 },
     title: { fontFamily: FONTS.bodyExtra, fontSize: 17 },
     seeAll: { fontFamily: FONTS.bodyBold, fontSize: 13 },
-    rowContent: { paddingRight: 8, gap: 12 },
+    rowContent: { paddingLeft: 24, paddingRight: 8, gap: 12 },
     card: {
       width: 132,
       minHeight: 150,

@@ -252,6 +252,13 @@
       "error": "Couldn't load services",
       "retry": "Retry",
       "rentalsCard": "Cars, scooters & bikes"
+    },
+    "events": {
+      "title": "Events near you",
+      "seeAll": "See all",
+      "empty": "No upcoming events",
+      "error": "Couldn't load events",
+      "retry": "Retry"
     }
   },
   "wall": {
