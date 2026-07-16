@@ -452,6 +452,22 @@ export default function ProfileScreen({ navigation }) {
                 </View>
                 <Icon name="forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
+
+              {/* Admin Dashboard — moved out of Home; admins only (same guard). */}
+              {profile.role === "admin" && (
+                <>
+                  <View style={[s.separator, { backgroundColor: colors.border }]} />
+                  <TouchableOpacity style={s.ajustesRow} testID="profile-admin-dashboard" onPress={() => navigation.navigate("AdminDashboard")}>
+                    <View style={[s.toolIcon, { backgroundColor: colors.brandSoft }]}>
+                      <Icon name="pro" size={18} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.ajustesLabel, { color: colors.text }]}>{t("home.adminDashboard")}</Text>
+                    </View>
+                    <Icon name="forward" size={16} color={colors.textTertiary} />
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
 
             {/* ── Mode (T3) — the single mode control, host-capable only ── */}
