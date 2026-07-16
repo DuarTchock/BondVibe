@@ -105,28 +105,47 @@ export default function GroupManageScreen({ route, navigation }) {
     }
   };
 
-  const handleSaveSpotify = async () => {
-    const url = spotifyUrl.trim();
-    if (url && !/spotify\.com|spotify:/i.test(url)) {
-      Alert.alert(
-        t("groupManage.invalidLink"),
-        t("groupManage.invalidLinkMessage")
-      );
-      return;
-    }
+  // A valid Spotify PLAYLIST link — not just any spotify.com URL (BUG 41).
+  const SPOTIFY_PLAYLIST_RE = /(open\.spotify\.com\/playlist\/|spotify:playlist:)/i;
+
+  const applySpotify = async (url) => {
     setSavingSpotify(true);
     try {
       await updateGroup(groupId, { spotifyUrl: url });
       setGroup((g) => ({ ...g, spotifyUrl: url }));
+      // Title matches the action — never "Saved" for a removal.
       Alert.alert(
-        t("groupManage.saved"),
-        url ? t("groupManage.spotifyPlaylistSaved") : t("groupManage.playlistRemoved")
+        url ? t("groupManage.saved") : t("groupManage.playlistRemovedToast"),
+        url ? t("groupManage.spotifyPlaylistSaved") : undefined
       );
     } catch (e) {
       Alert.alert(t("groupManage.couldntSave"), e.message || t("groupManage.pleaseTryAgain"));
     } finally {
       setSavingSpotify(false);
     }
+  };
+
+  const handleSaveSpotify = () => {
+    const url = spotifyUrl.trim();
+    const hadPlaylist = !!(group?.spotifyUrl || "").trim();
+
+    if (!url) {
+      // Empty field — nothing to save.
+      if (!hadPlaylist) return; // no-op: there was no playlist to remove
+      // Removing an existing playlist — confirm first.
+      Alert.alert(t("groupManage.removePlaylistTitle"), undefined, [
+        { text: t("groupManage.cancel"), style: "cancel" },
+        { text: t("groupManage.removePlaylist"), style: "destructive", onPress: () => applySpotify("") },
+      ]);
+      return;
+    }
+
+    // Non-empty — require a valid Spotify playlist link before saving.
+    if (!SPOTIFY_PLAYLIST_RE.test(url)) {
+      Alert.alert(t("groupManage.invalidSpotifyLink"), t("groupManage.invalidLinkMessage"));
+      return;
+    }
+    applySpotify(url);
   };
 
   const handleRegenerate = () => {
