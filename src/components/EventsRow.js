@@ -110,7 +110,8 @@ function createStyles(colors) {
     thumbImg: { width: "100%", height: 84 },
     cardTitle: { fontFamily: FONTS.display, fontSize: 14, letterSpacing: -0.2, lineHeight: 18 },
     cardDate: { fontFamily: FONTS.displaySemibold, fontSize: 12.5, marginTop: 6, letterSpacing: -0.2 },
-    stateCard: { width: 200, minHeight: 150, borderWidth: 1, borderRadius: 18, alignItems: "center", justifyContent: "center", padding: 16, gap: 8 },
+    // Full-width, centered — the empty/error state spans the row, not one card.
+    stateCard: { marginHorizontal: 24, minHeight: 104, borderWidth: 1, borderRadius: 18, alignItems: "center", justifyContent: "center", padding: 20, gap: 8 },
     stateTxt: { fontFamily: FONTS.bodyMedium, fontSize: 12.5, textAlign: "center" },
     stateAction: { fontFamily: FONTS.bodyBold, fontSize: 12.5 },
   });

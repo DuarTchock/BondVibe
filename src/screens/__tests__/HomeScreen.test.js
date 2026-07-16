@@ -95,4 +95,11 @@ describe("HomeScreen", () => {
     await waitFor(() => expect(getByText("Events near you")).toBeTruthy());
     expect(getByText("Services near you")).toBeTruthy();
   });
+
+  it("navigates to a category when its card is pressed", async () => {
+    const { getByText } = render(<HomeScreen navigation={nav} />);
+    await waitFor(() => getByText("Food"));
+    fireEvent.press(getByText("Food"));
+    expect(nav.navigate).toHaveBeenCalledWith("SearchEvents", { category: "Food" });
+  });
 });

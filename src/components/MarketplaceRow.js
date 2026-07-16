@@ -66,12 +66,6 @@ export default function MarketplaceRow({ navigation }) {
         </TouchableOpacity>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rowContent}>
-          {listings.length === 0 && (
-            <TouchableOpacity style={[s.stateCard, { borderColor: colors.border }]} onPress={goServices} activeOpacity={0.85}>
-              <Icon name="services" size={22} color={colors.textTertiary} />
-              <Text style={[s.stateTxt, { color: colors.textSecondary }]}>{t("home.marketplace.empty")}</Text>
-            </TouchableOpacity>
-          )}
           {listings.map((l) => {
             const meta = VERTICAL_META[l.vertical] || VERTICAL_META.wellness;
             const isQuote = l.bookingMode === "quote" || !l.priceCents;
@@ -144,14 +138,15 @@ function createStyles(colors) {
     cardTitle: { fontFamily: FONTS.display, fontSize: 14, letterSpacing: -0.2 },
     cardMeta: { fontFamily: FONTS.bodyMedium, fontSize: 12, marginTop: 3 },
     cardPrice: { fontFamily: FONTS.display, fontSize: 14, letterSpacing: -0.5, marginTop: 6 },
+    // Full-width, centered — the empty/error state spans the row, not one card.
     stateCard: {
-      width: 200,
-      minHeight: 150,
+      marginHorizontal: 24,
+      minHeight: 104,
       borderWidth: 1,
       borderRadius: 18,
       alignItems: "center",
       justifyContent: "center",
-      padding: 16,
+      padding: 20,
       gap: 8,
     },
     stateTxt: { fontFamily: FONTS.bodyMedium, fontSize: 12.5, textAlign: "center" },
