@@ -54,7 +54,7 @@ Kinlo combate la soledad urbana conectando personas a través de:
 - ✅ **All App States**: Funciona con app abierta, cerrada o en background
 
 ### 🎨 UI/UX
-- ✅ **Glassmorphism Design**: Interfaz moderna y pulida
+- ✅ **Kinlo Bold-Pop Design**: Plano y con carácter — Warmth (light) + Aurora (dark), ver `DESIGN_SYSTEM.md`
 - ✅ **Dark Mode**: Soporte completo de temas
 - ✅ **Transparent Pricing**: Disclosure claro de fees
 - ✅ **Admin Dashboard**: Panel para gestión de hosts y usuarios
