@@ -3431,6 +3431,7 @@
     },
     "setup": {
       "title": "Nuevo negocio",
+      "editTitle": "Editar negocio",
       "intro": "Elige lo que mejor describa tu negocio — solo ajusta algunas etiquetas y sugerencias. Puedes cambiarlo después.",
       "nameLabel": "Nombre del negocio",
       "namePlaceholder": "ej. Ritmo Studio",
