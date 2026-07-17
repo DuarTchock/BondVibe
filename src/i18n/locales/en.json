@@ -2645,6 +2645,9 @@
     "placeholder": "Ask Kinlo anything…"
   },
   "bondvibePro": {
+    "confirming": "Confirming your subscription…",
+    "processingTitle": "Almost there",
+    "processingMessage": "Your payment went through and we're still activating Pro. It usually takes a few seconds — your Pro features will unlock on their own.",
     "priceLabel": "$199 MXN / mo",
     "features": {
       "aiCoaching": {
