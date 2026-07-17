@@ -1428,6 +1428,7 @@
     }
   },
   "adminDashboard": {
+    "community": "Community",
     "unknown": "Unknown",
     "accessDeniedTitle": "Access denied",
     "accessDeniedMessage": "This area is for administrators only.",
@@ -2473,6 +2474,42 @@
     }
   },
   "requestHost": {
+    "stepOf": "Step {{current}} of {{total}}",
+    "step1Title": "Tell us about your community",
+    "step1Subtitle": "Quick taps — this sets up your space. No essays required.",
+    "step1Hint": "Pick a community type and add a one-line description to continue.",
+    "communityTypeLabel": "What kind of community?",
+    "frequencyLabel": "How often do you meet?",
+    "groupSizeLabel": "Typical group size",
+    "taglineLabel": "Describe it in one line",
+    "taglinePlaceholder": "e.g. Sunrise yoga in the park, every Saturday",
+    "continue": "Continue",
+    "step2Title": "Anything else we should know?",
+    "step2Subtitle": "Optional — it helps us review faster, but you can submit without it.",
+    "optional": "(optional)",
+    "skipAndSubmit": "Skip and submit",
+    "communityTypes": {
+      "yoga": "Yoga",
+      "running": "Running",
+      "salsa": "Salsa",
+      "wellness": "Wellness",
+      "fitness": "Fitness",
+      "art": "Art",
+      "music": "Music",
+      "other": "Other"
+    },
+    "frequencies": {
+      "weekly": "Weekly",
+      "multiWeekly": "2–3×/week",
+      "monthly": "Monthly",
+      "oneOff": "One-off"
+    },
+    "groupSizes": {
+      "oneOnOne": "1-on-1",
+      "small": "Small 2–8",
+      "medium": "Medium 9–20",
+      "large": "Large 20+"
+    },
     "headerTitle": "Become a Host",
     "introTitle": "Share Your Passion",
     "introText": "As a host, you'll be able to create unlimited events and build your community. Tell us why you'd be a great host!",

@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import Icon from "../components/Icon";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -11,249 +10,330 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
-import { useTranslation } from 'react-i18next';
-import { db, auth } from '../services/firebase';
-import { useTheme } from '../contexts/ThemeContext';
-import SuccessModal from '../components/SuccessModal';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
+import { db, auth } from "../services/firebase";
+import { useTheme } from "../contexts/ThemeContext";
+import { FONTS } from "../constants/theme-tokens";
+import Icon from "../components/Icon";
+import ChipGroup from "../components/ChipGroup";
+import SuccessModal from "../components/SuccessModal";
+import {
+  COMMUNITY_TYPES,
+  MEET_FREQUENCIES,
+  GROUP_SIZES,
+  TAGLINE_MAX,
+  EXPERIENCE_MAX,
+  toChips,
+} from "../constants/hostOnboarding";
 
+/**
+ * Apply to host — "tell us about your community".
+ *
+ * This used to be three required 500-char essays (whyHost / experience /
+ * eventIdeas): the flow's biggest drop-off, asking for a cover letter before
+ * the person had seen anything. Step 1 is now taps plus one short line, and the
+ * only long-form question left (experience) moved to step 2 and is optional —
+ * it colours a review, it never blocks a submission.
+ */
 export default function RequestHostScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
-  const [formData, setFormData] = useState({
-    whyHost: '',
-    experience: '',
-    eventIdeas: '',
-  });
+  const insets = useSafeAreaInsets();
+
+  const [step, setStep] = useState(1);
+  const [communityType, setCommunityType] = useState(null);
+  const [frequency, setFrequency] = useState(null);
+  const [groupSize, setGroupSize] = useState(null);
+  const [tagline, setTagline] = useState("");
+  const [experience, setExperience] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [modalConfig, setModalConfig] = useState({
     visible: false,
-    title: '',
-    message: '',
-    icon: 'party',
-    tone: 'success'
+    title: "",
+    message: "",
+    icon: "party",
+    tone: "success",
   });
 
-  const handleSubmit = async () => {
-    console.log('📝 Starting submission...');
-    
-    // Validación
-    if (!formData.whyHost.trim() || !formData.experience.trim() || !formData.eventIdeas.trim()) {
-      console.log('❌ Form incomplete');
-      Alert.alert(t('requestHost.incompleteFormTitle'), t('requestHost.incompleteFormMessage'));
-      return;
-    }
+  // Step 1 IS the application; step 2 only adds colour. Keeping the required set
+  // this small is the whole point of the redesign.
+  const step1Complete = !!communityType && tagline.trim().length > 0;
 
+  const submit = async () => {
+    if (!step1Complete) return;
     setSubmitting(true);
-    console.log('⏳ Submitting...');
 
     try {
-      // Verificar si ya tiene una solicitud pendiente
-      const existingQuery = query(
-        collection(db, 'hostRequests'),
-        where('userId', '==', auth.currentUser.uid),
-        where('status', '==', 'pending')
+      const existingSnapshot = await getDocs(
+        query(
+          collection(db, "hostRequests"),
+          where("userId", "==", auth.currentUser.uid),
+          where("status", "==", "pending")
+        )
       );
-      const existingSnapshot = await getDocs(existingQuery);
 
       if (!existingSnapshot.empty) {
-        console.log('⚠️ Already has pending request - showing modal');
         setSubmitting(false);
         setModalConfig({
           visible: true,
-          title: t('requestHost.alreadySubmittedTitle'),
-          message: t('requestHost.alreadySubmittedMessage'),
-          icon: 'clock',
-          tone: 'brand'
+          title: t("requestHost.alreadySubmittedTitle"),
+          message: t("requestHost.alreadySubmittedMessage"),
+          icon: "clock",
+          tone: "brand",
         });
         return;
       }
 
-      // Crear nueva solicitud
-      console.log('📤 Creating request...');
-      await addDoc(collection(db, 'hostRequests'), {
+      const trimmedTagline = tagline.trim();
+      const trimmedExperience = experience.trim();
+
+      await addDoc(collection(db, "hostRequests"), {
         userId: auth.currentUser.uid,
-        whyHost: formData.whyHost.trim(),
-        experience: formData.experience.trim(),
-        eventIdeas: formData.eventIdeas.trim(),
-        status: 'pending',
+        // The structured answers — what a reviewer actually needs.
+        communityType,
+        frequency: frequency || null, // never undefined — Firestore rejects it
+        groupSize: groupSize || null,
+        tagline: trimmedTagline,
+        experience: trimmedExperience || null,
+        // Back-compat: AdminDashboard renders `whyHost`, and every request filed
+        // before this redesign carries it. Mirroring the tagline keeps that view
+        // working with no migration and no second admin code path.
+        whyHost: trimmedTagline,
+        status: "pending",
         createdAt: new Date().toISOString(),
       });
 
-      console.log('✅ Host request submitted successfully');
       setSubmitting(false);
-      
-      // Mostrar modal de éxito
-      console.log('🎉 Showing success modal');
       setModalConfig({
         visible: true,
-        title: t('requestHost.applicationSubmittedTitle'),
-        message: t('requestHost.applicationSubmittedMessage'),
-        icon: 'party',
-        tone: 'success'
+        title: t("requestHost.applicationSubmittedTitle"),
+        message: t("requestHost.applicationSubmittedMessage"),
+        icon: "party",
+        tone: "success",
       });
-
     } catch (error) {
-      console.error('❌ Error submitting host request:', error);
+      console.error("❌ Error submitting host request:", error);
       setSubmitting(false);
       Alert.alert(
-        t('requestHost.submissionErrorTitle'),
-        t('requestHost.submissionErrorMessage'),
-        [{ text: t('requestHost.ok') }]
+        t("requestHost.submissionErrorTitle"),
+        t("requestHost.submissionErrorMessage"),
+        [{ text: t("requestHost.ok") }]
       );
     }
   };
 
   const handleModalClose = () => {
-    setModalConfig({ ...modalConfig, visible: false });
-    // 'Home' is not a route — the home screen is the HomeTab inside MainTabs.
-    navigation.navigate('MainTabs', { screen: 'HomeTab' });
+    setModalConfig((c) => ({ ...c, visible: false }));
+    navigation.navigate("MainTabs", { screen: "HomeTab" });
   };
 
-  const styles = createStyles(colors);
+  const onBack = () => {
+    if (step === 2) return setStep(1);
+    navigation.goBack();
+  };
+
+  const s = createStyles(colors);
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[s.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <StatusBar style={isDark ? "light" : "dark"} />
-      
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="back" size={26} color={colors.text} />
+
+      <View style={[s.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity
+          onPress={onBack}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+        >
+          <Icon name="back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('requestHost.headerTitle')}</Text>
-        <View style={{ width: 28 }} />
+
+        <View style={[s.progressTrack, { backgroundColor: colors.sunken }]}>
+          <View
+            style={[
+              s.progressFill,
+              { backgroundColor: colors.primary, width: step === 1 ? "50%" : "100%" },
+            ]}
+          />
+        </View>
+
+        <Text style={[s.stepLabel, { color: colors.textSecondary }]}>
+          {t("requestHost.stepOf", { current: step, total: 2 })}
+        </Text>
       </View>
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={s.scrollView}
+        contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.introSection}>
-          <View style={[styles.introIconCircle, {
-            backgroundColor: `${colors.primary}1A`,
-            borderColor: `${colors.primary}40`,
-          }]}>
-            <Icon name="ai" size={40} color={colors.primary} />
-          </View>
-          <Text style={[styles.introTitle, { color: colors.text }]}>
-            {t('requestHost.introTitle')}
-          </Text>
-          <Text style={[styles.introText, { color: colors.textSecondary }]}>
-            {t('requestHost.introText')}
-          </Text>
-        </View>
-
-        <View style={styles.formSection}>
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              {t('requestHost.whyHostLabel')}
+        {step === 1 ? (
+          <>
+            <Text style={[s.title, { color: colors.text }]}>
+              {t("requestHost.step1Title")}
             </Text>
-            <View style={[styles.inputWrapper, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <TextInput
-                style={[styles.textArea, { color: colors.text }]}
-                placeholder={t('requestHost.whyHostPlaceholder')}
-                placeholderTextColor={colors.textTertiary}
-                value={formData.whyHost}
-                onChangeText={(text) => setFormData({ ...formData, whyHost: text })}
-                multiline
-                numberOfLines={4}
-                maxLength={500}
+            <Text style={[s.subtitle, { color: colors.textSecondary }]}>
+              {t("requestHost.step1Subtitle")}
+            </Text>
+
+            <View style={s.field}>
+              <Text style={[s.fieldLabel, { color: colors.textSecondary }]}>
+                {t("requestHost.communityTypeLabel")}
+                <Text style={{ color: colors.primary }}> *</Text>
+              </Text>
+              <ChipGroup
+                testID="chips-communityType"
+                options={toChips(COMMUNITY_TYPES, t)}
+                value={communityType}
+                onChange={setCommunityType}
+                disabled={submitting}
               />
             </View>
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {formData.whyHost.length}/500
-            </Text>
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              {t('requestHost.experienceLabel')}
-            </Text>
-            <View style={[styles.inputWrapper, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <TextInput
-                style={[styles.textArea, { color: colors.text }]}
-                placeholder={t('requestHost.experiencePlaceholder')}
-                placeholderTextColor={colors.textTertiary}
-                value={formData.experience}
-                onChangeText={(text) => setFormData({ ...formData, experience: text })}
-                multiline
-                numberOfLines={4}
-                maxLength={500}
+            <View style={s.field}>
+              <Text style={[s.fieldLabel, { color: colors.textSecondary }]}>
+                {t("requestHost.frequencyLabel")}
+              </Text>
+              <ChipGroup
+                testID="chips-frequency"
+                options={toChips(MEET_FREQUENCIES, t)}
+                value={frequency}
+                onChange={setFrequency}
+                disabled={submitting}
               />
             </View>
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {formData.experience.length}/500
-            </Text>
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              {t('requestHost.eventIdeasLabel')}
-            </Text>
-            <View style={[styles.inputWrapper, {
-              backgroundColor: colors.surfaceGlass,
-              borderColor: colors.border
-            }]}>
-              <TextInput
-                style={[styles.textArea, { color: colors.text }]}
-                placeholder={t('requestHost.eventIdeasPlaceholder')}
-                placeholderTextColor={colors.textTertiary}
-                value={formData.eventIdeas}
-                onChangeText={(text) => setFormData({ ...formData, eventIdeas: text })}
-                multiline
-                numberOfLines={4}
-                maxLength={500}
+            <View style={s.field}>
+              <Text style={[s.fieldLabel, { color: colors.textSecondary }]}>
+                {t("requestHost.groupSizeLabel")}
+              </Text>
+              <ChipGroup
+                testID="chips-groupSize"
+                options={toChips(GROUP_SIZES, t)}
+                value={groupSize}
+                onChange={setGroupSize}
+                disabled={submitting}
               />
             </View>
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {formData.eventIdeas.length}/500
+
+            <View style={s.field}>
+              <Text style={[s.fieldLabel, { color: colors.textSecondary }]}>
+                {t("requestHost.taglineLabel")}
+                <Text style={{ color: colors.primary }}> *</Text>
+              </Text>
+              <View
+                style={[
+                  s.inputWrap,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <TextInput
+                  style={[s.input, { color: colors.text }]}
+                  placeholder={t("requestHost.taglinePlaceholder")}
+                  placeholderTextColor={colors.textTertiary}
+                  value={tagline}
+                  onChangeText={setTagline}
+                  maxLength={TAGLINE_MAX}
+                  editable={!submitting}
+                  returnKeyType="done"
+                />
+              </View>
+              <Text style={[s.counter, { color: colors.textTertiary }]}>
+                {tagline.length}/{TAGLINE_MAX}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={[s.title, { color: colors.text }]}>
+              {t("requestHost.step2Title")}
             </Text>
-          </View>
-        </View>
+            <Text style={[s.subtitle, { color: colors.textSecondary }]}>
+              {t("requestHost.step2Subtitle")}
+            </Text>
+
+            <View style={s.field}>
+              <Text style={[s.fieldLabel, { color: colors.textSecondary }]}>
+                {t("requestHost.experienceLabel")}
+                <Text style={{ color: colors.textTertiary }}>
+                  {" "}
+                  {t("requestHost.optional")}
+                </Text>
+              </Text>
+              <View
+                style={[
+                  s.inputWrap,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <TextInput
+                  style={[s.input, s.textArea, { color: colors.text }]}
+                  placeholder={t("requestHost.experiencePlaceholder")}
+                  placeholderTextColor={colors.textTertiary}
+                  value={experience}
+                  onChangeText={setExperience}
+                  multiline
+                  numberOfLines={5}
+                  maxLength={EXPERIENCE_MAX}
+                  editable={!submitting}
+                />
+              </View>
+              <Text style={[s.counter, { color: colors.textTertiary }]}>
+                {experience.length}/{EXPERIENCE_MAX}
+              </Text>
+            </View>
+          </>
+        )}
 
         <TouchableOpacity
-          style={styles.submitButton}
-          onPress={handleSubmit}
-          disabled={submitting}
-          activeOpacity={0.8}
+          onPress={step === 1 ? () => setStep(2) : submit}
+          disabled={!step1Complete || submitting}
+          activeOpacity={0.9}
+          style={[
+            s.cta,
+            {
+              backgroundColor: colors.primary,
+              opacity: !step1Complete || submitting ? 0.5 : 1,
+            },
+          ]}
         >
-          <View style={[styles.submitGlass, {
-            backgroundColor: `${colors.primary}33`,
-            borderColor: `${colors.primary}66`,
-            opacity: submitting ? 0.6 : 1
-          }]}>
-            {submitting ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.submitText, { color: colors.primary, marginLeft: 12 }]}>
-                  {t('requestHost.submitting')}
-                </Text>
-              </View>
-            ) : (
-              <Text style={[styles.submitText, { color: colors.primary }]}>
-                {t('requestHost.submitApplication')}
+          {submitting ? (
+            <View style={s.loadingRow}>
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+              <Text style={[s.ctaText, { color: colors.onPrimary, marginLeft: 10 }]}>
+                {t("requestHost.submitting")}
               </Text>
-            )}
-          </View>
+            </View>
+          ) : (
+            <Text style={[s.ctaText, { color: colors.onPrimary }]}>
+              {step === 1
+                ? t("requestHost.continue")
+                : t("requestHost.submitApplication")}
+            </Text>
+          )}
         </TouchableOpacity>
 
-        <View style={styles.noteSection}>
-          <Text style={[styles.noteText, { color: colors.textTertiary }]}>
-            {t('requestHost.reviewNote')}
+        {/* Step 2 is optional, so it needs a way past it that isn't the back button. */}
+        {step === 2 && !submitting && (
+          <TouchableOpacity onPress={submit} style={s.skip} activeOpacity={0.7}>
+            <Text style={[s.skipText, { color: colors.textSecondary }]}>
+              {t("requestHost.skipAndSubmit")}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {step === 1 && !step1Complete && (
+          <Text style={[s.hint, { color: colors.textTertiary }]}>
+            {t("requestHost.step1Hint")}
           </Text>
-        </View>
+        )}
       </ScrollView>
 
       <SuccessModal
@@ -271,33 +351,70 @@ export default function RequestHostScreen({ navigation }) {
 function createStyles(colors) {
   return StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
-    headerTitle: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
-    scrollView: { flex: 1 },
-    scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
-    introSection: { alignItems: 'center', marginBottom: 32 },
-    introIconCircle: {
-      width: 88,
-      height: 88,
-      borderRadius: 44,
-      borderWidth: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 16,
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 20,
+      paddingBottom: 16,
     },
-    introTitle: { fontSize: 24, fontWeight: '700', marginBottom: 12, letterSpacing: -0.4 },
-    introText: { fontSize: 14, textAlign: 'center', lineHeight: 22, paddingHorizontal: 20 },
-    formSection: { marginBottom: 24 },
-    inputGroup: { marginBottom: 24 },
-    label: { fontSize: 15, fontWeight: '600', marginBottom: 12, letterSpacing: -0.2 },
-    inputWrapper: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 8 },
-    textArea: { fontSize: 15, minHeight: 100, textAlignVertical: 'top' },
-    charCount: { fontSize: 12, textAlign: 'right' },
-    submitButton: { borderRadius: 16, overflow: 'hidden', marginBottom: 24 },
-    submitGlass: { borderWidth: 1, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', minHeight: 56 },
-    loadingRow: { flexDirection: 'row', alignItems: 'center' },
-    submitText: { fontSize: 17, fontWeight: '700', letterSpacing: -0.2 },
-    noteSection: { padding: 16, alignItems: 'center' },
-    noteText: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+    progressTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
+    progressFill: { height: "100%", borderRadius: 3 },
+    stepLabel: { fontFamily: FONTS.bodySemibold, fontSize: 12.5 },
+    scrollView: { flex: 1 },
+    scrollContent: { paddingHorizontal: 20 },
+    title: {
+      fontFamily: FONTS.display,
+      fontSize: 26,
+      letterSpacing: -0.6,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: FONTS.body,
+      fontSize: 14.5,
+      lineHeight: 21,
+      marginBottom: 28,
+    },
+    field: { marginBottom: 24 },
+    fieldLabel: {
+      fontFamily: FONTS.bodyBold,
+      fontSize: 11.5,
+      letterSpacing: 0.7,
+      textTransform: "uppercase",
+      marginBottom: 12,
+    },
+    inputWrap: {
+      borderWidth: 1,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 4,
+    },
+    input: { fontFamily: FONTS.body, fontSize: 15, paddingVertical: 12 },
+    textArea: { minHeight: 110, textAlignVertical: "top" },
+    counter: {
+      fontFamily: FONTS.body,
+      fontSize: 11.5,
+      textAlign: "right",
+      marginTop: 6,
+    },
+    cta: {
+      borderRadius: 27,
+      paddingVertical: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 54,
+      marginTop: 8,
+    },
+    ctaText: { fontFamily: FONTS.bodyExtra, fontSize: 16, letterSpacing: 0.2 },
+    loadingRow: { flexDirection: "row", alignItems: "center" },
+    skip: { alignItems: "center", paddingVertical: 16 },
+    skipText: { fontFamily: FONTS.bodySemibold, fontSize: 14 },
+    hint: {
+      fontFamily: FONTS.body,
+      fontSize: 12.5,
+      textAlign: "center",
+      marginTop: 14,
+      lineHeight: 18,
+    },
   });
 }

@@ -30,11 +30,39 @@ import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { slugifyCity } from "../hooks/useCities";
 import { LOCATIONS } from "../utils/locations";
+import {
+  COMMUNITY_TYPES,
+  MEET_FREQUENCIES,
+  GROUP_SIZES,
+} from "../constants/hostOnboarding";
 import GradientBackground from "../components/GradientBackground";
 import { createNotification } from "../utils/notificationService";
 import AdminMessageModal from "../components/AdminMessageModal";
 import AdminConfirmModal from "../components/AdminConfirmModal";
 import { normalizeCategory } from "../utils/eventCategories";
+
+/**
+ * One-line summary of a host request's structured answers, e.g.
+ * "Yoga · Weekly · Small 2–8". Returns "" for pre-redesign requests, which have
+ * none of these fields — the caller then renders nothing rather than an empty
+ * row. Unknown ids (an option retired later) are skipped, not shown raw.
+ * @param {object} request a hostRequests doc
+ * @param {(k: string) => string} t
+ * @returns {string}
+ */
+function describeCommunity(request, t) {
+  const label = (options, id) => {
+    const found = id && options.find((o) => o.id === id);
+    return found ? t(found.labelKey) : null;
+  };
+  return [
+    label(COMMUNITY_TYPES, request.communityType),
+    label(MEET_FREQUENCIES, request.frequency),
+    label(GROUP_SIZES, request.groupSize),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 import {
   getAllUsers,
   getUserStats,
@@ -1225,54 +1253,82 @@ export default function AdminDashboardScreen({ navigation }) {
                       </View>
                     </View>
 
+                    {/* Requests now arrive as structured answers plus a tagline;
+                        older ones carry three free-text essays. Render whatever a
+                        request actually has — unconditional rows printed a label
+                        with an empty value for every field the new form dropped. */}
                     <View style={styles.requestDetails}>
-                      <View style={styles.detailRow}>
-                        <Text
-                          style={[
-                            styles.detailLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {t("adminDashboard.whyHost")}
-                        </Text>
-                        <Text
-                          style={[styles.detailValue, { color: colors.text }]}
-                        >
-                          {request.whyHost}
-                        </Text>
-                      </View>
+                      {!!describeCommunity(request, t) && (
+                        <View style={styles.detailRow}>
+                          <Text
+                            style={[
+                              styles.detailLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {t("adminDashboard.community")}
+                          </Text>
+                          <Text
+                            style={[styles.detailValue, { color: colors.text }]}
+                          >
+                            {describeCommunity(request, t)}
+                          </Text>
+                        </View>
+                      )}
 
-                      <View style={styles.detailRow}>
-                        <Text
-                          style={[
-                            styles.detailLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {t("adminDashboard.experience")}
-                        </Text>
-                        <Text
-                          style={[styles.detailValue, { color: colors.text }]}
-                        >
-                          {request.experience}
-                        </Text>
-                      </View>
+                      {!!request.whyHost && (
+                        <View style={styles.detailRow}>
+                          <Text
+                            style={[
+                              styles.detailLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {t("adminDashboard.whyHost")}
+                          </Text>
+                          <Text
+                            style={[styles.detailValue, { color: colors.text }]}
+                          >
+                            {request.whyHost}
+                          </Text>
+                        </View>
+                      )}
 
-                      <View style={styles.detailRow}>
-                        <Text
-                          style={[
-                            styles.detailLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {t("adminDashboard.eventIdeas")}
-                        </Text>
-                        <Text
-                          style={[styles.detailValue, { color: colors.text }]}
-                        >
-                          {request.eventIdeas}
-                        </Text>
-                      </View>
+                      {!!request.experience && (
+                        <View style={styles.detailRow}>
+                          <Text
+                            style={[
+                              styles.detailLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {t("adminDashboard.experience")}
+                          </Text>
+                          <Text
+                            style={[styles.detailValue, { color: colors.text }]}
+                          >
+                            {request.experience}
+                          </Text>
+                        </View>
+                      )}
+
+                      {!!request.eventIdeas && (
+                        <View style={styles.detailRow}>
+                          <Text
+                            style={[
+                              styles.detailLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {t("adminDashboard.eventIdeas")}
+                          </Text>
+                          <Text
+                            style={[styles.detailValue, { color: colors.text }]}
+                          >
+                            {request.eventIdeas}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     <View style={styles.actionsRow}>
