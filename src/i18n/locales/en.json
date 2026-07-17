@@ -1686,7 +1686,7 @@
   "hostMemberships": {
     "host": "Host",
     "hostPlans": "{{hostName}}'s Plans",
-    "membershipPlans": "Membership Plans",
+    "membershipPlans": "Memberships",
     "noPlansAvailable": "No plans available",
     "noPlansAvailableSubtitle": "This host isn't selling memberships right now.",
     "introText": "Buy a class pack or pass and use it to attend this host's events.",
@@ -4335,6 +4335,7 @@
     "addFirst": "Create your first membership",
     "errorTitle": "Couldn't load your memberships",
     "errorText": "Check your connection and try again.",
+    "errorDenied": "Your memberships couldn't be read. This usually means the app is newer than the server — nothing you did. Try again shortly.",
     "retry": "Try again",
     "free": "Free",
     "unlimited": "Unlimited",

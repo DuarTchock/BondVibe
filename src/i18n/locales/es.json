@@ -1686,7 +1686,7 @@
   "hostMemberships": {
     "host": "Anfitrión",
     "hostPlans": "Planes de {{hostName}}",
-    "membershipPlans": "Planes de membresía",
+    "membershipPlans": "Membresías",
     "noPlansAvailable": "No hay planes disponibles",
     "noPlansAvailableSubtitle": "Este anfitrión no está vendiendo membresías por ahora.",
     "introText": "Compra un paquete de clases o pase y úsalo para asistir a los eventos de este anfitrión.",
@@ -4335,6 +4335,7 @@
     "addFirst": "Crea tu primera membresía",
     "errorTitle": "No pudimos cargar tus membresías",
     "errorText": "Revisa tu conexión e inténtalo de nuevo.",
+    "errorDenied": "No pudimos leer tus membresías. Suele significar que la app va por delante del servidor — no es cosa tuya. Inténtalo en un momento.",
     "retry": "Reintentar",
     "free": "Gratis",
     "unlimited": "Ilimitado",

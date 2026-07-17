@@ -101,7 +101,6 @@ import HostStatusScreen from "../screens/HostStatusScreen";
 import StripeConnectScreen from "../screens/StripeConnectScreen";
 
 // Host Membership Screens
-import MembershipPlansScreen from "../screens/MembershipPlansScreen";
 import HostMembershipsScreen from "../screens/HostMembershipsScreen";
 import MembershipCheckoutScreen from "../screens/MembershipCheckoutScreen";
 import MyMembershipsScreen from "../screens/MyMembershipsScreen";
@@ -801,10 +800,11 @@ const AppNavigator = forwardRef((props, ref) => {
           />
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
           <Stack.Screen name="StripeConnect" component={StripeConnectScreen} />
-          <Stack.Screen
-            name="MembershipPlans"
-            component={MembershipPlansScreen}
-          />
+          {/* MembershipPlans (the old host-side plan list + form) is retired:
+              BusinessMemberships / BusinessPlanForm replace it. Unregistered on
+              purpose — leaving the route alive is how a second surface survives
+              a "unification". HostMemberships below is the ATTENDEE's buy
+              screen and stays. */}
           <Stack.Screen
             name="HostMemberships"
             component={HostMembershipsScreen}

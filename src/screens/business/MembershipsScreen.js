@@ -37,15 +37,25 @@ export default function MembershipsScreen({ navigation }) {
   const { t } = useTranslation();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(null); // null | "denied" | "generic"
 
   const load = useCallback(async () => {
     try {
-      setError(false);
+      setError(null);
       setPlans(await listPlans());
     } catch (e) {
-      console.warn("plans load failed:", e?.message);
-      setError(true);
+      // Name the one cause that isn't a network blip. `plans` is a new
+      // subcollection: until its rule is deployed, EVERY read is denied and the
+      // screen reads as broken to a host who has done nothing wrong. Saying
+      // "check your connection" there sends them to debug their wifi.
+      // (CLAUDE.md golden rule #3.)
+      const denied = /permission|insufficient/i.test(e?.message || "");
+      console.warn(
+        denied
+          ? "plans read DENIED — is the businesses/{bizId}/plans rule deployed?"
+          : `plans load failed: ${e?.message}`
+      );
+      setError(denied ? "denied" : "generic");
     } finally {
       setLoading(false);
     }
@@ -99,7 +109,9 @@ export default function MembershipsScreen({ navigation }) {
       ) : error ? (
         <View style={s.empty}>
           <Text style={[s.emptyTitle, { color: colors.text }]}>{t("plans.errorTitle")}</Text>
-          <Text style={[s.emptyText, { color: colors.textSecondary }]}>{t("plans.errorText")}</Text>
+          <Text style={[s.emptyText, { color: colors.textSecondary }]}>
+            {error === "denied" ? t("plans.errorDenied") : t("plans.errorText")}
+          </Text>
           <TouchableOpacity style={[s.cta, { backgroundColor: colors.primary }]} onPress={load}>
             <Text style={[s.ctaText, { color: colors.onPrimary }]}>{t("plans.retry")}</Text>
           </TouchableOpacity>
