@@ -33,7 +33,7 @@
         <div class="k-eyebrow mt-18" id="eyebrow"></div>
         <h1 class="k-title mt-6" id="title"></h1>
         <p class="k-msg mt-9" id="msg"></p>
-        <a class="k-btn k-btn-block mt-22" href="kinlo://" id="btn"></a>
+        <a class="k-btn k-btn-block mt-22" href="kinlo://plus/return" id="btn"></a>
         <p class="k-note mt-14" id="hint"></p>
       </div>
     </div>
@@ -79,6 +79,15 @@
     function syncLang(){ document.querySelectorAll('.k-lang button').forEach(function(b){ b.classList.toggle('on', b.dataset.lang === LANG); }); document.documentElement.lang = LANG; }
     document.querySelectorAll('.k-lang button').forEach(function(b){ b.addEventListener('click', function(){ LANG = b.dataset.lang; localStorage.setItem('kinlo_lang', LANG); render(); syncLang(); }); });
     render(); syncLang();
+
+    // Hand control back to the app ourselves rather than relying on a
+    // custom-scheme tap from inside an in-app browser. The app opens this
+    // with openAuthSessionAsync(url, "kinlo://plus/return"), so this
+    // navigation is intercepted and the browser closes itself.
+    setTimeout(function () {
+      window.location.href =
+        'kinlo://plus/return?status=' + (CANCEL ? 'cancel' : 'success');
+    }, 400);
   </script>
 </body>
 </html>
