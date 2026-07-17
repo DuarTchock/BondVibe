@@ -31,7 +31,7 @@
     "subtitle": "Pick a language once — the whole app follows."
   },
   "welcome": {
-    "tagline": "Connect through shared experiences",
+    "tagline": "Belong anywhere",
     "groupEvents": "Group Events",
     "personalityMatching": "Personality Matching",
     "safeAndInclusive": "Safe & Inclusive",
@@ -723,6 +723,7 @@
     }
   },
   "profile": {
+    "kinloProOpenHub": "Open your Business Hub",
     "loading": "Loading…",
     "edit": "Edit",
     "save": "Save",
@@ -2645,6 +2646,9 @@
     "placeholder": "Ask Kinlo anything…"
   },
   "bondvibePro": {
+    "confirming": "Confirming your subscription…",
+    "processingTitle": "Almost there",
+    "processingMessage": "Your payment went through and we're still activating Pro. It usually takes a few seconds — your Pro features will unlock on their own.",
     "priceLabel": "$199 MXN / mo",
     "features": {
       "aiCoaching": {
@@ -3427,6 +3431,7 @@
     },
     "setup": {
       "title": "New business",
+      "editTitle": "Edit business",
       "intro": "Pick what best describes your business — it only tweaks a few labels and suggestions. You can change it later.",
       "nameLabel": "Business name",
       "namePlaceholder": "e.g. Ritmo Studio",

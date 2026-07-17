@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import Icon from "../components/Icon";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
-import { usePremium } from "../hooks/usePremium";
+import { usePremium, waitForPremium } from "../hooks/usePremium";
 import { startProCheckout, openProPortal } from "../services/proService";
 
 export default function BondVibeProScreen({ navigation }) {
@@ -21,6 +21,7 @@ export default function BondVibeProScreen({ navigation }) {
   const { t } = useTranslation();
   const { isPremium, loading } = usePremium();
   const [working, setWorking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const styles = createStyles(colors, isDark);
 
   const PRO_PRICE_LABEL = t("bondvibePro.priceLabel");
@@ -36,10 +37,29 @@ export default function BondVibeProScreen({ navigation }) {
   const openCheckout = async () => {
     setWorking(true);
     try {
-      await startProCheckout();
+      const { completed, cancelled } = await startProCheckout();
+      if (cancelled || !completed) return; // nothing bought — stay put, silently
+
+      // Paying isn't being Pro: the webhook grants the entitlement and lands a
+      // beat later. Leaving the user here meanwhile is the bug — a paywall still
+      // offering to sell what they just bought. Wait for it, then move them on.
+      setConfirming(true);
+      const entitled = await waitForPremium();
+      if (entitled) {
+        // The destination of value, not the shop they already bought from.
+        navigation.replace("BusinessHub");
+      } else {
+        // Honest: the payment may well be fine, we just can't confirm yet. Don't
+        // claim failure, and don't fake success by navigating anyway.
+        Alert.alert(
+          t("bondvibePro.processingTitle"),
+          t("bondvibePro.processingMessage")
+        );
+      }
     } catch (e) {
       Alert.alert(t("bondvibePro.alertTitle"), e.message || t("bondvibePro.checkoutError"));
     } finally {
+      setConfirming(false);
       setWorking(false);
     }
   };
@@ -117,7 +137,15 @@ export default function BondVibeProScreen({ navigation }) {
               disabled={working}
             >
               {working ? (
-                <ActivityIndicator color="#fff" />
+                <View style={styles.ctaBusy}>
+                  <ActivityIndicator color="#fff" />
+                  {/* Say what we're waiting for. A bare spinner over "Go Pro"
+                      is what made people wonder whether the payment went
+                      through at all. */}
+                  {confirming && (
+                    <Text style={styles.ctaText}>{t("bondvibePro.confirming")}</Text>
+                  )}
+                </View>
               ) : (
                 <>
                   <Icon name="pro" size={18} color="#fff" />
@@ -194,6 +222,7 @@ function createStyles(colors, isDark) {
       marginTop: 24,
     },
     ctaText: { color: "#fff", fontSize: 16, fontWeight: "800" },
+    ctaBusy: { flexDirection: "row", alignItems: "center", gap: 10 },
     finePrint: { fontSize: 12, textAlign: "center", marginTop: 12, lineHeight: 17 },
     secondaryBtn: {
       borderWidth: 1,

@@ -29,11 +29,15 @@ export default function BusinessSetupScreen({ navigation }) {
   const [vertical, setVertical] = useState(DEFAULT_VERTICAL);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The SAVED name, not the field. Titling with `name` would rewrite the header
+  // on every keystroke — and blank it the moment the field is cleared.
+  const [savedName, setSavedName] = useState("");
 
   useEffect(() => {
     getBusiness().then((biz) => {
       if (biz) {
         setName(biz.name || "");
+        setSavedName(biz.name || "");
         setVertical(biz.vertical || DEFAULT_VERTICAL);
         setEditing(true);
       }
@@ -68,7 +72,15 @@ export default function BusinessSetupScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>{t("business.setup.title")}</Text>
+        {/* One screen creates AND edits, but the title only ever said "New
+            business" — so editing an existing business announced you were making
+            a second one. Prefer the business's own name: it confirms which one
+            you're editing, which the generic "Edit business" doesn't. */}
+        <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+          {editing
+            ? savedName || t("business.setup.editTitle")
+            : t("business.setup.title")}
+        </Text>
         <View style={{ width: 28 }} />
       </View>
 
