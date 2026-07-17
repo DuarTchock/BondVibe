@@ -4,6 +4,36 @@ jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock")
 );
 
+// Safe-area insets come from a native module, and useSafeAreaInsets() throws
+// outright without a <SafeAreaProvider> above it — which the smoke test, by
+// design, doesn't render. Stub it with plausible iPhone insets so any screen
+// using real insets (rather than a hardcoded paddingTop) stays testable.
+// The library ships its own mock, but as .tsx, and this package isn't in
+// jest.config transformIgnorePatterns' allowlist — so it would never transform.
+jest.mock("react-native-safe-area-context", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const insets = { top: 44, right: 0, bottom: 34, left: 0 };
+  const frame = { x: 0, y: 0, width: 390, height: 844 };
+  // Export the raw contexts too, not just the hooks: PhoneInput deliberately
+  // reads SafeAreaInsetsContext via useContext so it degrades to null instead of
+  // throwing, and a mock without them makes useContext(undefined) explode.
+  const SafeAreaInsetsContext = React.createContext(insets);
+  const SafeAreaFrameContext = React.createContext(frame);
+  return {
+    SafeAreaProvider: ({ children }) => children,
+    SafeAreaConsumer: SafeAreaInsetsContext.Consumer,
+    SafeAreaInsetsContext,
+    SafeAreaFrameContext,
+    SafeAreaView: (props) => React.createElement(View, props, props.children),
+    useSafeAreaInsets: () => insets,
+    useSafeAreaFrame: () => frame,
+    withSafeAreaInsets: (Comp) => (props) =>
+      React.createElement(Comp, { ...props, insets }),
+    initialWindowMetrics: { frame, insets },
+  };
+});
+
 // react-native-maps is a native module (F1 map) — stub it so screens that
 // import the map component (SearchEventsScreen) can render under jest.
 jest.mock("react-native-maps", () => {

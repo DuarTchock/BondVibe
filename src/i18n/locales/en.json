@@ -1336,13 +1336,19 @@
     }
   },
   "hostGate": {
-    "title": "Become a Kinlo host",
-    "body": "One approved host account unlocks events, rentals, and marketplace listings — a single quick request.",
-    "cta": "Become a host",
+    "benefitChat": "Community chat & groups",
+    "benefitMembers": "Members & attendance",
+    "benefitMatching": "Matchmaking for your events",
+    "benefitInsights": "Insights & revenue tools",
+    "pendingNote": "We've got your community details — just pick how you want to host.",
+    "ctaResume": "Finish setting up",
+    "title": "Start your community on Kinlo",
+    "body": "Gather your people, run events, and grow — all from one place. One host account unlocks everything.",
+    "cta": "Start now, it's free",
     "benefitEvents": "Create and sell tickets to events",
     "benefitRentals": "List vehicles for rent",
     "benefitOne": "One approval — every host capability",
-    "alreadyHost": "Already approved for events? You're all set — just continue."
+    "alreadyHost": "Already hosting events? You're all set — this unlocks rentals."
   },
   "marketplace": {
     "tab": "Marketplace",
@@ -1428,6 +1434,7 @@
     }
   },
   "adminDashboard": {
+    "community": "Community",
     "unknown": "Unknown",
     "accessDeniedTitle": "Access denied",
     "accessDeniedMessage": "This area is for administrators only.",
@@ -1687,6 +1694,18 @@
     "buy": "Buy"
   },
   "hostTypeSelection": {
+    "approvedTitle": "You're approved",
+    "approvedSubtitle": "Start free today. You can charge for events whenever you're ready.",
+    "freeTitle": "Start free",
+    "freeMeta": "Recommended · live instantly",
+    "freeFeatureEvents": "Unlimited free events & community",
+    "freeFeatureMembers": "Members, chat, matchmaking",
+    "freeFeatureUpgrade": "Upgrade to paid anytime",
+    "paidTitle": "Charge for events",
+    "paidMeta": "Set up payouts — takes ~2 min",
+    "paidLaterNote": "You can do this later — free hosting starts now regardless.",
+    "ctaStartFree": "Start free",
+    "ctaContinuePaid": "Continue",
     "error": "Error",
     "couldNotContinue": "Could not continue. Please try again.",
     "selectionRequired": "Selection Required",
@@ -2473,6 +2492,42 @@
     }
   },
   "requestHost": {
+    "stepOf": "Step {{current}} of {{total}}",
+    "step1Title": "Tell us about your community",
+    "step1Subtitle": "Quick taps — this sets up your space. No essays required.",
+    "step1Hint": "Pick a community type and add a one-line description to continue.",
+    "communityTypeLabel": "What kind of community?",
+    "frequencyLabel": "How often do you meet?",
+    "groupSizeLabel": "Typical group size",
+    "taglineLabel": "Describe it in one line",
+    "taglinePlaceholder": "e.g. Sunrise yoga in the park, every Saturday",
+    "continue": "Continue",
+    "step2Title": "Anything else we should know?",
+    "step2Subtitle": "Optional — it helps us review faster, but you can submit without it.",
+    "optional": "(optional)",
+    "skipAndSubmit": "Skip and submit",
+    "communityTypes": {
+      "yoga": "Yoga",
+      "running": "Running",
+      "salsa": "Salsa",
+      "wellness": "Wellness",
+      "fitness": "Fitness",
+      "art": "Art",
+      "music": "Music",
+      "other": "Other"
+    },
+    "frequencies": {
+      "weekly": "Weekly",
+      "multiWeekly": "2–3×/week",
+      "monthly": "Monthly",
+      "oneOff": "One-off"
+    },
+    "groupSizes": {
+      "oneOnOne": "1-on-1",
+      "small": "Small 2–8",
+      "medium": "Medium 9–20",
+      "large": "Large 20+"
+    },
     "headerTitle": "Become a Host",
     "introTitle": "Share Your Passion",
     "introText": "As a host, you'll be able to create unlimited events and build your community. Tell us why you'd be a great host!",
@@ -4210,5 +4265,39 @@
         "staff": "Staff"
       }
     }
+  },
+  "hostLive": {
+    "title": "Your community is live",
+    "subtitle": "No waiting. Let's set it up — three quick wins to start.",
+    "getStarted": "Get started",
+    "createEventTitle": "Create your first event",
+    "createEventSub": "Pick a date & place",
+    "inviteTitle": "Invite your people",
+    "inviteSub": "Share a join link or code",
+    "personalizeTitle": "Personalize your space",
+    "personalizeSub": "Cover photo & description",
+    "explore": "I'll explore first"
+  },
+  "hostStatus": {
+    "header": "Your host status",
+    "reviewTitle": "Paid hosting — under review",
+    "reviewMeta": "Usually within 24–48 hours",
+    "approvedTitle": "Paid hosting — approved",
+    "approvedMeta": "Connect payouts to start charging",
+    "loading": "Checking status…",
+    "statusUnavailable": "—",
+    "step": {
+      "applied": "Applied",
+      "reviewing": "Reviewing",
+      "payouts": "Payouts"
+    },
+    "meanwhileTitle": "Meanwhile, you're already hosting",
+    "meanwhileBody": "Free events, community and members work right now. Paid tickets unlock when review clears.",
+    "whatsNext": "What happens next",
+    "next1": "We review your community (24–48h) — we'll notify you.",
+    "next2": "Connect payouts (Stripe) — a 2-min setup.",
+    "next3": "Charge for events & get paid directly.",
+    "connectPayouts": "Connect payouts",
+    "exploreMeanwhile": "Explore host tools meanwhile"
   }
 }
