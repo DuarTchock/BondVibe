@@ -75,6 +75,25 @@ const toPlan = (src, paymentModes, from) => ({
 
 const summary = { businesses: 0, packages: 0, membershipPlans: 0, skipped: 0 };
 
+/**
+ * One audit line per doc: source → dest, and the exact field mapping that mattered
+ * when it silently went wrong before (credits/price, whose field names differ
+ * between the two sources). This is what a human reads before --apply to confirm
+ * the real "10" package maps the way they expect.
+ */
+function auditLine(src, plan, from) {
+  const money = (c) => `$${((c || 0) / 100).toFixed(2)}`;
+  const creditsFrom =
+    src.credits != null ? "credits" : src.creditsIncluded != null ? "creditsIncluded" : "(none)";
+  const priceFrom =
+    src.priceCents != null ? "priceCents" : src.priceCentavos != null ? "priceCentavos" : "(none)";
+  return (
+    `      credits: ${plan.unlimited ? "unlimited" : plan.credits} (from ${creditsFrom})` +
+    ` · price: ${money(plan.priceCents)} (from ${priceFrom})` +
+    ` · validity: ${plan.validityDays ?? "—"}d · audience: ${plan.audienceTier}`
+  );
+}
+
 const alreadyMigrated = async (bizId, from) => {
   const dupe = await db
     .collection("businesses").doc(bizId).collection("plans")
@@ -104,8 +123,11 @@ for (const biz of bizSnap) {
   for (const p of pkgs.docs) {
     const from = { collection: "packages", id: p.id };
     if (await alreadyMigrated(bizId, from)) { summary.skipped++; continue; }
+    // Build once, then log exactly what gets written.
+    const plan = toPlan(p.data(), ["manual"], from);
     console.log(`  ${bizId} · packages/${p.id} "${p.data().name}" → plans [manual]`);
-    await write(bizId, toPlan(p.data(), ["manual"], from));
+    console.log(auditLine(p.data(), plan, from));
+    await write(bizId, plan);
     summary.packages++;
   }
 
@@ -130,8 +152,10 @@ for (const biz of bizSnap) {
 
     const from = { collection: "membershipPlans", id: m.id };
     if (await alreadyMigrated(bizId, from)) { summary.skipped++; continue; }
+    const plan = toPlan(m.data(), ["online"], from);
     console.log(`  ${bizId} · membershipPlans/${m.id} "${m.data().name}" → plans [online]`);
-    await write(bizId, toPlan(m.data(), ["online"], from));
+    console.log(auditLine(m.data(), plan, from));
+    await write(bizId, plan);
     summary.membershipPlans++;
   }
 }

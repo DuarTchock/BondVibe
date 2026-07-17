@@ -50,8 +50,6 @@ import MemberRecordScreen from "../screens/business/MemberRecordScreen";
 import MembershipCardScreen from "../screens/business/MembershipCardScreen";
 import BusinessBirthdaysScreen from "../screens/business/BusinessBirthdaysScreen";
 import CsvImportScreen from "../screens/business/CsvImportScreen";
-import PackagesScreen from "../screens/business/PackagesScreen";
-import PackageFormScreen from "../screens/business/PackageFormScreen";
 import BusinessCheckInScreen from "../screens/business/BusinessCheckInScreen";
 import RedeemCodeScreen from "../screens/business/RedeemCodeScreen";
 import RequestSessionScreen from "../screens/business/RequestSessionScreen";
@@ -751,8 +749,6 @@ const AppNavigator = forwardRef((props, ref) => {
               removing them now would dead-end anything still pointing there. */}
           <Stack.Screen name="BusinessMemberships" component={MembershipsScreen} />
           <Stack.Screen name="BusinessPlanForm" component={PlanFormScreen} />
-          <Stack.Screen name="BusinessPackages" component={PackagesScreen} />
-          <Stack.Screen name="BusinessPackageForm" component={PackageFormScreen} />
           <Stack.Screen name="BusinessCheckIn" component={BusinessCheckInScreen} />
           <Stack.Screen name="BusinessRedeemCode" component={RedeemCodeScreen} />
           <Stack.Screen name="BusinessRequestSession" component={RequestSessionScreen} />
