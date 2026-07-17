@@ -141,4 +141,15 @@ console.log(
   `${summary.businesses} businesses · ${summary.packages} packages → manual · ` +
   `${summary.membershipPlans} membershipPlans → online · ${summary.skipped} already migrated`
 );
-if (!APPLY) console.log("Re-run with --apply to write. Sources are never modified.");
+if (!APPLY) {
+  console.log("Re-run with --apply to write. Sources are never modified.");
+} else {
+  // The fallback stops firing the moment this succeeds, which means it will look
+  // harmless forever while keeping a dead read alive. Say so here, because this
+  // is the one moment someone is looking.
+  console.log(
+    "\nNEXT: remove the transitional fallback in src/screens/HostMembershipsScreen.js\n" +
+    "      (grep TRANSITIONAL — REMOVE AFTER PLANS MIGRATION). It reads the legacy\n" +
+    "      membershipPlans only while `plans` is empty — which is no longer true."
+  );
+}

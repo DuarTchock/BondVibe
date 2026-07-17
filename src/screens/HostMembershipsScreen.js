@@ -48,12 +48,21 @@ export default function HostMembershipsScreen({ route, navigation }) {
       getDoc(doc(db, "users", hostId)),
       getMyPricingTierForHost(hostId),
     ]);
-    // Transitional, and it switches itself off. `plans` is empty until the
-    // migration runs, and the migration deliberately waits until these screens
-    // are verified in a build — so reading only the new source would leave
-    // members unable to buy anything in between. An outage caused purely by
-    // ordering. Legacy membershipPlans were the online-sold ones by definition,
-    // which makes them a safe stand-in until they're migrated across.
+    // TRANSITIONAL — REMOVE AFTER PLANS MIGRATION (scripts/migrate-plans.mjs --apply)
+    //
+    // `plans` is empty until the migration runs, and the migration deliberately
+    // waits until these screens are verified in a build. Reading only the new
+    // source in between would leave members unable to buy anything — an outage
+    // caused purely by ordering. Legacy membershipPlans were the online-sold
+    // ones by definition, so they stand in safely.
+    //
+    // It goes quiet on its own the moment the migration runs, which is exactly
+    // why it needs deleting deliberately: once `plans` is populated this line
+    // never takes the fallback again, so it will look harmless forever while
+    // quietly keeping a dead read (and the whole membershipService import) alive.
+    //
+    // To remove: drop `legacy` from the Promise.all, drop this branch, and drop
+    // getHostMembershipPlans from the import above if nothing else uses it.
     const data = unified.length ? unified : legacy;
     // Purchase scope (kinlo_business/05 §G): only show plans this buyer's tier
     // is allowed to buy (local-only plans hidden from general members).
