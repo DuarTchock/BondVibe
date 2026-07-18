@@ -1396,7 +1396,21 @@
       "photosFailed": "Tu servicio se publicó, pero las fotos no se pudieron subir. Ábrelo desde Mis servicios para intentarlo de nuevo."
     },
     "my": {
-      "title": "Mis servicios"
+      "title": "Mis servicios",
+      "filterAll": "Todos",
+      "live": "Activo",
+      "paused": "Pausado",
+      "quote": "Cotización",
+      "edit": "Editar",
+      "pause": "Pausar",
+      "resume": "Activar",
+      "unpublish": "Despublicar",
+      "unpublishTitle": "¿Despublicar este servicio?",
+      "unpublishMsg": "Se quitará del marketplace. Esto no se puede deshacer.",
+      "emptyTitle": "Aún no tienes servicios",
+      "emptyBody": "Publica tu primer servicio para aparecer en el marketplace.",
+      "emptyCta": "Publicar servicio",
+      "actionError": "Algo salió mal. Inténtalo de nuevo."
     },
     "gate": {
       "title": "Publica en Kinlo",

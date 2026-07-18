@@ -1396,7 +1396,21 @@
       "photosFailed": "Your service was published, but the photos couldn't be uploaded. Open it from My services to try again."
     },
     "my": {
-      "title": "My services"
+      "title": "My services",
+      "filterAll": "All",
+      "live": "Live",
+      "paused": "Paused",
+      "quote": "Quote",
+      "edit": "Edit",
+      "pause": "Pause",
+      "resume": "Make live",
+      "unpublish": "Unpublish",
+      "unpublishTitle": "Unpublish this service?",
+      "unpublishMsg": "It'll be removed from the marketplace. This can't be undone.",
+      "emptyTitle": "No services yet",
+      "emptyBody": "Publish your first service to show up in the marketplace.",
+      "emptyCta": "Publish service",
+      "actionError": "Something went wrong. Please try again."
     },
     "gate": {
       "title": "Publish on Kinlo",
