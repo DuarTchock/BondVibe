@@ -215,7 +215,7 @@ export default function MarketplaceExploreScreen({ navigation, route }) {
                 </View>
                 <Text style={[s.cardPrice, { color: colors.text }]}>
                   {l.bookingMode === "quote"
-                    ? t("marketplace.detail.quoteFree")
+                    ? t("marketplace.detail.quote")
                     : !l.priceCents
                     ? t("marketplace.detail.free")
                     : formatCentavos(l.priceCents)}

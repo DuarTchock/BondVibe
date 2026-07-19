@@ -183,7 +183,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
             {isPlan
               ? t("marketplace.detail.plan")
               : listing.bookingMode === "quote"
-              ? t("marketplace.detail.quoteFree")
+              ? t("marketplace.detail.quote")
               : isQuote
               ? t("marketplace.detail.free")
               : t("marketplace.detail.fromPrice", { price: "" }).trim()}
