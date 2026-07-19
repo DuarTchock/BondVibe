@@ -1414,7 +1414,7 @@
     },
     "gate": {
       "title": "Publica en Kinlo",
-      "body": "Publicar servicios y crear eventos usan una misma cuenta de anfitrión aprobada — una sola solicitud.",
+      "body": "Publicar en el marketplace (servicios y rentas) requiere una cuenta de anfitrión aprobada — una sola solicitud.",
       "benefitList": "Publica servicios en el marketplace",
       "benefitEvents": "Crea eventos y forma comunidades",
       "benefitStripe": "Cobra de forma segura con Stripe",

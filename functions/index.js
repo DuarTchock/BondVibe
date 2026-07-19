@@ -253,7 +253,12 @@ exports.activateHost = onCall(async (request) => {
 
   const now = new Date().toISOString();
   await userRef.set({
-    role: "host",
+    // Don't degrade an existing admin to a plain host: an admin already passes
+    // isApprovedHost() once hostApproved is set, so keep their role. Everyone
+    // else becomes a host. hostApproved is the flag the services/rentals gate
+    // reads, so setting it here is what lets the caller through.
+    role: data.role === "admin" ? "admin" : "host",
+    hostApproved: true,
     hostConfig: {
       type,
       // Only the Stripe status sync may ever set this true. Preserve it rather

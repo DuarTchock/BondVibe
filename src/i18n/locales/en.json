@@ -1414,7 +1414,7 @@
     },
     "gate": {
       "title": "Publish on Kinlo",
-      "body": "Publishing services and creating events use one approved host account — one quick request.",
+      "body": "Publishing to the marketplace (services and rentals) needs an approved host account — a single request.",
       "benefitList": "List services in the marketplace",
       "benefitEvents": "Create events & build communities",
       "benefitStripe": "Get paid securely with Stripe",
