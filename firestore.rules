@@ -642,12 +642,18 @@ service cloud.firestore {
       // reserveVehicle, cleared by completeRental / expireReservations — all
       // Admin SDK). The owner could previously set it directly and desync that
       // machine, e.g. clear "reserved" out from under a paid reservation and
-      // re-let the vehicle. Admins keep the escape hatch for support.
+      // re-let the vehicle.
+      //
+      // 'ownerId' is the gate itself: create demands isApprovedHost(), but the
+      // owner could then hand the vehicle to any uid — laundering a live
+      // listing onto an account that was never approved, and moving it out of
+      // reach of this same rule. Both are server/admin territory; admins keep
+      // the escape hatch for support transfers.
       allow update: if isSignedIn() &&
                        (isAdmin() ||
                         (resource.data.ownerId == request.auth.uid &&
                          !request.resource.data.diff(resource.data)
-                           .affectedKeys().hasAny(['status'])));
+                           .affectedKeys().hasAny(['status', 'ownerId'])));
       allow delete: if isSignedIn() &&
                        (resource.data.ownerId == request.auth.uid || isAdmin());
     }

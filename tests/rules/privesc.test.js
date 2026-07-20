@@ -382,6 +382,67 @@ describe("F5 · vehicles.update — owner desyncs rental status", () => {
 });
 
 // ===========================================================================
+// FINDING 7 — vehicles.ownerId was writable by the owner. create() enforces
+// isApprovedHost(), but the owner could then reassign the vehicle to any uid,
+// putting a live listing on an account that was never approved (and out of
+// reach of this rule, since it keys on ownerId).
+// ===========================================================================
+describe("F7 · vehicles.update — owner reassigns ownerId", () => {
+  const seedVehicle = (env) =>
+    seed(env, async (db) => {
+      await setDoc(doc(db, "users", "hostie"), { role: "user", hostApproved: true });
+      // The account the listing gets laundered onto — never approved as host.
+      await setDoc(doc(db, "users", "notahost"), { role: "user" });
+      await setDoc(doc(db, "vehicles", "v1"), {
+        ownerId: "hostie",
+        title: "Moto",
+        status: "available",
+        pricePerDay: 400,
+      });
+    });
+
+  test("EXPLOIT (pre-fix): the owner hands the listing to a non-approved account", async () => {
+    await seedVehicle(vuln);
+    const db = asUser(vuln, "hostie");
+    await assertSucceeds(updateDoc(doc(db, "vehicles", "v1"), { ownerId: "notahost" }));
+
+    // The unapproved account now owns a published vehicle it could never have
+    // created itself — the isApprovedHost() gate on create is bypassed.
+    let after;
+    await vuln.withSecurityRulesDisabled(async (ctx) => {
+      after = await getDoc(doc(ctx.firestore(), "vehicles", "v1"));
+    });
+    expect(after.data().ownerId).toBe("notahost");
+  });
+
+  test("FIX: the owner can no longer reassign ownerId", async () => {
+    await seedVehicle(fixed);
+    const db = asUser(fixed, "hostie");
+    await assertFails(updateDoc(doc(db, "vehicles", "v1"), { ownerId: "notahost" }));
+  });
+
+  test("FIX: ownerId can't ride along with an otherwise-legit edit", async () => {
+    await seedVehicle(fixed);
+    const db = asUser(fixed, "hostie");
+    await assertFails(
+      updateDoc(doc(db, "vehicles", "v1"), { pricePerDay: 500, ownerId: "notahost" })
+    );
+  });
+
+  test("NO OVER-BLOCK: the owner still edits their listing", async () => {
+    await seedVehicle(fixed);
+    const db = asUser(fixed, "hostie");
+    await assertSucceeds(updateDoc(doc(db, "vehicles", "v1"), { title: "Moto 250cc" }));
+  });
+
+  test("NO OVER-BLOCK: an admin still transfers ownership (support)", async () => {
+    await seedVehicle(fixed);
+    const db = asUser(fixed, "admin1", { admin: true });
+    await assertSucceeds(updateDoc(doc(db, "vehicles", "v1"), { ownerId: "notahost" }));
+  });
+});
+
+// ===========================================================================
 // FINDING 6 (storage.rules) — business expense receipts were readable by ANY
 // signed-in user: invoices, amounts, vendor and bank details.
 // ===========================================================================
