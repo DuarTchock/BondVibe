@@ -2926,6 +2926,68 @@ exports.migrateMatchFieldsToSubcollection = onCall(async (request) => {
   return {scanned: snap.size, migrated, nextCursor, done: nextCursor == null};
 });
 
+/**
+ * PRIVACY MIGRATION (fix/privacy-event-roster) — move the attendee roster OFF the
+ * world-readable events/{id}.attendees array INTO the gated subcollection
+ * events/{id}/roster/{uid}, and set participantCount (active count) as the public
+ * capacity field. Preserves status (attendees→active, waitlist→waitlist) and FIFO
+ * ORDER via a synthetic joinedAt (array index). Writes the subcollection BEFORE
+ * stripping the arrays. Admin-only, paginated, idempotent (roster doc id == uid,
+ * set/merge; a fully-migrated event has no attendees/waitlist arrays → skipped).
+ * data: { limit=200, cursor? } → { scanned, migrated, nextCursor, done }
+ */
+exports.migrateEventRosters = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
+  if (!(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "Admin only.");
+  }
+  const pageSize = Math.min(
+    Math.max(parseInt((request.data || {}).limit, 10) || 200, 1), 400);
+  const cursor = (request.data || {}).cursor || null;
+  const Timestamp = admin.firestore.Timestamp;
+  const ORDER_BASE = new Date("2020-01-01T00:00:00Z").getTime(); // FIFO anchor
+
+  let q = db.collection("events").orderBy("__name__").limit(pageSize);
+  if (cursor) q = q.startAfter(cursor);
+  const snap = await q.get();
+
+  let migrated = 0;
+  let lastId = null;
+  for (const d of snap.docs) {
+    lastId = d.id;
+    const e = d.data();
+    if (e.attendees === undefined && e.waitlist === undefined) continue; // done
+    const active = getAttendeeIds(e.attendees);
+    const waitlist = Array.isArray(e.waitlist) ? e.waitlist : [];
+
+    // Roster docs FIRST (active first, then waitlist), FIFO order via joinedAt.
+    let idx = 0;
+    for (const auid of active) {
+      await d.ref.collection("roster").doc(auid).set({
+        uid: auid, eventId: d.id, status: "active",
+        joinedAt: Timestamp.fromMillis(ORDER_BASE + idx++),
+      }, {merge: true});
+    }
+    for (const wuid of waitlist) {
+      await d.ref.collection("roster").doc(wuid).set({
+        uid: wuid, eventId: d.id, status: "waitlist",
+        joinedAt: Timestamp.fromMillis(ORDER_BASE + idx++),
+      }, {merge: true});
+    }
+    // participantCount (active only), THEN strip the arrays.
+    await d.ref.set({participantCount: active.length}, {merge: true});
+    await d.ref.update({
+      attendees: FieldValue.delete(),
+      waitlist: FieldValue.delete(),
+    });
+    migrated++;
+  }
+
+  const nextCursor = snap.size === pageSize ? lastId : null;
+  return {scanned: snap.size, migrated, nextCursor, done: nextCursor == null};
+});
+
 // Runs hourly. Pages through held payouts whose releaseAt has passed and that
 // aren't frozen, and releases each (escrow.releaseOnePayout — same code the
 // tests drive). Paginated to avoid the unbounded-query bug (§4). Needs a
