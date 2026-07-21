@@ -20,7 +20,11 @@ import Icon from "../../components/Icon";
 import BigFiveBars from "../../components/matching/BigFiveBars";
 import BigFiveInterpretation from "../../components/matching/BigFiveInterpretation";
 import { MatchHeader } from "./matchUi";
-import { getCanonicalMatchProfile, MATCH_TYPE_COLORS } from "../../services/matchingService";
+import {
+  getCanonicalMatchProfile,
+  getMatchDataFor,
+  MATCH_TYPE_COLORS,
+} from "../../services/matchingService";
 import { funnyTag, isProfileComplete } from "../../constants/matchTags";
 
 export default function MatchProfileViewScreen({ navigation }) {
@@ -33,12 +37,18 @@ export default function MatchProfileViewScreen({ navigation }) {
   const load = useCallback(async () => {
     setLoading(true);
     const me = auth.currentUser?.uid;
-    const [p, uSnap] = await Promise.all([
+    const [p, uSnap, md] = await Promise.all([
       getCanonicalMatchProfile(),
       me ? getDoc(doc(db, "users", me)) : Promise.resolve(null),
+      me ? getMatchDataFor(me) : Promise.resolve({}),
     ]);
     setProfile(p);
-    setUser(uSnap?.exists() ? uSnap.data() : {});
+    // personality moved to the gated match subcollection — fold it back onto the
+    // `user` object so the existing `user.personality` read keeps working even
+    // when the match profile itself isn't filled yet.
+    const u = uSnap?.exists() ? uSnap.data() : {};
+    u.personality = md.personality ?? null;
+    setUser(u);
     setLoading(false);
   }, []);
   // Re-read on focus so returning from the editor shows the saved profile.

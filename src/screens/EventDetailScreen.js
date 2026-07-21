@@ -55,6 +55,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { useFocusEffect } from "@react-navigation/native";
 import { usePremium } from "../hooks/usePremium";
 import { buildCheckinPayload } from "../services/checkinService";
+import { getMatchDataFor } from "../services/matchingService";
 import { joinFreeEvent } from "../services/eventJoinService";
 import { getMatchInsight } from "../utils/personalityScoring";
 import { getFollowing } from "../services/followService";
@@ -145,14 +146,19 @@ export default function EventDetailScreen({ route, navigation }) {
     if (!creatorId) return;
     let active = true;
     (async () => {
-      const [plans, membership, reservation, hostSnap, meSnap, myTier] = await Promise.all([
-        getHostMembershipPlans(creatorId, { activeOnly: true }),
-        getUsableMembershipForHost(creatorId),
-        getUserReservationForEvent(eventId),
-        getDoc(doc(db, "users", creatorId)),
-        getDoc(doc(db, "users", auth.currentUser.uid)),
-        getMyPricingTierForHost(creatorId),
-      ]);
+      const [plans, membership, reservation, hostSnap, myTier, hostMatch, meMatch] =
+        await Promise.all([
+          getHostMembershipPlans(creatorId, { activeOnly: true }),
+          getUsableMembershipForHost(creatorId),
+          getUserReservationForEvent(eventId),
+          getDoc(doc(db, "users", creatorId)),
+          getMyPricingTierForHost(creatorId),
+          // personality moved to the gated match subcollection (PRIVACY). The
+          // host read is CROSS-USER — allowed only while the host is an active
+          // matchmaker; otherwise getMatchDataFor returns {} → no fit card.
+          getMatchDataFor(creatorId),
+          getMatchDataFor(auth.currentUser.uid),
+        ]);
       if (!active) return;
       // Only surface "buy a membership" when the buyer's tier for THIS host can
       // actually purchase a plan (BUG 5+10): local-only plans stay hidden from
@@ -162,9 +168,11 @@ export default function EventDetailScreen({ route, navigation }) {
       setUsableMembership(membership);
       setUserReservation(reservation);
       setHostRating(hostSnap.exists() ? hostSnap.data().hostStats || null : null);
-      // Explainable, humble fit between the current user and the host.
-      const hostP = hostSnap.exists() ? hostSnap.data().personality : null;
-      const meP = meSnap.exists() ? meSnap.data().personality : null;
+      // Explainable, humble fit between the current user and the host. Personality
+      // now comes from the gated match subcollection; a non-matchmaking host's is
+      // unreadable → hostP null → no fit card (graceful).
+      const hostP = hostMatch.personality ?? null;
+      const meP = meMatch.personality ?? null;
       setMatchInsight(creatorId === auth.currentUser.uid ? null : getMatchInsight(meP, hostP));
     })();
     return () => {

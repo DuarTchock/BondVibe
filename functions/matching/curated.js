@@ -168,6 +168,10 @@ async function generateForUser(me, nowMs) {
     // Server-side withholding: a locked set never carries its members. The
     // count survives so the paywall can say "we found N people for you".
     members: unlocked ? members : [],
+    // Plain-uid mirror of `members` — the matchPool read rule (P2, privacy) uses
+    // it to authorize the caller to read ONLY their curated peers' pool docs.
+    // Withheld (empty) when locked, so a locked set grants no pool reads.
+    memberUids: unlocked ? members.map((m) => m.uid) : [],
     count: members.length,
     generatedAt: FieldValue.serverTimestamp(),
   };
