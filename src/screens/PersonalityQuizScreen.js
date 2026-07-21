@@ -11,7 +11,7 @@ import { StatusBar } from "expo-status-bar";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import SuccessModal from "../components/SuccessModal";
 import {
@@ -80,11 +80,17 @@ export default function PersonalityQuizScreen({ navigation, route }) {
       // Calculate personality scores
       const scores = calculatePersonalityScores(answers);
 
-      // Save to Firestore
-      await updateDoc(doc(db, "users", auth.currentUser.uid), {
-        personality: scores,
-        personalityCompletedAt: new Date().toISOString(),
-      });
+      // Save to the GATED match subcollection, not the world-readable users doc
+      // (PRIVACY, fix/privacy-user-match-fields). setDoc+merge: the doc may not
+      // exist yet.
+      await setDoc(
+        doc(db, "users", auth.currentUser.uid, "match", "profile"),
+        {
+          personality: scores,
+          personalityCompletedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
 
       console.log("✅ Personality saved successfully:", scores);
 

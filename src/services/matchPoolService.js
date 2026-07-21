@@ -60,7 +60,12 @@ export const syncMatchPool = async () => {
     const snap = await getDoc(doc(db, "users", me));
     const u = snap.exists() ? snap.data() : {};
     const mm = u.matchmaking || {};
-    const mp = u.matchProfile || {};
+    // matchProfile + personality moved to the gated users/{me}/match/profile
+    // (PRIVACY) — read them from there (own read, always allowed). Inlined to
+    // avoid a circular import with matchingService.
+    const mdSnap = await getDoc(doc(db, "users", me, "match", "profile"));
+    const md = mdSnap.exists() ? mdSnap.data() : {};
+    const mp = md.matchProfile || {};
     const active = mm.consentAt != null && mm.profileComplete === true && mm.enabled !== false;
     const communities = await getMyCommunities(me);
 
@@ -80,7 +85,7 @@ export const syncMatchPool = async () => {
         energy: mp.energy ?? null,
         groupPref: mp.groupPref ?? null,
         pro: mp.pro ?? null,
-        personality: mp.personality ?? u.personality ?? null,
+        personality: mp.personality ?? md.personality ?? null,
         communities: arr(communities),
         updatedAt: serverTimestamp(),
       }),

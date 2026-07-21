@@ -2840,6 +2840,58 @@ exports.setPayoutFrozen = onCall(async (request) => {
   return {ok: true, paymentIntentId, frozen};
 });
 
+/**
+ * PRIVACY MIGRATION (fix/privacy-user-match-fields) — backfill: move `personality`
+ * + `matchProfile` (+ personalityCompletedAt) OFF the world-readable users doc and
+ * into the gated users/{uid}/match/profile subcollection, then DELETE them from the
+ * main doc so existing accounts stop leaking. Admin SDK bypasses the owner-update
+ * denylist that now forbids these fields on the main doc. Idempotent + paginated:
+ * call with {cursor} until {done:true}. Admin-only.
+ * data: { limit=300, cursor? } → { scanned, migrated, nextCursor, done }
+ */
+exports.migrateMatchFieldsToSubcollection = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in first.");
+  if (!(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "Admin only.");
+  }
+  const pageSize = Math.min(
+    Math.max(parseInt((request.data || {}).limit, 10) || 300, 1), 500);
+  const cursor = (request.data || {}).cursor || null;
+
+  let q = db.collection("users").orderBy("__name__").limit(pageSize);
+  if (cursor) q = q.startAfter(cursor);
+  const snap = await q.get();
+
+  let migrated = 0;
+  let lastId = null;
+  for (const d of snap.docs) {
+    lastId = d.id;
+    const data = d.data();
+    const hasP = data.personality !== undefined;
+    const hasMP = data.matchProfile !== undefined;
+    const hasTs = data.personalityCompletedAt !== undefined;
+    if (!hasP && !hasMP) continue; // already migrated / nothing sensitive
+
+    const payload = {migratedAt: FieldValue.serverTimestamp()};
+    if (hasP) payload.personality = data.personality;
+    if (hasMP) payload.matchProfile = data.matchProfile;
+    if (hasTs) payload.personalityCompletedAt = data.personalityCompletedAt;
+    await db.collection("users").doc(d.id)
+      .collection("match").doc("profile").set(payload, {merge: true});
+
+    const strip = {};
+    if (hasP) strip.personality = FieldValue.delete();
+    if (hasMP) strip.matchProfile = FieldValue.delete();
+    if (hasTs) strip.personalityCompletedAt = FieldValue.delete();
+    await db.collection("users").doc(d.id).update(strip);
+    migrated++;
+  }
+
+  const nextCursor = snap.size === pageSize ? lastId : null;
+  return {scanned: snap.size, migrated, nextCursor, done: nextCursor == null};
+});
+
 // Runs hourly. Pages through held payouts whose releaseAt has passed and that
 // aren't frozen, and releases each (escrow.releaseOnePayout — same code the
 // tests drive). Paginated to avoid the unbounded-query bug (§4). Needs a

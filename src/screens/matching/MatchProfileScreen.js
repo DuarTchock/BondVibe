@@ -81,7 +81,8 @@ export default function MatchProfileScreen({ route, navigation }) {
   const loadPersonality = React.useCallback(async () => {
     const me = auth.currentUser?.uid;
     if (!me) return;
-    const uSnap = await getDoc(doc(db, "users", me));
+    // personality moved to the gated match subcollection (PRIVACY).
+    const uSnap = await getDoc(doc(db, "users", me, "match", "profile"));
     setPersonality(uSnap.exists() ? uSnap.data().personality || null : null);
   }, []);
   useEffect(() => navigation.addListener("focus", loadPersonality), [navigation, loadPersonality]);

@@ -152,6 +152,33 @@ export const getMyMatchProfile = async (eventId) => {
   return s.exists() ? { id: s.id, ...s.data() } : null;
 };
 
+/**
+ * Reference to a user's gated match-data doc. PRIVACY
+ * (fix/privacy-user-match-fields): `personality` + `matchProfile` moved OFF the
+ * world-readable users doc into this subcollection, readable only by the owner /
+ * admin or a peer while the owner is an active matchmaker (firestore.rules).
+ * @param {string} userId whose match data
+ * @return {import("firebase/firestore").DocumentReference}
+ */
+export const matchDataRef = (userId) => doc(db, "users", userId, "match", "profile");
+
+/**
+ * Read `{ personality, matchProfile }` for a user from the gated subcollection.
+ * Returns {} on absence OR permission-denied (a peer can only read an active
+ * participant's), so callers degrade gracefully instead of throwing.
+ * @param {string} userId whose match data
+ * @return {Promise<{personality?: object, matchProfile?: object}>}
+ */
+export const getMatchDataFor = async (userId) => {
+  if (!userId) return {};
+  try {
+    const s = await getDoc(matchDataRef(userId));
+    return s.exists() ? s.data() : {};
+  } catch (e) {
+    return {}; // gated read the caller isn't allowed / offline — not fatal
+  }
+};
+
 /** The current user's CANONICAL (user-level) match profile, or null. This is the
  *  profile the Profile-tab editor reads and the one matchPool / the curated
  *  generator / postService.authorFunnyTag consume. */
@@ -159,12 +186,9 @@ export const getCanonicalMatchProfile = async () => {
   const me = uid();
   if (!me) return null;
   try {
-    const s = await getDoc(doc(db, "users", me));
-    if (!s.exists()) return null;
-    const u = s.data();
-    if (!u.matchProfile) return null;
-    // Personality lives at users/{uid}.personality (the quiz writes it there).
-    return { ...u.matchProfile, personality: u.personality ?? u.matchProfile.personality ?? null };
+    const d = await getMatchDataFor(me);
+    if (!d.matchProfile) return null;
+    return { ...d.matchProfile, personality: d.personality ?? d.matchProfile.personality ?? null };
   } catch (e) {
     console.error("❌ getCanonicalMatchProfile:", e);
     return null;
@@ -210,6 +234,10 @@ function sanitizeProfileFields(profile, u) {
 async function writeCanonicalProfile(me, u, f, opts = {}) {
   const complete = isProfileComplete(f);
   const consentAt = u.matchmaking?.consentAt ?? opts.consentFallback ?? null;
+  // The GATE state (matchmaking.*) stays on the world-readable users doc — the
+  // rules helpers matchmakingConsented/matchmakingActive read it there. The
+  // sensitive matchProfile moves to the gated users/{me}/match/profile doc
+  // (PRIVACY). Two writes, but they target different privacy tiers.
   await setDoc(
     doc(db, "users", me),
     stripUndefined({
@@ -218,6 +246,12 @@ async function writeCanonicalProfile(me, u, f, opts = {}) {
         profileComplete: complete,
         enabled: u.matchmaking?.enabled ?? true,
       },
+    }),
+    { merge: true }
+  );
+  await setDoc(
+    matchDataRef(me),
+    stripUndefined({
       matchProfile: {
         interests: f.interests,
         funnyTags: f.funnyTags,
@@ -231,6 +265,7 @@ async function writeCanonicalProfile(me, u, f, opts = {}) {
         learning: f.learning,
         icebreaker: f.icebreaker,
       },
+      updatedAt: serverTimestamp(),
     }),
     { merge: true }
   );
@@ -260,6 +295,9 @@ export const saveCanonicalMatchProfile = async (profile) => {
   try {
     const userSnap = await getDoc(doc(db, "users", me));
     const u = userSnap.exists() ? userSnap.data() : {};
+    // personality moved to the gated subcollection — hydrate it so the snapshot
+    // into matchProfile.personality still works.
+    u.personality = (await getMatchDataFor(me)).personality ?? u.personality ?? null;
     const f = sanitizeProfileFields(profile, u);
     const complete = await writeCanonicalProfile(me, u, f);
     return { success: true, profileComplete: complete };
@@ -283,6 +321,8 @@ export const saveMatchProfile = async (eventId, profile) => {
   try {
     const userSnap = await getDoc(doc(db, "users", me));
     const u = userSnap.exists() ? userSnap.data() : {};
+    // personality moved to the gated subcollection (PRIVACY) — hydrate it.
+    u.personality = (await getMatchDataFor(me)).personality ?? u.personality ?? null;
     const f = sanitizeProfileFields(profile, u);
     const { interests, lookingFor, funnyTags, languages, learning, energy, groupPref, pro, personality } = f;
 

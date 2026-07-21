@@ -125,7 +125,8 @@ service cloud.firestore {
                           .hasAny(['hostStats', 'carpoolStats', 'isPremium',
                                    'plan', 'matchCountByEvent',
                                    'handle', 'handleLower',
-                                   'hostApproved', 'hostConfig']) &&
+                                   'hostApproved', 'hostConfig',
+                                   'personality', 'matchProfile']) &&
                        request.resource.data.get('role', 'user') == 'user';
 
       // The owner can edit their profile but NOT hostStats/carpoolStats (host
@@ -151,6 +152,12 @@ service cloud.firestore {
       // ENTITLEMENT: curatedGate.gateFor() unlocks Curated Matching while
       // now < freeTrialEndsAt, so a self-write granted unlimited free Plus.
       // Pin that one subfield to its stored value instead of locking the map.
+      //
+      // PRIVACY (fix/privacy-user-match-fields): personality + matchProfile are
+      // sensitive and moved to the gated users/{uid}/match/profile subcollection
+      // (below). They must NEVER be written back to this world-readable doc, or
+      // the leak reopens — deny any update that touches them here. (Migration off
+      // the main doc runs via the Admin SDK, which bypasses this rule.)
       allow update: if isAdmin() ||
                        (isOwner(userId) &&
                         !request.resource.data.diff(resource.data)
@@ -158,7 +165,8 @@ service cloud.firestore {
                           .hasAny(['hostStats', 'carpoolStats', 'isPremium',
                                    'plan', 'matchCountByEvent', 'hostApproved',
                                    'handle', 'handleLower', 'role',
-                                   'hostConfig', 'suspended']) &&
+                                   'hostConfig', 'suspended',
+                                   'personality', 'matchProfile']) &&
                         request.resource.data.get('matchmaking', {})
                           .get('freeTrialEndsAt', null) ==
                         resource.data.get('matchmaking', {})
@@ -194,6 +202,20 @@ service cloud.firestore {
       // lives in Firebase Auth and is served to admins via a Cloud Function.
       match /private/{doc} {
         allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+
+      // Sensitive matchmaking data — personality (Big Five) + the match profile.
+      // PRIVACY (fix/privacy-user-match-fields): these used to sit on the
+      // world-readable main doc, so ANY signed-in user could read another's
+      // personality + interests. Moved here and gated: the owner/admin read it,
+      // and a peer may read it ONLY while the owner is an ACTIVE matchmaking
+      // participant (same gate as their matchPool doc) — so a non-participant's
+      // profile is fully private, and a participant's is no more exposed than the
+      // pool card already is. Owner-only write.
+      match /match/{doc} {
+        allow read: if isSignedIn() &&
+                       (isOwner(userId) || isAdmin() || matchmakingActive(userId));
         allow write: if isSignedIn() && isOwner(userId);
       }
     }
@@ -908,7 +930,18 @@ service cloud.firestore {
     // active matchmaking participant (the set generator reads via Admin SDK; the
     // client hydrates only the uids the server already curated FOR it).
     match /matchPool/{userId} {
-      allow read: if matchmakingActive(request.auth.uid);
+      // P2 (privacy): was readable by ANY active matchmaker for ANY pool doc.
+      // Now a pool doc is readable by its owner, or by an active matchmaking
+      // caller ONLY for uids in that caller's curated set
+      // (curatedSets/{caller}.memberUids, written server-side) — the exact set
+      // the client hydrates. Everyone else is denied.
+      allow read: if isSignedIn() &&
+                     (request.auth.uid == userId ||
+                      (matchmakingActive(request.auth.uid) &&
+                       exists(/databases/$(database)/documents/curatedSets/$(request.auth.uid)) &&
+                       userId in
+                         get(/databases/$(database)/documents/curatedSets/$(request.auth.uid))
+                           .data.get('memberUids', [])));
       allow create, update: if isSignedIn() &&
                                request.auth.uid == userId &&
                                request.resource.data.userId == request.auth.uid &&

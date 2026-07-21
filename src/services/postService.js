@@ -57,10 +57,14 @@ export const createPost = async ({
   try {
     const userSnap = await getDoc(doc(db, "users", me));
     const u = userSnap.exists() ? userSnap.data() : {};
-    // Denormalize the author's headline funny tag (from their match profile) so
-    // the card can show context without an extra read. Explicit arg wins.
-    const funnyTag =
-      authorFunnyTag ?? (u.matchProfile?.funnyTags?.[0] ?? null);
+    // Denormalize the author's headline funny tag so the card can show context
+    // without an extra read. Explicit arg wins; otherwise read it from the gated
+    // match subcollection (PRIVACY: matchProfile moved off the users doc).
+    let funnyTag = authorFunnyTag ?? null;
+    if (funnyTag == null) {
+      const mdSnap = await getDoc(doc(db, "users", me, "match", "profile"));
+      funnyTag = mdSnap.exists() ? (mdSnap.data().matchProfile?.funnyTags?.[0] ?? null) : null;
+    }
     const resolvedMediaType = media.length > 1 ? "carousel" : mediaType;
     // Denormalize the community name for the card's context line (P2).
     let communityName = null;
