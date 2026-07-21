@@ -52,3 +52,43 @@ jobs:
 
       - name: Jest
         run: CI=true npx jest
+
+      # ── Security + money suites (Firebase Emulator Suite) ─────────────────────
+      # test:rules (firestore + storage security rules) and test:payments (money
+      # callables + escrow) were LOCAL-ONLY: a PR could break the rules or the
+      # payments/escrow callables and CI would still be green. They gate the PR now.
+      - name: Setup Java (Firebase emulators)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # firebase-tools 15 REQUIRES JDK 21+ — it rejects 17 outright
+          # ("no longer supports Java version before 21"), so the Firestore/Storage
+          # emulator won't boot on anything lower.
+          java-version: "21"
+
+      # Cache the emulator jars so we don't re-download them every run.
+      - name: Cache Firebase emulators
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: ${{ runner.os }}-firebase-emulators-fbt15
+          restore-keys: |
+            ${{ runner.os }}-firebase-emulators-
+
+      - name: Install firebase-tools
+        run: npm i -g firebase-tools@15
+
+      - name: Rules tests (firestore + storage security rules)
+        run: npm run test:rules
+
+      - name: Payments tests (money callables + escrow, vs emulator)
+        run: |
+          # Dummy emulator secrets — the payments suite never touches real Stripe
+          # (mockStripe + locally-signed webhooks), but the functions emulator needs
+          # a non-empty key to construct the Stripe client, and the webhook secret
+          # MUST equal the value the tests sign with or signature verification fails.
+          cat > functions/.secret.local <<'SECRETS'
+          STRIPE_SECRET_KEY=sk_test_ci_dummy
+          STRIPE_WEBHOOK_SECRET_PAYMENTS=whsec_dummy_emulator_only
+          SECRETS
+          npm run test:payments
