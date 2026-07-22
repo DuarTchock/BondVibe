@@ -11,7 +11,6 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
-import { isUserAttending } from "../utils/eventHelpers";
 import { getEventReservations, redeemMembershipCredit } from "./membershipService";
 
 export const CHECKIN_PREFIX = "bvchk";
@@ -41,7 +40,10 @@ export const checkInFromScan = async (eventId, raw) => {
   try {
     const evSnap = await getDoc(doc(db, "events", eventId));
     if (!evSnap.exists()) return { success: false, error: "Event not found." };
-    if (!isUserAttending(evSnap.data().attendees, parsed.userId)) {
+    // ROSTER (#55): guest-list membership is the roster subcollection, not the
+    // stripped `attendees` array. The scanning host may read any roster doc.
+    const rosterDoc = await getDoc(doc(db, "events", eventId, "roster", parsed.userId));
+    if (!rosterDoc.exists()) {
       return { success: false, error: "This person isn't on the guest list." };
     }
 

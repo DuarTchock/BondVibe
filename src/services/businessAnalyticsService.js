@@ -225,7 +225,7 @@ export async function computeOccupancy(bounds) {
       if (e.agendaType === "blocked" || e.status === "cancelled") return;
       const cap = e.maxPeople || 0;
       if (cap <= 0) return; // unlimited/unset — no denominator
-      const filled = Array.isArray(e.attendees) ? e.attendees.length : e.participantCount || 0;
+      const filled = e.participantCount || 0; // ROSTER (#55)
       reserved += Math.min(filled, cap);
       capacity += cap;
       counted += 1;

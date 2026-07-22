@@ -2752,6 +2752,41 @@ exports.leaveEvent = onCall(async (request) => {
 });
 
 /**
+ * Co-attendees of an event, for a PARTICIPANT (roster migration #55 client
+ * closure). firestore.rules deny a non-host a roster `list`, so features that let
+ * one attendee see the others (event chat participant names, "connect with
+ * attendees", poll voter names, friends-going) can no longer read the array.
+ * This callable returns the ACTIVE roster's light public profiles, but ONLY to a
+ * caller who is themselves the host or on the event's roster — so it doesn't
+ * re-expose the roster to the world the migration just gated.
+ * data: { eventId } → { attendees: [{ uid, name, avatar }] }
+ */
+exports.getEventCoAttendees = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+  const {eventId} = request.data || {};
+  if (!eventId) throw new HttpsError("invalid-argument", "Missing eventId.");
+
+  const evSnap = await db.collection("events").doc(eventId).get();
+  if (!evSnap.exists) throw new HttpsError("not-found", "Event not found.");
+  const isHost = getEventCreatorId(evSnap.data()) === uid ||
+    (evSnap.data().coHosts || []).includes(uid);
+  if (!isHost && !(await roster.isOnRoster(db, eventId, uid))) {
+    throw new HttpsError("permission-denied", "not_a_participant");
+  }
+
+  const uids = await roster.activeUids(db, eventId);
+  // Light public profiles only (name + avatar) — never contact/PII.
+  const profiles = await Promise.all(uids.slice(0, 300).map(async (u) => {
+    const s = await db.collection("users").doc(u).get();
+    const d = s.exists ? s.data() : {};
+    return {uid: u, name: d.fullName || d.name || "",
+      avatar: d.avatar || null, location: d.location || null};
+  }));
+  return {attendees: profiles};
+});
+
+/**
  * Build search keyword tokens from an event's text fields: lowercase word
  * tokens (>= 2 chars), deduped. Mirrored by the client query tokenizer in
  * SearchEventsScreen so server-side keyword search and client refine agree.

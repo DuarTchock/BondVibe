@@ -25,13 +25,18 @@ const normCoords = (c) =>
     ? { latitude: c.latitude, longitude: c.longitude }
     : null;
 
-/** creator / co-host or in attendees[] — pure (uid passed in). */
-export const isParticipant = (event, uid) => {
+/**
+ * creator / co-host / on the roster — pure (uid + optional roster-id set passed
+ * in). ROSTER (#55): attendee membership moved to the gated subcollection and
+ * can't be read off the event doc, so callers pass a Set of the current user's
+ * roster event ids (getMyRosterEventIds) instead of the removed `attendees` array.
+ */
+export const isParticipant = (event, uid, rosterSet = null) => {
   if (!event || !uid) return false;
   const creatorId = event.creatorId || event.createdBy;
   if (creatorId === uid) return true;
   if (Array.isArray(event.coHosts) && event.coHosts.includes(uid)) return true;
-  return Array.isArray(event.attendees) && event.attendees.includes(uid);
+  return !!(rosterSet && event.id && rosterSet.has(event.id));
 };
 
 /** Region that frames all the given points (with padding), or the default. */
@@ -111,14 +116,14 @@ export const clusterMarkers = (markers, region) => {
  * @returns {{ markers: Array, offMapCount: number, initialRegion: object }}
  *   marker = { id, event, coords, kind: 'pin'|'circle', locked, radius? }
  */
-export const buildMapData = (events, uid) => {
+export const buildMapData = (events, uid, rosterSet = null) => {
   const markers = [];
   let offMapCount = 0;
   for (const ev of events || []) {
     if (!ev) continue;
     const exact = normCoords(ev.locationCoords);
     const approx = normCoords(ev.approxCoords) || snapToApproxGrid(exact);
-    if (isParticipant(ev, uid)) {
+    if (isParticipant(ev, uid, rosterSet)) {
       // Participant → exact pin (fall back to approx if that's all we have).
       const coords = exact || approx;
       if (coords) markers.push({ id: ev.id, event: ev, coords, kind: "pin", locked: false });

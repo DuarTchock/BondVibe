@@ -46,11 +46,8 @@ import {
   markMessagesAsDelivered,
 } from "../utils/messageService";
 import { doc, getDoc } from "firebase/firestore";
-import {
-  getEventCreatorId,
-  getAttendeeIds,
-  isUserAttending,
-} from "../utils/eventHelpers";
+import { getEventCreatorId } from "../utils/eventHelpers";
+import { isOnRoster, getEventCoAttendees } from "../services/rosterService";
 
 // Display-name helper hoisted to module scope so the memoized row below can
 // use it without capturing the screen's render closure.
@@ -366,10 +363,10 @@ export default function EventChatScreen({ route, navigation }) {
           const creatorId = getEventCreatorId(eventData);
           const isCreator = creatorId === currentUserId;
           setIsHost(isCreator);
-          const isAttendee = isUserAttending(
-            eventData.attendees,
-            currentUserId
-          );
+          // ROSTER (#55): participation is the roster subcollection, not the
+          // stripped `attendees` array (which now reads empty → everyone locked
+          // out). A user reads their OWN roster doc via isOnRoster.
+          const isAttendee = await isOnRoster(eventId);
 
           if (!isCreator && !isAttendee) {
             setLoading(false);
@@ -384,17 +381,24 @@ export default function EventChatScreen({ route, navigation }) {
           // Asegurar que la conversación existe
           await ensureEventConversation(conversationId);
 
-          const participantIds = new Set();
-
-          if (creatorId) {
-            participantIds.add(creatorId);
-          }
-
-          getAttendeeIds(eventData.attendees).forEach((id) =>
-            participantIds.add(id)
-          );
-
+          // ROSTER (#55): a participant can't list the roster by rules, so the
+          // co-attendee name preload goes through the getEventCoAttendees callable
+          // (returns light public profiles to the host / a fellow participant).
           const usersData = {};
+          const coAttendees = await getEventCoAttendees(eventId);
+          for (const a of coAttendees) {
+            usersData[a.uid] = { fullName: a.name, name: a.name, avatar: a.avatar };
+          }
+          if (creatorId && !usersData[creatorId]) {
+            try {
+              const c = await getDoc(doc(db, "users", creatorId));
+              if (c.exists()) usersData[creatorId] = c.data();
+            } catch (err) {
+              void err;
+            }
+          }
+          // (legacy per-user loop retained below for any extra ids)
+          const participantIds = new Set();
           for (const userId of participantIds) {
             try {
               const userDoc = await getDoc(doc(db, "users", userId));

@@ -48,7 +48,7 @@ describe("E2E: Event Discovery Flow", () => {
             time: "10:00 AM",
             price: 0,
             status: "published",
-            attendees: ["user1", "user2"],
+            participantCount: 2, // ROSTER (#55): count is the source of truth
             maxPeople: 8,
           }),
         },
@@ -62,7 +62,7 @@ describe("E2E: Event Discovery Flow", () => {
             time: "7:00 PM",
             price: 200,
             status: "published",
-            attendees: [],
+            participantCount: 0, // ROSTER (#55)
             maxPeople: 12,
           }),
         },

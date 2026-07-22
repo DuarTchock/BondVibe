@@ -16,7 +16,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import { subscribePoll, subscribeVotes } from "../services/pollService";
-import { getAttendeeIds } from "../utils/eventHelpers";
+import { getEventCoAttendees } from "../services/rosterService";
 
 const normAvatar = (a) =>
   !a ? null : typeof a === "string" ? { type: "emoji", value: a } : a;
@@ -48,8 +48,11 @@ export default function PollVotesScreen({ route, navigation }) {
           const e = await getDoc(doc(db, "events", id));
           if (e.exists()) {
             const d = e.data();
+            // ROSTER (#55): attendees come from the participant-gated
+            // getEventCoAttendees callable, not the stripped array.
+            const co = await getEventCoAttendees(id);
             ids = Array.from(
-              new Set([...getAttendeeIds(d.attendees), d.creatorId].filter(Boolean))
+              new Set([...co.map((a) => a.uid), d.creatorId].filter(Boolean))
             );
           }
         }

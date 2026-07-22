@@ -15,7 +15,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import Icon from "../components/Icon";
 import { AvatarDisplay } from "../components/AvatarPicker";
-import { getAttendeeIds } from "../utils/eventHelpers";
+import { getEventCoAttendees } from "../services/rosterService";
 import { getFollowing, followUser, unfollowUser } from "../services/followService";
 
 const normAvatar = (a) =>
@@ -36,23 +36,20 @@ export default function ConnectScreen({ route, navigation }) {
         if (!evSnap.exists()) return;
         const e = evSnap.data();
         const hostId = e.creatorId || e.createdBy || e.hostId;
-        const ids = getAttendeeIds(e.attendees).filter(
-          (id) => id !== me && id !== hostId
-        );
+        // ROSTER (#55): a non-host can't list the roster by rules, so co-attendees
+        // come from the getEventCoAttendees callable (gated to participants). It
+        // returns light public profiles {uid, name, avatar}.
+        const coAttendees = await getEventCoAttendees(eventId);
         const following = new Set(await getFollowing());
-        const users = await Promise.all(
-          ids.map(async (id) => {
-            const u = await getDoc(doc(db, "users", id));
-            const d = u.exists() ? u.data() : {};
-            return {
-              id,
-              name: d.fullName || d.name || t("connect.defaultAttendeeName"),
-              avatar: d.avatar,
-              location: d.location,
-              following: following.has(id),
-            };
-          })
-        );
+        const users = coAttendees
+          .filter((a) => a.uid !== me && a.uid !== hostId)
+          .map((a) => ({
+            id: a.uid,
+            name: a.name || t("connect.defaultAttendeeName"),
+            avatar: a.avatar,
+            location: a.location || null,
+            following: following.has(a.uid),
+          }));
         setPeople(users);
       } catch (e) {
         // ignore
