@@ -18,6 +18,7 @@
     },
     "beta": {
       "channel": "beta",
+      "environment": "preview",
       "autoIncrement": true,
       "ios": {
         "distribution": "store"
