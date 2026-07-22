@@ -78,6 +78,37 @@ export async function getEventRosterUids(eventId) {
   }
 }
 
+/**
+ * The WAITLIST uids of an event (HOST/admin only — same list gate as the active
+ * roster). Callers gate on host before calling; a non-host gets [].
+ */
+export async function getEventWaitlistUids(eventId) {
+  try {
+    const snap = await getDocs(
+      query(collection(db, "events", eventId, "roster"), where("status", "==", "waitlist"))
+    );
+    return snap.docs.map((d) => d.data().uid || d.id);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Co-attendees for a PARTICIPANT (non-host). A non-host can't list the roster by
+ * rules, so this goes through the getEventCoAttendees callable, which returns the
+ * active roster's light public profiles ONLY to the host or a fellow participant.
+ * Returns [{ uid, name, avatar }].
+ */
+export async function getEventCoAttendees(eventId) {
+  try {
+    const fn = httpsCallable(getFunctions(), "getEventCoAttendees");
+    const res = await fn({ eventId });
+    return res.data?.attendees || [];
+  } catch (e) {
+    return []; // not a participant → denied
+  }
+}
+
 /** Leave an event (free RSVP / waitlist) — server-only roster write. */
 export async function leaveEvent(eventId) {
   const fn = httpsCallable(getFunctions(), "leaveEvent");

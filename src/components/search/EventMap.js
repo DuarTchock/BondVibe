@@ -52,6 +52,7 @@ import { formatISODate, formatEventTime } from "../../utils/dateUtils";
 import { formatMXN } from "../../utils/pricing";
 import PlaceAutocomplete from "../../components/PlaceAutocomplete";
 import { buildMapData, filterMarkersToRegion, clusterMarkers } from "../../utils/eventMapData";
+import { getMyRosterEventIds } from "../../services/rosterService";
 import { haversineKm, formatDistanceKm } from "../../utils/geo";
 
 const FOCUS_DELTA = 0.08;
@@ -117,9 +118,20 @@ function EventMapView({ events, navigation, currentUid, activeFilterCount = 0, o
   const styles = createStyles(colors);
   const mapRef = useRef(null);
 
+  // ROSTER (#55): my roster event ids → exact pin for events I'm attending
+  // (the `attendees` array is gone; membership can't be read off the event doc).
+  const [myRosterIds, setMyRosterIds] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    getMyRosterEventIds()
+      .then((ids) => { if (alive) setMyRosterIds(new Set(ids)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [currentUid]);
+
   const { markers: allMarkers, offMapCount, initialRegion } = useMemo(
-    () => buildMapData(events, currentUid),
-    [events, currentUid],
+    () => buildMapData(events, currentUid, myRosterIds),
+    [events, currentUid, myRosterIds],
   );
 
   const [searchedRegion, setSearchedRegion] = useState(null); // null → show all

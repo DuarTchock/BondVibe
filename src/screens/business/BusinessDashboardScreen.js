@@ -27,6 +27,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { db, auth } from "../../services/firebase";
 import { useBusinessScope } from "../../contexts/BusinessScopeContext";
 import useClaude from "../../hooks/useClaude";
+import useBusinessPerms from "../../hooks/useBusinessPerms";
 import TrendLines, { TREND_COLORS } from "../../components/TrendLines";
 import { computeDashboard, computeOccupancy, dashboardToCsv } from "../../services/businessAnalyticsService";
 import { RANGE_IDS, DEFAULT_RANGE, rangeBounds, rangeLabelKey } from "../../constants/businessRanges";
@@ -37,6 +38,8 @@ const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
 export default function BusinessDashboardScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { allows } = useBusinessPerms(); // owner → all; staff → their role's perms
+  const canFinance = allows("finance");
   const { t, i18n } = useTranslation();
   const [rangeId, setRangeId] = useState(DEFAULT_RANGE);
   const [customFrom, setCustomFrom] = useState(null);
@@ -90,7 +93,7 @@ export default function BusinessDashboardScreen({ navigation }) {
               location: e.location || e.venueAddress || "",
               city: e.city || "",
               // Attendance hint: real attendees when present, else participantCount.
-              attendees: Array.isArray(e.attendees) ? e.attendees.length : (e.participantCount || null),
+              attendees: e.participantCount || null, // ROSTER (#55)
               maxPeople: e.maxPeople || null,
             };
           })
@@ -117,7 +120,7 @@ export default function BusinessDashboardScreen({ navigation }) {
         const ev = evSnap.exists() ? evSnap.data() : {};
         if (alive) {
           setEventStats({
-            going: Array.isArray(ev.attendees) ? ev.attendees.length : (ev.participantCount || 0),
+            going: ev.participantCount || 0, // ROSTER (#55)
             checkedIn: ciSnap.size,
             capacity: ev.maxPeople || 0,
           });
@@ -208,8 +211,10 @@ export default function BusinessDashboardScreen({ navigation }) {
         { key: "attendance", value: metrics.attendanceCount, kind: "count", trend: metrics.attendanceTrend, tap: "biz_attendance" },
         { key: "occupancy", value: occupancyPct, kind: "pct" },
         { key: "checkInRate", value: checkInPct, kind: "pct", sub: noShowPct != null ? t("business.dashboard.noShow", { pct: noShowPct }) : null },
-        { key: "revenue", value: metrics.revenueCents, kind: "money", trend: metrics.revenueTrend, tapScreen: "BusinessFinance" },
-        { key: "netMargin", value: metrics.netCents, kind: "money", netTone: true, tapScreen: "BusinessExpenses" },
+        // FINANCE CAPABILITY (#59): a staff role without finance sees honest "—"
+        // and no Finance/Expenses deep-link — the server denies those reads anyway.
+        { key: "revenue", value: canFinance ? metrics.revenueCents : null, kind: "money", trend: canFinance ? metrics.revenueTrend : undefined, tapScreen: canFinance ? "BusinessFinance" : undefined },
+        { key: "netMargin", value: canFinance ? metrics.netCents : null, kind: "money", netTone: true, tapScreen: canFinance ? "BusinessExpenses" : undefined },
         { key: "arpu", value: metrics.arpuCents, kind: "money" },
         { key: "repeatRate", value: metrics.repeatRate, kind: "pct" },
         { key: "atRisk", value: metrics.atRisk, kind: "count", sub: t("business.dashboard.membersSub"), tap: "biz_atRisk" },

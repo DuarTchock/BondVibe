@@ -12,15 +12,20 @@ import { db, auth } from "./firebase";
 import { resolveEventLocation } from "../utils/eventLocation";
 
 /**
- * True if the current (or given) user participates in the event — creator or in
- * attendees[]. Mirrors the rules' isEventParticipant so the client and server agree.
+ * Synchronous OPTIMISTIC hint: creator/co-host only. ROSTER (#55): attendee
+ * membership moved to the gated roster subcollection, which can't be read
+ * synchronously off the event doc (the `attendees` array is gone). This drives
+ * only the initial coarse-vs-exact render; the authoritative reveal is
+ * fetchPrivateLocation, which the rules gate on real roster membership. Callers
+ * that already know roster membership (e.g. via isOnRoster) should pass it as the
+ * `isParticipant` prop rather than relying on this.
  */
 export const isEventParticipant = (event, uid = auth.currentUser?.uid) => {
   if (!event || !uid) return false;
   const creatorId = event.creatorId || event.createdBy;
   if (creatorId === uid) return true;
   if (Array.isArray(event.coHosts) && event.coHosts.includes(uid)) return true;
-  return Array.isArray(event.attendees) && event.attendees.includes(uid);
+  return false;
 };
 
 /**

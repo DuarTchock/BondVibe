@@ -450,7 +450,7 @@ export default function SearchEventsScreen({ navigation, route }) {
               <Text
                 style={[styles.attendeesText, { color: colors.textSecondary }]}
               >
-                {event.attendees?.length || 0}/
+                {event.participantCount || 0}/
                 {event.maxAttendees || event.maxPeople || 0}
               </Text>
             </View>

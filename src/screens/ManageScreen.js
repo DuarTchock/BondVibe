@@ -74,7 +74,7 @@ export default function ManageScreen({ navigation }) {
   const styles = createStyles(colors);
 
   const EventRow = ({ event }) => {
-    const going = Array.isArray(event.attendees) ? event.attendees.length : event.participantCount || 0;
+    const going = event.participantCount || 0; // ROSTER (#55): attendees array removed
     const cap = event.maxPeople || event.maxAttendees || 0;
     const pct = cap > 0 ? Math.min(100, Math.round((going / cap) * 100)) : 0;
     const actions = [
