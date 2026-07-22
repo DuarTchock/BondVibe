@@ -136,7 +136,7 @@ export async function getDayItems(instructorUid, instructorName, date, bizId = g
       items.push({
         id: `event_${e.id}`, source: AGENDA_ITEM_SOURCE.EVENT, kind: kindForEvent(e), start, end,
         title: e.title || "Event",
-        subtitle: [e.location, e.maxPeople ? `${(e.attendees || []).length}/${e.maxPeople}` : null].filter(Boolean).join(" · "),
+        subtitle: [e.location, e.maxPeople ? `${e.participantCount || 0}/${e.maxPeople}` : null].filter(Boolean).join(" · "),
         ...tag,
       });
     });

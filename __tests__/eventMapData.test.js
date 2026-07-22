@@ -10,14 +10,17 @@ const exact = { latitude: 20.2114, longitude: -87.4654 };
 const approx = { latitude: 20.21, longitude: -87.47 };
 
 describe('isParticipant', () => {
-  it('is true for creator, co-host, or attendee', () => {
+  it('is true for creator, co-host, or roster member (ROSTER #55: via rosterSet)', () => {
     expect(isParticipant({ creatorId: 'u1' }, 'u1')).toBe(true);
     expect(isParticipant({ createdBy: 'u1' }, 'u1')).toBe(true);
     expect(isParticipant({ coHosts: ['u2', 'u1'] }, 'u1')).toBe(true);
-    expect(isParticipant({ attendees: ['u1'] }, 'u1')).toBe(true);
+    // attendee membership now comes from the roster-id set, not an attendees array
+    expect(isParticipant({ id: 'e' }, 'u1', new Set(['e']))).toBe(true);
   });
   it('is false otherwise', () => {
-    expect(isParticipant({ creatorId: 'x', attendees: ['y'] }, 'u1')).toBe(false);
+    // creator mismatch + not in the roster set → not a participant
+    expect(isParticipant({ id: 'e', creatorId: 'x' }, 'u1', new Set(['other']))).toBe(false);
+    expect(isParticipant({ id: 'e', creatorId: 'x' }, 'u1')).toBe(false);
     expect(isParticipant({}, undefined)).toBe(false);
     expect(isParticipant(null, 'u1')).toBe(false);
   });
@@ -25,7 +28,7 @@ describe('isParticipant', () => {
 
 describe('buildMapData — F2 strict circle-vs-pin', () => {
   it('participant → exact pin at locationCoords', () => {
-    const { markers } = buildMapData([{ id: 'e', attendees: ['u1'], locationCoords: exact, price: 250 }], 'u1');
+    const { markers } = buildMapData([{ id: 'e', locationCoords: exact, price: 250 }], 'u1', new Set(['e']));
     expect(markers).toHaveLength(1);
     expect(markers[0]).toMatchObject({ kind: 'pin', locked: false, coords: exact });
   });
@@ -50,7 +53,7 @@ describe('buildMapData — F2 strict circle-vs-pin', () => {
   });
 
   it('participant of a legacy event → exact pin', () => {
-    const { markers } = buildMapData([{ id: 'e', attendees: ['u1'], locationCoords: exact }], 'u1');
+    const { markers } = buildMapData([{ id: 'e', locationCoords: exact }], 'u1', new Set(['e']));
     expect(markers[0]).toMatchObject({ kind: 'pin', coords: exact });
   });
 
@@ -58,10 +61,11 @@ describe('buildMapData — F2 strict circle-vs-pin', () => {
     const { markers, offMapCount } = buildMapData(
       [
         { id: 'a', creatorId: 'host', location: 'Somewhere' }, // no coords
-        { id: 'b', attendees: ['u1'] }, // participant, still no coords
+        { id: 'b' }, // roster participant, still no coords
         { id: 'c', creatorId: 'host', approxCoords: approx }, // circle
       ],
       'u1',
+      new Set(['b']),
     );
     expect(markers.map((m) => m.id)).toEqual(['c']);
     expect(offMapCount).toBe(2);

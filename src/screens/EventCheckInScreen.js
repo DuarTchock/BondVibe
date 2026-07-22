@@ -24,7 +24,7 @@ import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { AvatarDisplay } from "../components/AvatarPicker";
-import { getAttendeeIds } from "../utils/eventHelpers";
+import { getEventRosterUids } from "../services/rosterService";
 import {
   getEventReservations,
   redeemMembershipCredit,
@@ -47,9 +47,10 @@ export default function EventCheckInScreen({ route, navigation }) {
 
   const load = async () => {
     try {
-      const eventSnap = await getDoc(doc(db, "events", eventId));
-      const eventData = eventSnap.exists() ? eventSnap.data() : {};
-      const attendeeIds = getAttendeeIds(eventData.attendees);
+      // ROSTER (#55): the check-in list is the active roster subcollection (this
+      // is a host screen → the host-only list read is allowed), not the stripped
+      // `attendees` array.
+      const attendeeIds = await getEventRosterUids(eventId);
 
       const [reservations, checkinsSnap] = await Promise.all([
         getEventReservations(eventId),

@@ -16,7 +16,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { AttendeeRow, PaymentPill } from "../components/primitives";
 import { getEventReservations } from "../services/membershipService";
-import { getAttendeeIds } from "../utils/eventHelpers";
+import { getEventRosterUids, getEventWaitlistUids } from "../services/rosterService";
 
 export default function EventRosterScreen({ route, navigation }) {
   const { colors, isDark } = useTheme();
@@ -32,12 +32,14 @@ export default function EventRosterScreen({ route, navigation }) {
         const evSnap = await getDoc(doc(db, "events", eventId));
         if (!evSnap.exists()) return;
         const e = evSnap.data();
-        const attendees = getAttendeeIds(e.attendees);
-        const waitlist = Array.isArray(e.waitlist) ? e.waitlist : [];
         const isPast = e.date && new Date(e.date).getTime() < Date.now();
         const isFree = (e.price || 0) === 0;
 
-        const [checkSnap, reservations] = await Promise.all([
+        // ROSTER (#55): active + waitlist come from the roster subcollection (host
+        // screen → the host-only list read is allowed), not the stripped arrays.
+        const [attendees, waitlist, checkSnap, reservations] = await Promise.all([
+          getEventRosterUids(eventId),
+          getEventWaitlistUids(eventId),
           getDocs(collection(db, "events", eventId, "checkins")),
           getEventReservations(eventId).catch(() => []),
         ]);

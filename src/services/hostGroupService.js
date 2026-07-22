@@ -30,6 +30,7 @@ import {
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db, auth } from "./firebase";
 import { reportUserBlock } from "./reportService";
+import { getEventRosterUids } from "./rosterService";
 
 // SECURITY (fix/security-functions-4a): invite codes are now minted SERVER-SIDE
 // with a CSPRNG (assignGroupInviteCode callable). The old client genCode used
@@ -329,12 +330,15 @@ export const getHostAttendeeCandidates = async (hostId = null) => {
     const eventsSnap = await getDocs(
       query(collection(db, "events"), where("creatorId", "==", uid))
     );
+    // ROSTER (#55): unique attendees come from each event's roster subcollection
+    // (the caller is the host → the host-only list read is allowed), not the
+    // stripped `attendees` array.
     const ids = new Set();
-    eventsSnap.forEach((e) => {
-      (e.data().attendees || []).forEach((a) => {
-        const id = typeof a === "string" ? a : a?.userId;
-        if (id && id !== uid) ids.add(id);
-      });
+    const rosters = await Promise.all(
+      eventsSnap.docs.map((e) => getEventRosterUids(e.id))
+    );
+    rosters.forEach((uids) => {
+      uids.forEach((id) => { if (id && id !== uid) ids.add(id); });
     });
     const users = await Promise.all(
       Array.from(ids).map(async (id) => {

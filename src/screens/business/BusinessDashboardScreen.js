@@ -90,7 +90,7 @@ export default function BusinessDashboardScreen({ navigation }) {
               location: e.location || e.venueAddress || "",
               city: e.city || "",
               // Attendance hint: real attendees when present, else participantCount.
-              attendees: Array.isArray(e.attendees) ? e.attendees.length : (e.participantCount || null),
+              attendees: e.participantCount || null, // ROSTER (#55)
               maxPeople: e.maxPeople || null,
             };
           })
@@ -117,7 +117,7 @@ export default function BusinessDashboardScreen({ navigation }) {
         const ev = evSnap.exists() ? evSnap.data() : {};
         if (alive) {
           setEventStats({
-            going: Array.isArray(ev.attendees) ? ev.attendees.length : (ev.participantCount || 0),
+            going: ev.participantCount || 0, // ROSTER (#55)
             checkedIn: ciSnap.size,
             capacity: ev.maxPeople || 0,
           });

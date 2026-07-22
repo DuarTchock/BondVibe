@@ -6,7 +6,7 @@
  */
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "./firebase";
-import { getAttendeeIds } from "../utils/eventHelpers";
+import { getEventRosterUids } from "./rosterService";
 import { getMembershipExpiryDate } from "./membershipService";
 import { createNotification } from "../utils/notificationService";
 
@@ -29,10 +29,18 @@ export const getHostCRM = async (hostId = null) => {
       query(collection(db, "events"), where("creatorId", "==", uid))
     );
     const map = new Map();
-    evSnap.forEach((d) => {
-      const e = d.data();
+    // ROSTER (#55): attendees per event come from the roster subcollection (the
+    // caller is the host → the host-only list read is allowed), not the stripped
+    // `attendees` array. Read each event's roster in parallel.
+    const perEvent = await Promise.all(
+      evSnap.docs.map(async (d) => ({
+        e: d.data(),
+        uids: await getEventRosterUids(d.id),
+      }))
+    );
+    perEvent.forEach(({ e, uids }) => {
       const when = new Date(e.date).getTime();
-      getAttendeeIds(e.attendees).forEach((aid) => {
+      uids.forEach((aid) => {
         if (aid === uid) return;
         const cur = map.get(aid) || { count: 0, lastDate: 0, lastTitle: "", upcoming: 0 };
         cur.count += 1;

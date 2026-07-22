@@ -32,11 +32,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import GradientBackground from "../components/GradientBackground";
 import { AvatarDisplay } from "../components/AvatarPicker";
 import { createNotification } from "../utils/notificationService";
-import {
-  isUserAttending,
-  getAttendeeIds,
-  getEventCreatorId,
-} from "../utils/eventHelpers";
+import { getEventCreatorId } from "../utils/eventHelpers";
 import {
   getHostMembershipPlans,
   getUsableMembershipForHost,
@@ -56,7 +52,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { usePremium } from "../hooks/usePremium";
 import { buildCheckinPayload } from "../services/checkinService";
 import { getMatchDataFor } from "../services/matchingService";
-import { leaveEvent, isOnRoster, getEventRosterUids } from "../services/rosterService";
+import { leaveEvent, isOnRoster, getEventRosterUids, getEventCoAttendees } from "../services/rosterService";
 import { joinFreeEvent } from "../services/eventJoinService";
 import { getMatchInsight } from "../utils/personalityScoring";
 import { getFollowing } from "../services/followService";
@@ -69,31 +65,29 @@ export default function EventDetailScreen({ route, navigation }) {
   const [matchInsight, setMatchInsight] = useState(null);
   const [friendsGoing, setFriendsGoing] = useState([]);
 
-  // "Friends going": event attendees the current user follows.
+  // "Friends going": co-attendees the current user follows. ROSTER (#55): the
+  // attendee list is the gated roster, read via the participant-gated
+  // getEventCoAttendees callable (returns [] if the viewer isn't a participant).
   useEffect(() => {
     if (!event) return;
     let active = true;
     (async () => {
-      const attendees = getAttendeeIds(event.attendees);
-      if (attendees.length === 0) return;
-      const following = await getFollowing();
-      if (!active || following.length === 0) return;
-      const ids = attendees.filter(
-        (id) => following.includes(id) && id !== auth.currentUser?.uid
-      );
-      const users = await Promise.all(
-        ids.slice(0, 12).map(async (id) => {
-          const u = await getDoc(doc(db, "users", id));
-          const d = u.exists() ? u.data() : {};
-          return { id, name: d.fullName || d.name || t("eventDetail.defaultFriendName"), avatar: d.avatar };
-        })
-      );
+      const [coAttendees, following] = await Promise.all([
+        getEventCoAttendees(eventId),
+        getFollowing(),
+      ]);
+      if (!active || following.length === 0 || coAttendees.length === 0) return;
+      const followSet = new Set(following);
+      const users = coAttendees
+        .filter((a) => followSet.has(a.uid) && a.uid !== auth.currentUser?.uid)
+        .slice(0, 12)
+        .map((a) => ({ id: a.uid, name: a.name || t("eventDetail.defaultFriendName"), avatar: a.avatar }));
       if (active) setFriendsGoing(users);
     })();
     return () => {
       active = false;
     };
-  }, [event?.attendees?.length]);
+  }, [event?.participantCount, eventId]);
   const [loading, setLoading] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -470,9 +464,12 @@ export default function EventDetailScreen({ route, navigation }) {
         if (eventDateObj.getTime() >= thisEventTimestamp) {
           if (
             eventData.price &&
-            eventData.price > 0 &&
-            eventData.attendees?.length > 0
+            eventData.price > 0
           ) {
+            // ROSTER (#55): a PAID event always goes through hostCancelEvent so
+            // the server refunds everyone on the roster. The old guard read the
+            // stripped `attendees` array (now undefined), so paid events silently
+            // fell through to a no-refund cancel.
             try {
               const result = await hostCancel({
                 eventId: docSnap.id,
@@ -567,11 +564,11 @@ export default function EventDetailScreen({ route, navigation }) {
     try {
       setShowCancelModal(false);
       setLoading(true);
-      if (
-        event.price &&
-        event.price > 0 &&
-        (event.attendees?.length > 0 || event.participants?.length > 0)
-      ) {
+      // ROSTER (#55): a PAID event ALWAYS goes through hostCancelEvent — the
+      // server refunds everyone currently on the roster. The old guard read the
+      // stripped `attendees`/`participants` arrays (now undefined), which made a
+      // paid cancel silently skip refunds.
+      if (event.price && event.price > 0) {
         const functions = getFunctions();
         const hostCancel = httpsCallable(functions, "hostCancelEvent");
         const result = await hostCancel({
@@ -598,11 +595,9 @@ export default function EventDetailScreen({ route, navigation }) {
         cancelledAt: new Date().toISOString(),
         cancellationReason,
       });
-      const allParticipants = [
-        ...(event.participants || []),
-        ...(event.attendees || []),
-      ];
-      const uniqueParticipants = [...new Set(allParticipants)];
+      // ROSTER (#55): notify everyone on the roster (the caller is the host, so
+      // the host-only roster list is allowed) — not the stripped attendees array.
+      const uniqueParticipants = await getEventRosterUids(event.id);
       const reason =
         cancellationReason !== "No reason provided"
           ? t("eventDetail.alerts.reasonPrefix", { reason: cancellationReason })

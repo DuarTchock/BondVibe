@@ -25,7 +25,6 @@ import {
 } from "../../services/stripeService";
 import { savePaymentRecord } from "../../services/paymentService";
 import { createNotification } from "../../utils/notificationService";
-import { isUserAttending } from "../../utils/eventHelpers";
 import { estimateCheckout } from "../../utils/pricing";
 import { getPricingConfig } from "../../services/configService";
 import { startMercadoPagoCheckout } from "../../services/mercadoPagoService";
@@ -51,12 +50,13 @@ function waitForAttendance(eventId, userId, timeoutMs = 10000) {
       resolve(confirmed);
     };
 
+    // ROSTER (#55): the webhook now adds the buyer as a roster doc, not to the
+    // stripped `attendees` array. Resolve when the caller's OWN roster doc appears
+    // (a user may read their own roster doc by rules).
     const unsubscribe = onSnapshot(
-      doc(db, "events", eventId),
+      doc(db, "events", eventId, "roster", userId),
       (snap) => {
-        if (snap.exists() && isUserAttending(snap.data().attendees, userId)) {
-          finish(true);
-        }
+        if (snap.exists()) finish(true);
       },
       () => finish(false)
     );
