@@ -105,6 +105,25 @@ export const uploadExpenseReceipt = async (bizId, imageUri) => {
   return getDownloadURL(receiptRef);
 };
 
+/**
+ * Upload a host-application attachment (portfolio/value content) to
+ * `hostRequests/{userId}/…` — owner writes, admin reads (storage.rules). Images
+ * only for now (compressed to jpg); PDF/document attachments would need
+ * expo-document-picker, a native module deferred to a native build. Returns the
+ * download URL.
+ */
+export const uploadHostRequestAttachment = async (userId, imageUri, index = 0) => {
+  const compressedUri = await compressImage(imageUri);
+  const response = await fetch(compressedUri);
+  const blob = await response.blob();
+  const attRef = ref(
+    storage,
+    `hostRequests/${userId}/${Date.now()}_${index}.jpg`
+  );
+  await uploadBytes(attRef, blob);
+  return getDownloadURL(attRef);
+};
+
 /** Upload a moderation-report evidence image; returns its URL. */
 export const uploadReportEvidence = async (groupId, imageUri) => {
   const compressedUri = await compressImage(imageUri);

@@ -428,9 +428,17 @@ const AppNavigator = forwardRef((props, ref) => {
               const hasHandle =
                 typeof userData.handleLower === "string" &&
                 userData.handleLower.trim().length > 0;
-              const needsHostType =
-                (userData.hostApproved || userData.role === "host") &&
-                !userData.hostConfig;
+              // feat/host-approval-gate: the host grant and its hostConfig now
+              // arrive TOGETHER from approveHostRequest (admin), so an approved
+              // host always already has a hostConfig — there's no "approved but
+              // must pick a type" user step any more, and HostTypeSelection's
+              // activateHost is admin-only. The only accounts that would match
+              // the old condition are legacy hostApproved-without-hostConfig
+              // ones; they already pass isApprovedHost (hosting works), so we
+              // send them straight through rather than into an admin-only
+              // callable that would now fail. Kept as a named const (always
+              // false) so the routing chain below reads unchanged.
+              const needsHostType = false;
               // Hosting just got switched on and the outcome hasn't been shown
               // yet. Without this step the router would race the screen: writing
               // hostConfig re-fires this listener, needsHostType goes false, and

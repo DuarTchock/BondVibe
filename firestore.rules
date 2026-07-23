@@ -714,12 +714,29 @@ service cloud.firestore {
     // ============================================
     // HOST REQUESTS COLLECTION
     // ============================================
+    // Host applications. feat/host-approval-gate: the DECISION (approve/reject)
+    // is made ONLY by the approveHostRequest / rejectHostRequest callables (Admin
+    // SDK, bypasses rules). So a client may only ever create/leave a request in
+    // 'pending' — it can never write status 'approved' or 'rejected' itself, and
+    // the role grant lives on the users doc which is already server-only. The new
+    // fields (communityTypeOther, description, links, attachments) are free-form
+    // applicant content the admin reads; nothing here is trusted for the grant.
     match /hostRequests/{requestId} {
-      allow read: if isAdmin() || 
+      allow read: if isAdmin() ||
                      (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && 
-                       request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow create: if isSignedIn() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.get('status', '') == 'pending';
+      // Owner may edit their OWN request while it's still pending (e.g. tweak the
+      // description) but can never move it out of 'pending' — approval/rejection
+      // is admin/callable-only. Admin keeps full control.
+      allow update: if isAdmin() ||
+                       (isSignedIn() &&
+                        resource.data.userId == request.auth.uid &&
+                        resource.data.status == 'pending' &&
+                        request.resource.data.status == 'pending' &&
+                        request.resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
     }
     
     // ============================================

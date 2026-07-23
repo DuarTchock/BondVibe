@@ -317,11 +317,14 @@ export default function NotificationsScreen({ navigation }) {
         break;
 
       case "host_approved":
-        navigation.navigate("HostTypeSelection");
+        // feat/host-approval-gate: approval already granted free hosting — land
+        // on the "your community is live" screen, not the old type picker.
+        navigation.navigate("HostLive");
         break;
 
       case "host_rejected":
-        navigation.navigate("Profile");
+        // The status screen shows the rejection reason + "edit and resubmit".
+        navigation.navigate("HostStatus");
         break;
 
       case "host_request":

@@ -1717,7 +1717,12 @@
     "saveSubscriptions": "Guardar suscripciones",
     "approveRequestTitle": "Aprobar solicitud",
     "rejectRequestTitle": "Rechazar solicitud",
-    "unknownUser": "Usuario desconocido"
+    "unknownUser": "Usuario desconocido",
+    "communityTypeOther": "Otro tipo de comunidad",
+    "description": "Descripción",
+    "links": "Enlaces",
+    "attachments_one": "Adjunto ({{count}})",
+    "attachments_other": "Adjuntos ({{count}})"
   },
   "manage": {
     "createEvent": "Crear evento",
@@ -2719,7 +2724,19 @@
     "ok": "Aceptar",
     "submitting": "Enviando...",
     "submitApplication": "Enviar solicitud",
-    "reviewNote": "Tu solicitud será revisada por nuestro equipo. Te avisaremos cuando se tome una decisión."
+    "reviewNote": "Tu solicitud será revisada por nuestro equipo. Te avisaremos cuando se tome una decisión.",
+    "communityTypeOtherPlaceholder": "¿Qué tipo de comunidad?",
+    "descriptionLabel": "Describe tu comunidad / eventos",
+    "descriptionPlaceholder": "Cuéntanos qué organizas, quién asiste y por qué vale la pena asistir.",
+    "descriptionMinHint": "{{current}}/{{min}} caracteres mínimo",
+    "linksLabel": "Enlaces (recomendado)",
+    "instagramPlaceholder": "Instagram (@usuario o URL)",
+    "webPlaceholder": "Sitio web",
+    "attachmentsLabel": "Fotos / portafolio",
+    "attachmentsHint": "Agrega al menos una foto, o un enlace arriba.",
+    "step2Hint": "Agrega una descripción (120+ caracteres) y al menos una foto o enlace.",
+    "permissionNeededTitle": "Permiso necesario",
+    "permissionNeededMessage": "Permite el acceso a fotos para agregar adjuntos."
   },
   "howToAttend": {
     "headerTitle": "Cómo asistir",
@@ -4603,7 +4620,10 @@
     "next2": "Conecta los pagos (Stripe) — unos 2 minutos.",
     "next3": "Cobra por tus eventos y recibe el dinero directamente.",
     "connectPayouts": "Conectar pagos",
-    "exploreMeanwhile": "Explorar las herramientas de host"
+    "exploreMeanwhile": "Explorar las herramientas de host",
+    "rejectedTitle": "Solicitud no aprobada",
+    "rejectedMeta": "Esto es lo que dijo quien la revisó",
+    "editAndResubmit": "Editar y reenviar"
   },
   "plans": {
     "assign": {

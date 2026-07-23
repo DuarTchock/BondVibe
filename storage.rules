@@ -10,6 +10,17 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // Admin — the Auth custom claim (source of truth) OR the Firestore role
+    // fallback, mirroring firestore.rules isAdmin(). Used to let an admin read a
+    // host applicant's uploaded attachments during review.
+    function isAdmin() {
+      return isSignedIn() &&
+             (request.auth.token.get('admin', false) == true ||
+              (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+               firestore.get(/databases/(default)/documents/users/$(request.auth.uid))
+                 .data.get('role', 'user') == 'admin'));
+    }
+
     function isImageUnder(maxBytes) {
       // Whitelist raster types — reject SVG (stored-XSS vector) and the
       // client-declared image/* wildcard.
@@ -120,6 +131,16 @@ service firebase.storage {
     match /businesses/{bizId}/services/{fileName} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == bizId &&
+                      isImageUnder(10 * 1024 * 1024);
+    }
+
+    // Host application attachments (feat/host-approval-gate). The applicant
+    // uploads portfolio/value-content images under their OWN namespace; the
+    // owner and an admin may read them (the admin reviews the application).
+    // Images only, size-capped — mirrors the expenses rule.
+    match /hostRequests/{uid}/{fileName} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == uid &&
                       isImageUnder(10 * 1024 * 1024);
     }
 

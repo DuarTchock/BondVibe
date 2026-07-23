@@ -232,54 +232,33 @@ exports.assignPlanManually = onCall(async (request) => {
   return {ok: true, activePackage};
 });
 
-exports.activateHost = onCall(async (request) => {
-  const uid = request.auth && request.auth.uid;
-  if (!uid) {
-    throw new HttpsError("unauthenticated", "Sign in first.");
-  }
-  // Becoming a host requires a verified email (forgery-proof token claim).
-  if (request.auth.token.email_verified !== true) {
-    throw new HttpsError("permission-denied", "email_not_verified");
-  }
-
-  const type = request.data && request.data.type;
-  if (type !== "free" && type !== "paid") {
-    throw new HttpsError("invalid-argument", "type must be 'free' or 'paid'.");
-  }
-
-  const userRef = db.collection("users").doc(uid);
-  const snap = await userRef.get();
-  if (!snap.exists) {
-    throw new HttpsError("failed-precondition", "No user profile.");
-  }
-
-  const data = snap.data() || {};
-  // Suspended accounts don't get to host their way back in.
-  if (data.suspended === true) {
-    throw new HttpsError("permission-denied", "Account suspended.");
-  }
-
+// The actual host grant — shared by approveHostRequest (the onboarding path)
+// and activateHost (admin/legacy tooling). Writes role + hostConfig on the
+// TARGET's server-read doc, so nothing here is client-spoofable.
+//
+// Don't degrade an existing admin to a plain host: keep their role and grant
+// hostApproved so they pass isApprovedHost() (the services/rentals gate) WITHOUT
+// a role change. A normal host gets role:"host" and passes ONLY via the role.
+/**
+ * Grant hosting on the target user's doc (role + hostConfig), admin-preserving.
+ * @param {FirebaseFirestore.DocumentReference} userRef target user doc ref
+ * @param {object} data target's current server-read doc data
+ * @param {"free"|"paid"} type host type to record
+ * @return {Promise<void>}
+ */
+async function applyHostGrant(userRef, data, type) {
   const now = new Date().toISOString();
-  // Don't degrade an existing admin to a plain host: keep their role and grant
-  // hostApproved so they pass isApprovedHost() (the services/rentals gate)
-  // WITHOUT a role change. A normal self-service host instead gets role:"host"
-  // and passes ONLY via the role — so "decide later" (deferHostType) can revoke
-  // it by flipping role back to "user" (no lingering hostApproved). data.role is
-  // the user's own Firestore doc, read server-side (not client input), so this
-  // is not spoofable.
   const isAdmin = data.role === "admin";
   await userRef.set({
     role: isAdmin ? "admin" : "host",
     ...(isAdmin ? {hostApproved: true} : {}),
-    // ESCROW (§7): payout tier present from day one, default 'standard'. The
-    // release cron resolves retention per host; 'super' (retention 0h) activates
-    // later with no re-architecture.
+    // ESCROW (§7): payout tier present from day one, default 'standard'.
     payoutTier: data.payoutTier || "standard",
     hostConfig: {
       type,
       // Only the Stripe status sync may ever set this true. Preserve it rather
-      // than forcing false: an account that already finished Connect elsewhere
-      // (e.g. the rentals flow) is genuinely charge-enabled already.
+      // than forcing false: an account already Connect-enabled elsewhere (e.g.
+      // the rentals flow) is genuinely charge-enabled already.
       canCreatePaidEvents:
         (data.hostConfig && data.hostConfig.canCreatePaidEvents) === true,
       payoutsIntent: type === "paid" ? "pending" : null,
@@ -287,8 +266,163 @@ exports.activateHost = onCall(async (request) => {
       updatedAt: now,
     },
   }, {merge: true});
+}
 
+// Deliver a host-decision notification (server-authored, link-stripped). Mirrors
+// the createNotification catalog shape for host_approved / host_rejected so the
+// client localizes it in the RECIPIENT's language.
+/**
+ * Write a host-decision notification (approved/rejected), server-authored.
+ * @param {string} toUserId recipient uid
+ * @param {boolean} approved true=approved, false=rejected
+ * @param {string} [message] admin's custom message/reason (link-stripped)
+ * @return {Promise<void>}
+ */
+async function notifyHostDecision(toUserId, approved, message) {
+  const spec = approved ?
+    {type: "host_approved", titleKey: "notifications.host.approved.title",
+      bodyKey: "notifications.host.approved.body", icon: "tent"} :
+    {type: "host_rejected", titleKey: "notifications.host.rejected.title",
+      bodyKey: "notifications.host.rejected.body", icon: "clipboard"};
+  const params = {message: stripLinks(String(message == null ? "" : message).slice(0, 500))};
+  await db.collection("notifications").add({
+    userId: toUserId,
+    fromUserId: "system",
+    type: spec.type,
+    title: tPush(spec.titleKey, "en", params),
+    message: tPush(spec.bodyKey, "en", params),
+    titleKey: spec.titleKey,
+    bodyKey: spec.bodyKey,
+    params,
+    icon: spec.icon,
+    read: false,
+    metadata: {},
+    relatedEventId: null,
+    relatedUserId: null,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+// SECURITY (feat/host-approval-gate): host is granted ONLY by an admin — via
+// approveHostRequest (the user onboarding path) or here (admin/legacy tooling
+// acting on an explicit targetUid). A normal authenticated user must NOT be able
+// to self-grant role:"host" by hitting this callable directly; that direct-API
+// self-grant was the whole bug the UI change alone would NOT have closed. So the
+// admin gate is the FIRST check.
+exports.activateHost = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid || !(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "admin only");
+  }
+
+  const type = request.data && request.data.type;
+  if (type !== "free" && type !== "paid") {
+    throw new HttpsError("invalid-argument", "type must be 'free' or 'paid'.");
+  }
+
+  const targetUid = (request.data && request.data.targetUid) || uid;
+  const userRef = db.collection("users").doc(targetUid);
+  const snap = await userRef.get();
+  if (!snap.exists) {
+    throw new HttpsError("failed-precondition", "No user profile.");
+  }
+
+  const data = snap.data() || {};
+  if (data.suspended === true) {
+    throw new HttpsError("permission-denied", "Account suspended.");
+  }
+
+  await applyHostGrant(userRef, data, type);
   return {ok: true, type};
+});
+
+// Admin approves a host application → grants hosting (free, live immediately),
+// stamps the request approved, and notifies the applicant. This is the ONLY path
+// to role:"host" from user onboarding. Choosing paid (connecting Stripe) happens
+// AFTER approval and never changes the role (Decision A).
+exports.approveHostRequest = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid || !(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "admin only");
+  }
+  const requestId = request.data && request.data.requestId;
+  if (!requestId || typeof requestId !== "string") {
+    throw new HttpsError("invalid-argument", "Missing requestId.");
+  }
+  const message = request.data && request.data.message;
+
+  const reqRef = db.collection("hostRequests").doc(requestId);
+  const reqSnap = await reqRef.get();
+  if (!reqSnap.exists) {
+    throw new HttpsError("not-found", "Host request not found.");
+  }
+  const req = reqSnap.data() || {};
+  const targetUid = req.userId;
+  if (!targetUid || typeof targetUid !== "string") {
+    throw new HttpsError("failed-precondition", "Request has no userId.");
+  }
+
+  const userRef = db.collection("users").doc(targetUid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    throw new HttpsError("failed-precondition", "Applicant has no profile.");
+  }
+  const userData = userSnap.data() || {};
+  if (userData.suspended === true) {
+    throw new HttpsError("permission-denied", "Account suspended.");
+  }
+
+  // Grant hosting (free) — server-side, respecting an existing admin.
+  await applyHostGrant(userRef, userData, "free");
+
+  const now = new Date().toISOString();
+  await reqRef.set({
+    status: "approved",
+    approvedBy: uid,
+    approvedAt: now,
+    reviewedAt: now,
+    adminMessage: message == null ? null : String(message).slice(0, 1000),
+  }, {merge: true});
+
+  await notifyHostDecision(targetUid, true, message);
+  return {ok: true, targetUid};
+});
+
+// Admin rejects a host application → stamps it rejected + reason, notifies the
+// applicant, and NEVER touches role. A rejected applicant stays a normal user
+// with no hosting access (the bug: rejection used to leave a granted role in
+// place).
+exports.rejectHostRequest = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid || !(await isAdminUid(uid))) {
+    throw new HttpsError("permission-denied", "admin only");
+  }
+  const requestId = request.data && request.data.requestId;
+  if (!requestId || typeof requestId !== "string") {
+    throw new HttpsError("invalid-argument", "Missing requestId.");
+  }
+  const reason = request.data && request.data.reason;
+
+  const reqRef = db.collection("hostRequests").doc(requestId);
+  const reqSnap = await reqRef.get();
+  if (!reqSnap.exists) {
+    throw new HttpsError("not-found", "Host request not found.");
+  }
+  const targetUid = (reqSnap.data() || {}).userId;
+
+  const now = new Date().toISOString();
+  await reqRef.set({
+    status: "rejected",
+    rejectedBy: uid,
+    rejectedAt: now,
+    reviewedAt: now,
+    rejectionReason: reason == null ? null : String(reason).slice(0, 1000),
+  }, {merge: true});
+
+  if (targetUid && typeof targetUid === "string") {
+    await notifyHostDecision(targetUid, false, reason);
+  }
+  return {ok: true, targetUid: targetUid || null};
 });
 
 /**
