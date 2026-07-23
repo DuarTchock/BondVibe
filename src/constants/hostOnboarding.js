@@ -43,6 +43,16 @@ export const TAGLINE_MAX = 80;
 /** Max length of the optional experience note in step 2. */
 export const EXPERIENCE_MAX = 500;
 
+/** Max length of the free-text "Other" community type (revealed by the chip). */
+export const COMMUNITY_TYPE_OTHER_MAX = 40;
+
+/** Description (step 2) is now REQUIRED with a minimum, not an optional note. */
+export const DESCRIPTION_MIN = 120;
+export const DESCRIPTION_MAX = 800;
+
+/** Max attachments a host may add to their application (images only for now). */
+export const MAX_HOST_ATTACHMENTS = 4;
+
 /**
  * Resolve `[{id, labelKey}]` into what ChipGroup wants.
  * @param {Array<{id:string,labelKey:string}>} options

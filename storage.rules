@@ -10,12 +10,32 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // Admin — the Auth custom claim (source of truth) OR the Firestore role
+    // fallback, mirroring firestore.rules isAdmin(). Used to let an admin read a
+    // host applicant's uploaded attachments during review.
+    function isAdmin() {
+      return isSignedIn() &&
+             (request.auth.token.get('admin', false) == true ||
+              (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+               firestore.get(/databases/(default)/documents/users/$(request.auth.uid))
+                 .data.get('role', 'user') == 'admin'));
+    }
+
     function isImageUnder(maxBytes) {
       // Whitelist raster types — reject SVG (stored-XSS vector) and the
       // client-declared image/* wildcard.
       return request.resource.size < maxBytes &&
              request.resource.contentType in
                ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/heic'];
+    }
+
+    // Host-application attachments may also be a PDF portfolio — same size cap,
+    // same raster whitelist plus application/pdf (no SVG).
+    function isImageOrPdfUnder(maxBytes) {
+      return request.resource.size < maxBytes &&
+             request.resource.contentType in
+               ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/heic',
+                'application/pdf'];
     }
 
     // ── Business finance authorization (cross-service, mirrors firestore.rules) ──
@@ -121,6 +141,16 @@ service firebase.storage {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && request.auth.uid == bizId &&
                       isImageUnder(10 * 1024 * 1024);
+    }
+
+    // Host application attachments (feat/host-approval-gate). The applicant
+    // uploads portfolio/value-content images or a PDF under their OWN namespace;
+    // the owner and an admin may read them (the admin reviews the application).
+    // Size-capped, image-or-pdf content types only.
+    match /hostRequests/{uid}/{fileName} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isSignedIn() && request.auth.uid == uid &&
+                      isImageOrPdfUnder(10 * 1024 * 1024);
     }
 
     // Everything else is denied by default.

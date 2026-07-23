@@ -1717,7 +1717,12 @@
     "saveSubscriptions": "Save subscriptions",
     "approveRequestTitle": "Approve Request",
     "rejectRequestTitle": "Reject Request",
-    "unknownUser": "Unknown User"
+    "unknownUser": "Unknown User",
+    "communityTypeOther": "Other community type",
+    "description": "Description",
+    "links": "Links",
+    "attachments_one": "Attachment ({{count}})",
+    "attachments_other": "Attachments ({{count}})"
   },
   "manage": {
     "createEvent": "Create event",
@@ -2719,7 +2724,23 @@
     "ok": "OK",
     "submitting": "Submitting...",
     "submitApplication": "Submit Application",
-    "reviewNote": "Your application will be reviewed by our team. We'll notify you once a decision has been made."
+    "reviewNote": "Your application will be reviewed by our team. We'll notify you once a decision has been made.",
+    "communityTypeOtherPlaceholder": "What kind of community?",
+    "descriptionLabel": "Describe your community / events",
+    "descriptionPlaceholder": "Tell us what you host, who comes, and what makes it worth showing up for.",
+    "descriptionMinHint": "{{current}}/{{min}} characters minimum",
+    "linksLabel": "Links (recommended)",
+    "instagramPlaceholder": "Instagram (@handle or URL)",
+    "webPlaceholder": "Website",
+    "attachmentsLabel": "Photos / portfolio",
+    "attachmentsHint": "Add at least one photo or PDF, or one link above.",
+    "step2Hint": "Add a description (120+ characters) and at least one photo or link.",
+    "permissionNeededTitle": "Permission needed",
+    "permissionNeededMessage": "Allow photo access to add attachments.",
+    "attachChooseTitle": "Add attachment",
+    "attachPhoto": "Photo",
+    "attachPdf": "PDF",
+    "cancel": "Cancel"
   },
   "howToAttend": {
     "headerTitle": "How to attend",
@@ -4603,7 +4624,10 @@
     "next2": "Connect payouts (Stripe) — a 2-min setup.",
     "next3": "Charge for events & get paid directly.",
     "connectPayouts": "Connect payouts",
-    "exploreMeanwhile": "Explore host tools meanwhile"
+    "exploreMeanwhile": "Explore host tools meanwhile",
+    "rejectedTitle": "Application not approved",
+    "rejectedMeta": "Here's what the reviewer said",
+    "editAndResubmit": "Edit and resubmit"
   },
   "plans": {
     "assign": {

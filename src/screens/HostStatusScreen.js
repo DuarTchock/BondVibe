@@ -3,10 +3,20 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-nati
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { doc, updateDoc, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  onSnapshot,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import { useTheme } from "../contexts/ThemeContext";
 import { FONTS } from "../constants/theme-tokens";
+import { isApprovedHost } from "../utils/hostGate";
 import Icon from "../components/Icon";
 
 /**
@@ -29,6 +39,7 @@ export default function HostStatusScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   const [user, setUser] = useState(null);
+  const [request, setRequest] = useState(null); // latest hostRequest (status/reason)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -39,7 +50,7 @@ export default function HostStatusScreen({ navigation }) {
       setError(true);
       return;
     }
-    const unsub = onSnapshot(
+    const unsubUser = onSnapshot(
       doc(db, "users", uid),
       (snap) => {
         setUser(snap.exists() ? snap.data() : null);
@@ -51,12 +62,30 @@ export default function HostStatusScreen({ navigation }) {
         setLoading(false);
       }
     );
-    return unsub;
+    // The decision (pending / rejected + reason) lives on the hostRequest, not
+    // the user doc — an admin approving or rejecting reflects here live.
+    const unsubReq = onSnapshot(
+      query(
+        collection(db, "hostRequests"),
+        where("userId", "==", uid),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      ),
+      (snap) => setRequest(snap.empty ? null : snap.docs[0].data()),
+      (e) => console.warn("host request listener failed:", e?.message)
+    );
+    return () => {
+      unsubUser();
+      unsubReq();
+    };
   }, []);
 
-  // Applied is always done (they're here). Review is the admin's hostApproved
-  // flag. Payouts only opens once review clears — it's what review gates.
-  const approved = user?.hostApproved === true;
+  // Applied is always done (they're here). "Approved" is now the real grant
+  // (role:"host" via admin approval), mirroring isApprovedHost. Payouts only
+  // opens once review clears — it's what review gates.
+  const approved = isApprovedHost(user);
+  const rejected = request?.status === "rejected" && !approved;
+  const rejectionReason = request?.rejectionReason || request?.adminMessage || "";
   const payoutsDone = user?.hostConfig?.canCreatePaidEvents === true;
   const step = payoutsDone ? 2 : approved ? 2 : 1;
 
@@ -96,6 +125,59 @@ export default function HostStatusScreen({ navigation }) {
       >
         <Text style={[s.header, { color: colors.text }]}>{t("hostStatus.header")}</Text>
 
+        {rejected ? (
+          <>
+            {/* Rejected — show the reason and a path back to editing (Board 2). */}
+            <View
+              style={[
+                s.card,
+                { backgroundColor: colors.surface, borderColor: colors.error },
+              ]}
+            >
+              <View style={s.cardHead}>
+                <View style={[s.cardIcon, { backgroundColor: colors.errorBg || colors.warnSoft }]}>
+                  <Icon name="clipboard" size={20} color={colors.error} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.cardTitle, { color: colors.text }]}>
+                    {t("hostStatus.rejectedTitle")}
+                  </Text>
+                  <Text style={[s.cardMeta, { color: colors.error }]}>
+                    {t("hostStatus.rejectedMeta")}
+                  </Text>
+                </View>
+              </View>
+              {!!rejectionReason && (
+                <View style={[s.reasonBox, { backgroundColor: colors.sunken || colors.warnSoft }]}>
+                  <Text style={[s.reasonText, { color: colors.text }]}>
+                    {rejectionReason}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => navigation.replace("RequestHost")}
+              activeOpacity={0.9}
+              style={[s.cta, { backgroundColor: colors.primary }]}
+            >
+              <Text style={[s.ctaText, { color: colors.onPrimary }]}>
+                {t("hostStatus.editAndResubmit")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={dismiss}
+              activeOpacity={0.85}
+              style={[s.secondary, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            >
+              <Text style={[s.secondaryText, { color: colors.text }]}>
+                {t("hostStatus.exploreMeanwhile")}
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
         {/* Status card */}
         <View style={[s.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={s.cardHead}>
@@ -217,6 +299,8 @@ export default function HostStatusScreen({ navigation }) {
             {t("hostStatus.exploreMeanwhile")}
           </Text>
         </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -244,6 +328,8 @@ function createStyles(colors) {
     },
     cardTitle: { fontFamily: FONTS.display, fontSize: 16.5, letterSpacing: -0.3 },
     cardMeta: { fontFamily: FONTS.bodySemibold, fontSize: 12.5, marginTop: 2 },
+    reasonBox: { borderRadius: 12, padding: 12, marginTop: 14 },
+    reasonText: { fontFamily: FONTS.body, fontSize: 13.5, lineHeight: 19 },
     timeline: {
       flexDirection: "row",
       alignItems: "flex-start",

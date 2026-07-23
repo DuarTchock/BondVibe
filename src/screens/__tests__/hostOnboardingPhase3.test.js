@@ -10,8 +10,6 @@
 import React from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { onSnapshot, updateDoc } from "firebase/firestore";
-import { activateHost, deferHostType } from "../../services/hostService";
-import HostTypeSelectionScreen from "../HostTypeSelectionScreen";
 import HostLiveScreen from "../HostLiveScreen";
 import HostStatusScreen from "../HostStatusScreen";
 
@@ -20,14 +18,11 @@ jest.mock("firebase/firestore", () => ({
   doc: jest.fn(() => "docref"),
   updateDoc: jest.fn(() => Promise.resolve()),
   onSnapshot: jest.fn(),
-  collection: jest.fn(),
-  query: jest.fn(),
+  collection: jest.fn(() => "col"),
+  query: jest.fn(() => "reqquery"),
   where: jest.fn(),
+  orderBy: jest.fn(),
   limit: jest.fn(),
-}));
-jest.mock("../../services/hostService", () => ({
-  activateHost: jest.fn(() => Promise.resolve({ ok: true })),
-  deferHostType: jest.fn(() => Promise.resolve({ ok: true })),
 }));
 jest.mock("../../components/Icon", () => () => null);
 jest.mock("react-native-safe-area-context", () => ({
@@ -53,64 +48,11 @@ const nav = () => ({
   canGoBack: () => false,
 });
 
-describe("phase 3 — activation is server-side", () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it("free calls activateHost('free') and lands on the live screen", async () => {
-    const navigation = nav();
-    const utils = render(
-      <HostTypeSelectionScreen navigation={navigation} route={{ params: {} }} />
-    );
-    fireEvent.press(utils.getByText("hostTypeSelection.ctaStartFree"));
-
-    await waitFor(() => expect(activateHost).toHaveBeenCalledWith("free"));
-    expect(navigation.replace).toHaveBeenCalledWith("HostLive");
-  });
-
-  it("paid calls activateHost('paid') and lands on the status screen", async () => {
-    const navigation = nav();
-    const utils = render(
-      <HostTypeSelectionScreen navigation={navigation} route={{ params: {} }} />
-    );
-    fireEvent.press(utils.getByText("hostTypeSelection.paidTitle"));
-    fireEvent.press(utils.getByText("hostTypeSelection.ctaContinuePaid"));
-
-    await waitFor(() => expect(activateHost).toHaveBeenCalledWith("paid"));
-    expect(navigation.replace).toHaveBeenCalledWith("HostStatus");
-  });
-
-  it("never writes role from the client — the rules now reject that", async () => {
-    const navigation = nav();
-    const utils = render(
-      <HostTypeSelectionScreen navigation={navigation} route={{ params: {} }} />
-    );
-    fireEvent.press(utils.getByText("hostTypeSelection.ctaStartFree"));
-
-    await waitFor(() => expect(activateHost).toHaveBeenCalled());
-    expect(updateDoc).not.toHaveBeenCalled();
-  });
-
-  it("decide later goes through deferHostType", async () => {
-    const navigation = nav();
-    const utils = render(
-      <HostTypeSelectionScreen navigation={navigation} route={{ params: {} }} />
-    );
-    fireEvent.press(utils.getByText("hostTypeSelection.decideLater"));
-    await waitFor(() => expect(deferHostType).toHaveBeenCalled());
-  });
-
-  it("keeps the user on the screen when activation fails", async () => {
-    activateHost.mockRejectedValueOnce(new Error("nope"));
-    const navigation = nav();
-    const utils = render(
-      <HostTypeSelectionScreen navigation={navigation} route={{ params: {} }} />
-    );
-    fireEvent.press(utils.getByText("hostTypeSelection.ctaStartFree"));
-
-    await waitFor(() => expect(activateHost).toHaveBeenCalled());
-    expect(navigation.replace).not.toHaveBeenCalled();
-  });
-});
+// feat/host-approval-gate retired the user-facing HostTypeSelection step: the
+// host grant is server-side (approveHostRequest, admin-only) and activateHost is
+// no longer callable by a normal user. The old "hosting activates immediately on
+// this screen" tests are removed with the flow they described; the server gate is
+// covered by functions/test/host-approval.test.js.
 
 describe("HostLiveScreen — free lands here, no waiting", () => {
   beforeEach(() => jest.clearAllMocks());
@@ -145,10 +87,22 @@ describe("HostLiveScreen — free lands here, no waiting", () => {
 });
 
 describe("HostStatusScreen — the wait, made visible", () => {
-  /** Drive the user-doc listener the screen subscribes to. */
-  const withUser = (data) => {
-    onSnapshot.mockImplementation((_ref, next) => {
-      next({ exists: () => true, data: () => data });
+  /**
+   * Drive the two listeners the screen subscribes to: the user doc ("docref")
+   * and the latest-hostRequest query ("reqquery"). By default the request is
+   * absent (empty) so the screen shows pending/approved, not rejected.
+   */
+  const withUser = (data, request = null) => {
+    onSnapshot.mockImplementation((ref, next) => {
+      if (ref === "docref") {
+        next({ exists: () => true, data: () => data });
+      } else {
+        next(
+          request
+            ? { empty: false, docs: [{ data: () => request }] }
+            : { empty: true, docs: [] }
+        );
+      }
       return jest.fn();
     });
   };
@@ -182,6 +136,19 @@ describe("HostStatusScreen — the wait, made visible", () => {
     const utils = render(<HostStatusScreen navigation={nav()} />);
     // Offering Stripe now would send them to set up an account we can't enable.
     expect(utils.queryByText("hostStatus.connectPayouts")).toBeNull();
+  });
+
+  it("shows the rejection reason + edit-and-resubmit when rejected", () => {
+    withUser(
+      { role: "user", hostApproved: false },
+      { status: "rejected", rejectionReason: "Need more detail." }
+    );
+    const navigation = nav();
+    const utils = render(<HostStatusScreen navigation={navigation} />);
+    expect(utils.getByText("hostStatus.rejectedTitle")).toBeTruthy();
+    expect(utils.getByText("Need more detail.")).toBeTruthy();
+    fireEvent.press(utils.getByText("hostStatus.editAndResubmit"));
+    expect(navigation.replace).toHaveBeenCalledWith("RequestHost");
   });
 
   it("offers payouts once approved, and routes to Stripe", () => {

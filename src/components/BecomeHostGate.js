@@ -131,10 +131,11 @@ export default function BecomeHostGate({
         )}
         <TouchableOpacity
           activeOpacity={0.9}
-          // A pending request means they stopped at the host-type step, so send
-          // them there rather than back through a form they already filled in.
+          // feat/host-approval-gate: a pending request is waiting on admin
+          // approval — send them to the status screen, not a type picker (the
+          // grant is server-side now, there's no user type step).
           onPress={() =>
-            navigation.navigate(pending ? "HostTypeSelection" : destination)
+            navigation.navigate(pending ? "HostStatus" : destination)
           }
           style={s.ctaShadow}
         >

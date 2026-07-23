@@ -105,6 +105,40 @@ export const uploadExpenseReceipt = async (bizId, imageUri) => {
   return getDownloadURL(receiptRef);
 };
 
+/**
+ * Upload a host-application attachment (portfolio/value content) to
+ * `hostRequests/{userId}/…` — owner writes, admin reads (storage.rules).
+ * Supports images (compressed to jpg) and PDFs (uploaded as-is). Returns the
+ * download URL.
+ * @param {string} userId owner uid
+ * @param {string} uri local file uri
+ * @param {number} [index] disambiguates files uploaded in the same ms
+ * @param {"image"|"pdf"} [kind] "pdf" uploads the raw file; anything else
+ *   compresses it as an image
+ */
+export const uploadHostRequestAttachment = async (
+  userId,
+  uri,
+  index = 0,
+  kind = "image"
+) => {
+  const isPdf = kind === "pdf";
+  const sourceUri = isPdf ? uri : await compressImage(uri);
+  const response = await fetch(sourceUri);
+  const blob = await response.blob();
+  const ext = isPdf ? "pdf" : "jpg";
+  const attRef = ref(
+    storage,
+    `hostRequests/${userId}/${Date.now()}_${index}.${ext}`
+  );
+  await uploadBytes(
+    attRef,
+    blob,
+    isPdf ? { contentType: "application/pdf" } : undefined
+  );
+  return getDownloadURL(attRef);
+};
+
 /** Upload a moderation-report evidence image; returns its URL. */
 export const uploadReportEvidence = async (groupId, imageUri) => {
   const compressedUri = await compressImage(imageUri);

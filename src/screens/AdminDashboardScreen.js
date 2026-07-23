@@ -21,7 +21,6 @@ import { setDoc,
   where,
   getDocs,
   doc,
-  updateDoc,
   getDoc,
   orderBy,
   limit,
@@ -36,7 +35,7 @@ import {
   GROUP_SIZES,
 } from "../constants/hostOnboarding";
 import GradientBackground from "../components/GradientBackground";
-import { createNotification } from "../utils/notificationService";
+import { approveHostRequest, rejectHostRequest } from "../services/hostService";
 import AdminMessageModal from "../components/AdminMessageModal";
 import AdminConfirmModal from "../components/AdminConfirmModal";
 import { normalizeCategory } from "../utils/eventCategories";
@@ -450,29 +449,12 @@ export default function AdminDashboardScreen({ navigation }) {
 
     setHostRequestsProcessing(currentRequest.id);
     try {
-      await updateDoc(doc(db, "hostRequests", currentRequest.id), {
-        status: "approved",
-        reviewedAt: new Date().toISOString(),
-        adminMessage: message,
-      });
-
-      // hostApproved grants the RIGHT to become a host. The user does not get
-      // host privileges (role: "host") until they explicitly choose a host
-      // type (free/paid) in HostTypeSelection. If they defer, they stay a
-      // normal user but can choose their type later from their Profile.
-      await updateDoc(doc(db, "users", currentRequest.userId), {
-        hostApproved: true,
-      });
-
-      // BUG 34: send key+params so the REQUESTER sees it in their language
-      // (not the admin's). The admin's custom {{message}} is passed as a param.
-      await createNotification(currentRequest.userId, {
-        type: "host_approved",
-        titleKey: "notifications.host.approved.title",
-        bodyKey: "notifications.host.approved.body",
-        params: { message },
-        icon: "tent",
-      });
+      // feat/host-approval-gate: the grant is server-side now. approveHostRequest
+      // (admin-only) sets role:"host" + free hostConfig, stamps the request
+      // approved, and notifies the applicant in THEIR language. The client no
+      // longer writes hostApproved or the role — the callable owns it, so the
+      // approval actually gates hosting (the old client write was decorative).
+      await approveHostRequest(currentRequest.id, message);
 
       console.log("✅ Host request approved");
 
@@ -498,19 +480,11 @@ export default function AdminDashboardScreen({ navigation }) {
 
     setHostRequestsProcessing(currentRequest.id);
     try {
-      await updateDoc(doc(db, "hostRequests", currentRequest.id), {
-        status: "rejected",
-        reviewedAt: new Date().toISOString(),
-        adminMessage: message,
-      });
-
-      await createNotification(currentRequest.userId, {
-        type: "host_rejected",
-        titleKey: "notifications.host.rejected.title",
-        bodyKey: "notifications.host.rejected.body",
-        params: { message },
-        icon: "clipboard",
-      });
+      // feat/host-approval-gate: rejectHostRequest (admin-only) stamps the
+      // request rejected + reason and notifies the applicant. It NEVER touches
+      // role — a rejected applicant keeps no hosting access (the bug: rejection
+      // used to leave role:"host" in place).
+      await rejectHostRequest(currentRequest.id, message);
 
       console.log("✅ Host request rejected");
       Alert.alert(
@@ -1337,6 +1311,70 @@ export default function AdminDashboardScreen({ navigation }) {
                           >
                             {request.eventIdeas}
                           </Text>
+                        </View>
+                      )}
+
+                      {/* feat/host-approval-gate: the value content the admin
+                          weighs. Legacy requests have none of these — they just
+                          don't render (back-compat, no migration). */}
+                      {!!request.communityTypeOther && (
+                        <View style={styles.detailRow}>
+                          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                            {t("adminDashboard.communityTypeOther")}
+                          </Text>
+                          <Text style={[styles.detailValue, { color: colors.text }]}>
+                            {request.communityTypeOther}
+                          </Text>
+                        </View>
+                      )}
+
+                      {!!request.description && (
+                        <View style={styles.detailRow}>
+                          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                            {t("adminDashboard.description")}
+                          </Text>
+                          <Text style={[styles.detailValue, { color: colors.text }]}>
+                            {request.description}
+                          </Text>
+                        </View>
+                      )}
+
+                      {!!(request.links &&
+                        (request.links.instagram || request.links.web)) && (
+                        <View style={styles.detailRow}>
+                          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                            {t("adminDashboard.links")}
+                          </Text>
+                          {!!request.links.instagram && (
+                            <Text style={[styles.detailValue, { color: colors.text }]}>
+                              {request.links.instagram}
+                            </Text>
+                          )}
+                          {!!request.links.web && (
+                            <Text style={[styles.detailValue, { color: colors.text }]}>
+                              {request.links.web}
+                            </Text>
+                          )}
+                        </View>
+                      )}
+
+                      {Array.isArray(request.attachments) &&
+                        request.attachments.length > 0 && (
+                        <View style={styles.detailRow}>
+                          <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                            {t("adminDashboard.attachments", {
+                              count: request.attachments.length,
+                            })}
+                          </Text>
+                          {request.attachments.map((a, i) => (
+                            <Text
+                              key={a?.url || i}
+                              style={[styles.detailValue, { color: colors.primary }]}
+                              numberOfLines={1}
+                            >
+                              {a?.name || a?.url || `#${i + 1}`}
+                            </Text>
+                          ))}
                         </View>
                       )}
                     </View>

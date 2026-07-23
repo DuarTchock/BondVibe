@@ -40,3 +40,32 @@ export async function deferHostType() {
   const res = await call({});
   return res.data;
 }
+
+/**
+ * Admin: approve a host application. Server-side this is the ONLY path to
+ * role:"host" from onboarding — it grants free hosting, stamps the request
+ * approved, and notifies the applicant. Callable is admin-gated (a non-admin
+ * caller is rejected server-side regardless of the UI).
+ * @param {string} requestId hostRequests doc id
+ * @param {string} [message] optional message shown to the applicant
+ * @returns {Promise<{ok: boolean, targetUid: string}>}
+ */
+export async function approveHostRequest(requestId, message) {
+  const call = httpsCallable(getFunctions(), "approveHostRequest");
+  const res = await call({ requestId, message: message ?? null });
+  return res.data;
+}
+
+/**
+ * Admin: reject a host application. Stamps status + reason and notifies the
+ * applicant; NEVER touches their role (a rejected applicant keeps no hosting
+ * access). Admin-gated server-side.
+ * @param {string} requestId hostRequests doc id
+ * @param {string} [reason] optional rejection reason shown to the applicant
+ * @returns {Promise<{ok: boolean, targetUid: string|null}>}
+ */
+export async function rejectHostRequest(requestId, reason) {
+  const call = httpsCallable(getFunctions(), "rejectHostRequest");
+  const res = await call({ requestId, reason: reason ?? null });
+  return res.data;
+}

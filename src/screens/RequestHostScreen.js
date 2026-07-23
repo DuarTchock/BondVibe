@@ -10,9 +10,12 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { db, auth } from "../services/firebase";
@@ -21,12 +24,16 @@ import { FONTS } from "../constants/theme-tokens";
 import Icon from "../components/Icon";
 import ChipGroup from "../components/ChipGroup";
 import SuccessModal from "../components/SuccessModal";
+import { uploadHostRequestAttachment } from "../services/storageService";
 import {
   COMMUNITY_TYPES,
   MEET_FREQUENCIES,
   GROUP_SIZES,
   TAGLINE_MAX,
-  EXPERIENCE_MAX,
+  COMMUNITY_TYPE_OTHER_MAX,
+  DESCRIPTION_MIN,
+  DESCRIPTION_MAX,
+  MAX_HOST_ATTACHMENTS,
   toChips,
 } from "../constants/hostOnboarding";
 
@@ -46,10 +53,13 @@ export default function RequestHostScreen({ navigation }) {
 
   const [step, setStep] = useState(1);
   const [communityType, setCommunityType] = useState(null);
+  const [communityTypeOther, setCommunityTypeOther] = useState("");
   const [frequency, setFrequency] = useState(null);
   const [groupSize, setGroupSize] = useState(null);
   const [tagline, setTagline] = useState("");
-  const [experience, setExperience] = useState("");
+  const [description, setDescription] = useState("");
+  const [links, setLinks] = useState({ instagram: "", web: "" });
+  const [attachments, setAttachments] = useState([]); // [{ uri }]
   const [submitting, setSubmitting] = useState(false);
   const [modalConfig, setModalConfig] = useState({
     visible: false,
@@ -59,12 +69,75 @@ export default function RequestHostScreen({ navigation }) {
     tone: "success",
   });
 
-  // Step 1 IS the application; step 2 only adds colour. Keeping the required set
-  // this small is the whole point of the redesign.
-  const step1Complete = !!communityType && tagline.trim().length > 0;
+  // Step 1 requires a community type + a one-line tagline; the "Other" chip also
+  // requires the free-text kind (host-approval-gate Board 3).
+  const otherComplete =
+    communityType !== "other" || communityTypeOther.trim().length > 0;
+  const step1Complete =
+    !!communityType && tagline.trim().length > 0 && otherComplete;
+
+  // Board 3d / Decision B: to submit, the reviewer needs something to judge —
+  // a real description (min length) AND at least one attachment OR one link.
+  const hasLink = links.instagram.trim().length > 0 || links.web.trim().length > 0;
+  const descriptionValid = description.trim().length >= DESCRIPTION_MIN;
+  const canSubmit =
+    step1Complete &&
+    descriptionValid &&
+    (attachments.length > 0 || hasLink);
+
+  const addAttachment = (att) =>
+    setAttachments((cur) => [...cur, att].slice(0, MAX_HOST_ATTACHMENTS));
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        t("requestHost.permissionNeededTitle"),
+        t("requestHost.permissionNeededMessage")
+      );
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!res.canceled && res.assets?.[0]) {
+      addAttachment({ uri: res.assets[0].uri, kind: "image" });
+    }
+  };
+
+  const pickPdf = async () => {
+    const res = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (!res.canceled && res.assets?.[0]) {
+      const f = res.assets[0];
+      addAttachment({ uri: f.uri, kind: "pdf", name: f.name });
+    }
+  };
+
+  // One "Attach" button offering either source (Board 3 value content).
+  const pickAttachment = () => {
+    if (attachments.length >= MAX_HOST_ATTACHMENTS) return;
+    Alert.alert(
+      t("requestHost.attachChooseTitle"),
+      undefined,
+      [
+        { text: t("requestHost.attachPhoto"), onPress: pickImage },
+        { text: t("requestHost.attachPdf"), onPress: pickPdf },
+        { text: t("requestHost.cancel"), style: "cancel" },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const removeAttachment = (i) =>
+    setAttachments((cur) => cur.filter((_, idx) => idx !== i));
 
   const submit = async () => {
-    if (!step1Complete) return;
+    if (!canSubmit || submitting) return;
     setSubmitting(true);
 
     try {
@@ -88,30 +161,56 @@ export default function RequestHostScreen({ navigation }) {
         return;
       }
 
+      // Upload attachments first (images + PDFs → hostRequests/{uid}/…).
+      const uid = auth.currentUser.uid;
+      const uploaded = [];
+      for (let i = 0; i < attachments.length; i++) {
+        const att = attachments[i];
+        const isPdf = att.kind === "pdf";
+        const url = await uploadHostRequestAttachment(
+          uid,
+          att.uri,
+          i,
+          isPdf ? "pdf" : "image"
+        );
+        uploaded.push({
+          url,
+          type: isPdf ? "pdf" : "image",
+          name: att.name || `attachment_${i + 1}`,
+        });
+      }
+
       const trimmedTagline = tagline.trim();
-      const trimmedExperience = experience.trim();
+      const trimmedDescription = description.trim();
+      const ig = links.instagram.trim();
+      const web = links.web.trim();
 
       await addDoc(collection(db, "hostRequests"), {
-        userId: auth.currentUser.uid,
+        userId: uid,
         // The structured answers — what a reviewer actually needs.
         communityType,
+        // Only sent when the "Other" chip is chosen; never undefined.
+        communityTypeOther:
+          communityType === "other" ? communityTypeOther.trim() : null,
         frequency: frequency || null, // never undefined — Firestore rejects it
         groupSize: groupSize || null,
         tagline: trimmedTagline,
-        experience: trimmedExperience || null,
-        // Back-compat: AdminDashboard renders `whyHost`, and every request filed
-        // before this redesign carries it. Mirroring the tagline keeps that view
-        // working with no migration and no second admin code path.
+        // host-approval-gate: description is now required value content.
+        description: trimmedDescription,
+        links: { instagram: ig || null, web: web || null },
+        attachments: uploaded, // [] when none — never undefined
+        // Back-compat: AdminDashboard also renders `whyHost`, and every request
+        // filed before this redesign carries it. Mirror the tagline so the old
+        // admin view keeps working with no migration.
         whyHost: trimmedTagline,
         status: "pending",
         createdAt: new Date().toISOString(),
       });
 
       setSubmitting(false);
-      // Straight on to choosing how they host. There's no approval to wait for
-      // any more — free hosting activates on the next screen — so a "submitted,
-      // we'll be in touch" modal would be inventing a queue that doesn't exist.
-      navigation.replace("HostTypeSelection");
+      // host-approval-gate: hosting is NOT active. Land on the "in review"
+      // status screen — the grant now happens only when an admin approves.
+      navigation.replace("HostStatus");
     } catch (error) {
       console.error("❌ Error submitting host request:", error);
       setSubmitting(false);
@@ -123,12 +222,10 @@ export default function RequestHostScreen({ navigation }) {
     }
   };
 
-  // The only modal left is "you already have a request in flight" — send them on
-  // to pick a host type rather than back to Home, since that's the step they
-  // stopped at.
+  // "You already have a request in flight" → send them to their status screen.
   const handleModalClose = () => {
     setModalConfig((c) => ({ ...c, visible: false }));
-    navigation.replace("HostTypeSelection");
+    navigation.replace("HostStatus");
   };
 
   const onBack = () => {
@@ -195,6 +292,31 @@ export default function RequestHostScreen({ navigation }) {
                 onChange={setCommunityType}
                 disabled={submitting}
               />
+              {/* "Other" reveals a free-text kind (Board 3). */}
+              {communityType === "other" && (
+                <View
+                  style={[
+                    s.inputWrap,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      marginTop: 12,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    testID="requestHost-communityTypeOther"
+                    style={[s.input, { color: colors.text }]}
+                    placeholder={t("requestHost.communityTypeOtherPlaceholder")}
+                    placeholderTextColor={colors.textTertiary}
+                    value={communityTypeOther}
+                    onChangeText={setCommunityTypeOther}
+                    maxLength={COMMUNITY_TYPE_OTHER_MAX}
+                    editable={!submitting}
+                    returnKeyType="done"
+                  />
+                </View>
+              )}
             </View>
 
             <View style={s.field}>
@@ -259,13 +381,11 @@ export default function RequestHostScreen({ navigation }) {
               {t("requestHost.step2Subtitle")}
             </Text>
 
+            {/* Description — required value content (Board 3). */}
             <View style={s.field}>
               <Text style={[s.fieldLabel, { color: colors.textSecondary }]}>
-                {t("requestHost.experienceLabel")}
-                <Text style={{ color: colors.textTertiary }}>
-                  {" "}
-                  {t("requestHost.optional")}
-                </Text>
+                {t("requestHost.descriptionLabel")}
+                <Text style={{ color: colors.primary }}> *</Text>
               </Text>
               <View
                 style={[
@@ -274,33 +394,153 @@ export default function RequestHostScreen({ navigation }) {
                 ]}
               >
                 <TextInput
+                  testID="requestHost-description"
                   style={[s.input, s.textArea, { color: colors.text }]}
-                  placeholder={t("requestHost.experiencePlaceholder")}
+                  placeholder={t("requestHost.descriptionPlaceholder")}
                   placeholderTextColor={colors.textTertiary}
-                  value={experience}
-                  onChangeText={setExperience}
+                  value={description}
+                  onChangeText={setDescription}
                   multiline
                   numberOfLines={5}
-                  maxLength={EXPERIENCE_MAX}
+                  maxLength={DESCRIPTION_MAX}
                   editable={!submitting}
                 />
               </View>
-              <Text style={[s.counter, { color: colors.textTertiary }]}>
-                {experience.length}/{EXPERIENCE_MAX}
+              <Text
+                style={[
+                  s.counter,
+                  {
+                    color: descriptionValid
+                      ? colors.textTertiary
+                      : colors.warning,
+                  },
+                ]}
+              >
+                {descriptionValid
+                  ? `${description.trim().length}/${DESCRIPTION_MAX}`
+                  : t("requestHost.descriptionMinHint", {
+                      min: DESCRIPTION_MIN,
+                      current: description.trim().length,
+                    })}
+              </Text>
+            </View>
+
+            {/* Links — optional but recommended. */}
+            <View style={s.field}>
+              <Text style={[s.fieldLabel, { color: colors.textSecondary }]}>
+                {t("requestHost.linksLabel")}
+              </Text>
+              <View
+                style={[
+                  s.inputWrap,
+                  { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 10 },
+                ]}
+              >
+                <TextInput
+                  testID="requestHost-link-instagram"
+                  style={[s.input, { color: colors.text }]}
+                  placeholder={t("requestHost.instagramPlaceholder")}
+                  placeholderTextColor={colors.textTertiary}
+                  value={links.instagram}
+                  onChangeText={(v) => setLinks((l) => ({ ...l, instagram: v }))}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!submitting}
+                />
+              </View>
+              <View
+                style={[
+                  s.inputWrap,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <TextInput
+                  testID="requestHost-link-web"
+                  style={[s.input, { color: colors.text }]}
+                  placeholder={t("requestHost.webPlaceholder")}
+                  placeholderTextColor={colors.textTertiary}
+                  value={links.web}
+                  onChangeText={(v) => setLinks((l) => ({ ...l, web: v }))}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  editable={!submitting}
+                />
+              </View>
+            </View>
+
+            {/* Attachments — images OR PDF (portfolio/value content). ≥1
+                attachment OR ≥1 link is required to submit (Decision B). PDFs
+                render as an icon + filename card, not a thumbnail. */}
+            <View style={s.field}>
+              <Text style={[s.fieldLabel, { color: colors.textSecondary }]}>
+                {t("requestHost.attachmentsLabel")}
+              </Text>
+              <View style={s.attachmentsRow}>
+                {attachments.map((a, i) => (
+                  <View key={a.uri} style={s.thumbWrap}>
+                    {a.kind === "pdf" ? (
+                      <View
+                        style={[
+                          s.pdfThumb,
+                          { borderColor: colors.border, backgroundColor: colors.surface },
+                        ]}
+                      >
+                        <Icon name="clipboard" size={24} color={colors.primary} />
+                        <Text
+                          style={[s.pdfName, { color: colors.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          {a.name || "PDF"}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Image source={{ uri: a.uri }} style={s.thumb} />
+                    )}
+                    <TouchableOpacity
+                      onPress={() => removeAttachment(i)}
+                      style={[s.thumbRemove, { backgroundColor: colors.text }]}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="close" size={12} color={colors.background} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {attachments.length < MAX_HOST_ATTACHMENTS && (
+                  <TouchableOpacity
+                    testID="requestHost-add-attachment"
+                    onPress={pickAttachment}
+                    disabled={submitting}
+                    style={[
+                      s.addThumb,
+                      { borderColor: colors.border, backgroundColor: colors.surface },
+                    ]}
+                    activeOpacity={0.8}
+                  >
+                    <Icon name="add" size={22} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={[s.counter, { color: colors.textTertiary, textAlign: "left", marginTop: 8 }]}>
+                {t("requestHost.attachmentsHint")}
               </Text>
             </View>
           </>
         )}
 
         <TouchableOpacity
+          testID="requestHost-submit"
           onPress={step === 1 ? () => setStep(2) : submit}
-          disabled={!step1Complete || submitting}
+          disabled={(step === 1 ? !step1Complete : !canSubmit) || submitting}
           activeOpacity={0.9}
           style={[
             s.cta,
             {
               backgroundColor: colors.primary,
-              opacity: !step1Complete || submitting ? 0.5 : 1,
+              opacity:
+                (step === 1 ? !step1Complete : !canSubmit) || submitting
+                  ? 0.5
+                  : 1,
             },
           ]}
         >
@@ -320,13 +560,12 @@ export default function RequestHostScreen({ navigation }) {
           )}
         </TouchableOpacity>
 
-        {/* Step 2 is optional, so it needs a way past it that isn't the back button. */}
-        {step === 2 && !submitting && (
-          <TouchableOpacity onPress={submit} style={s.skip} activeOpacity={0.7}>
-            <Text style={[s.skipText, { color: colors.textSecondary }]}>
-              {t("requestHost.skipAndSubmit")}
-            </Text>
-          </TouchableOpacity>
+        {/* host-approval-gate: step 2 is required content now — no skip. Hint
+            tells the applicant what's still missing. */}
+        {step === 2 && !canSubmit && !submitting && (
+          <Text style={[s.hint, { color: colors.textTertiary }]}>
+            {t("requestHost.step2Hint")}
+          </Text>
         )}
 
         {step === 1 && !step1Complete && (
@@ -407,8 +646,39 @@ function createStyles(colors) {
     },
     ctaText: { fontFamily: FONTS.bodyExtra, fontSize: 16, letterSpacing: 0.2 },
     loadingRow: { flexDirection: "row", alignItems: "center" },
-    skip: { alignItems: "center", paddingVertical: 16 },
-    skipText: { fontFamily: FONTS.bodySemibold, fontSize: 14 },
+    attachmentsRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    thumbWrap: { width: 72, height: 72 },
+    thumb: { width: 72, height: 72, borderRadius: 12 },
+    pdfThumb: {
+      width: 72,
+      height: 72,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 4,
+      gap: 4,
+    },
+    pdfName: { fontFamily: FONTS.body, fontSize: 9, textAlign: "center" },
+    thumbRemove: {
+      position: "absolute",
+      top: -6,
+      right: -6,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    addThumb: {
+      width: 72,
+      height: 72,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      alignItems: "center",
+      justifyContent: "center",
+    },
     hint: {
       fontFamily: FONTS.body,
       fontSize: 12.5,
